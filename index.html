@@ -2,412 +2,43 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Пикабу Парсер</title>
+    <title>Пример работы с API</title>
     <style>
-        body {
-            background-color: #f2f2f2;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* Панель управления парсером */
-        .parser-dashboard {
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 20px;
-            max-width: 640px;
-            width: 100%;
-            box-sizing: border-box;
-            display: flex;
-            gap: 10px;
-        }
-
-        .parser-dashboard input {
-            flex-grow: 1;
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .parser-dashboard button {
-            background: #85c446;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .parser-dashboard button:hover {
-            background: #73b03c;
-        }
-
-        /* Стили оригинального поста */
-        .story {
-            background: #fff;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            max-width: 640px;
-            width: 100%;
-            padding: 15px;
-            display: flex;
-            box-sizing: border-box;
-        }
-
-        .story__left {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-right: 15px;
-            width: 40px;
-        }
-
-        .story__rating-block {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: #f7f7f7;
-            border-radius: 4px;
-            padding: 5px 0;
-            width: 100%;
-        }
-
-        .story__rating-up, .story__rating-down {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 18px;
-            color: #888;
-            padding: 5px;
-        }
-
-        .story__rating-up:hover { color: #85c446; }
-        .story__rating-down:hover { color: #df4f4f; }
-
-        .story__rating-count {
-            font-weight: bold;
-            font-size: 15px;
-            margin: 5px 0;
-            color: #333;
-        }
-
-        .story__main {
-            flex-grow: 1;
-            overflow: hidden;
-        }
-
-        .story__header {
-            margin-bottom: 12px;
-        }
-
-        .story__user-info {
-            display: flex;
-            align-items: center;
-            font-size: 13px;
-            margin-bottom: 8px;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-
-        .story__user-link {
-            color: #1b1b1b;
-            text-decoration: none;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-        }
-
-        .avatar {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 6px;
-            overflow: hidden;
-            background: #eee;
-        }
-
-        .avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .story__community {
-            margin-left: 5px;
-            font-size: 13px;
-        }
-
-        .story__community-link {
-            color: #0091ea;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-
-        .community-avatar {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-            margin-right: 4px;
-            background: #eee;
-        }
-
-        .story__title {
-            font-size: 20px;
-            line-height: 26px;
-            margin: 0 0 8px 0;
-            font-weight: 700;
-            color: #1b1b1b;
-        }
-
-        .story__sub-info {
-            font-size: 12px;
-            color: #888;
-            display: flex;
-            gap: 15px;
-        }
-
-        .story__sub-info a {
-            color: #888;
-            text-decoration: none;
-        }
-
-        .story-image__image {
-            max-width: 100%;
-            height: auto;
-            border-radius: 2px;
-            display: block;
-        }
-
-        .story__tags {
-            margin-top: 15px;
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .tags__tag {
-            background: #f2f2f2;
-            color: #555;
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            text-decoration: none;
-        }
-
-        .tags__tag:hover {
-            background: #e5e5e5;
-        }
-
-        .story__footer {
-            margin-top: 15px;
-            border-top: 1px solid #f0f0f0;
-            padding-top: 10px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-        }
-
-        .story__tools a, .story__tools button {
-            color: #555;
-            text-decoration: none;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            font-size: 13px;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #fafafa; }
+        .box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 
-<!-- Панель для ввода ссылки -->
-<div class="parser-dashboard">
-    <input type="text" id="postUrl" placeholder="Вставьте ссылку на пост Пикабу (например, https://pikabu.ru/story/...)" value="https://pikabu.ru/story/ona_realno_takoe_pisala_14161480">
-    <button onclick="loadPost()">Загрузить</button>
-</div>
-
-<!-- Шаблон поста -->
-<article class="story" id="storyBlock">
-    <div class="story__left">
-        <div class="story__rating-block">
-            <button class="story__rating-up" title="Поставить плюсик">▲</button>
-            <div class="story__rating-count" id="ratingCount">5</div>
-            <button class="story__rating-down" title="Поставить минус">▼</button>
-        </div>
+    <div class="box">
+        <h2>Чем заняться, если скучно?</h2>
+        <!-- Сюда будут подставляться данные из API -->
+        <p id="activity">Нажми на кнопку, чтобы узнать...</p> 
+        <br>
+        <button onclick="getActivityFromAPI()">Получить идею</button>
     </div>
-    
-    <div class="story__main">
-        <header class="story__header">
-            <div class="story__user user">
-                <div class="story__user-info">
-                    <a class="story__user-link" id="authorLink" href="#" target="_blank">
-                        <div class="avatar"><img id="authorAvatar" src="" alt=""></div>
-                        <span id="authorName">ningt0n</span>
-                    </a>
-                    
-                    <div class="story__community" id="communityBlock">
-                        <a class="story__community-link" id="communityLink" href="#" target="_blank">
-                            <img class="community-avatar" id="communityAvatar" src="" alt="">
-                            <span class="story__community-name" id="communityName">Сообщество</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            
-            <h1 class="story__title">
-                <span id="storyTitle">Заголовок поста</span>
-            </h1>
-            
-            <div class="story__sub-info">
-                <span id="storyTime">некоторое время назад</span>
-                <div class="story__views">
-                    <span id="storyViews">👁 0</span>
-                </div>
-            </div>
-        </header>
 
-        <div class="story__content-wrapper">
-            <div class="story__content">
-                <div class="story__content-inner" id="storyContent">
-                    <!-- Сюда скрипт вставит картинку или текст -->
-                </div>
-            </div>
-            
-            <div class="story__tags">
-                <div class="story__collapsed-tags-container" id="storyTags">
-                    <!-- Теги -->
-                </div>
-            </div>
-            
-            <div class="story__footer">
-                <div class="story__tools">
-                    <a class="story__comments-link" id="commentsLink" href="#" target="_blank">
-                        <span id="commentsCount">💬 0 комментариев</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</article>
+    <script>
+        // Функция, которая обращается к API
+        async function getActivityFromAPI() {
+            const apiText = document.getElementById('activity');
+            apiText.innerText = "Ищу идею...";
 
-<script>
-async function loadPost() {
-    const urlInput = document.getElementById('postUrl').value.trim();
-    if (!urlInput) return alert('Введите ссылку');
+            try {
+                // Делаем запрос к публичному API (оно разрешает CORS)
+                const response = await fetch('https://bored-api.apphost.page/api/activity');
+                const data = await response.json();
 
-    // Используем публичный CORS-прокси для обхода защиты Пикабу
-    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(urlInput);
-
-    try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Ошибка сети');
-        
-        const data = await response.json();
-        const htmlString = data.contents;
-
-        // Создаем виртуальный документ для разбора полученного HTML
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlString, 'text/html');
-
-        // 1. Извлекаем заголовок
-        const titleEl = doc.querySelector('.story__title-link, .story__title');
-        if (titleEl) document.getElementById('storyTitle').innerText = titleEl.innerText.replace(/⁠/g, '');
-
-        // 2. Извлекаем автора
-        const authorEl = doc.querySelector('.story__user-link.user__nick, [data-author-name]');
-        if (authorEl) {
-            const name = authorEl.getAttribute('data-name') || authorEl.innerText.trim();
-            document.getElementById('authorName').innerText = name;
-            document.getElementById('authorLink').href = `https://pikabu.ru/@${name}`;
-            
-            const avatarEl = authorEl.querySelector('img');
-            if (avatarEl) document.getElementById('authorAvatar').src = avatarEl.getAttribute('data-src') || avatarEl.src;
-        }
-
-        // 3. Извлекаем сообщество (если есть)
-        const commEl = doc.querySelector('.story__community-link');
-        if (commEl) {
-            document.getElementById('communityBlock').style.display = 'block';
-            document.getElementById('communityLink').href = 'https://pikabu.ru' + commEl.getAttribute('href');
-            document.getElementById('communityName').innerText = commEl.querySelector('.story__community-name').innerText;
-            
-            const commImg = commEl.querySelector('img');
-            if (commImg) document.getElementById('communityAvatar').src = commImg.src;
-        } else {
-            document.getElementById('communityBlock').style.display = 'none';
-        }
-
-        // 4. Рейтинг, просмотры, время
-        const ratingEl = doc.querySelector('.story__rating-count');
-        if (ratingEl) document.getElementById('ratingCount').innerText = ratingEl.innerText.trim();
-
-        const timeEl = doc.querySelector('.story__datetime');
-        if (timeEl) document.getElementById('storyTime').innerText = timeEl.innerText.trim();
-
-        const viewsEl = doc.querySelector('.story__views-count');
-        if (viewsEl) document.getElementById('storyViews').innerText = '👁 ' + viewsEl.innerText.trim();
-
-        // 5. Контент поста (картинка или текст)
-        const contentInner = doc.querySelector('.story__content-inner');
-        const contentContainer = document.getElementById('storyContent');
-        contentContainer.innerHTML = ''; // очистка
-
-        if (contentInner) {
-            // Ищем картинки
-            const images = contentInner.querySelectorAll('img');
-            if (images.length > 0) {
-                images.forEach(img => {
-                    const newImg = document.createElement('img');
-                    newImg.className = 'story-image__image';
-                    newImg.src = img.getAttribute('data-src') || img.src;
-                    contentContainer.appendChild(newImg);
-                });
-            } else {
-                // Если картинок нет, берем текст
-                contentContainer.innerHTML = contentInner.innerHTML;
+                // Вставляем полученный текст в HTML
+                apiText.innerText = data.activity;
+            } catch (error) {
+                apiText.innerText = "Ой, произошла ошибка при обращении к API.";
+                console.error(error);
             }
         }
-
-        // 6. Теги
-        const tagsContainer = document.getElementById('storyTags');
-        tagsContainer.innerHTML = '';
-        const tags = doc.querySelectorAll('.tags__tag');
-        tags.forEach(tag => {
-            const a = document.createElement('a');
-            a.className = 'tags__tag';
-            a.href = 'https://pikabu.ru' + tag.getAttribute('href');
-            a.target = '_blank';
-            a.innerText = tag.innerText.trim();
-            tagsContainer.appendChild(a);
-        });
-
-        // 7. Комментарии
-        const commCountEl = doc.querySelector('.story__comments-link-count');
-        if (commCountEl) {
-            document.getElementById('commentsCount').innerText = `💬 ${commCountEl.innerText.trim()} комментариев`;
-            document.getElementById('commentsLink').href = urlInput + '#comments';
-        }
-
-    } catch (error) {
-        console.error(error);
-        alert('Не удалось загрузить пост. Проверьте правильность ссылки или попробуйте позже.');
-    }
-}
-
-// Автоматическая загрузка дефолтного поста при старте
-window.onload = loadPost;
-</script>
+    </script>
 
 </body>
 </html>
