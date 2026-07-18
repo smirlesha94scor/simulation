@@ -3,18 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Пост: Она реально такое писала</title>
+    <title>Пикабу Парсер</title>
     <style>
-        /* Базовые стили для имитации внешнего вида Пикабу */
         body {
             background-color: #f2f2f2;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 20px;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
         }
 
+        /* Панель управления парсером */
+        .parser-dashboard {
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-width: 640px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            gap: 10px;
+        }
+
+        .parser-dashboard input {
+            flex-grow: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .parser-dashboard button {
+            background: #85c446;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .parser-dashboard button:hover {
+            background: #73b03c;
+        }
+
+        /* Стили оригинального поста */
         .story {
             background: #fff;
             border-radius: 4px;
@@ -65,6 +103,7 @@
 
         .story__main {
             flex-grow: 1;
+            overflow: hidden;
         }
 
         .story__header {
@@ -76,6 +115,8 @@
             align-items: center;
             font-size: 13px;
             margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 5px;
         }
 
         .story__user-link {
@@ -92,6 +133,7 @@
             border-radius: 50%;
             margin-right: 6px;
             overflow: hidden;
+            background: #eee;
         }
 
         .avatar img {
@@ -101,7 +143,7 @@
         }
 
         .story__community {
-            margin-left: 10px;
+            margin-left: 5px;
             font-size: 13px;
         }
 
@@ -117,6 +159,7 @@
             height: 16px;
             border-radius: 4px;
             margin-right: 4px;
+            background: #eee;
         }
 
         .story__title {
@@ -188,96 +231,182 @@
 </head>
 <body>
 
-<article class="story" data-story-id="14161480" data-page="true" data-is-fixed-story="false" data-editable="false" data-visited="true" data-story-long="false" data-vote="0" data-rating="5" data-vid="Z14161480" data-timestamp="1784331898" data-vkey="sdVk" data-author-id="4587994" data-author-name="ningt0n" data-comments="18" data-can-vote="true" data-text-length="0" data-user-subs="7" data-context-menu="duplicate_report,report">
-    
-    <!-- Левая колонка с рейтингом -->
-    <div class="story__left story__left_no-padding">
-        <div class="story__scroll story__scroll_disabled">
-            <div class="story__rating-block" data-vote="0" data-story-id="14161480" data-can-vote="true" data-pluses="-6591962884" data-minuses="-6591962754" data-behavior="3" data-hiding-icon="4">
-                <!-- Взамен оригинального пустого SVG добавлена стандартная стрелка ▲ -->
-                <button class="story__rating-up" title="Поставить плюсик">▲</button>
-                <div class="story__rating-count hint" aria-label="9 плюсов / 4 минуса">5</div>
-                <!-- Взамен оригинального пустого SVG добавлена стандартная стрелка ▼ -->
-                <button class="story__rating-down" title="Поставить минус">▼</button>
-            </div>
-            <div class="collapse-button"></div>
+<!-- Панель для ввода ссылки -->
+<div class="parser-dashboard">
+    <input type="text" id="postUrl" placeholder="Вставьте ссылку на пост Пикабу (например, https://pikabu.ru/story/...)" value="https://pikabu.ru/story/ona_realno_takoe_pisala_14161480">
+    <button onclick="loadPost()">Загрузить</button>
+</div>
+
+<!-- Шаблон поста -->
+<article class="story" id="storyBlock">
+    <div class="story__left">
+        <div class="story__rating-block">
+            <button class="story__rating-up" title="Поставить плюсик">▲</button>
+            <div class="story__rating-count" id="ratingCount">5</div>
+            <button class="story__rating-down" title="Поставить минус">▼</button>
         </div>
     </div>
     
-    <!-- Основной контент поста -->
     <div class="story__main">
         <header class="story__header">
             <div class="story__user user">
                 <div class="story__user-info">
-                    <div class="story__user-info-group">
-                        <a class="story__user-link user__nick" href="https://pikabu.ru/@ningt0n" target="_blank">
-                            <div class="avatar">
-                                <img src="https://cs14.pikabu.ru/avatars/4587/m4587994-1891885032.png" alt="ningt0n">
-                            </div>
-                            ningt0n
-                        </a>
-                    </div>
+                    <a class="story__user-link" id="authorLink" href="#" target="_blank">
+                        <div class="avatar"><img id="authorAvatar" src="" alt=""></div>
+                        <span id="authorName">ningt0n</span>
+                    </a>
                     
-                    <div class="story__community">
-                        <a class="story__community-link" href="https://pikabu.ru/community/bestolkovie_voprosi" target="_blank">
-                            <img class="community-avatar" src="https://cs9.pikabu.ru/images/community/666/1488973793283698920.webp" alt="avatar">
-                            <span class="story__community-name">Бестолковые вопросы</span>
+                    <div class="story__community" id="communityBlock">
+                        <a class="story__community-link" id="communityLink" href="#" target="_blank">
+                            <img class="community-avatar" id="communityAvatar" src="" alt="">
+                            <span class="story__community-name" id="communityName">Сообщество</span>
                         </a>
                     </div>
                 </div>
             </div>
             
             <h1 class="story__title">
-                <span class="story__title-link">Она реально такое писала</span>
+                <span id="storyTitle">Заголовок поста</span>
             </h1>
             
             <div class="story__sub-info">
-                <a class="story__datetime-link" href="#"><time datetime="2026-07-18T00:32:10+03:00" class="story__datetime">2 часа назад</time></a>
-                <div class="story__views hint" aria-label="1 143 просмотра">
-                    <span class="story__views-count">👁 1.1K</span>
+                <span id="storyTime">некоторое время назад</span>
+                <div class="story__views">
+                    <span id="storyViews">👁 0</span>
                 </div>
             </div>
         </header>
 
-        <!-- Тело поста (Изображение) -->
         <div class="story__content-wrapper">
-            <div class="story__content story__typography" style="display: block">
-                <div class="story__content-inner">
-                    <div class="story-block story-block_type_image">
-                        <figure class="story-image">
-                            <div class="story-image__content">
-                                <a href="https://cs19.pikabu.ru/s/2026/07/18/00/df4txpxp.jpg" target="_blank" class="image-link">
-                                    <img class="story-image__image" src="https://cs19.pikabu.ru/s/2026/07/18/00/df4txpxp.webp" alt="Она реально такое писала">
-                                </a>
-                            </div>
-                        </figure>
-                    </div>
+            <div class="story__content">
+                <div class="story__content-inner" id="storyContent">
+                    <!-- Сюда скрипт вставит картинку или текст -->
                 </div>
             </div>
             
-            <!-- Теги -->
-            <div class="story__tags tags story__tags_collapsed">
-                <div class="story__collapsed-tags-container">
-                    <a href="https://pikabu.ru/tag/Картинка с текстом" target="_blank" class="tags__tag">Картинка с текстом</a>
-                    <a href="https://pikabu.ru/tag/Виктория Боня" target="_blank" class="tags__tag">Виктория Боня</a>
+            <div class="story__tags">
+                <div class="story__collapsed-tags-container" id="storyTags">
+                    <!-- Теги -->
                 </div>
             </div>
             
-            <!-- Футер поста (Комментарии, Сохранения) -->
             <div class="story__footer">
                 <div class="story__tools">
-                    <a class="story__comments-link story__to-comments" href="https://pikabu.ru/story/ona_realno_takoe_pisala_14161480#comments" target="_blank">
-                        <span class="story__comments-link-count">💬 18 комментариев</span>
+                    <a class="story__comments-link" id="commentsLink" href="#" target="_blank">
+                        <span id="commentsCount">💬 0 комментариев</span>
                     </a>
-                    <button class="story__save" style="margin-left: 15px;">💾 Сохранить</button>
                 </div>
             </div>
         </div>
     </div>
 </article>
 
-<!-- Оригинальный тег структурированных данных (SEO) сохранен без изменений -->
-<script type="application/ld+json">{"@context":"https:\/\/schema.org","@type":"Article","name":"\u041e\u043d\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0438\u0441\u0430\u043b\u0430","url":"https:\/\/pikabu.ru\/story\/ona_realno_takoe_pisala_14161480","mainEntityOfPage":{"@type":"WebPage","@id":"https:\/\/pikabu.ru\/story\/ona_realno_takoe_pisala_14161480"},"headline":"\u041e\u043d\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0438\u0441\u0430\u043b\u0430","image":[{"@context":"https:\/\/schema.org","@type":"ImageObject","contentUrl":"https:\/\/cs19.pikabu.ru\/s\/2026\/07\/18\/00\/df4txpxp.jpg","name":"\u041e\u043d\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0438\u0441\u0430\u043b\u0430","width":600,"height":277},{"@context":"https:\/\/schema.org","@type":"ImageObject","contentUrl":"https:\/\/d.pikabu.ru\/cache.php?route=index_image&story_id=14161480&time=1784323930&w=1200&h=675","name":"\u041e\u043d\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0438\u0441\u0430\u043b\u0430","url":"https:\/\/d.pikabu.ru\/cache.php?route=index_image&story_id=14161480&time=1784323930&w=1200&h=675","width":1200,"height":675},{"@context":"https:\/\/schema.org","@type":"ImageObject","contentUrl":"https:\/\/d.pikabu.ru\/cache.php?route=index_image&story_id=14161480&time=1784323930&w=1200&h=900","name":"\u041e\u043d\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0438\u0441\u0430\u043b\u0430","url":"https:\/\/d.pikabu.ru\/cache.php?route=index_image&story_id=14161480&time=1784323930&w=1200&h=900","width":1200,"height":900}],"dateCreated":"2026-07-18T00:32:10+03:00","datePublished":"2026-07-18T00:32:10+03:00","dateModified":"2026-07-18T00:32:10+03:00","author":{"@type":"Person","url":"https:\/\/pikabu.ru\/@ningt0n","name":"ningt0n"},"description":"","publisher":{"@type":"Organization","name":"\u041f\u0438\u043a\u0430\u0431\u0443","logo":{"@type":"ImageObject","url":"https:\/\/cs.pikabu.ru\/assets\/amp\/amp_keks.png"}},"commentCount":7,"comment":[{"@type":"Comment","text":"\u041f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u043e \u043f\u0438\u0448\u0435\u0442\u0441\u044f \"\u0441\u0431\u0440\u043e\u0441\u0438\u043b\u0430 \u0431\u043e\u043c\u0431\u044b, \u043d\u0430\u0445\u0435\u0440 \u0432 \u041e\u0441\u0438\u043c\u0443 \u0438 \u043d\u0430 \u0413\u0430\u0441\u0430\u043a\u0438\"","dateCreated":"2026-07-18T00:34:04+03:00","author":{"@type":"Person","name":"RedPepperRus","url":"https:\/\/pikabu.ru\/@RedPepperRus"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":3}},{"@type":"Comment","text":"\u0413\u0430\u043d\u043d\u0438\u0431\u0430\u043b \u043e\u0442\u0432\u0435\u0442\u0438\u0442 \u043f\u0435\u0440\u0435\u0434 \u0441\u0443\u0434\u043e\u043c \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u0437\u0430 \u0413\u0430\u0441\u0430\u043a\u0438!","dateCreated":"2026-07-18T00:35:02+03:00","author":{"@type":"Person","name":"ZhirnoeKofe","url":"https:\/\/pikabu.ru\/@ZhirnoeKofe"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":1}},{"@type":"Comment","text":"\u041e\u043d\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0438\u0441\u0430\u043b\u0430\n\u0441\u0441\u044b\u043b\u043a\u0430 \u0431\u0443\u0434\u0435\u0442?? \u043d\u0435\u0442 \u0436\u0435?","dateCreated":"2026-07-18T00:35:25+04:00","author":{"@type":"Person","name":"drdiznet","url":"https:\/\/pikabu.ru\/@drdiznet"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":6}},{"@type":"Comment","text":"\u041d\u0443, \u0432\u043e\u043e\u0431\u0449\u0435 \u044d\u0442\u043e \u0436\u0435 \u043f\u0440\u0435\u043a\u0440\u0430\u0441\u043d\u043e. \u041f\u0440\u044f\u043c \u0442\u0440\u043e\u043b\u043b\u0438\u043d\u0433 \u0432\u044b\u0441\u0448\u0435\u0433\u043e \u0440\u0430\u0437\u0440\u044f\u0434\u0430.","dateCreated":"2026-07-18T00:37:54+03:00","author":{"@type":"Person","name":"Nuphar","url":"https:\/\/pikabu.ru\/@Nuphar"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":-1}},{"@type":"Comment","text":"\u041d\u0435 \u0432\u0435\u0440\u044e)","dateCreated":"2026-07-18T00:41:05+03:00","author":{"@type":"Person","name":"StelliferSoul","url":"https:\/\/pikabu.ru\/@StelliferSoul"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":1}},{"@type":"Comment","text":"\u041c\u043d\u0435 \u043e\u0434\u043d\u043e\u043c\u0443 \u043a\u0430\u0436\u0435\u0442\u0441\u044f, \u0447\u0442\u043e \u043d\u0430 \u0430\u0432\u0430\u0442\u0430\u0440\u043a\u0435 \u0410\u043d\u0434\u0436\u0435\u043b\u0438\u043d\u0430 \u0414\u0436\u043e\u043b\u0438, \u0430 \u043d\u0435 \u0411\u043e\u043d\u044f?","dateCreated":"2026-07-18T00:44:12+03:00","author":{"@type":"Person","name":"AstraGuilliman","url":"https:\/\/pikabu.ru\/@AstraGuilliman"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":2}},{"@type":"Comment","text":"\u0423 \u043d\u0430\u0441 \u0432 \u0413\u0430\u0441\u0430\u043a\u0430\u0445, \u043c\u0435\u043d\u0442\u044b \u043d\u0430 \u041a\u0430\u0432\u0430\u0441\u0430\u043a\u0430\u0445.","dateCreated":"2026-07-18T01:31:29+03:00","author":{"@type":"Person","name":"NikolaySladkov","url":"https:\/\/pikabu.ru\/@NikolaySladkov"},"interactionStatistic":{"@type":"InteractionCounter","interactionType":"RatingAction","userInteractionCount":0}}]}
+<script>
+async function loadPost() {
+    const urlInput = document.getElementById('postUrl').value.trim();
+    if (!urlInput) return alert('Введите ссылку');
+
+    // Используем публичный CORS-прокси для обхода защиты Пикабу
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(urlInput);
+
+    try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Ошибка сети');
+        
+        const data = await response.json();
+        const htmlString = data.contents;
+
+        // Создаем виртуальный документ для разбора полученного HTML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, 'text/html');
+
+        // 1. Извлекаем заголовок
+        const titleEl = doc.querySelector('.story__title-link, .story__title');
+        if (titleEl) document.getElementById('storyTitle').innerText = titleEl.innerText.replace(/⁠/g, '');
+
+        // 2. Извлекаем автора
+        const authorEl = doc.querySelector('.story__user-link.user__nick, [data-author-name]');
+        if (authorEl) {
+            const name = authorEl.getAttribute('data-name') || authorEl.innerText.trim();
+            document.getElementById('authorName').innerText = name;
+            document.getElementById('authorLink').href = `https://pikabu.ru/@${name}`;
+            
+            const avatarEl = authorEl.querySelector('img');
+            if (avatarEl) document.getElementById('authorAvatar').src = avatarEl.getAttribute('data-src') || avatarEl.src;
+        }
+
+        // 3. Извлекаем сообщество (если есть)
+        const commEl = doc.querySelector('.story__community-link');
+        if (commEl) {
+            document.getElementById('communityBlock').style.display = 'block';
+            document.getElementById('communityLink').href = 'https://pikabu.ru' + commEl.getAttribute('href');
+            document.getElementById('communityName').innerText = commEl.querySelector('.story__community-name').innerText;
+            
+            const commImg = commEl.querySelector('img');
+            if (commImg) document.getElementById('communityAvatar').src = commImg.src;
+        } else {
+            document.getElementById('communityBlock').style.display = 'none';
+        }
+
+        // 4. Рейтинг, просмотры, время
+        const ratingEl = doc.querySelector('.story__rating-count');
+        if (ratingEl) document.getElementById('ratingCount').innerText = ratingEl.innerText.trim();
+
+        const timeEl = doc.querySelector('.story__datetime');
+        if (timeEl) document.getElementById('storyTime').innerText = timeEl.innerText.trim();
+
+        const viewsEl = doc.querySelector('.story__views-count');
+        if (viewsEl) document.getElementById('storyViews').innerText = '👁 ' + viewsEl.innerText.trim();
+
+        // 5. Контент поста (картинка или текст)
+        const contentInner = doc.querySelector('.story__content-inner');
+        const contentContainer = document.getElementById('storyContent');
+        contentContainer.innerHTML = ''; // очистка
+
+        if (contentInner) {
+            // Ищем картинки
+            const images = contentInner.querySelectorAll('img');
+            if (images.length > 0) {
+                images.forEach(img => {
+                    const newImg = document.createElement('img');
+                    newImg.className = 'story-image__image';
+                    newImg.src = img.getAttribute('data-src') || img.src;
+                    contentContainer.appendChild(newImg);
+                });
+            } else {
+                // Если картинок нет, берем текст
+                contentContainer.innerHTML = contentInner.innerHTML;
+            }
+        }
+
+        // 6. Теги
+        const tagsContainer = document.getElementById('storyTags');
+        tagsContainer.innerHTML = '';
+        const tags = doc.querySelectorAll('.tags__tag');
+        tags.forEach(tag => {
+            const a = document.createElement('a');
+            a.className = 'tags__tag';
+            a.href = 'https://pikabu.ru' + tag.getAttribute('href');
+            a.target = '_blank';
+            a.innerText = tag.innerText.trim();
+            tagsContainer.appendChild(a);
+        });
+
+        // 7. Комментарии
+        const commCountEl = doc.querySelector('.story__comments-link-count');
+        if (commCountEl) {
+            document.getElementById('commentsCount').innerText = `💬 ${commCountEl.innerText.trim()} комментариев`;
+            document.getElementById('commentsLink').href = urlInput + '#comments';
+        }
+
+    } catch (error) {
+        console.error(error);
+        alert('Не удалось загрузить пост. Проверьте правильность ссылки или попробуйте позже.');
+    }
+}
+
+// Автоматическая загрузка дефолтного поста при старте
+window.onload = loadPost;
 </script>
 
 </body>
