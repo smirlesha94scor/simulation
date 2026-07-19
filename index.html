@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
-<body style="background:#222; display:flex; justify-content:center; align-items:center; height:100vh;">
-    <canvas id="game" width="640" height="480" style="border:2px solid #555;"></canvas>
+<body style="background:#222; display:flex; justify-content:center; align-items:center; height:100vh; margin: 0;">
+    <canvas id="game" width="640" height="480" style="border:2px solid #555; background: #000;"></canvas>
 
 <script>
 const canvas = document.getElementById('game');
@@ -17,49 +17,68 @@ const map = [
     [1, 1, 1, 1, 1, 1, 1, 1]
 ];
 
-let player = { x: 3.5, y: 3.5, angle: 0 };
+// Угол игрока и FOV (60 градусов) в радианах
+let player = { 
+    x: 3.5, 
+    y: 3.5, 
+    angle: 0,
+    fov: 60 * (Math.PI / 180) 
+};
 let keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
-// Слушаем нажатия
-window.addEventListener('keydown', e => keys[e.code] = true);
-window.addEventListener('keyup', e => keys[e.code] = false);
+window.addEventListener('keydown', e => { if (e.code in keys) keys[e.code] = true; });
+window.addEventListener('keyup', e => { if (e.code in keys) keys[e.code] = false; });
 
 function updatePlayer() {
-    let moveSpeed = 0.05;
-    let rotSpeed = 0.05;
+    let moveSpeed = 0.04;
+    let rotSpeed = 0.03;
 
-    // Поворот (Стрелки влево/вправо)
     if (keys.ArrowLeft) player.angle -= rotSpeed;
     if (keys.ArrowRight) player.angle += rotSpeed;
 
-    // Перемещение (Стрелки вверх/вниз)
+    let dx = Math.cos(player.angle) * moveSpeed;
+    let dy = Math.sin(player.angle) * moveSpeed;
+
     if (keys.ArrowUp) {
-        player.x += Math.cos(player.angle) * moveSpeed;
-        player.y += Math.sin(player.angle) * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(player.x + dx)] === 0) player.x += dx;
+        if (map[Math.floor(player.y + dy)][Math.floor(player.x)] === 0) player.y += dy;
     }
     if (keys.ArrowDown) {
-        player.x -= Math.cos(player.angle) * moveSpeed;
-        player.y -= Math.sin(player.angle) * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(player.x - dx)] === 0) player.x -= dx;
+        if (map[Math.floor(player.y - dy)][Math.floor(player.x)] === 0) player.y -= dy;
     }
 }
 
 function draw() {
-    updatePlayer(); // Обновляем позицию перед отрисовкой
+    updatePlayer();
 
+    // Задний план
     ctx.fillStyle = "#333";
     ctx.fillRect(0, 0, 640, 240); // Потолок
     ctx.fillStyle = "#666";
     ctx.fillRect(0, 240, 640, 240); // Пол
 
     for (let x = 0; x < 640; x++) {
-        let rayAngle = (player.angle - 0.5) + (x / 640);
-        let dist = castRayDDA(player.x, player.y, rayAngle);
+        // Правильное распределение лучей по экрану с учетом FOV
+        let rayAngle = (player.angle - player.fov / 2) + (x / 640) * player.fov;
         
-        let correctedDist = dist * Math.cos(rayAngle - player.angle);
-        let wallHeight = 400 / (correctedDist + 0.001); // +0.001 чтобы избежать деления на ноль
+        let ray = castRayDDA(player.x, player.y, rayAngle);
         
-        ctx.fillStyle = `rgb(0, ${255 - dist * 30}, 0)`;
-        ctx.fillRect(x, 240 - wallHeight / 2, 1, wallHeight);
+        // Коррекция рыбьего глаза
+        let correctedDist = ray.distance * Math.cos(rayAngle - player.angle);
+        let wallHeight = 480 / (correctedDist + 0.001); 
+        
+        // Базовый цвет зависит от расстояния
+        let colorValue = Math.max(0, 255 - ray.distance * 35);
+        
+        // Дополнительное затенение горизонтальных стен для объема
+        if (ray.side === 1) {
+            ctx.fillStyle = `rgb(0, ${colorValue * 0.7}, 0)`;
+        } else {
+            ctx.fillStyle = `rgb(0, ${colorValue}, 0)`;
+        }
+        
+        ctx.fillRect(x, (480 - wallHeight) / 2, 1, wallHeight);
     }
     
     requestAnimationFrame(draw);
@@ -68,24 +87,45 @@ function draw() {
 function castRayDDA(px, py, angle) {
     let dx = Math.cos(angle), dy = Math.sin(angle);
     let mapX = Math.floor(px), mapY = Math.floor(py);
-    let deltaX = Math.abs(1 / dx), deltaY = Math.abs(1 / dy);
+    
+    // Защита от деления на ноль, если dx или dy равны 0
+    let deltaX = Math.abs(1 / (dx || 0.00001));
+    let deltaY = Math.abs(1 / (dy || 0.00001));
     
     let stepX = dx < 0 ? -1 : 1;
     let stepY = dy < 0 ? -1 : 1;
     let sideX = (dx < 0 ? px - mapX : mapX + 1 - px) * deltaX;
     let sideY = (dy < 0 ? py - mapY : mapY + 1 - py) * deltaY;
 
-    for (let i = 0; i < 20; i++) {
+    let side = 0; // 0 - вертикальная стена, 1 - горизонтальная
+    let hit = 0;
+
+    for (let i = 0; i < 30; i++) {
         if (sideX < sideY) {
             sideX += deltaX;
             mapX += stepX;
+            side = 0;
         } else {
             sideY += deltaY;
             mapY += stepY;
+            side = 1;
         }
-        if (map[mapY][mapX] === 1) return (sideX < sideY ? sideX - deltaX : sideY - deltaY);
+        // Проверка выхода за карту
+        if (mapY < 0 || mapY >= map.length || mapX < 0 || mapX >= map[0].length) break;
+        
+        if (map[mapY][mapX] === 1) {
+            hit = 1;
+            break;
+        }
     }
-    return 20;
+    
+    let distance = 20;
+    if (hit === 1) {
+        // Считаем дистанцию строго на момент удара, опираясь на зафиксированный side
+        distance = (side === 0) ? (sideX - deltaX) : (sideY - deltaY);
+    }
+    
+    return { distance: distance, side: side };
 }
 
 draw();
