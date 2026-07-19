@@ -593,6 +593,12 @@
         // Извлекаем выбранную камеру
         let cam = securityCameras[activeIdx];
 
+        // Сохраняем контекст рисования перед наложением маски обрезки
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(scrX, scrY, scrW, scrH);
+        ctx.clip(); // Обрезаем всё, что выходит за рамки экрана камеры
+
         // Матовый темно-зеленый фон CCTV (ночное видение)
         ctx.fillStyle = "#05150a";
         ctx.fillRect(scrX, scrY, scrW, scrH);
@@ -674,7 +680,10 @@
             }
         }
 
-        // Рисуем стильный цифровой оверлей CCTV
+        // Восстанавливаем контекст, чтобы рамка и текст поверх рисовались без обрезки
+        ctx.restore();
+
+        // Рисуем стильный цифровой оверлей CCTV (поверх маски обрезки)
         ctx.strokeStyle = "#eab308";
         ctx.lineWidth = 2;
         ctx.strokeRect(scrX, scrY, scrW, scrH);
