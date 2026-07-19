@@ -3,265 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Социальная сеть на JSONPlaceholder</title>
+    <title>Случайный фильм</title>
+    <!-- Tailwind CSS для красивого минималистичного оформления -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         body {
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            background-color: #f4f6f9;
-            margin: 0;
-            padding: 0;
-            color: #333;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
         }
-
-        header {
-            background-color: #007bff;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        header h1 { margin: 0; font-size: 20px; cursor: pointer; }
-
-        .container {
-            max-width: 800px;
-            margin: 30px auto;
-            padding: 0 20px;
-        }
-
-        /* Кнопка назад */
-        .btn-back {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 20px;
-            display: inline-block;
-        }
-
-        /* Карточки постов */
-        .post-card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: transform 0.2s;
-        }
-        .post-card:hover { transform: translateY(-2px); }
-        .post-title { margin-top: 0; color: #007bff; cursor: pointer; }
-        .post-author { font-size: 13px; color: #6c757d; margin-bottom: 10px; }
-        .post-author span { color: #28a745; cursor: pointer; font-weight: bold; }
-        .post-author span:hover { text-decoration: underline; }
-
-        /* Комментарии */
-        .comments-section { margin-top: 30px; border-top: 2px solid #e9ecef; padding-top: 20px; }
-        .comment { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #007bff; }
-        .comment-email { font-size: 12px; color: #6c757d; font-weight: bold; }
-        .comment-body { margin: 5px 0 0 0; font-size: 14px; }
-
-        /* Профиль пользователя */
-        .profile-card { background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .profile-header { border-bottom: 1px solid #e9ecef; padding-bottom: 15px; margin-bottom: 15px; }
-        .profile-info p { margin: 8px 0; }
-        .profile-info strong { color: #495057; }
-
-        /* Спиннер загрузки */
-        .loader { text-align: center; font-size: 18px; color: #6c757d; margin-top: 5px; }
-        .hidden { display: none; }
     </style>
 </head>
-<body>
+<body class="text-slate-100 flex items-center justify-center min-h-screen p-4">
 
-<header>
-    <h1 onclick="navigateTo('feed')">🌐 Имитация Соцсети</h1>
-    <div id="loader" class="loader hidden">Загрузка...</div>
-</header>
-
-<div class="container">
-    <!-- ЭКРАН 1: ЛЕНТА ПОСТОВ -->
-    <div id="view-feed" class="view">
-        <h2>Лента публикаций</h2>
-        <div id="posts-container"></div>
+    <!-- STREAMING_CHUNK: Отрисовка карточки и кнопки... -->
+    <!-- Основной контейнер-карточка -->
+    <div class="w-full max-w-md bg-slate-800 border border-slate-700/50 p-8 rounded-3xl shadow-2xl text-center">
+        <h1 class="text-xs font-bold tracking-widest text-purple-400 uppercase mb-4">Что посмотреть?</h1>
+        
+        <!-- Поле вывода названия фильма -->
+        <div id="movie-display" class="text-xl sm:text-2xl font-extrabold text-white min-h-[80px] flex items-center justify-center px-4 mb-6 transition-all duration-300">
+            Нажмите кнопку ниже 👇
+        </div>
+        
+        <!-- Кнопка генерации -->
+        <button id="get-movie-btn" class="w-full py-4 px-6 bg-purple-600 hover:bg-purple-500 active:scale-[0.98] transition duration-200 text-white font-bold rounded-2xl shadow-lg shadow-purple-600/20">
+            Выбрать случайный фильм
+        </button>
     </div>
 
-    <!-- ЭКРАН 2: ПОЛНЫЙ ПОСТ И КОММЕНТАРИИ -->
-    <div id="view-post" class="view hidden">
-        <button class="btn-back" onclick="navigateTo('feed')">← К ленте</button>
-        <div class="post-card" id="opened-post-content">
-            <!-- Сюда подставится пост -->
-        </div>
-        <div class="comments-section">
-            <h3>Комментарии</h3>
-            <div id="comments-container"></div>
-        </div>
-    </div>
+    <!-- STREAMING_CHUNK: Создание простой базы фильмов и логики выбора... -->
+    <script>
+        // Простая база культовых фильмов
+        const moviesDatabase = [
+            "Побег из Шоушенка",
+            "Зеленая миля",
+            "Форрест Гамп",
+            "1+1 (Неприкасаемые)",
+            "Начало",
+            "Интерстеллар",
+            "Бойцовский клуб",
+            "Криминальное чтиво",
+            "Темный рыцарь",
+            "Матрица",
+            "Гладиатор",
+            "Престиж",
+            "Остров проклятых",
+            "Леон",
+            "Назад в будущее",
+            "Джентльмены",
+            "Волк с Уолл-стрит",
+            "Законопослушный гражданин",
+            "Шоу Трумана",
+            "Одержимость",
+            "Достучаться до небес",
+            "Семь",
+            "Бойцовский клуб",
+            "Безумный Макс: Дорога ярости",
+            "Паразиты"
+        ];
 
-    <!-- ЭКРАН 3: СТРАНИЦА ПОЛЬЗОВАТЕЛЯ -->
-    <div id="view-profile" class="view hidden">
-        <button class="btn-back" onclick="window.history.back() || navigateTo('feed')">← Назад</button>
-        <div class="profile-card" id="user-profile-content">
-            <!-- Сюда подставится профиль -->
-        </div>
-    </div>
-</div>
+        const btn = document.getElementById('get-movie-btn');
+        const display = document.getElementById('movie-display');
 
-<script>
-    // Глобальное хранилище пользователей
-let usersMap = {};
-
-// Функция для перевода текста на русский язык через бесплатное API
-async function translateToRussian(text) {
-    try {
-        const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ru`);
-        const data = await response.json();
-        return data.responseData.translatedText || text;
-    } catch (err) {
-        return text; // Если переводчик сбоит, вернем оригинальный текст
-    }
-}
-
-// Переключение между экранами
-function navigateTo(viewName) {
-    document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
-    document.getElementById(`view-${viewName}`).classList.remove('hidden');
-    if(viewName === 'feed') window.scrollTo(0,0);
-}
-
-// Показ/скрытие лоадера
-function toggleLoader(show) {
-    document.getElementById('loader').classList.toggle('hidden', !show);
-}
-
-// Инициализация: загружаем авторов, а затем посты
-async function init() {
-    toggleLoader(true);
-    try {
-        const usersRes = await fetch('https://jsonplaceholder.typicode.com/users');
-        const users = await usersRes.json();
-        users.forEach(u => usersMap[u.id] = u);
-
-        const postsRes = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=6'); // ограничим до 6 для быстрой работы перевода
-        const posts = await postsRes.json();
-        
-        // Переводим заголовки постов для ленты
-        for (let post of posts) {
-            post.titleRu = await translateToRussian(post.title);
-            post.bodyRu = await translateToRussian(post.body);
-        }
-        
-        renderFeed(posts);
-    } catch (err) {
-        alert('Ошибка загрузки данных');
-    } finally {
-        toggleLoader(false);
-    }
-}
-
-// Рендер ленты постов
-function renderFeed(posts) {
-    const container = document.getElementById('posts-container');
-    container.innerHTML = '';
-    
-    posts.forEach(post => {
-        const author = usersMap[post.userId] || { name: 'Неизвестный автор' };
-        const card = document.createElement('div');
-        card.className = 'post-card';
-        card.innerHTML = `
-            <h3 class="post-title" onclick="openPost(${post.id})">${post.titleRu}</h3>
-            <div class="post-author">Автор: <span onclick="openProfile(${post.userId})">${author.name}</span></div>
-            <p>${post.bodyRu.substring(0, 120)}...</p>
-        `;
-        container.appendChild(card);
-    });
-}
-
-// Открытие конкретного поста и его комментариев
-async function openPost(postId) {
-    toggleLoader(true);
-    try {
-        const [postRes, commRes] = await Promise.all([
-            fetch(`https://jsonplaceholder.typicode.com/posts/${postId}`),
-            fetch(`https://jsonplaceholder.typicode.com/comments?postId=${postId}`)
-        ]);
-        
-        const post = await postRes.json();
-        const comments = await commRes.json();
-        const author = usersMap[post.userId] || { name: 'Неизвестный автор' };
-
-        // Переводим сам пост на русский
-        const postTitleRu = await translateToRussian(post.title);
-        const postBodyRu = await translateToRussian(post.body);
-
-        // Рендерим сам пост
-        document.getElementById('opened-post-content').innerHTML = `
-            <h2 style="margin-top:0;">${postTitleRu}</h2>
-            <div class="post-author">Автор: <span onclick="openProfile(${post.userId})">${author.name}</span></div>
-            <p style="font-size: 16px; line-height: 1.5;">${postBodyRu}</p>
-        `;
-
-        // Рендерим комменты (переводим каждый)
-        const commContainer = document.getElementById('comments-container');
-        commContainer.innerHTML = '';
-        
-        for (let c of comments) {
-            const commentBodyRu = await translateToRussian(c.body);
-            const div = document.createElement('div');
-            div.className = 'comment';
-            div.innerHTML = `
-                <div class="comment-email">${c.email} написал(а):</div>
-                <p class="comment-body">${commentBodyRu}</p>
-            `;
-            commContainer.appendChild(div);
-        }
-
-        navigateTo('post');
-    } catch (err) {
-        alert('Не удалось загрузить пост');
-    } finally {
-        toggleLoader(false);
-    }
-}
-
-// Открытие профиля пользователя
-async function openProfile(userId) {
-    toggleLoader(true);
-    try {
-        const res = await fetch(`https://jsonplaceholder.typicode.com/users/${userId}`);
-        const user = await res.json();
-
-        // Переводим слоган компании и название
-        const catchPhraseRu = await translateToRussian(user.company.catchPhrase);
-        const cityRu = await translateToRussian(user.address.city);
-        const streetRu = await translateToRussian(user.address.street);
-
-        document.getElementById('user-profile-content').innerHTML = `
-            <div class="profile-header">
-                <h2 style="margin:0;">👤 ${user.name} (@${user.username})</h2>
-                <p style="color: #6c757d; margin: 5px 0 0 0;">ID пользователя: ${user.id}</p>
-            </div>
-            <div class="profile-info">
-                <p><strong>Email:</strong> ${user.email}</p>
-                <p><strong>Телефон:</strong> ${user.phone}</p>
-                <p><strong>Сайт:</strong> <a href="http://${user.website}" target="_blank">${user.website}</a></p>
-                <p><strong>Компания:</strong> ${user.company.name} (<em>"${catchPhraseRu}"</em>)</p>
-                <p><strong>Адрес:</strong> г. ${cityRu}, ${streetRu}, кв. ${user.address.suite}</p>
-            </div>
-        `;
-        navigateTo('profile');
-    } catch (err) {
-        alert('Не удалось загрузить профиль');
-    } finally {
-        toggleLoader(false);
-    }
-}
-
-window.onload = init;
-</script>
-
+        // Обработка клика по кнопке
+        btn.addEventListener('click', () => {
+            // Случайный индекс из массива
+            const randomIndex = Math.floor(Math.random() * moviesDatabase.length);
+            
+            // Вывод фильма на экран с небольшим эффектом анимации
+            display.style.opacity = 0;
+            setTimeout(() => {
+                display.textContent = moviesDatabase[randomIndex];
+                display.style.opacity = 1;
+            }, 150);
+        });
+    </script>
 </body>
 </html>
