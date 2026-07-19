@@ -180,7 +180,56 @@ function updateEditorPlayerMarker() {
         cells[index].classList.add('player-cell');
     }
 }
+function drawHUD() {
+    // Вычисляем процент скорости для шкалы
+    let speedPercent = Math.abs(player.velocity) / player.maxSpeed;
+    let rotPercent = Math.abs(player.rotVelocity) / player.maxRotSpeed;
 
+    // Смещение, чтобы рисовать в правом верхнем углу
+    const hudX = canvasWidth - 190;
+    const hudY = 15;
+
+    // Полупрозрачная подложка для интерфейса
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(hudX, hudY, 175, 90);
+    ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(hudX, hudY, 175, 90);
+
+    // Заголовок телеметрии
+    ctx.font = "bold 11px monospace";
+    ctx.fillStyle = "#00ff00";
+    ctx.fillText("🛸 DRONE TELEMETRY", hudX + 10, hudY + 20);
+
+    // 1. Линейная скорость (Вперед/Назад)
+    ctx.fillStyle = "#aaa";
+    ctx.font = "10px monospace";
+    // Переводим внутреннюю скорость в условные км/ч для красоты
+    let speedKmH = Math.round(speedPercent * 45); 
+    ctx.fillText(`SPEED: ${speedKmH} km/h`, hudX + 10, hudY + 42);
+
+    // Шкала скорости (Рамка)
+    ctx.strokeStyle = "#555";
+    ctx.strokeRect(hudX + 10, hudY + 48, 155, 6);
+    // Заполнение шкалы (Зеленая полоса)
+    ctx.fillStyle = speedPercent > 0.8 ? "#ff3333" : "#00ff00"; // Краснеет на максимуме
+    ctx.fillRect(hudX + 11, hudY + 49, speedPercent * 153, 4);
+
+    // 2. Угловая скорость (Поворот)
+    ctx.fillStyle = "#aaa";
+    let rotDirection = player.rotVelocity > 0 ? "RIGHT" : player.rotVelocity < 0 ? "LEFT" : "STABLE";
+    ctx.fillText(`TURN: ${rotDirection}`, hudX + 10, hudY + 72);
+
+    // Маленький индикатор поворота
+    ctx.fillStyle = "#555";
+    ctx.fillRect(hudX + 10, hudY + 78, 155, 4);
+    ctx.fillStyle = "#00bfff"; // Синий маркер вращения
+    
+    // Рисуем ползунок отклонения от центра
+    let center = hudX + 10 + (155 / 2);
+    let offset = (player.rotVelocity / player.maxRotSpeed) * (155 / 2);
+    ctx.fillRect(center + offset - 3, hudY + 78, 6, 4);
+}
 function updatePlayer() {
     // 1. Управление двигателями поворота (рыскание)
     if (keys.ArrowRight) {
@@ -289,7 +338,7 @@ function draw() {
     ctx.fillStyle = "#555555";
     ctx.fillRect(0, canvasHeight / 2, canvasWidth, canvasHeight / 2);
 
-    // Векторный Raycasting (Скриншот 2)
+    // Векторный Raycasting 
     for (let x = 0; x < canvasWidth; x++) {
         let cameraX = 2 * x / canvasWidth - 1;
         let rayDirX = player.dirX + player.planeX * cameraX;
@@ -352,7 +401,7 @@ function draw() {
 
         ctx.fillRect(x, (canvasHeight - wallHeight) / 2, 1, wallHeight);
     }
-
+drawHUD()
     // Поверх 3D сцены рисуем мини-карту
     drawMinimap();
 
