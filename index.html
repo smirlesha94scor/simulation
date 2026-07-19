@@ -28,18 +28,23 @@ function updatePlayer() {
     let moveSpeed = 0.05;
     let rotSpeed = 0.05;
 
-    // Поворот (Стрелки влево/вправо)
+    // Поворот
     if (keys.ArrowLeft) player.angle -= rotSpeed;
     if (keys.ArrowRight) player.angle += rotSpeed;
 
-    // Перемещение (Стрелки вверх/вниз)
+    // Вычисляем, куда мы хотим пойти
+    let dx = Math.cos(player.angle) * moveSpeed;
+    let dy = Math.sin(player.angle) * moveSpeed;
+
+    // Перемещение (Стрелки вверх/вниз) с проверкой коллизий
     if (keys.ArrowUp) {
-        player.x += Math.cos(player.angle) * moveSpeed;
-        player.y += Math.sin(player.angle) * moveSpeed;
+        // Проверяем X и Y отдельно для "скользящего" эффекта
+        if (map[Math.floor(player.y)][Math.floor(player.x + dx)] === 0) player.x += dx;
+        if (map[Math.floor(player.y + dy)][Math.floor(player.x)] === 0) player.y += dy;
     }
     if (keys.ArrowDown) {
-        player.x -= Math.cos(player.angle) * moveSpeed;
-        player.y -= Math.sin(player.angle) * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(player.x - dx)] === 0) player.x -= dx;
+        if (map[Math.floor(player.y - dy)][Math.floor(player.x)] === 0) player.y -= dy;
     }
 }
 
