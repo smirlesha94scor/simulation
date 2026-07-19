@@ -18,28 +18,50 @@ const map = [
 ];
 
 let player = { x: 3.5, y: 3.5, angle: 0 };
+let keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+// Слушаем нажатия
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+function updatePlayer() {
+    let moveSpeed = 0.05;
+    let rotSpeed = 0.05;
+
+    // Поворот (Стрелки влево/вправо)
+    if (keys.ArrowLeft) player.angle -= rotSpeed;
+    if (keys.ArrowRight) player.angle += rotSpeed;
+
+    // Перемещение (Стрелки вверх/вниз)
+    if (keys.ArrowUp) {
+        player.x += Math.cos(player.angle) * moveSpeed;
+        player.y += Math.sin(player.angle) * moveSpeed;
+    }
+    if (keys.ArrowDown) {
+        player.x -= Math.cos(player.angle) * moveSpeed;
+        player.y -= Math.sin(player.angle) * moveSpeed;
+    }
+}
 
 function draw() {
+    updatePlayer(); // Обновляем позицию перед отрисовкой
+
     ctx.fillStyle = "#333";
     ctx.fillRect(0, 0, 640, 240); // Потолок
     ctx.fillStyle = "#666";
     ctx.fillRect(0, 240, 640, 240); // Пол
 
-    // FOV 60 градусов
     for (let x = 0; x < 640; x++) {
         let rayAngle = (player.angle - 0.5) + (x / 640);
         let dist = castRayDDA(player.x, player.y, rayAngle);
         
-        // Исправление рыбьего глаза
         let correctedDist = dist * Math.cos(rayAngle - player.angle);
-        let wallHeight = 400 / correctedDist;
+        let wallHeight = 400 / (correctedDist + 0.001); // +0.001 чтобы избежать деления на ноль
         
-        // Рисуем полоску стены
-        ctx.fillStyle = `rgb(0, ${255 - dist * 30}, 0)`; // Цвет зависит от расстояния
+        ctx.fillStyle = `rgb(0, ${255 - dist * 30}, 0)`;
         ctx.fillRect(x, 240 - wallHeight / 2, 1, wallHeight);
     }
     
-    player.angle += 0.01; // Вращение камеры для демонстрации
     requestAnimationFrame(draw);
 }
 
