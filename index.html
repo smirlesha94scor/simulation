@@ -72,6 +72,14 @@
             font-size: 13px;
             color: #aaa;
         }
+        .cell.camera-cell {
+    background: #00bfff;
+    border-color: #008b8b;
+}
+.cell.camera-cell::after {
+    content: "📷";
+    font-size: 16px;
+}
     </style>
 </head>
 <body>
@@ -90,6 +98,8 @@
     </div>
 
 <script>
+    // Список активных камер на карте
+let securityCameras = [];
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const editorGrid = document.getElementById('mapEditor');
@@ -144,22 +154,31 @@ function createEditor() {
         for (let c = 0; c < mapCols; c++) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
-            if (map[r][c] === 1) cell.classList.add('wall');
             
-            // Отображаем иконку игрока на сетке редактора
-            if (Math.floor(player.y) === r && Math.floor(player.x) === c) {
-                cell.classList.add('player-cell');
-            }
+            if (map[r][c] === 1) cell.classList.add('wall');
+            if (map[r][c] === 2) cell.classList.add('camera-cell');
+            if (Math.floor(player.y) === r && Math.floor(player.x) === c) cell.classList.add('player-cell');
 
-            // Переключение стены по клику
             cell.addEventListener('click', () => {
-                // Не разрешаем ставить стену прямо на игрока
                 if (Math.floor(player.y) === r && Math.floor(player.x) === c) return;
                 
-                map[r][c] = map[r][c] === 1 ? 0 : 1;
-                cell.classList.toggle('wall');
+                // Циклическое переключение: 0 (пусто) -> 1 (стена) -> 2 (камера) -> 0
+                if (map[r][c] === 0) {
+                    map[r][c] = 1;
+                    cell.classList.add('wall');
+                } else if (map[r][c] === 1) {
+                    map[r][c] = 2;
+                    cell.classList.remove('wall');
+                    cell.classList.add('camera-cell');
+                    // Добавляем камеру в систему (по умолчанию смотрит в центр карты)
+                    securityCameras.push({ x: c + 0.5, y: r + 0.5, angle: 0 });
+                } else {
+                    map[r][c] = 0;
+                    cell.classList.remove('camera-cell');
+                    // Удаляем камеру из системы
+                    securityCameras = securityCameras.filter(cam => Math.floor(cam.x) !== c || Math.floor(cam.y) !== r);
+                }
             });
-
             editorGrid.appendChild(cell);
         }
     }
@@ -294,7 +313,29 @@ function updatePlayer() {
 function drawMinimap() {
     const size = 16; // Размер одной плитки мини-карты в пикселях
     const offset = 15; // Отступ мини-карты от краев экрана canvas
-    
+    // Рисуем камеры на мини-карте
+securityCameras.forEach(cam => {
+    // Вращаем камеру по кругу со временем для эффекта патрулирования
+    cam.angle = Date.now() * 0.001; 
+    let camDirX = Math.cos(cam.angle);
+    let camDirY = Math.sin(cam.angle);
+
+    const cX = offset + cam.x * size;
+    const cY = offset + cam.y * size;
+
+    // Луч обзора камеры
+    ctx.strokeStyle = "rgba(0, 191, 255, 0.4)";
+    ctx.beginPath();
+    ctx.moveTo(cX, cY);
+    ctx.lineTo(cX + camDirX * 20, cY + camDirY * 20);
+    ctx.stroke();
+
+    // Синяя точка камеры
+    ctx.fillStyle = "#00bfff";
+    ctx.beginPath();
+    ctx.arc(cX, cY, 3, 0, Math.PI * 2);
+    ctx.fill();
+});
     // Полупрозрачный темный фон под картой
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(offset - 5, offset - 5, mapCols * size + 10, mapRows * size + 10);
@@ -328,7 +369,92 @@ function drawMinimap() {
     ctx.arc(pX, pY, 4, 0, Math.PI * 2);
     ctx.fill();
 }
+function drawCCTVSubScreen() {
+    // Если на карте нет камер, ничего не выводим
+    if (securityCameras.length === 0) return;
 
+    // Берём первую камеру из списка для вывода на экран
+    let cam = securityCameras[0];
+    
+    // Размеры и позиция экрана CCTV на canvas
+    const scrW = 160;
+    const scrH = 120;
+    const scrX = 15;
+    const scrY = canvasHeight - scrH - 15;
+
+    // Фон экрана монитора
+    ctx.fillStyle = "#051505";
+    ctx.fillRect(scrX, scrY, scrW, scrH);
+
+    // Рендеринг картинки с камеры (упрощенный raycasting)
+    let camDirX = Math.cos(cam.angle);
+    let camDirY = Math.sin(cam.angle);
+    // Вектор плоскости экрана камеры (FOV камеры)
+    let camPlaneX = -Math.sin(cam.angle) * 0.5;
+    let camPlaneY = Math.cos(cam.angle) * 0.5;
+
+    for (let x = 0; x < scrW; x++) {
+        let cameraX = 2 * x / scrW - 1;
+        let rayDirX = camDirX + camPlaneX * cameraX;
+        let rayDirY = camDirY + camPlaneY * cameraX;
+
+        let mapX = Math.floor(cam.x);
+        let mapY = Math.floor(cam.y);
+        let deltaDistX = Math.abs(1 / (rayDirX || 0.00001));
+        let deltaDistY = Math.abs(1 / (rayDirY || 0.00001));
+        let stepX, stepY, sideDistX, sideDistY;
+
+        if (rayDirX < 0) { stepX = -1; sideDistX = (cam.x - mapX) * deltaDistX; } 
+        else { stepX = 1; sideDistX = (mapX + 1.0 - cam.x) * deltaDistX; }
+        if (rayDirY < 0) { stepY = -1; sideDistY = (cam.y - mapY) * deltaDistY; } 
+        else { stepY = 1; sideDistY = (mapY + 1.0 - cam.y) * deltaDistY; }
+
+        let hit = 0, side = 0;
+        while (hit === 0) {
+            if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } 
+            else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
+            if (mapY < 0 || mapY >= mapRows || mapX < 0 || mapX >= mapCols) break;
+            // Камера видит и стены(1), и другие камеры(2), и самого игрока!
+            if (map[mapY][mapX] === 1 || map[mapY][mapX] === 2) { hit = 1; }
+            
+            // Проверка: видит ли камера нашего Дрона?
+            if (Math.floor(player.x) === mapX && Math.floor(player.y) === mapY && hit === 0) {
+                hit = 2; // Код обнаружения дрона
+            }
+        }
+
+        let perpWallDist = (side === 0) ? (mapX - cam.x + (1 - stepX) / 2) / rayDirX : (mapY - cam.y + (1 - stepY) / 2) / rayDirY;
+        let wallHeight = scrH / (perpWallDist + 0.0001);
+        
+        // Цвет выводим в монохромном "ночном" или черно-белом режиме
+        let colorValue = Math.max(0, 180 - perpWallDist * 25);
+        if (hit === 2) {
+            ctx.fillStyle = "#ffffff"; // Дрон подсвечивается белым на мониторе!
+        } else {
+            // Зеленоватый CCTV фильтр
+            ctx.fillStyle = (side === 1) ? `rgb(0, ${colorValue * 0.6}, 0)` : `rgb(0, ${colorValue}, 0)`;
+        }
+        
+        ctx.fillRect(scrX + x, scrY + (scrH - wallHeight) / 2, 1, wallHeight);
+    }
+
+    // Рамка монитора и текст интерфейса камеры
+    ctx.strokeStyle = "#00ff00";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(scrX, scrY, scrW, scrH);
+    
+    ctx.fillStyle = "#00ff00";
+    ctx.font = "bold 9px monospace";
+    ctx.fillText("CAM_01 LIVE", scrX + 8, scrY + 15);
+    
+    // Эффект мигающей точки записи REC
+    if (Math.floor(Date.now() / 500) % 2 === 0) {
+        ctx.fillStyle = "#ff3333";
+        ctx.beginPath();
+        ctx.arc(scrX + scrW - 15, scrY + 12, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
 function draw() {
     updatePlayer();
 
@@ -404,7 +530,7 @@ function draw() {
 drawHUD()
     // Поверх 3D сцены рисуем мини-карту
     drawMinimap();
-
+drawCCTVSubScreen();
     requestAnimationFrame(draw);
 }
 
