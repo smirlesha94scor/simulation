@@ -575,10 +575,10 @@ function renderCCTV() {
     const w = cctvCanvas.width;
     const h = cctvCanvas.height;
 
-    // Свежая заливка неба и пола в стиле милитари/инфракрасной камеры
-    cctvCtx.fillStyle = "#101f18"; // Зеленоватое темное небо
+    // Свежая заливка неба и пола в стиле основного экрана дрона (вместо монохромного зеленого)
+    cctvCtx.fillStyle = "#1e293b"; // Сине-черное темное небо
     cctvCtx.fillRect(0, 0, w, h / 2);
-    cctvCtx.fillStyle = "#050a07"; // Почти темный пол
+    cctvCtx.fillStyle = "#0f172a"; // Темно-серый асфальт
     cctvCtx.fillRect(0, h / 2, w, h / 2);
 
     const camDirX = Math.cos(activeCam.angle);
@@ -642,12 +642,13 @@ function renderCCTV() {
         depthBuffer[x] = perpWallDist;
 
         let wallHeight = h / (perpWallDist + 0.0001);
-        let colorValue = Math.max(0, 180 - perpWallDist * 25);
+        let colorValue = Math.max(0, 230 - perpWallDist * 32); // Соответствие яркости основного экрана
 
+        // Отрисовка стен с использованием бирюзовых оттенков и мягкого затухания как у основного экрана
         if (side === 1) {
-            cctvCtx.fillStyle = `rgb(0, ${colorValue * 0.55}, 0)`; 
+            cctvCtx.fillStyle = `rgb(10, ${colorValue * 0.45}, ${colorValue * 0.45})`; 
         } else {
-            cctvCtx.fillStyle = `rgb(0, ${colorValue * 0.8}, 0)`;
+            cctvCtx.fillStyle = `rgb(16, ${colorValue * 0.65}, ${colorValue * 0.65})`;
         }
 
         cctvCtx.fillRect(x, (h - wallHeight) / 2, cctvStep, wallHeight);
@@ -671,134 +672,180 @@ function renderCCTV() {
     // Если дрон в пределах 60-градусного объектива камеры
     if (Math.abs(relativeAngleToCam) < fov / 2) {
         
-        // Тест Line of Sight (проверяем прямую видимость)
+        // Тест Line of Sight (проверяем прямую видимость для переключения режима)
         let visible = true;
         let testX = activeCam.x;
         let testY = activeCam.y;
         const steps = Math.floor(dist * 10);
-        const stepX = dx / steps;
-        const stepY = dy / steps;
+        if (steps > 0) {
+            const stepX = dx / steps;
+            const stepY = dy / steps;
 
-        for (let i = 0; i < steps; i++) {
-            testX += stepX;
-            testY += stepY;
-            if (map[Math.floor(testY)][Math.floor(testX)] === 1) {
-                visible = false;
-                break;
+            for (let i = 0; i < steps; i++) {
+                testX += stepX;
+                testY += stepY;
+                if (map[Math.floor(testY)] && map[Math.floor(testY)][Math.floor(testX)] === 1) {
+                    visible = false;
+                    break;
+                }
             }
         }
 
-        if (visible) {
-            const projX = (w / 2) + Math.tan(relativeAngleToCam) / Math.tan(fov / 2) * (w / 2);
+        // Вычисляем горизонтальную координату на экране CCTV
+        const projX = (w / 2) + Math.tan(relativeAngleToCam) / Math.tan(fov / 2) * (w / 2);
+        
+        // Рисуем дрон только в том случае, если он находится в пределах экрана и не перекрыт стенами (без рентген-режима)
+        if (projX >= 0 && projX < w && visible) {
+            const size = Math.max(20, h / (dist + 0.0001) * 0.4);
             
-            if (projX >= 0 && projX < w && dist < depthBuffer[Math.floor(projX)]) {
-                const size = Math.max(20, h / (dist + 0.0001) * 0.4);
-                
-                cctvCtx.save();
-                cctvCtx.translate(projX, h / 2);
+            cctvCtx.save();
+            cctvCtx.translate(projX, h / 2);
 
-                // РЕШЕНИЕ ПРОБЛЕМЫ ВРАЩЕНИЯ: 3D-сортировка по оси Y (Yaw-вращение вокруг своей оси)
-                const droneHeading = Math.atan2(player.dirY, player.dirX);
-                // Угол направления дрона относительно луча зрения камеры
-                const alpha = droneHeading - activeCam.angle; 
-                
-                const R = size / 2;
-                const R_arm = R * 1.1;
-                const parts = [];
+            // Исходные цвета для режима прямой видимости
+            const bodyFill = "#0e7490";
+            const bodyStroke = "#22d3ee";
+            const eyeFill = "#ef4444";
+            const armColor = "#334155";
+            const motorColor = "#1e293b";
+            const propColor = "rgba(224, 242, 254, 0.7)";
+            const textColor = "#22d3ee";
 
-                // 1. Центральное тело дрона (в центре локальной системы координат)
-                parts.push({
-                    z: 0,
-                    draw: () => {
-                        cctvCtx.fillStyle = "#0e7490"; // Глубокий бирюзовый корпус
-                        cctvCtx.strokeStyle = "#22d3ee"; // Неоновые линии
-                        cctvCtx.lineWidth = 1.5;
+            // РЕШЕНИЕ ПРОБЛЕМЫ ВРАЩЕНИЯ: 3D-сортировка по оси Y (Yaw-вращение вокруг своей оси)
+            const droneHeading = Math.atan2(player.dirY, player.dirX);
+            // Угол направления дрона относительно луча зрения камеры
+            const alpha = droneHeading - activeCam.angle; 
+            
+            const R = size / 2;
+            const R_arm = R * 1.1;
+            const parts = [];
+
+            // 1. Центральное тело дрона (в центре локальной системы координат)
+            parts.push({
+                z: 0,
+                draw: () => {
+                    cctvCtx.fillStyle = bodyFill;
+                    cctvCtx.strokeStyle = bodyStroke;
+                    cctvCtx.lineWidth = 1.5;
+                    cctvCtx.beginPath();
+                    cctvCtx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
+                    cctvCtx.fill();
+                    cctvCtx.stroke();
+                }
+            });
+
+            // 2. Фронтальный объектив / Объектив камеры
+            parts.push({
+                z: Math.sin(alpha) * (R * 0.7), // Глубина для отрисовки
+                draw: () => {
+                    const eyeX = Math.cos(alpha) * (R * 0.75);
+                    const eyeY = 0;
+                    // Отрисовываем только если объектив направлен в сторону камеры
+                    if (Math.sin(alpha) > -0.2) {
+                        cctvCtx.fillStyle = eyeFill;
                         cctvCtx.beginPath();
-                        cctvCtx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
+                        cctvCtx.arc(eyeX, eyeY, R * 0.22, 0, Math.PI * 2);
                         cctvCtx.fill();
+                        cctvCtx.strokeStyle = "#ffffff";
+                        cctvCtx.lineWidth = 1;
+                        cctvCtx.stroke();
+
+                        // Блик линзы
+                        cctvCtx.fillStyle = "#ffffff";
+                        cctvCtx.beginPath();
+                        cctvCtx.arc(eyeX - R * 0.05, eyeY - R * 0.05, R * 0.07, 0, Math.PI * 2);
+                        cctvCtx.fill();
+                    }
+                }
+            });
+
+            // 3. Четыре лопасти / Мотора в компоновке квадрокоптера
+            const motorAngles = [
+                { angle: Math.PI / 4, name: 'FR' },   // Передняя правая лопасть
+                { angle: (3 * Math.PI) / 4, name: 'BR' }, // Задняя правая лопасть
+                { angle: -(3 * Math.PI) / 4, name: 'BL' }, // Задняя левая лопасть
+                { angle: -Math.PI / 4, name: 'FL' }   // Передняя левая лопасть
+            ];
+
+            motorAngles.forEach(m => {
+                // Рассчитываем горизонтальное положение лопастей с учетом истинного вращения дрона
+                const motorAlpha = alpha + m.angle;
+                const motorX = Math.cos(motorAlpha) * R_arm;
+                
+                // Небольшой 3D-наклон
+                const motorY = -R * 0.15 + Math.sin(motorAlpha) * (R * 0.12);
+                const motorZ = Math.sin(motorAlpha) * R_arm; // Глубина для сортировки
+
+                parts.push({
+                    z: motorZ,
+                    draw: () => {
+                        // Опорная ножка мотора
+                        cctvCtx.strokeStyle = armColor;
+                        cctvCtx.lineWidth = 3;
+                        cctvCtx.beginPath();
+                        cctvCtx.moveTo(0, 0);
+                        cctvCtx.lineTo(motorX, motorY);
+                        cctvCtx.stroke();
+
+                        // Сердечник мотора
+                        cctvCtx.fillStyle = motorColor;
+                        cctvCtx.beginPath();
+                        cctvCtx.arc(motorX, motorY, R * 0.14, 0, Math.PI * 2);
+                        cctvCtx.fill();
+
+                        // Вращающийся пропеллер
+                        const propWidth = R * 0.65 * Math.abs(Math.sin(performance.now() * 0.04));
+                        cctvCtx.strokeStyle = propColor;
+                        cctvCtx.lineWidth = 1.2;
+                        cctvCtx.beginPath();
+                        cctvCtx.ellipse(motorX, motorY - 2, propWidth, R * 0.08, 0, 0, Math.PI * 2);
                         cctvCtx.stroke();
                     }
                 });
+            });
 
-                // 2. Фронтальный объектив / Объектив камеры (Всегда спереди дрона, т.е. по локальному углу 0)
-                // Его положение зависит от горизонтального вращения дрона вокруг своей оси (alpha)
-                parts.push({
-                    z: Math.sin(alpha) * (R * 0.7), // Глубина для отрисовки
-                    draw: () => {
-                        const eyeX = Math.cos(alpha) * (R * 0.75);
-                        const eyeY = 0;
-                        // Отрисовываем только если объектив направлен в сторону камеры (не скрыт сзади корпуса)
-                        if (Math.sin(alpha) > -0.2) {
-                            cctvCtx.fillStyle = "#ef4444"; // Красный диод записи/объектив
-                            cctvCtx.beginPath();
-                            cctvCtx.arc(eyeX, eyeY, R * 0.22, 0, Math.PI * 2);
-                            cctvCtx.fill();
-                            cctvCtx.strokeStyle = "#ffffff";
-                            cctvCtx.lineWidth = 1;
-                            cctvCtx.stroke();
+            // Сортируем все элементы по глубине Z (от дальних к ближним)
+            parts.sort((a, b) => a.z - b.z);
 
-                            // Блик линзы
-                            cctvCtx.fillStyle = "#ffffff";
-                            cctvCtx.beginPath();
-                            cctvCtx.arc(eyeX - R * 0.05, eyeY - R * 0.05, R * 0.07, 0, Math.PI * 2);
-                            cctvCtx.fill();
-                        }
-                    }
-                });
+            // Отрисовываем отсортированные слои
+            parts.forEach(p => p.draw());
 
-                // 3. Четыре лопасти / Мотора в компоновке квадрокоптера
-                const motorAngles = [
-                    { angle: Math.PI / 4, name: 'FR' },   // Передняя правая лопасть
-                    { angle: (3 * Math.PI) / 4, name: 'BR' }, // Задняя правая лопасть
-                    { angle: -(3 * Math.PI) / 4, name: 'BL' }, // Задняя левая лопасть
-                    { angle: -Math.PI / 4, name: 'FL' }   // Передняя левая лопасть
-                ];
+            // 4. Интерактивная рамка HUD захвата цели (Targeting Frame)
+            const frameSize = R * 1.5;
+            cctvCtx.strokeStyle = bodyStroke;
+            cctvCtx.lineWidth = 1;
+            
+            // Верхний левый угол рамки
+            cctvCtx.beginPath();
+            cctvCtx.moveTo(-frameSize, -frameSize + 5);
+            cctvCtx.lineTo(-frameSize, -frameSize);
+            cctvCtx.lineTo(-frameSize + 5, -frameSize);
+            cctvCtx.stroke();
+            // Верхний правый угол
+            cctvCtx.beginPath();
+            cctvCtx.moveTo(frameSize, -frameSize + 5);
+            cctvCtx.lineTo(frameSize, -frameSize);
+            cctvCtx.lineTo(frameSize - 5, -frameSize);
+            cctvCtx.stroke();
+            // Нижний левый угол
+            cctvCtx.beginPath();
+            cctvCtx.moveTo(-frameSize, frameSize - 5);
+            cctvCtx.lineTo(-frameSize, frameSize);
+            cctvCtx.lineTo(-frameSize + 5, frameSize);
+            cctvCtx.stroke();
+            // Нижний правый угол
+            cctvCtx.beginPath();
+            cctvCtx.moveTo(frameSize, frameSize - 5);
+            cctvCtx.lineTo(frameSize, frameSize);
+            cctvCtx.lineTo(frameSize - 5, frameSize);
+            cctvCtx.stroke();
 
-                motorAngles.forEach(m => {
-                    // Рассчитываем горизонтальное положение лопастей с учетом истинного вращения дрона
-                    const motorAlpha = alpha + m.angle;
-                    const motorX = Math.cos(motorAlpha) * R_arm;
-                    
-                    // Небольшой 3D-наклон: задние пропеллеры рисуются чуть выше, передние — чуть ниже
-                    const motorY = -R * 0.15 + Math.sin(motorAlpha) * (R * 0.12);
-                    const motorZ = Math.sin(motorAlpha) * R_arm; // Глубина для сортировки
+            // Текстовая плашка телеметрии над дроном
+            cctvCtx.fillStyle = textColor;
+            cctvCtx.font = "bold 8px monospace";
+            cctvCtx.textAlign = "center";
+            cctvCtx.fillText("DRONE_01", 0, -frameSize - 4);
 
-                    parts.push({
-                        z: motorZ,
-                        draw: () => {
-                            // Опорная ножка мотора
-                            cctvCtx.strokeStyle = "#334155";
-                            cctvCtx.lineWidth = 3;
-                            cctvCtx.beginPath();
-                            cctvCtx.moveTo(0, 0);
-                            cctvCtx.lineTo(motorX, motorY);
-                            cctvCtx.stroke();
-
-                            // Сердечник мотора
-                            cctvCtx.fillStyle = "#1e293b";
-                            cctvCtx.beginPath();
-                            cctvCtx.arc(motorX, motorY, R * 0.14, 0, Math.PI * 2);
-                            cctvCtx.fill();
-
-                            // Вращающийся пропеллер (размах анимирован через синусоиду времени)
-                            const propWidth = R * 0.65 * Math.abs(Math.sin(performance.now() * 0.04));
-                            cctvCtx.strokeStyle = "rgba(224, 242, 254, 0.7)";
-                            cctvCtx.lineWidth = 1.2;
-                            cctvCtx.beginPath();
-                            cctvCtx.ellipse(motorX, motorY - 2, propWidth, R * 0.08, 0, 0, Math.PI * 2);
-                            cctvCtx.stroke();
-                        }
-                    });
-                });
-
-                // Сортируем все элементы по глубине Z (от дальних к ближним)
-                parts.sort((a, b) => a.z - b.z);
-
-                // Отрисовываем отсортированные слои
-                parts.forEach(p => p.draw());
-
-                cctvCtx.restore();
-            }
+            cctvCtx.restore();
         }
     }
 }
