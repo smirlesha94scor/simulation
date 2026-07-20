@@ -126,7 +126,12 @@ let player = {
 };
 
 let keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-window.addEventListener('keydown', e => { if(e.code in keys) keys[e.code] = true; });
+window.addEventListener('keydown', e => { 
+    if(e.code in keys) {
+        keys[e.code] = true; 
+        e.preventDefault(); // Блокирует прокрутку страницы стрелками в браузере
+    }
+});
 window.addEventListener('keyup', e => { if(e.code in keys) keys[e.code] = false; });
 
 // --- ИНИЦИАЛИЗАЦИЯ РЕДАКТОРА КАРТЫ ---
