@@ -316,7 +316,7 @@ function initThree() {
     playerCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     playerCamera.layers.set(0);
 
-    // Главный рендерер с оптимизацией производительности
+    // Главный рендерер с оптимизацией производительности и поддержкой теней
     renderer = new THREE.WebGLRenderer({ 
         antialias: false, 
         powerPreference: "high-performance",
@@ -324,7 +324,8 @@ function initThree() {
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
-    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     // Камера для CCTV
@@ -342,12 +343,23 @@ function initThree() {
     cctvRenderer.setPixelRatio(1);
     cctvContainer.appendChild(cctvRenderer.domElement);
 
-    // Освещение сцены
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // Освещение сцены с мягкими тенями
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    dirLight.position.set(20, 50, 20);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    dirLight.position.set(25, 45, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 150;
+    const d = 40;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
     // Создаем группы объектов
@@ -413,20 +425,21 @@ function buildEnvironment() {
         wallGroup.remove(wallGroup.children[0]);
     }
 
-    // Материал стены с идеальным равномерным освещением
+    // Материал стены с поддержкой теней и освещения
     const wallMaterial = new THREE.MeshStandardMaterial({
         color: 0x059669,
-        roughness: 0.6,
+        roughness: 0.5,
         metalness: 0.1,
         flatShading: false
     });
 
     // Пол
     const floorGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
-    const floorMat = new THREE.MeshLambertMaterial({ color: 0x1e293b, side: THREE.DoubleSide });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, side: THREE.DoubleSide });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = Math.PI / 2;
     floor.position.set((mapCols * CELL_SIZE) / 2, 0, (mapRows * CELL_SIZE) / 2);
+    floor.receiveShadow = true;
     wallGroup.add(floor);
 
     // Потолок
@@ -482,6 +495,8 @@ function buildEnvironment() {
     if (wallGeometries.length > 0) {
         const unifiedWallGeometry = mergeGeometries(wallGeometries);
         const unifiedWallMesh = new THREE.Mesh(unifiedWallGeometry, wallMaterial);
+        unifiedWallMesh.castShadow = true;
+        unifiedWallMesh.receiveShadow = true;
         wallGroup.add(unifiedWallMesh);
     }
 }
@@ -803,22 +818,32 @@ function updateCCTVCameraPositions() {
     cameras.forEach((cam, idx) => {
         const isSelectedOrActive = (idx === activeCameraIndex);
         
+        const camX = cam.gridX * CELL_SIZE;
+        const camY = cam.altitude * (CELL_SIZE / 5);
+        const camZ = cam.gridY * CELL_SIZE;
+
         // Главный корпус камеры (Черный)
         const mesh = new THREE.Mesh(camGeo, isSelectedOrActive ? activeCamMat : inactiveCamMat);
-        mesh.position.set(
-            cam.gridX * CELL_SIZE,
-            cam.altitude * (CELL_SIZE / 5),
-            cam.gridY * CELL_SIZE
-        );
-        mesh.rotation.y = -cam.angle;
-        mesh.rotation.z = cam.pitch || 0;
+        mesh.position.set(camX, camY, camZ);
 
-        // Небольшая детализация объектива
+        // Расчет вектора направления для разворота камеры объективом в точку обзора
+        const camPitch = cam.pitch || 0;
+        const lookTarget = new THREE.Vector3(
+            camX + Math.cos(cam.angle) * Math.cos(camPitch) * 10,
+            camY + Math.sin(camPitch) * 10,
+            camZ + Math.sin(cam.angle) * Math.cos(camPitch) * 10
+        );
+        mesh.lookAt(lookTarget);
+
+        // Небольшая детализация объектива (размещена на передней грани +Z)
         const lensGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 10);
         lensGeo.rotateX(Math.PI / 2);
         const lensMesh = new THREE.Mesh(lensGeo, isSelectedOrActive ? activeLensMat : inactiveLensMat);
         lensMesh.position.set(0, 0, 0.6);
         mesh.add(lensMesh);
+
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
 
         mesh.traverse(child => {
             child.layers.set(0);
