@@ -150,13 +150,22 @@
                     </h4>
                     
                     <div class="flex flex-col gap-4">
-                        <!-- Слайдер угла -->
+                        <!-- Слайдер угла (Поворот Yaw) -->
                         <div>
                             <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                <span>Направление камеры (Угол):</span>
+                                <span>Поворот камеры (Горизонт):</span>
                                 <span id="angleValueDisplay" class="font-bold text-white mono">0°</span>
                             </div>
                             <input id="cameraAngleSlider" type="range" min="0" max="360" value="0" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
+                        </div>
+
+                        <!-- Слайдер наклона камеры (Pitch / Tilt) -->
+                        <div>
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>Наклон камеры (Вверх / Вниз):</span>
+                                <span id="pitchValueDisplay" class="font-bold text-white mono">0°</span>
+                            </div>
+                            <input id="cameraPitchSlider" type="range" min="-80" max="80" value="0" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
                         </div>
 
                         <!-- Слайдер высоты (Z) -->
@@ -168,10 +177,10 @@
                             <input id="cameraHeightSlider" type="range" min="10" max="45" value="35" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
                         </div>
 
-                        <!-- Пошаговое смещение координат камеры -->
+                        <!-- Точное положение внутри ячейки/квадрата карты (X, Y) -->
                         <div class="flex items-center justify-between gap-4">
                             <div class="flex-1">
-                                <span class="text-[10px] text-gray-400 block mb-1">Сдвиг X:</span>
+                                <span class="text-[10px] text-gray-400 block mb-1">Сдвиг X в ячейке:</span>
                                 <div class="flex items-center bg-gray-950 rounded border border-gray-800 overflow-hidden">
                                     <button id="btnDecX" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 active:bg-cyan-600 text-xs font-bold text-gray-300 transition-colors">-</button>
                                     <span id="camXValue" class="flex-1 text-center font-semibold text-xs text-cyan-400 mono">1.5</span>
@@ -179,7 +188,7 @@
                                 </div>
                             </div>
                             <div class="flex-1">
-                                <span class="text-[10px] text-gray-400 block mb-1">Сдвиг Y (Grid):</span>
+                                <span class="text-[10px] text-gray-400 block mb-1">Сдвиг Y в ячейке:</span>
                                 <div class="flex items-center bg-gray-950 rounded border border-gray-800 overflow-hidden">
                                     <button id="btnDecY" class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 active:bg-cyan-600 text-xs font-bold text-gray-300 transition-colors">-</button>
                                     <span id="camYValue" class="flex-1 text-center font-semibold text-xs text-cyan-400 mono">1.5</span>
@@ -241,16 +250,17 @@ let player = {
 
 // Список камер
 let cameras = [
-    { gridX: 1.5, gridY: 1.5, angle: 0.78, altitude: 3.5, mesh: null } // Камера по умолчанию
+    { gridX: 1.5, gridY: 1.5, angle: 0.78, pitch: -0.2, altitude: 3.5, mesh: null } // Камера по умолчанию с наклоном
 ];
 
 let activeCameraIndex = 0;
 let selectedCameraIndex = null;
 let currentTool = 'wall';
 
-// Переменные для оптимизации отрисовки сетки редактора
+// Переменные для оптимизации отрисовки и кадровой частоты
 let lastGridX = -1;
 let lastGridY = -1;
+let cctvFrameCounter = 0; // Для снижения частоты обновления CCTV кадра
 
 // Объявление сцены, рендереров и камер Three.js
 let scene, renderer, cctvRenderer;
@@ -307,9 +317,13 @@ function initThree() {
     playerCamera.layers.set(0);
 
     // Главный рендерер с оптимизацией производительности
-    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ 
+        antialias: false, 
+        powerPreference: "high-performance",
+        precision: "mediump"
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
     renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
 
@@ -319,23 +333,22 @@ function initThree() {
     cctvCamera.layers.enable(1);
 
     // Рендерер для монитора CCTV
-    cctvRenderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+    cctvRenderer = new THREE.WebGLRenderer({ 
+        antialias: false, 
+        powerPreference: "low-power",
+        precision: "lowp"
+    });
     cctvRenderer.setSize(224, 160);
     cctvRenderer.setPixelRatio(1);
     cctvContainer.appendChild(cctvRenderer.domElement);
 
     // Освещение сцены
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    dirLight.position.set(20, 40, 20);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    dirLight.position.set(20, 50, 20);
     scene.add(dirLight);
-
-    // Точечный синий источник света
-    const pointLight = new THREE.PointLight(0x06b6d4, 1.5, 30);
-    pointLight.position.set(0, 5, 0);
-    scene.add(pointLight);
 
     // Создаем группы объектов
     wallGroup = new THREE.Group();
@@ -350,18 +363,62 @@ function initThree() {
     updateCCTVCameraPositions();
 }
 
-// Построение бесшовных стен, пола и потолка на сцене
+// Функция объединения геометрий в один единый Меш (убирает все швы и полосы)
+function mergeGeometries(geometries) {
+    let totalVertices = 0;
+    let totalIndices = 0;
+
+    geometries.forEach(geo => {
+        totalVertices += geo.attributes.position.count;
+        if (geo.index) totalIndices += geo.index.count;
+    });
+
+    const positions = new Float32Array(totalVertices * 3);
+    const normals = new Float32Array(totalVertices * 3);
+    const indices = totalIndices > 0 ? new Uint32Array(totalIndices) : null;
+
+    let vertexOffset = 0;
+    let indexOffset = 0;
+
+    geometries.forEach(geo => {
+        const pos = geo.attributes.position;
+        const norm = geo.attributes.normal;
+        const idx = geo.index;
+
+        positions.set(pos.array, vertexOffset * 3);
+        if (norm) normals.set(norm.array, vertexOffset * 3);
+
+        if (idx) {
+            for (let i = 0; i < idx.count; i++) {
+                indices[indexOffset + i] = idx.array[i] + vertexOffset;
+            }
+            indexOffset += idx.count;
+        }
+
+        vertexOffset += pos.count;
+    });
+
+    const mergedGeo = new THREE.BufferGeometry();
+    mergedGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    mergedGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    if (indices) mergedGeo.setIndex(new THREE.BufferAttribute(indices, 1));
+
+    return mergedGeo;
+}
+
+// Построение абсолютно монолитных стен, пола и потолка без единого шва
 function buildEnvironment() {
-    // Очищаем всю старую геометрию окружения перед перестройкой
+    // Очищаем старую геометрию
     while (wallGroup.children.length > 0) {
         wallGroup.remove(wallGroup.children[0]);
     }
 
-    // Материал для бесшовных стен (без бликов на стыках)
-    const wallMaterial = new THREE.MeshLambertMaterial({
+    // Материал стены с идеальным равномерным освещением
+    const wallMaterial = new THREE.MeshStandardMaterial({
         color: 0x059669,
-        emissive: 0x022c22,
-        emissiveIntensity: 0.2
+        roughness: 0.6,
+        metalness: 0.1,
+        flatShading: false
     });
 
     // Пол
@@ -380,26 +437,52 @@ function buildEnvironment() {
     ceiling.position.set((mapCols * CELL_SIZE) / 2, CELL_SIZE, (mapRows * CELL_SIZE) / 2);
     wallGroup.add(ceiling);
 
-    // Объединяем непрерывные горизонтальные участки стен в единые блоки для полного устранения швов
+    // Алгоритм слияния блоков (Greedy Merging)
+    let visited = Array.from({ length: mapRows }, () => Array(mapCols).fill(false));
+    const wallGeometries = [];
+
     for (let r = 0; r < mapRows; r++) {
-        let c = 0;
-        while (c < mapCols) {
-            if (map[r][c] === 1) {
-                let startC = c;
-                while (c < mapCols && map[r][c] === 1) {
-                    c++;
+        for (let c = 0; c < mapCols; c++) {
+            if (map[r][c] === 1 && !visited[r][c]) {
+                let width = 1;
+                while (c + width < mapCols && map[r][c + width] === 1 && !visited[r][c + width]) {
+                    width++;
                 }
-                let length = c - startC;
-                const wallGeo = new THREE.BoxGeometry(length * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-                const wallMesh = new THREE.Mesh(wallGeo, wallMaterial);
-                const centerX = (startC + length / 2) * CELL_SIZE;
-                const centerZ = (r + 0.5) * CELL_SIZE;
-                wallMesh.position.set(centerX, CELL_SIZE / 2, centerZ);
-                wallGroup.add(wallMesh);
-            } else {
-                c++;
+
+                let height = 1;
+                let canExtend = true;
+                while (r + height < mapRows && canExtend) {
+                    for (let k = 0; k < width; k++) {
+                        if (map[r + height][c + k] !== 1 || visited[r + height][c + k]) {
+                            canExtend = false;
+                            break;
+                        }
+                    }
+                    if (canExtend) height++;
+                }
+
+                for (let hr = 0; hr < height; hr++) {
+                    for (let wc = 0; wc < width; wc++) {
+                        visited[r + hr][c + wc] = true;
+                    }
+                }
+
+                // Создаем геометрию стены и транслируем координаты
+                const boxGeo = new THREE.BoxGeometry(width * CELL_SIZE, CELL_SIZE, height * CELL_SIZE);
+                const centerX = (c + width / 2) * CELL_SIZE;
+                const centerZ = (r + height / 2) * CELL_SIZE;
+                
+                boxGeo.translate(centerX, CELL_SIZE / 2, centerZ);
+                wallGeometries.push(boxGeo);
             }
         }
+    }
+
+    // Объединяем все геометрии в ЕДИНЫЙ цельный 3D меш
+    if (wallGeometries.length > 0) {
+        const unifiedWallGeometry = mergeGeometries(wallGeometries);
+        const unifiedWallMesh = new THREE.Mesh(unifiedWallGeometry, wallMaterial);
+        wallGroup.add(unifiedWallMesh);
     }
 }
 
@@ -574,6 +657,8 @@ const configPanel = document.getElementById('cameraConfigPanel');
 const selectedCamIdSpan = document.getElementById('selectedCamId');
 const angleSlider = document.getElementById('cameraAngleSlider');
 const angleValueDisplay = document.getElementById('angleValueDisplay');
+const pitchSlider = document.getElementById('cameraPitchSlider');
+const pitchValueDisplay = document.getElementById('pitchValueDisplay');
 const heightSlider = document.getElementById('cameraHeightSlider');
 const heightValueDisplay = document.getElementById('heightValueDisplay');
 const camXValueSpan = document.getElementById('camXValue');
@@ -612,16 +697,20 @@ function updateCameraConfigPanel() {
     angleSlider.value = deg < 0 ? deg + 360 : deg;
     angleValueDisplay.innerText = `${angleSlider.value}°`;
 
+    const pitchDeg = Math.round(((cam.pitch || 0) * 180) / Math.PI);
+    pitchSlider.value = pitchDeg;
+    pitchValueDisplay.innerText = `${pitchDeg}°`;
+
     heightSlider.value = Math.round(cam.altitude * 10);
     heightValueDisplay.innerText = `${cam.altitude.toFixed(1)}m`;
 
     camXValueSpan.innerText = cam.gridX.toFixed(1);
     camYValueSpan.innerText = cam.gridY.toFixed(1);
 
-    btnDecX.disabled = !isValidCameraPosition(cam.gridX - 1, cam.gridY, selectedCameraIndex);
-    btnIncX.disabled = !isValidCameraPosition(cam.gridX + 1, cam.gridY, selectedCameraIndex);
-    btnDecY.disabled = !isValidCameraPosition(cam.gridX, cam.gridY - 1, selectedCameraIndex);
-    btnIncY.disabled = !isValidCameraPosition(cam.gridX, cam.gridY + 1, selectedCameraIndex);
+    btnDecX.disabled = !isValidCameraPosition(cam.gridX - 0.1, cam.gridY, selectedCameraIndex);
+    btnIncX.disabled = !isValidCameraPosition(cam.gridX + 0.1, cam.gridY, selectedCameraIndex);
+    btnDecY.disabled = !isValidCameraPosition(cam.gridX, cam.gridY - 0.1, selectedCameraIndex);
+    btnIncY.disabled = !isValidCameraPosition(cam.gridX, cam.gridY + 0.1, selectedCameraIndex);
 
     [btnDecX, btnIncX, btnDecY, btnIncY].forEach(btn => {
         if (btn.disabled) {
@@ -637,24 +726,34 @@ function updateCameraConfigPanel() {
 function moveSelectedCamera(dx, dy) {
     if (selectedCameraIndex === null || !cameras[selectedCameraIndex]) return;
     const cam = cameras[selectedCameraIndex];
-    if (isValidCameraPosition(cam.gridX + dx, cam.gridY + dy, selectedCameraIndex)) {
-        cam.gridX += dx;
-        cam.gridY += dy;
+    const newX = Math.round((cam.gridX + dx) * 10) / 10;
+    const newY = Math.round((cam.gridY + dy) * 10) / 10;
+    if (isValidCameraPosition(newX, newY, selectedCameraIndex)) {
+        cam.gridX = newX;
+        cam.gridY = newY;
         createEditor();
         updateCameraConfigPanel();
         updateCCTVCameraPositions();
     }
 }
 
-btnDecX.addEventListener('click', () => moveSelectedCamera(-1, 0));
-btnIncX.addEventListener('click', () => moveSelectedCamera(1, 0));
-btnDecY.addEventListener('click', () => moveSelectedCamera(0, -1));
-btnIncY.addEventListener('click', () => moveSelectedCamera(0, 1));
+btnDecX.addEventListener('click', () => moveSelectedCamera(-0.1, 0));
+btnIncX.addEventListener('click', () => moveSelectedCamera(0.1, 0));
+btnDecY.addEventListener('click', () => moveSelectedCamera(0, -0.1));
+btnIncY.addEventListener('click', () => moveSelectedCamera(0, 0.1));
 
 angleSlider.addEventListener('input', () => {
     if (selectedCameraIndex !== null && cameras[selectedCameraIndex]) {
         cameras[selectedCameraIndex].angle = (parseInt(angleSlider.value) * Math.PI) / 180;
         angleValueDisplay.innerText = `${angleSlider.value}°`;
+        updateCCTVCameraPositions();
+    }
+});
+
+pitchSlider.addEventListener('input', () => {
+    if (selectedCameraIndex !== null && cameras[selectedCameraIndex]) {
+        cameras[selectedCameraIndex].pitch = (parseInt(pitchSlider.value) * Math.PI) / 180;
+        pitchValueDisplay.innerText = `${pitchSlider.value}°`;
         updateCCTVCameraPositions();
     }
 });
@@ -703,6 +802,7 @@ function updateCCTVCameraPositions() {
             cam.gridY * CELL_SIZE
         );
         mesh.rotation.y = -cam.angle;
+        mesh.rotation.z = cam.pitch || 0;
         mesh.traverse(child => {
             child.layers.set(0);
         });
@@ -810,38 +910,42 @@ function renderLoop(now) {
 
     updatePlayerPhysics(dt);
 
-    // 1. Рендерим вид из глаз дрона
+    // 1. Рендерим главный вид из глаз дрона (каждый кадр)
     renderer.render(scene, playerCamera);
 
-    // 2. Рендерим ракурс CCTV
-    const activeCam = cameras[activeCameraIndex];
-    if (activeCam) {
-        cctvContainer.classList.remove('hidden');
-        cctvNoise.classList.add('hidden');
+    // 2. Оптимизированный рендеринг CCTV (каждый 3-й кадр ~20 FPS) для сохранения высокого общего FPS
+    cctvFrameCounter++;
+    if (cctvFrameCounter % 3 === 0) {
+        const activeCam = cameras[activeCameraIndex];
+        if (activeCam) {
+            cctvContainer.classList.remove('hidden');
+            cctvNoise.classList.add('hidden');
 
-        document.getElementById('cctv-label-id').innerText = `#${activeCameraIndex + 1}`;
-        const deg = Math.round((activeCam.angle * 180) / Math.PI) % 360;
-        document.getElementById('cctv-angle-label').innerText = `${deg < 0 ? deg + 360 : deg}°`;
+            document.getElementById('cctv-label-id').innerText = `#${activeCameraIndex + 1}`;
+            const deg = Math.round((activeCam.angle * 180) / Math.PI) % 360;
+            document.getElementById('cctv-angle-label').innerText = `${deg < 0 ? deg + 360 : deg}°`;
 
-        const camX = activeCam.gridX * CELL_SIZE;
-        const camZ = activeCam.gridY * CELL_SIZE;
-        const camHeight = activeCam.altitude * (CELL_SIZE / 5);
+            const camX = activeCam.gridX * CELL_SIZE;
+            const camZ = activeCam.gridY * CELL_SIZE;
+            const camHeight = activeCam.altitude * (CELL_SIZE / 5);
 
-        cctvCamera.position.set(camX, camHeight, camZ);
+            cctvCamera.position.set(camX, camHeight, camZ);
 
-        const lookTarget = new THREE.Vector3(
-            camX + Math.cos(activeCam.angle) * 10,
-            camHeight - 1.0, 
-            camZ + Math.sin(activeCam.angle) * 10
-        );
-        cctvCamera.lookAt(lookTarget);
+            const camPitch = activeCam.pitch || 0;
+            const lookTarget = new THREE.Vector3(
+                camX + Math.cos(activeCam.angle) * Math.cos(camPitch) * 10,
+                camHeight + Math.sin(camPitch) * 10,
+                camZ + Math.sin(activeCam.angle) * Math.cos(camPitch) * 10
+            );
+            cctvCamera.lookAt(lookTarget);
 
-        cctvRenderer.render(scene, cctvCamera);
-    } else {
-        cctvContainer.classList.add('hidden');
-        cctvNoise.classList.remove('hidden');
-        document.getElementById('cctv-label-id').innerText = "#ERR";
-        document.getElementById('cctv-angle-label').innerText = "0°";
+            cctvRenderer.render(scene, cctvCamera);
+        } else {
+            cctvContainer.classList.add('hidden');
+            cctvNoise.classList.remove('hidden');
+            document.getElementById('cctv-label-id').innerText = "#ERR";
+            document.getElementById('cctv-angle-label').innerText = "0°";
+        }
     }
 
     const currentGridX = Math.floor(player.gridX);
