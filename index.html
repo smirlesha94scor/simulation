@@ -174,7 +174,7 @@
                                 <span>Высота установки (Высота Y):</span>
                                 <span id="heightValueDisplay" class="font-bold text-white mono">3.5m</span>
                             </div>
-                            <input id="cameraHeightSlider" type="range" min="10" max="45" value="35" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
+                            <input id="cameraHeightSlider" type="range" min="5" max="50" value="35" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
                         </div>
 
                         <!-- Точное положение внутри ячейки/квадрата карты (X, Y) -->
@@ -791,11 +791,20 @@ function updateCCTVCameraPositions() {
 
     const camGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.2, 12);
     camGeo.rotateX(Math.PI / 2);
-    const activeCamMat = new THREE.MeshPhongMaterial({ color: 0x06b6d4, emissive: 0x0891b2 });
-    const inactiveCamMat = new THREE.MeshPhongMaterial({ color: 0x9ca3af });
+    
+    // Черные матовые материалы корпуса камеры
+    const activeCamMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.2, metalness: 0.8 });
+    const inactiveCamMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.6 });
+
+    // Красный объектив/LED индикатор активной камеры
+    const activeLensMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const inactiveLensMat = new THREE.MeshBasicMaterial({ color: 0x334155 });
 
     cameras.forEach((cam, idx) => {
-        const mesh = new THREE.Mesh(camGeo, idx === activeCameraIndex ? activeCamMat : inactiveCamMat);
+        const isSelectedOrActive = (idx === activeCameraIndex);
+        
+        // Главный корпус камеры (Черный)
+        const mesh = new THREE.Mesh(camGeo, isSelectedOrActive ? activeCamMat : inactiveCamMat);
         mesh.position.set(
             cam.gridX * CELL_SIZE,
             cam.altitude * (CELL_SIZE / 5),
@@ -803,6 +812,14 @@ function updateCCTVCameraPositions() {
         );
         mesh.rotation.y = -cam.angle;
         mesh.rotation.z = cam.pitch || 0;
+
+        // Небольшая детализация объектива
+        const lensGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 10);
+        lensGeo.rotateX(Math.PI / 2);
+        const lensMesh = new THREE.Mesh(lensGeo, isSelectedOrActive ? activeLensMat : inactiveLensMat);
+        lensMesh.position.set(0, 0, 0.6);
+        mesh.add(lensMesh);
+
         mesh.traverse(child => {
             child.layers.set(0);
         });
