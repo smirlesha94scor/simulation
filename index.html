@@ -8,8 +8,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Подключаем библиотеку Three.js -->
+    <!-- Подключаем библиотеку Three.js с резервными CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+        }
+    </script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://unpkg.com/three@0.128.0/build/three.min.js"><\/script>');
+        }
+    </script>
     
     <style>
         body {
@@ -342,9 +352,19 @@ function initThree() {
     cctvRenderer.setPixelRatio(1);
     cctvContainer.appendChild(cctvRenderer.domElement);
 
-    // Полностью равномерный фоновый свет без затененных граней
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    // Рассеянный базовый свет
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     scene.add(ambientLight);
+
+    // Главный направленный свет для создания объемных светотеней на стенах
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    dirLight.position.set(20, 45, 15);
+    scene.add(dirLight);
+
+    // Заполняющий холодный свет с противоположного угла для проработки глубины углов
+    const fillLight = new THREE.DirectionalLight(0x06b6d4, 0.35);
+    fillLight.position.set(-20, 15, -15);
+    scene.add(fillLight);
 
     // Создаем группы объектов
     wallGroup = new THREE.Group();
@@ -399,6 +419,9 @@ function mergeGeometries(geometries) {
     mergedGeo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     if (indices) mergedGeo.setIndex(new THREE.BufferAttribute(indices, 1));
 
+    // Автоматический пересчет нормалей для реалистичного объемного отражения света
+    mergedGeo.computeVertexNormals();
+
     return mergedGeo;
 }
 
@@ -409,14 +432,21 @@ function buildEnvironment() {
         wallGroup.remove(wallGroup.children[0]);
     }
 
-    // Полностью яркий базовый материал стен без направленных теней и темных сторон
-    const wallMaterial = new THREE.MeshBasicMaterial({
-        color: 0x0d9488
+    // Физически корректный материал стен с реагированием на свет для объема
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0x0d9488,
+        roughness: 0.45,
+        metalness: 0.15
     });
 
-    // Пол
+    // Пол с объемной текстурой шероховатости
     const floorGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
-    const floorMat = new THREE.MeshBasicMaterial({ color: 0x1e293b, side: THREE.DoubleSide });
+    const floorMat = new THREE.MeshStandardMaterial({ 
+        color: 0x1e293b, 
+        roughness: 0.8,
+        metalness: 0.2,
+        side: THREE.DoubleSide 
+    });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = Math.PI / 2;
     floor.position.set((mapCols * CELL_SIZE) / 2, 0, (mapRows * CELL_SIZE) / 2);
@@ -424,7 +454,11 @@ function buildEnvironment() {
 
     // Потолок
     const ceilingGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
-    const ceilingMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide });
+    const ceilingMat = new THREE.MeshStandardMaterial({ 
+        color: 0x0f172a, 
+        roughness: 0.9,
+        side: THREE.DoubleSide 
+    });
     const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set((mapCols * CELL_SIZE) / 2, CELL_SIZE, (mapRows * CELL_SIZE) / 2);
@@ -497,6 +531,13 @@ function createDrone3D() {
     const lensMesh = new THREE.Mesh(lensGeo, lensMat);
     lensMesh.position.set(1.5, 0, 0);
     droneGroup.add(lensMesh);
+
+    // Носовой прожектор дрона для создания объема в узких коридорах
+    const headlight = new THREE.SpotLight(0x38bdf8, 2.5, 25, Math.PI / 3.5, 0.5, 1);
+    headlight.position.set(1.5, 0, 0);
+    headlight.target.position.set(10, 0, 0);
+    droneGroup.add(headlight);
+    droneGroup.add(headlight.target);
 
     // Лучи крепления
     const armMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
@@ -1020,8 +1061,11 @@ function updateEditorPlayerMarker() {
 
 // Автоматическая адаптация WebGL-холстов при ресайзе страницы
 window.addEventListener('resize', () => {
+    if (!playerCamera || !renderer || !container) return;
+
     const width = container.clientWidth;
     const height = container.clientHeight;
+    if (height === 0) return;
     
     playerCamera.aspect = width / height;
     playerCamera.updateProjectionMatrix();
@@ -1031,6 +1075,16 @@ window.addEventListener('resize', () => {
 
 // Запуск симулятора
 window.onload = function() {
+    if (typeof THREE === 'undefined') {
+        const container = document.getElementById('canvas-container');
+        if (container) {
+            container.innerHTML = `<div class="p-6 text-red-400 font-bold text-center flex flex-col items-center justify-center h-full">
+                <span>⚠️ Не удалось загрузить библиотеку Three.js</span>
+                <span class="text-xs text-gray-400 mt-2 font-normal">Проверьте сетевое подключение или доступность CDN и обновите страницу.</span>
+            </div>`;
+        }
+        return;
+    }
     initThree();
     createEditor();
     updateCameraConfigPanel();
