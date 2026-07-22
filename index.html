@@ -422,11 +422,6 @@ function buildEnvironment() {
     floor.position.set((mapCols * CELL_SIZE) / 2, 0, (mapRows * CELL_SIZE) / 2);
     wallGroup.add(floor);
 
-    // Сетка разметки на полу для хорошей ориентации в пространстве
-    const gridHelper = new THREE.GridHelper(Math.max(mapCols, mapRows) * CELL_SIZE, Math.max(mapCols, mapRows), 0x06b6d4, 0x334155);
-    gridHelper.position.set((mapCols * CELL_SIZE) / 2, 0.05, (mapRows * CELL_SIZE) / 2);
-    wallGroup.add(gridHelper);
-
     // Потолок
     const ceilingGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
     const ceilingMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide });
@@ -476,17 +471,11 @@ function buildEnvironment() {
         }
     }
 
-    // Создаем стены и добавляем неоновую обводку ребер для идеальной видимости
+    // Создаем стены
     if (wallGeometries.length > 0) {
         const unifiedWallGeometry = mergeGeometries(wallGeometries);
         const unifiedWallMesh = new THREE.Mesh(unifiedWallGeometry, wallMaterial);
         wallGroup.add(unifiedWallMesh);
-
-        // Светящиеся контурные ребра для всех углов и стыков стен
-        const edgesGeo = new THREE.EdgesGeometry(unifiedWallGeometry);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x5eead4, linewidth: 2 }); // Яркий мятно-бирюзовый контур
-        const edgeLines = new THREE.LineSegments(edgesGeo, lineMat);
-        wallGroup.add(edgeLines);
     }
 }
 
