@@ -49,6 +49,20 @@
         .animate-pulse-red {
             animation: pulse-red 1.5s infinite;
         }
+  .nav-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    transition: background 0.2s;
+  }
+  .nav-btn:hover {
+    background-color: #0056b3;
+  }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col items-center justify-start p-4 md:p-6">
@@ -61,6 +75,10 @@
             Полноценное 3D-пространство с аппаратным WebGL-рендерингом, интерактивным редактором и реалистичным видеомониторингом.
         </p>
     </header>
+<!-- Кнопка перехода на страницу настроек notification.html -->
+<a href="notification.html" class="nav-btn">Перейти к настройкам уведомлений</a>
+
+<!-- Стили (можно добавить в <head>) -->
 
     <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
