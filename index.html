@@ -71,6 +71,16 @@
                 <!-- Главный 3D холст (Вид из глаз дрона) -->
                 <div id="canvas-container" class="w-full h-full block"></div>
 
+                <!-- Прелоадер загрузки карты -->
+                <div id="preloader" class="absolute inset-0 bg-gray-950/90 backdrop-blur-sm flex flex-col items-center justify-center z-30 transition-opacity duration-500">
+                    <div class="relative flex items-center justify-center mb-4">
+                        <div class="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
+                        <div class="absolute w-6 h-6 border-4 border-teal-500/20 border-b-teal-400 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 0.8s;"></div>
+                    </div>
+                    <div class="text-cyan-400 font-bold text-sm tracking-widest uppercase mb-1 animate-pulse">Загрузка 3D карты...</div>
+                    <div id="preloaderStatus" class="text-xs text-gray-400 mono">Генерация текстур и 3D-сетки</div>
+                </div>
+
                 <!-- PIP Монитор CCTV (Внизу слева) -->
                 <div class="absolute bottom-4 left-4 w-44 h-32 md:w-56 md:h-40 bg-black border-2 border-cyan-500 rounded-xl overflow-hidden shadow-2xl flex flex-col z-10">
                     <div class="bg-cyan-950/90 px-2 py-1 text-[10px] text-cyan-400 font-bold flex justify-between items-center border-b border-cyan-800/50">
@@ -1123,11 +1133,23 @@ window.onload = function() {
                 <span class="text-xs text-gray-400 mt-2 font-normal">Проверьте сетевое подключение или доступность CDN и обновите страницу.</span>
             </div>`;
         }
+        const preloader = document.getElementById('preloader');
+        if (preloader) preloader.remove();
         return;
     }
     initThree();
     createEditor();
     updateCameraConfigPanel();
+
+    // Плавное скрытие прелоадера после завершения инициализации
+    const preloader = document.getElementById('preloader');
+    if (preloader) {
+        preloader.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            preloader.remove();
+        }, 500);
+    }
+
     requestAnimationFrame(renderLoop);
 };
 </script>
