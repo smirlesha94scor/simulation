@@ -49,20 +49,6 @@
         .animate-pulse-red {
             animation: pulse-red 1.5s infinite;
         }
-  .nav-btn {
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    transition: background 0.2s;
-  }
-  .nav-btn:hover {
-    background-color: #0056b3;
-  }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen flex flex-col items-center justify-start p-4 md:p-6">
@@ -82,7 +68,7 @@
         <div class="col-span-1 lg:col-span-7 flex flex-col gap-4">
             <div class="relative bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl aspect-[4/3] w-full">
                 
-                <!-- Главный 3D холст (Вид из глаз дрона) -->
+                <!-- Главный 3D холст (Содержит и основной вид, и CCTV через Scissor) -->
                 <div id="canvas-container" class="w-full h-full block"></div>
 
                 <!-- Прелоадер загрузки карты -->
@@ -92,11 +78,11 @@
                         <div class="absolute w-6 h-6 border-4 border-teal-500/20 border-b-teal-400 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 0.8s;"></div>
                     </div>
                     <div class="text-cyan-400 font-bold text-sm tracking-widest uppercase mb-1 animate-pulse">Загрузка 3D карты...</div>
-                    <div id="preloaderStatus" class="text-xs text-gray-400 mono">Генерация текстур и 3D-сетки</div>
+                    <div id="preloaderStatus" class="text-xs text-gray-400 mono">Оптимизация WebGL & Контекста</div>
                 </div>
 
                 <!-- PIP Монитор CCTV (Внизу слева) -->
-                <div class="absolute bottom-4 left-4 w-44 h-32 md:w-56 md:h-40 bg-black border-2 border-cyan-500 rounded-xl overflow-hidden shadow-2xl flex flex-col z-10">
+                <div id="cctv-frame" class="absolute bottom-4 left-4 w-44 h-32 md:w-56 md:h-40 bg-black/80 backdrop-blur border-2 border-cyan-500 rounded-xl overflow-hidden shadow-2xl flex flex-col z-10 pointer-events-none">
                     <div class="bg-cyan-950/90 px-2 py-1 text-[10px] text-cyan-400 font-bold flex justify-between items-center border-b border-cyan-800/50">
                         <span class="flex items-center gap-1.5">
                             <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse-red"></span>
@@ -104,9 +90,8 @@
                         </span>
                         <span id="cctv-angle-label" class="mono text-[9px]">0°</span>
                     </div>
-                    <!-- Canvas для рендеринга камеры CCTV -->
-                    <div class="relative flex-1 bg-neutral-950">
-                        <div id="cctv-container" class="w-full h-full block"></div>
+                    <!-- Область выреза для Scissor-рендеринга -->
+                    <div id="cctv-container" class="relative flex-1 w-full h-full">
                         <!-- Заглушка при отсутствии камер -->
                         <div id="cctvNoise" class="absolute inset-0 bg-neutral-900 flex flex-col items-center justify-center hidden">
                             <div class="text-cyan-500 font-bold text-xs tracking-widest animate-pulse mb-1">NO SIGNAL</div>
@@ -116,8 +101,8 @@
                 </div>
 
                 <!-- Неоновый индикатор FPS (Вверху справа) -->
-                <div class="absolute top-4 right-4 bg-gray-950 px-3 py-1 rounded border border-cyan-500/50 shadow-md z-10">
-                    <span id="fpsDisplay" class="text-cyan-400 font-extrabold text-xs mono">FPS: 60</span>
+                <div class="absolute top-4 right-4 bg-gray-950/80 backdrop-blur px-3 py-1 rounded border border-cyan-500/50 shadow-md z-10">
+                    <span id="fpsDisplay" class="text-cyan-400 font-extrabold text-xs mono">FPS: --</span>
                 </div>
             </div>
 
@@ -287,16 +272,15 @@ let activeCameraIndex = 0;
 let selectedCameraIndex = null;
 let currentTool = 'wall';
 
-// Текстуры окружения (процедурные Canvas)
+// Текстуры окружения
 let wallTexture, floorTexture, ceilingTexture;
 
 // Переменные для оптимизации
 let lastGridX = -1;
 let lastGridY = -1;
-let cctvFrameCounter = 0;
 
-// Трёхмерные сцены и рендереры
-let scene, renderer, cctvRenderer;
+// Единый трехмерный рендерер для максимального FPS
+let scene, renderer;
 let playerCamera, cctvCamera;
 let wallGroup, cctvMeshesGroup;
 let droneGroup;
@@ -307,6 +291,7 @@ let lastFrameTime = performance.now();
 let fps = 0;
 let frameCount = 0;
 let lastFpsUpdate = performance.now();
+let lastTelemetryUpdate = 0;
 
 // DOM элементы
 const container = document.getElementById('canvas-container');
@@ -345,8 +330,9 @@ function initThree() {
     playerCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     playerCamera.layers.set(0);
 
+    // Единственный WebGL Renderer с низким энергопотреблением и высоким FPS
     renderer = new THREE.WebGLRenderer({ 
-        antialias: true, 
+        antialias: false, 
         powerPreference: "high-performance",
         precision: "mediump"
     });
@@ -359,29 +345,16 @@ function initThree() {
     cctvCamera.layers.enable(0);
     cctvCamera.layers.enable(1);
 
-    cctvRenderer = new THREE.WebGLRenderer({ 
-        antialias: false, 
-        powerPreference: "low-power",
-        precision: "lowp"
-    });
-    cctvRenderer.setSize(224, 160);
-    cctvRenderer.setPixelRatio(1);
-    cctvContainer.appendChild(cctvRenderer.domElement);
-
-    // Источники света для объёма
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // Источники света для 3D объёма (MeshLambertMaterial)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(20, 45, 15);
     scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.6);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.5);
     scene.add(hemiLight);
-
-    const fillLight = new THREE.DirectionalLight(0x06b6d4, 0.4);
-    fillLight.position.set(-20, 15, -15);
-    scene.add(fillLight);
 
     generateProceduralTextures();
 
@@ -399,28 +372,21 @@ function initThree() {
 function generateProceduralTextures() {
     // 1. Плитка пола
     const cvsFloor = document.createElement('canvas');
-    cvsFloor.width = 512;
-    cvsFloor.height = 512;
+    cvsFloor.width = 256;
+    cvsFloor.height = 256;
     const ctxF = cvsFloor.getContext('2d');
     
     ctxF.fillStyle = '#1e2638';
-    ctxF.fillRect(0, 0, 512, 512);
+    ctxF.fillRect(0, 0, 256, 256);
     
     ctxF.strokeStyle = '#0f172a';
-    ctxF.lineWidth = 4;
-    const tileSize = 64;
-    for (let x = 0; x <= 512; x += tileSize) {
-        ctxF.beginPath(); ctxF.moveTo(x, 0); ctxF.lineTo(x, 512); ctxF.stroke();
+    ctxF.lineWidth = 3;
+    const tileSize = 32;
+    for (let x = 0; x <= 256; x += tileSize) {
+        ctxF.beginPath(); ctxF.moveTo(x, 0); ctxF.lineTo(x, 256); ctxF.stroke();
     }
-    for (let y = 0; y <= 512; y += tileSize) {
-        ctxF.beginPath(); ctxF.moveTo(0, y); ctxF.lineTo(512, y); ctxF.stroke();
-    }
-    
-    for (let i = 0; i < 4000; i++) {
-        const rx = Math.random() * 512;
-        const ry = Math.random() * 512;
-        ctxF.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)';
-        ctxF.fillRect(rx, ry, 2, 2);
+    for (let y = 0; y <= 256; y += tileSize) {
+        ctxF.beginPath(); ctxF.moveTo(0, y); ctxF.lineTo(256, y); ctxF.stroke();
     }
     
     floorTexture = new THREE.CanvasTexture(cvsFloor);
@@ -430,48 +396,35 @@ function generateProceduralTextures() {
 
     // 2. Серые панели стен
     const cvsWall = document.createElement('canvas');
-    cvsWall.width = 512;
-    cvsWall.height = 512;
+    cvsWall.width = 256;
+    cvsWall.height = 256;
     const ctxW = cvsWall.getContext('2d');
     
     ctxW.fillStyle = '#4b5563';
-    ctxW.fillRect(0, 0, 512, 512);
+    ctxW.fillRect(0, 0, 256, 256);
     
     ctxW.strokeStyle = '#374151';
-    ctxW.lineWidth = 6;
-    ctxW.strokeRect(3, 3, 506, 506);
+    ctxW.lineWidth = 4;
+    ctxW.strokeRect(2, 2, 252, 252);
     
     ctxW.fillStyle = '#1f2937';
-    ctxW.fillRect(0, 480, 512, 32);
+    ctxW.fillRect(0, 240, 256, 16);
 
-    ctxW.fillStyle = '#6b7280';
-    for (let i = 20; i < 500; i += 40) {
-        ctxW.beginPath(); ctxW.arc(i, 16, 3, 0, Math.PI * 2); ctxW.fill();
-        ctxW.beginPath(); ctxW.arc(i, 464, 3, 0, Math.PI * 2); ctxW.fill();
-    }
-    
     wallTexture = new THREE.CanvasTexture(cvsWall);
     wallTexture.wrapS = THREE.RepeatWrapping;
     wallTexture.wrapT = THREE.RepeatWrapping;
 
     // 3. Белый плиточный потолок
     const cvsCeil = document.createElement('canvas');
-    cvsCeil.width = 256;
-    cvsCeil.height = 256;
+    cvsCeil.width = 128;
+    cvsCeil.height = 128;
     const ctxC = cvsCeil.getContext('2d');
     
     ctxC.fillStyle = '#f8fafc';
-    ctxC.fillRect(0, 0, 256, 256);
+    ctxC.fillRect(0, 0, 128, 128);
     ctxC.strokeStyle = '#cbd5e1';
-    ctxC.lineWidth = 4;
-    ctxC.strokeRect(0, 0, 256, 256);
-    
-    for (let i = 0; i < 1200; i++) {
-        const rx = Math.random() * 256;
-        const ry = Math.random() * 256;
-        ctxC.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.4)';
-        ctxC.fillRect(rx, ry, 2, 2);
-    }
+    ctxC.lineWidth = 3;
+    ctxC.strokeRect(0, 0, 128, 128);
 
     ceilingTexture = new THREE.CanvasTexture(cvsCeil);
     ceilingTexture.wrapS = THREE.RepeatWrapping;
@@ -527,18 +480,15 @@ function buildEnvironment() {
         wallGroup.remove(wallGroup.children[0]);
     }
 
-    const wallMaterial = new THREE.MeshStandardMaterial({
-        map: wallTexture,
-        roughness: 0.7,
-        metalness: 0.1
+    // Быстрый MeshLambertMaterial обеспечивает отличное 3D-освещение без тормозов
+    const wallMaterial = new THREE.MeshLambertMaterial({
+        map: wallTexture
     });
 
-    // Пол (без отсвета и ярких бликов)
+    // Пол
     const floorGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
-    const floorMat = new THREE.MeshStandardMaterial({ 
+    const floorMat = new THREE.MeshLambertMaterial({ 
         map: floorTexture,
-        roughness: 0.98,
-        metalness: 0.0,
         side: THREE.DoubleSide 
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -546,12 +496,10 @@ function buildEnvironment() {
     floor.position.set((mapCols * CELL_SIZE) / 2, 0, (mapRows * CELL_SIZE) / 2);
     wallGroup.add(floor);
 
-    // Белый плиточный потолок
+    // Потолок
     const ceilingGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
-    const ceilingMat = new THREE.MeshStandardMaterial({ 
+    const ceilingMat = new THREE.MeshLambertMaterial({ 
         map: ceilingTexture,
-        roughness: 0.9,
-        metalness: 0.0,
         side: THREE.DoubleSide 
     });
     const ceiling = new THREE.Mesh(ceilingGeo, ceilingMat);
@@ -559,7 +507,7 @@ function buildEnvironment() {
     ceiling.position.set((mapCols * CELL_SIZE) / 2, CELL_SIZE, (mapRows * CELL_SIZE) / 2);
     wallGroup.add(ceiling);
 
-    // Алгоритм слияния блоков (Greedy Merging)
+    // Greedy Merging стен
     let visited = Array.from({ length: mapRows }, () => Array(mapCols).fill(false));
     const wallGeometries = [];
 
@@ -609,21 +557,21 @@ function buildEnvironment() {
 function createDrone3D() {
     droneGroup = new THREE.Group();
 
-    const bodyGeo = new THREE.SphereGeometry(1.2, 16, 16);
+    const bodyGeo = new THREE.SphereGeometry(1.2, 12, 12);
     bodyGeo.scale(1.5, 0.6, 1);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.8 });
+    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x0891b2 });
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     droneGroup.add(bodyMesh);
 
-    const lensGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 12);
+    const lensGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 8);
     lensGeo.rotateX(Math.PI / 2);
     const lensMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
     const lensMesh = new THREE.Mesh(lensGeo, lensMat);
     lensMesh.position.set(1.5, 0, 0);
     droneGroup.add(lensMesh);
 
-    const armMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
-    const armGeo = new THREE.CylinderGeometry(0.12, 0.12, 4.0, 8);
+    const armMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+    const armGeo = new THREE.CylinderGeometry(0.12, 0.12, 4.0, 6);
     armGeo.rotateZ(Math.PI / 2);
 
     const arm1 = new THREE.Mesh(armGeo, armMat);
@@ -634,7 +582,7 @@ function createDrone3D() {
     arm2.rotation.y = -Math.PI / 4;
     droneGroup.add(arm2);
 
-    const motorGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 8);
+    const motorGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 6);
     const propGeo = new THREE.BoxGeometry(2.4, 0.04, 0.2);
     const propMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.8 });
 
@@ -901,14 +849,11 @@ function updateCCTVCameraPositions() {
         cctvMeshesGroup.remove(cctvMeshesGroup.children[0]);
     }
 
-    const camGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.2, 12);
+    const camGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.2, 8);
     camGeo.rotateX(Math.PI / 2);
     
-    const activeCamMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
-    const inactiveCamMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-
-    const activeLensMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-    const inactiveLensMat = new THREE.MeshBasicMaterial({ color: 0x334155 });
+    const activeCamMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+    const inactiveCamMat = new THREE.MeshBasicMaterial({ color: 0x1f2937 });
 
     cameras.forEach((cam, idx) => {
         const isSelectedOrActive = (idx === activeCameraIndex);
@@ -927,12 +872,6 @@ function updateCCTVCameraPositions() {
             camZ + Math.sin(cam.angle) * Math.cos(camPitch) * 10
         );
         mesh.lookAt(lookTarget);
-
-        const lensGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 10);
-        lensGeo.rotateX(Math.PI / 2);
-        const lensMesh = new THREE.Mesh(lensGeo, isSelectedOrActive ? activeLensMat : inactiveLensMat);
-        lensMesh.position.set(0, 0, 0.6);
-        mesh.add(lensMesh);
 
         mesh.traverse(child => {
             child.layers.set(0);
@@ -1019,9 +958,6 @@ function updatePlayerPhysics(dt) {
         );
         playerCamera.lookAt(lookTarget);
     }
-
-    document.getElementById('posVal').innerText = `X: ${player.gridX.toFixed(1)}, Y: ${player.gridY.toFixed(1)}`;
-    document.getElementById('altitudeVal').innerText = `${player.altitude.toFixed(1)} m`;
 }
 
 function renderLoop(now) {
@@ -1037,46 +973,72 @@ function renderLoop(now) {
         lastFpsUpdate = now;
     }
 
+    // Троттлинг обновления текстовых элементов DOM раз в 100мс
+    if (now - lastTelemetryUpdate >= 100) {
+        document.getElementById('posVal').innerText = `X: ${player.gridX.toFixed(1)}, Y: ${player.gridY.toFixed(1)}`;
+        document.getElementById('altitudeVal').innerText = `${player.altitude.toFixed(1)} m`;
+        lastTelemetryUpdate = now;
+    }
+
     updatePlayerPhysics(dt);
 
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const dpr = renderer.getPixelRatio();
+
+    // 1. Основной рендер сцены дрона (на полный экран холста)
+    renderer.setViewport(0, 0, width, height);
+    renderer.setScissor(0, 0, width, height);
+    renderer.setScissorTest(false);
     renderer.render(scene, playerCamera);
 
-    cctvFrameCounter++;
-    if (cctvFrameCounter % 3 === 0) {
-        const activeCam = cameras[activeCameraIndex];
-        if (activeCam) {
-            cctvContainer.classList.remove('hidden');
-            cctvNoise.classList.add('hidden');
+    // 2. Вложенный рендер камеры CCTV через Scissor (Один WebGL-контекст)
+    const activeCam = cameras[activeCameraIndex];
+    if (activeCam && cctvContainer) {
+        cctvNoise.classList.add('hidden');
+        document.getElementById('cctv-label-id').innerText = `#${activeCameraIndex + 1}`;
+        const deg = Math.round((activeCam.angle * 180) / Math.PI) % 360;
+        document.getElementById('cctv-angle-label').innerText = `${deg < 0 ? deg + 360 : deg}°`;
 
-            document.getElementById('cctv-label-id').innerText = `#${activeCameraIndex + 1}`;
-            const deg = Math.round((activeCam.angle * 180) / Math.PI) % 360;
-            document.getElementById('cctv-angle-label').innerText = `${deg < 0 ? deg + 360 : deg}°`;
+        const camX = activeCam.gridX * CELL_SIZE;
+        const camZ = activeCam.gridY * CELL_SIZE;
+        const camHeight = activeCam.altitude * (CELL_SIZE / 5);
 
-            const camX = activeCam.gridX * CELL_SIZE;
-            const camZ = activeCam.gridY * CELL_SIZE;
-            const camHeight = activeCam.altitude * (CELL_SIZE / 5);
+        cctvCamera.position.set(camX, camHeight, camZ);
 
-            cctvCamera.position.set(camX, camHeight, camZ);
+        const camPitch = activeCam.pitch || 0;
+        const lookTarget = new THREE.Vector3(
+            camX + Math.cos(activeCam.angle) * Math.cos(camPitch) * 10,
+            camHeight + Math.sin(camPitch) * 10,
+            camZ + Math.sin(activeCam.angle) * Math.cos(camPitch) * 10
+        );
+        cctvCamera.lookAt(lookTarget);
 
-            const camPitch = activeCam.pitch || 0;
-            const lookTarget = new THREE.Vector3(
-                camX + Math.cos(activeCam.angle) * Math.cos(camPitch) * 10,
-                camHeight + Math.sin(camPitch) * 10,
-                camZ + Math.sin(activeCam.angle) * Math.cos(camPitch) * 10
-            );
-            cctvCamera.lookAt(lookTarget);
+        // Получаем пиксельные координаты области мини-окна CCTV
+        const rect = cctvContainer.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        const pipX = (rect.left - containerRect.left) * dpr;
+        const pipY = (containerRect.bottom - rect.bottom) * dpr;
+        const pipWidth = rect.width * dpr;
+        const pipHeight = rect.height * dpr;
+
+        if (pipWidth > 0 && pipHeight > 0) {
+            renderer.setViewport(pipX, pipY, pipWidth, pipHeight);
+            renderer.setScissor(pipX, pipY, pipWidth, pipHeight);
+            renderer.setScissorTest(true);
 
             if (activeCam.mesh) activeCam.mesh.visible = false;
-
-            cctvRenderer.render(scene, cctvCamera);
-
+            renderer.render(scene, cctvCamera);
             if (activeCam.mesh) activeCam.mesh.visible = true;
-        } else {
-            cctvContainer.classList.add('hidden');
-            cctvNoise.classList.remove('hidden');
-            document.getElementById('cctv-label-id').innerText = "#ERR";
-            document.getElementById('cctv-angle-label').innerText = "0°";
+
+            // Восстанавливаем состояние теста ножниц
+            renderer.setScissorTest(false);
         }
+    } else if (cctvNoise) {
+        cctvNoise.classList.remove('hidden');
+        document.getElementById('cctv-label-id').innerText = "#ERR";
+        document.getElementById('cctv-angle-label').innerText = "0°";
     }
 
     const currentGridX = Math.floor(player.gridX);
