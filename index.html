@@ -81,9 +81,9 @@
                     <div id="preloaderStatus" class="text-xs text-gray-400 mono">Оптимизация WebGL & Контекста</div>
                 </div>
 
-                <!-- PIP Монитор CCTV (Внизу слева) -->
-                <div id="cctv-frame" class="absolute bottom-4 left-4 w-48 h-36 md:w-60 md:h-44 bg-black/90 backdrop-blur border-2 border-cyan-500 rounded-xl overflow-hidden shadow-2xl flex flex-col z-10 pointer-events-none">
-                    <div class="bg-cyan-950/90 px-2.5 py-1 text-[10px] text-cyan-400 font-bold flex justify-between items-center border-b border-cyan-800/50">
+                <!-- PIP Монитор CCTV (Внизу слева) без backdrop-blur для высокой четкости -->
+                <div id="cctv-frame" class="absolute bottom-4 left-4 w-48 h-36 md:w-60 md:h-44 bg-cyan-950/90 border-2 border-cyan-500 rounded-xl overflow-hidden shadow-2xl flex flex-col z-10 pointer-events-none">
+                    <div class="bg-cyan-950 px-2.5 py-1 text-[10px] text-cyan-400 font-bold flex justify-between items-center border-b border-cyan-800/50">
                         <span class="flex items-center gap-1.5">
                             <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse-red"></span>
                             CCTV_FEED <span id="cctv-label-id">#1</span>
@@ -91,7 +91,7 @@
                         <span id="cctv-angle-label" class="mono text-[9px]">0°</span>
                     </div>
                     <!-- Область выреза для Scissor-рендеринга -->
-                    <div id="cctv-container" class="relative flex-1 w-full h-full">
+                    <div id="cctv-container" class="relative flex-1 w-full h-full bg-transparent">
                         <!-- Заглушка при отсутствии камер -->
                         <div id="cctvNoise" class="absolute inset-0 bg-neutral-900 flex flex-col items-center justify-center hidden">
                             <div class="text-cyan-500 font-bold text-xs tracking-widest animate-pulse mb-1">NO SIGNAL</div>
@@ -100,7 +100,7 @@
                     </div>
                 </div>
 
-                <!-- Неоновый индикатор FPS (Вверху справа) -->
+                <!-- Индикатор FPS -->
                 <div class="absolute top-4 right-4 bg-gray-950/80 backdrop-blur px-3 py-1 rounded border border-cyan-500/50 shadow-md z-10">
                     <span id="fpsDisplay" class="text-cyan-400 font-extrabold text-xs mono">FPS: --</span>
                 </div>
@@ -123,7 +123,7 @@
             </div>
         </div>
 
-        <!-- Правая колонка: Редактор и Панель конфигурации -->
+        <!-- Правая колонка: Редактор и инструкции -->
         <div class="col-span-1 lg:col-span-5 flex flex-col gap-6">
             
             <!-- Интерактивный редактор -->
@@ -158,14 +158,13 @@
                     </div>
                 </div>
 
-                <!-- Настройки выбранной камеры -->
                 <div id="cameraConfigPanel" class="bg-gray-800/60 border border-cyan-950 p-4 rounded-lg hidden mt-4 transition-all duration-300">
                     <h4 class="text-sm font-semibold text-cyan-400 flex items-center gap-2 mb-3">
                         <span>⚙️</span> Настройка камеры <span id="selectedCamId" class="mono bg-cyan-950 px-2 py-0.5 rounded text-xs text-white">#1</span>
                     </h4>
                     
                     <div class="flex flex-col gap-4">
-                        <!-- Слайдер угла (Поворот Yaw) -->
+                        <!-- Слайдер угла -->
                         <div>
                             <div class="flex justify-between text-xs text-gray-400 mb-1">
                                 <span>Поворот камеры (Горизонт):</span>
@@ -174,7 +173,7 @@
                             <input id="cameraAngleSlider" type="range" min="0" max="360" value="0" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
                         </div>
 
-                        <!-- Слайдер наклона камеры (Pitch / Tilt) -->
+                        <!-- Слайдер наклона -->
                         <div>
                             <div class="flex justify-between text-xs text-gray-400 mb-1">
                                 <span>Наклон камеры (Вверх / Вниз):</span>
@@ -183,7 +182,7 @@
                             <input id="cameraPitchSlider" type="range" min="-80" max="80" value="0" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
                         </div>
 
-                        <!-- Слайдер высоты (Z) -->
+                        <!-- Слайдер высоты -->
                         <div>
                             <div class="flex justify-between text-xs text-gray-400 mb-1">
                                 <span>Высота установки (Высота Y):</span>
@@ -192,7 +191,7 @@
                             <input id="cameraHeightSlider" type="range" min="5" max="50" value="35" class="w-full accent-cyan-400 bg-gray-700 h-1 rounded-lg cursor-pointer">
                         </div>
 
-                        <!-- Точное положение внутри ячейки/квадрата карты (X, Y) -->
+                        <!-- Сдвиг X / Y -->
                         <div class="flex items-center justify-between gap-4">
                             <div class="flex-1">
                                 <span class="text-[10px] text-gray-400 block mb-1">Сдвиг X в ячейке:</span>
@@ -237,7 +236,6 @@
     </main>
 
 <script>
-// Данные карты 8x7
 let map = [
     [1, 1, 1, 1, 1, 1, 1, 1],
     [1, 0, 0, 0, 0, 0, 0, 1],
@@ -250,10 +248,8 @@ let map = [
 const mapRows = map.length;
 const mapCols = map[0].length;
 
-// Параметры сетки Three.js (размер одной ячейки = 10 единиц)
 const CELL_SIZE = 10;
 
-// Игрок (Дрон)
 let player = {
     gridX: 3.5,
     gridY: 3.5,
@@ -263,7 +259,6 @@ let player = {
     rotSpeed: 0
 };
 
-// Список камер
 let cameras = [
     { gridX: 1.5, gridY: 1.5, angle: 0.78, pitch: -0.2, altitude: 3.5, mesh: null }
 ];
@@ -272,28 +267,23 @@ let activeCameraIndex = 0;
 let selectedCameraIndex = null;
 let currentTool = 'wall';
 
-// Текстуры окружения
 let wallTexture, floorTexture, ceilingTexture;
 
-// Оптимизация сетки
 let lastGridX = -1;
 let lastGridY = -1;
 
-// Единый трехмерный рендерер для максимального FPS
 let scene, renderer;
 let playerCamera, cctvCamera;
 let wallGroup, cctvMeshesGroup;
 let droneGroup;
 let leftPropeller, rightPropeller, backLeftProp, backRightProp;
 
-// Расчет FPS
 let lastFrameTime = performance.now();
 let fps = 0;
 let frameCount = 0;
 let lastFpsUpdate = performance.now();
 let lastTelemetryUpdate = 0;
 
-// DOM элементы
 const container = document.getElementById('canvas-container');
 const cctvContainer = document.getElementById('cctv-container');
 const cctvNoise = document.getElementById('cctvNoise');
@@ -330,14 +320,13 @@ function initThree() {
     playerCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     playerCamera.layers.set(0);
 
-    // Оптимизированный WebGL Renderer с единым фиксированным PixelRatio для 30-60+ FPS
     renderer = new THREE.WebGLRenderer({ 
         antialias: false, 
         powerPreference: "high-performance",
         precision: "mediump"
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(1.0); // Гарантия высокой частоты кадров
+    renderer.setPixelRatio(1.0);
     renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
 
@@ -345,7 +334,6 @@ function initThree() {
     cctvCamera.layers.enable(0);
     cctvCamera.layers.enable(1);
 
-    // Источники света для 3D объёма
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
@@ -370,7 +358,6 @@ function initThree() {
 }
 
 function generateProceduralTextures() {
-    // 1. Плитка пола
     const cvsFloor = document.createElement('canvas');
     cvsFloor.width = 256;
     cvsFloor.height = 256;
@@ -394,7 +381,6 @@ function generateProceduralTextures() {
     floorTexture.wrapT = THREE.RepeatWrapping;
     floorTexture.repeat.set(mapCols, mapRows);
 
-    // 2. Серые панели стен
     const cvsWall = document.createElement('canvas');
     cvsWall.width = 256;
     cvsWall.height = 256;
@@ -414,7 +400,6 @@ function generateProceduralTextures() {
     wallTexture.wrapS = THREE.RepeatWrapping;
     wallTexture.wrapT = THREE.RepeatWrapping;
 
-    // 3. Белый плиточный потолок
     const cvsCeil = document.createElement('canvas');
     cvsCeil.width = 128;
     cvsCeil.height = 128;
@@ -430,6 +415,13 @@ function generateProceduralTextures() {
     ceilingTexture.wrapS = THREE.RepeatWrapping;
     ceilingTexture.wrapT = THREE.RepeatWrapping;
     ceilingTexture.repeat.set(mapCols, mapRows);
+
+    const maxAniso = renderer ? renderer.capabilities.getMaxAnisotropy() : 4;
+    [floorTexture, wallTexture, ceilingTexture].forEach(tex => {
+        tex.anisotropy = maxAniso;
+        tex.magFilter = THREE.LinearFilter;
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+    });
 }
 
 function mergeGeometries(geometries) {
@@ -484,7 +476,6 @@ function buildEnvironment() {
         map: wallTexture
     });
 
-    // Пол
     const floorGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
     const floorMat = new THREE.MeshLambertMaterial({ 
         map: floorTexture,
@@ -495,7 +486,6 @@ function buildEnvironment() {
     floor.position.set((mapCols * CELL_SIZE) / 2, 0, (mapRows * CELL_SIZE) / 2);
     wallGroup.add(floor);
 
-    // Потолок
     const ceilingGeo = new THREE.PlaneGeometry(mapCols * CELL_SIZE, mapRows * CELL_SIZE);
     const ceilingMat = new THREE.MeshLambertMaterial({ 
         map: ceilingTexture,
@@ -506,7 +496,6 @@ function buildEnvironment() {
     ceiling.position.set((mapCols * CELL_SIZE) / 2, CELL_SIZE, (mapRows * CELL_SIZE) / 2);
     wallGroup.add(ceiling);
 
-    // Greedy Merging стен
     let visited = Array.from({ length: mapRows }, () => Array(mapCols).fill(false));
     const wallGeometries = [];
 
@@ -972,7 +961,6 @@ function renderLoop(now) {
         lastFpsUpdate = now;
     }
 
-    // Троттлинг обновления текстовых элементов DOM раз в 150мс
     if (now - lastTelemetryUpdate >= 150) {
         document.getElementById('posVal').innerText = `X: ${player.gridX.toFixed(1)}, Y: ${player.gridY.toFixed(1)}`;
         document.getElementById('altitudeVal').innerText = `${player.altitude.toFixed(1)} m`;
@@ -1000,7 +988,7 @@ function renderLoop(now) {
 
         const camX = activeCam.gridX * CELL_SIZE;
         const camZ = activeCam.gridY * CELL_SIZE;
-        const camHeight = Math.min(1.0 + activeCam.altitude * 1.4, 8.2);
+        const camHeight = Math.max(1.0, Math.min(activeCam.altitude * 1.5, CELL_SIZE - 1.0));
 
         cctvCamera.position.set(camX, camHeight, camZ);
 
@@ -1014,10 +1002,10 @@ function renderLoop(now) {
         cctvCamera.lookAt(lookTarget);
 
         const rect = cctvContainer.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
+        const canvasRect = renderer.domElement.getBoundingClientRect();
 
-        const pipX = Math.round(rect.left - containerRect.left);
-        const pipY = Math.round(containerRect.bottom - rect.bottom);
+        const pipX = Math.round(rect.left - canvasRect.left);
+        const pipY = Math.round(canvasRect.bottom - rect.bottom);
         const pipWidth = Math.round(rect.width);
         const pipHeight = Math.round(rect.height);
 
