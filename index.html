@@ -8,18 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts Inter & JetBrains Mono -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Three.js with fallback CDNs -->
+    <!-- Three.js Primary CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        if (typeof THREE === 'undefined') {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
-        }
-    </script>
-    <script>
-        if (typeof THREE === 'undefined') {
-            document.write('<script src="https://unpkg.com/three@0.128.0/build/three.min.js"><\/script>');
-        }
-    </script>
     
     <style>
         body {
@@ -506,7 +496,6 @@ function buildCeilingLamps() {
     }
 }
 
-window.addEventListener('resize', () => {
 function buildEnvironment() {
     while (wallGroup.children.length > 0) {
         wallGroup.remove(wallGroup.children[0]);
@@ -585,7 +574,527 @@ function buildEnvironment() {
     buildCeilingLamps();
 }
 
+function generateProceduralTextures() {
+    // Текстура стен
+    const canvasW = document.createElement('canvas');
+    canvasW.width = 256; canvasW.height = 256;
+    const ctxW = canvasW.getContext('2d');
+    ctxW.fillStyle = '#1e293b'; ctxW.fillRect(0, 0, 256, 256);
+    ctxW.strokeStyle = '#334155'; ctxW.lineWidth = 4;
+    for (let i = 0; i <= 256; i += 32) {
+        ctxW.beginPath(); ctxW.moveTo(i, 0); ctxW.lineTo(i, 256); ctxW.stroke();
+        ctxW.beginPath(); ctxW.moveTo(0, i); ctxW.lineTo(256, i); ctxW.stroke();
+    }
+    wallTexture = new THREE.CanvasTexture(canvasW);
+    wallTexture.wrapS = THREE.RepeatWrapping;
+    wallTexture.wrapT = THREE.RepeatWrapping;
+
+    // Текстура пола
+    const canvasF = document.createElement('canvas');
+    canvasF.width = 256; canvasF.height = 256;
+    const ctxF = canvasF.getContext('2d');
+    ctxF.fillStyle = '#0f172a'; ctxF.fillRect(0, 0, 256, 256);
+    ctxF.strokeStyle = '#0284c7'; ctxF.lineWidth = 2;
+    for (let i = 0; i <= 256; i += 64) {
+        ctxF.beginPath(); ctxF.moveTo(i, 0); ctxF.lineTo(i, 256); ctxF.stroke();
+        ctxF.beginPath(); ctxF.moveTo(0, i); ctxF.lineTo(256, i); ctxF.stroke();
+    }
+    floorTexture = new THREE.CanvasTexture(canvasF);
+    floorTexture.wrapS = THREE.RepeatWrapping;
+    floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(4, 4);
+
+    // Текстура потолка
+    const canvasC = document.createElement('canvas');
+    canvasC.width = 256; canvasC.height = 256;
+    const ctxC = canvasC.getContext('2d');
+    ctxC.fillStyle = '#090d16'; ctxC.fillRect(0, 0, 256, 256);
+    ctxC.strokeStyle = '#1e293b'; ctxC.lineWidth = 2;
+    for (let i = 0; i <= 256; i += 32) {
+        ctxC.beginPath(); ctxC.moveTo(i, 0); ctxC.lineTo(i, 256); ctxC.stroke();
+        ctxC.beginPath(); ctxC.moveTo(0, i); ctxC.lineTo(256, i); ctxC.stroke();
+    }
+    ceilingTexture = new THREE.CanvasTexture(canvasC);
+    ceilingTexture.wrapS = THREE.RepeatWrapping;
+    ceilingTexture.wrapT = THREE.RepeatWrapping;
+    ceilingTexture.repeat.set(4, 4);
+}
+
+function mergeGeometries(geometries) {
+    let positionCount = 0, normalCount = 0, uvCount = 0, indexCount = 0;
+    geometries.forEach(geo => {
+        positionCount += geo.attributes.position.array.length;
+        if (geo.attributes.normal) normalCount += geo.attributes.normal.array.length;
+        if (geo.attributes.uv) uvCount += geo.attributes.uv.array.length;
+        if (geo.index) indexCount += geo.index.array.length;
+    });
+
+    const posArray = new Float32Array(positionCount);
+    const normArray = new Float32Array(normalCount);
+    const uvArray = new Float32Array(uvCount);
+    const indexArray = new Uint32Array(indexCount);
+
+    let posOffset = 0, normOffset = 0, uvOffset = 0, indexOffset = 0, vertexOffset = 0;
+
+    geometries.forEach(geo => {
+        const pos = geo.attributes.position.array;
+        posArray.set(pos, posOffset);
+        if (geo.attributes.normal) {
+            normArray.set(geo.attributes.normal.array, normOffset);
+            normOffset += geo.attributes.normal.array.length;
+        }
+        if (geo.attributes.uv) {
+            uvArray.set(geo.attributes.uv.array, uvOffset);
+            uvOffset += geo.attributes.uv.array.length;
+        }
+        if (geo.index) {
+            const idx = geo.index.array;
+            for (let i = 0; i < idx.length; i++) {
+                indexArray[indexOffset + i] = idx[i] + vertexOffset;
+            }
+            indexOffset += idx.length;
+        }
+        vertexOffset += pos.length / 3;
+        posOffset += pos.length;
+    });
+
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    if (normalCount > 0) merged.setAttribute('normal', new THREE.BufferAttribute(normArray, 3));
+    if (uvCount > 0) merged.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+    if (indexCount > 0) merged.setIndex(new THREE.BufferAttribute(indexArray, 1));
+
+    return merged;
+}
+
+function createDrone3D() {
+    droneGroup = new THREE.Group();
+
+    // Корпус дрона
+    const bodyGeo = new THREE.BoxGeometry(1.2, 0.3, 1.2);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, metalness: 0.8, roughness: 0.2 });
+    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    droneGroup.add(bodyMesh);
+
+    // Центр пропеллеров
+    const propGeo = new THREE.BoxGeometry(0.8, 0.05, 0.15);
+    const propMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe });
+
+    function makePropeller(x, z) {
+        const propGroup = new THREE.Group();
+        propGroup.position.set(x, 0.2, z);
+        const mesh = new THREE.Mesh(propGeo, propMat);
+        propGroup.add(mesh);
+        droneGroup.add(propGroup);
+        return mesh;
+    }
+
+    leftPropeller = makePropeller(-1, -1);
+    rightPropeller = makePropeller(1, -1);
+    backLeftProp = makePropeller(-1, 1);
+    backRightProp = makePropeller(1, 1);
+
+    // Камера дрона
+    const camGeo = new THREE.SphereGeometry(0.2, 12, 12);
+    const camMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const droneCamMesh = new THREE.Mesh(camGeo, camMat);
+    droneCamMesh.position.set(0, -0.15, -0.6);
+    droneGroup.add(droneCamMesh);
+
+    droneGroup.traverse(child => {
+        child.layers.set(1); // Видимость только для CCTV камер
+    });
+
+    scene.add(droneGroup);
+}
+
+function updateCCTVCameraPositions() {
+    while (cctvMeshesGroup.children.length > 0) {
+        cctvMeshesGroup.remove(cctvMeshesGroup.children[0]);
+    }
+
+    if (cameras.length === 0) {
+        cctvNoise.classList.remove('hidden');
+        return;
+    }
+    cctvNoise.classList.add('hidden');
+
+    if (activeCameraIndex >= cameras.length) {
+        activeCameraIndex = 0;
+    }
+
+    cameras.forEach((cam, idx) => {
+        const group = new THREE.Group();
+        group.position.set(cam.gridX * CELL_SIZE, cam.altitude, cam.gridY * CELL_SIZE);
+
+        const bodyGeo = new THREE.BoxGeometry(0.8, 0.8, 1.2);
+        const bodyMat = new THREE.MeshLambertMaterial({ color: idx === activeCameraIndex ? 0x06b6d4 : 0x64748b });
+        const mesh = new THREE.Mesh(bodyGeo, bodyMat);
+        group.add(mesh);
+
+        group.rotation.y = cam.angle;
+
+        group.traverse(child => {
+            child.layers.set(0);
+        });
+
+        cctvMeshesGroup.add(group);
+        cam.mesh = group;
+    });
+
+    const activeCam = cameras[activeCameraIndex];
+    if (activeCam) {
+        cctvCamera.position.set(activeCam.gridX * CELL_SIZE, activeCam.altitude, activeCam.gridY * CELL_SIZE);
+        cctvCamera.rotation.set(activeCam.pitch || -0.2, activeCam.angle, 0, 'YXZ');
+        document.getElementById('cctv-label-id').innerText = `#${activeCameraIndex + 1}`;
+        document.getElementById('cctv-angle-label').innerText = `${Math.round((activeCam.angle * 180 / Math.PI) % 360)}°`;
+    }
+}
+
+function renderLoop(time) {
     requestAnimationFrame(renderLoop);
+
+    // Расчет FPS
+    frameCount++;
+    if (time - lastFpsUpdate >= 1000) {
+        fps = Math.round((frameCount * 1000) / (time - lastFpsUpdate));
+        document.getElementById('fpsDisplay').innerText = `FPS: ${fps}`;
+        frameCount = 0;
+        lastFpsUpdate = time;
+    }
+
+    // Управление дроном
+    const delta = 0.05;
+    if (keys.ArrowUp) {
+        player.gridX -= Math.sin(player.angle) * delta;
+        player.gridY -= Math.cos(player.angle) * delta;
+    }
+    if (keys.ArrowDown) {
+        player.gridX += Math.sin(player.angle) * delta;
+        player.gridY += Math.cos(player.angle) * delta;
+    }
+    if (keys.ArrowLeft) {
+        player.angle += 0.04;
+    }
+    if (keys.ArrowRight) {
+        player.angle -= 0.04;
+    }
+    if (keys.KeyW) {
+        player.altitude = Math.min(CELL_SIZE - 0.5, player.altitude + 0.08);
+    }
+    if (keys.KeyS) {
+        player.altitude = Math.max(0.5, player.altitude - 0.08);
+    }
+
+    // Ограничение движения по стенам
+    const r = Math.floor(player.gridY);
+    const c = Math.floor(player.gridX);
+    if (r >= 0 && r < mapRows && c >= 0 && c < mapCols) {
+        if (map[r][c] === 1) {
+            player.gridX = lastGridX > 0 ? lastGridX : player.gridX;
+            player.gridY = lastGridY > 0 ? lastGridY : player.gridY;
+        } else {
+            lastGridX = player.gridX;
+            lastGridY = player.gridY;
+        }
+    }
+
+    // Обновление положения дрона и камеры игрока
+    if (droneGroup) {
+        droneGroup.position.set(player.gridX * CELL_SIZE, player.altitude, player.gridY * CELL_SIZE);
+        droneGroup.rotation.y = player.angle;
+
+        if (leftPropeller) leftPropeller.rotation.y += 0.4;
+        if (rightPropeller) rightPropeller.rotation.y += 0.4;
+        if (backLeftProp) backLeftProp.rotation.y += 0.4;
+        if (backRightProp) backRightProp.rotation.y += 0.4;
+    }
+
+    playerCamera.position.set(player.gridX * CELL_SIZE, player.altitude, player.gridY * CELL_SIZE);
+    playerCamera.rotation.set(0, player.angle, 0, 'YXZ');
+
+    // Обновление телеметрии
+    if (time - lastTelemetryUpdate > 100) {
+        document.getElementById('altitudeVal').innerText = `${player.altitude.toFixed(1)} m`;
+        document.getElementById('posVal').innerText = `X: ${player.gridX.toFixed(1)}, Y: ${player.gridY.toFixed(1)}`;
+        lastTelemetryUpdate = time;
+    }
+
+    // Рендеринг основного 3D вида
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    renderer.setViewport(0, 0, width, height);
+    renderer.setScissor(0, 0, width, height);
+    renderer.setScissorTest(false);
+    renderer.render(scene, playerCamera);
+
+    // Рендеринг CCTV PIP вида
+    if (cameras.length > 0) {
+        const cctvRect = cctvContainer.getBoundingClientRect();
+        const mainRect = container.getBoundingClientRect();
+
+        const cctvLeft = cctvRect.left - mainRect.left;
+        const cctvBottom = mainRect.bottom - cctvRect.bottom;
+        const cctvWidth = cctvRect.width;
+        const cctvHeight = cctvRect.height;
+
+        if (cctvWidth > 0 && cctvHeight > 0) {
+            cctvCamera.aspect = cctvWidth / cctvHeight;
+            cctvCamera.updateProjectionMatrix();
+            renderer.setViewport(cctvLeft, cctvBottom, cctvWidth, cctvHeight);
+            renderer.setScissor(cctvLeft, cctvBottom, cctvWidth, cctvHeight);
+            renderer.setScissorTest(true);
+            renderer.render(scene, cctvCamera);
+        }
+    }
+}
+
+function buildMapEditor() {
+    editorGrid.innerHTML = '';
+    for (let r = 0; r < mapRows; r++) {
+        for (let c = 0; c < mapCols; c++) {
+            const btn = document.createElement('button');
+            btn.className = 'w-7 h-7 rounded text-[10px] font-bold flex items-center justify-center transition-all cursor-pointer select-none';
+            
+            const camIdx = cameras.findIndex(cam => Math.floor(cam.gridY) === r && Math.floor(cam.gridX) === c);
+
+            if (map[r][c] === 1) {
+                btn.className += ' bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400';
+                btn.innerText = '🧱';
+            } else if (camIdx !== -1) {
+                const isSelected = selectedCameraIndex === camIdx;
+                const isActive = activeCameraIndex === camIdx;
+                btn.className += isActive 
+                    ? ' bg-cyan-500 text-white border-2 border-white shadow-lg' 
+                    : (isSelected ? ' bg-cyan-700 text-white border border-cyan-300' : ' bg-cyan-900 text-cyan-200 border border-cyan-700');
+                btn.innerText = '📹';
+            } else {
+                btn.className += ' bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700';
+                btn.innerText = '·';
+            }
+
+            btn.onclick = () => onCellClick(r, c);
+            editorGrid.appendChild(btn);
+        }
+    }
+}
+
+function onCellClick(r, c) {
+    if (r === 0 || r === mapRows - 1 || c === 0 || c === mapCols - 1) {
+        return; // Крайние стены защищены
+    }
+
+    if (currentTool === 'wall') {
+        map[r][c] = map[r][c] === 1 ? 0 : 1;
+        buildEnvironment();
+    } else if (currentTool === 'camera') {
+        const existingIdx = cameras.findIndex(cam => Math.floor(cam.gridY) === r && Math.floor(cam.gridX) === c);
+        if (existingIdx === -1) {
+            cameras.push({ gridX: c + 0.5, gridY: r + 0.5, angle: 0, pitch: -0.2, altitude: 3.5 });
+            selectedCameraIndex = cameras.length - 1;
+            activeCameraIndex = cameras.length - 1;
+        } else {
+            selectedCameraIndex = existingIdx;
+        }
+        openCameraConfigPanel(selectedCameraIndex);
+        updateCCTVCameraPositions();
+    } else if (currentTool === 'eraser') {
+        map[r][c] = 0;
+        cameras = cameras.filter(cam => !(Math.floor(cam.gridY) === r && Math.floor(cam.gridX) === c));
+        if (activeCameraIndex >= cameras.length) activeCameraIndex = Math.max(0, cameras.length - 1);
+        selectedCameraIndex = null;
+        document.getElementById('cameraConfigPanel').classList.add('hidden');
+        buildEnvironment();
+        updateCCTVCameraPositions();
+    }
+
+    buildMapEditor();
+}
+
+function openCameraConfigPanel(idx) {
+    const cam = cameras[idx];
+    if (!cam) return;
+
+    const panel = document.getElementById('cameraConfigPanel');
+    panel.classList.remove('hidden');
+
+    document.getElementById('selectedCamId').innerText = `#${idx + 1}`;
+    
+    const angleSlider = document.getElementById('cameraAngleSlider');
+    const pitchSlider = document.getElementById('cameraPitchSlider');
+    const heightSlider = document.getElementById('cameraHeightSlider');
+
+    const angleDeg = Math.round((cam.angle * 180 / Math.PI) % 360);
+    const pitchDeg = Math.round(cam.pitch * 180 / Math.PI);
+
+    angleSlider.value = angleDeg >= 0 ? angleDeg : angleDeg + 360;
+    pitchSlider.value = pitchDeg;
+    heightSlider.value = Math.round(cam.altitude * 10);
+
+    document.getElementById('angleValueDisplay').innerText = `${angleSlider.value}°`;
+    document.getElementById('pitchValueDisplay').innerText = `${pitchSlider.value}°`;
+    document.getElementById('heightValueDisplay').innerText = `${cam.altitude.toFixed(1)}m`;
+
+    const subX = (cam.gridX - Math.floor(cam.gridX)).toFixed(1);
+    const subY = (cam.gridY - Math.floor(cam.gridY)).toFixed(1);
+    document.getElementById('camXValue').innerText = subX;
+    document.getElementById('camYValue').innerText = subY;
+}
+
+function setupCameraConfigUI() {
+    const angleSlider = document.getElementById('cameraAngleSlider');
+    const pitchSlider = document.getElementById('cameraPitchSlider');
+    const heightSlider = document.getElementById('cameraHeightSlider');
+
+    angleSlider.oninput = (e) => {
+        if (selectedCameraIndex === null || !cameras[selectedCameraIndex]) return;
+        const val = parseFloat(e.target.value);
+        cameras[selectedCameraIndex].angle = (val * Math.PI) / 180;
+        document.getElementById('angleValueDisplay').innerText = `${val}°`;
+        updateCCTVCameraPositions();
+    };
+
+    pitchSlider.oninput = (e) => {
+        if (selectedCameraIndex === null || !cameras[selectedCameraIndex]) return;
+        const val = parseFloat(e.target.value);
+        cameras[selectedCameraIndex].pitch = (val * Math.PI) / 180;
+        document.getElementById('pitchValueDisplay').innerText = `${val}°`;
+        updateCCTVCameraPositions();
+    };
+
+    heightSlider.oninput = (e) => {
+        if (selectedCameraIndex === null || !cameras[selectedCameraIndex]) return;
+        const val = parseFloat(e.target.value) / 10;
+        cameras[selectedCameraIndex].altitude = val;
+        document.getElementById('heightValueDisplay').innerText = `${val.toFixed(1)}m`;
+        updateCCTVCameraPositions();
+    };
+
+    document.getElementById('btnMakeActiveCam').onclick = () => {
+        if (selectedCameraIndex !== null) {
+            activeCameraIndex = selectedCameraIndex;
+            updateCCTVCameraPositions();
+            buildMapEditor();
+        }
+    };
+
+    document.getElementById('btnDeleteCam').onclick = () => {
+        if (selectedCameraIndex !== null) {
+            cameras.splice(selectedCameraIndex, 1);
+            if (activeCameraIndex >= cameras.length) activeCameraIndex = Math.max(0, cameras.length - 1);
+            selectedCameraIndex = null;
+            document.getElementById('cameraConfigPanel').classList.add('hidden');
+            updateCCTVCameraPositions();
+            buildMapEditor();
+        }
+    };
+
+    const adjustPos = (axis, delta) => {
+        if (selectedCameraIndex === null || !cameras[selectedCameraIndex]) return;
+        const cam = cameras[selectedCameraIndex];
+        if (axis === 'X') {
+            const base = Math.floor(cam.gridX);
+            let sub = (cam.gridX - base) + delta;
+            sub = Math.max(0.1, Math.min(0.9, parseFloat(sub.toFixed(1))));
+            cam.gridX = base + sub;
+            document.getElementById('camXValue').innerText = sub.toFixed(1);
+        } else {
+            const base = Math.floor(cam.gridY);
+            let sub = (cam.gridY - base) + delta;
+            sub = Math.max(0.1, Math.min(0.9, parseFloat(sub.toFixed(1))));
+            cam.gridY = base + sub;
+            document.getElementById('camYValue').innerText = sub.toFixed(1);
+        }
+        updateCCTVCameraPositions();
+    };
+
+    document.getElementById('btnDecX').onclick = () => adjustPos('X', -0.1);
+    document.getElementById('btnIncX').onclick = () => adjustPos('X', 0.1);
+    document.getElementById('btnDecY').onclick = () => adjustPos('Y', -0.1);
+    document.getElementById('btnIncY').onclick = () => adjustPos('Y', 0.1);
+}
+
+async function ensureThreeLoaded() {
+    if (typeof THREE !== 'undefined') return true;
+
+    const cdns = [
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+        'https://unpkg.com/three@0.128.0/build/three.min.js'
+    ];
+
+    for (const src of cdns) {
+        try {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => resolve(true);
+                script.onerror = () => reject(false);
+                document.head.appendChild(script);
+            });
+            if (typeof THREE !== 'undefined') return true;
+        } catch (e) {
+            console.warn('Failed to load Three.js from:', src);
+        }
+    }
+    return typeof THREE !== 'undefined';
+}
+
+function setupToolHandlers() {
+    const toolWall = document.getElementById('toolWall');
+    const toolCamera = document.getElementById('toolCamera');
+    const toolEraser = document.getElementById('toolEraser');
+
+    function setActiveTool(tool, activeBtn) {
+        currentTool = tool;
+        [toolWall, toolCamera, toolEraser].forEach(btn => {
+            if (btn) {
+                btn.className = 'py-2 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs flex flex-col items-center gap-1 transition border border-gray-700';
+            }
+        });
+        if (activeBtn) {
+            activeBtn.className = 'py-2 px-3 rounded-lg bg-emerald-600 text-white font-semibold text-xs flex flex-col items-center gap-1 transition shadow border border-emerald-500 hover:bg-emerald-500';
+        }
+    }
+
+    if (toolWall) toolWall.onclick = () => setActiveTool('wall', toolWall);
+    if (toolCamera) toolCamera.onclick = () => setActiveTool('camera', toolCamera);
+    if (toolEraser) toolEraser.onclick = () => setActiveTool('eraser', toolEraser);
+}
+
+window.addEventListener('resize', () => {
+    if (!renderer || !playerCamera || !container) return;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    if (w > 0 && h > 0) {
+        playerCamera.aspect = w / h;
+        playerCamera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+    }
+});
+
+window.onload = async function () {
+    const loaded = await ensureThreeLoaded();
+    if (!loaded) {
+        const status = document.getElementById('preloaderStatus');
+        if (status) status.innerText = 'Ошибка загрузки Three.js (Проверьте подключение к сети)';
+        return;
+    }
+
+    initThree();
+    buildMapEditor();
+    setupToolHandlers();
+    setupCameraConfigUI();
+
+    const preloader = document.getElementById('preloader');
+    if (preloader) {
+        setTimeout(() => {
+            preloader.classList.add('opacity-0');
+            setTimeout(() => preloader.style.display = 'none', 500);
+        }, 400);
+    }
+
+    renderLoop(performance.now());
 };
 </script>
 </body>
