@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doom-style Map (Solid Grey Walls)</title>
+    <title>Low-Res Doom Map (Software Render Optimized)</title>
     <style>
         body {
             margin: 0;
@@ -11,13 +11,21 @@
             background-color: #000;
             font-family: monospace;
         }
+        /* Растягиваем canvas с сохранением пикселей */
+        canvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+            display: block;
+        }
         #ui {
             position: absolute;
             top: 10px;
             left: 10px;
             color: #00ff00;
             font-size: 16px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             padding: 8px 12px;
             border: 1px solid #00ff00;
             pointer-events: none;
@@ -28,8 +36,6 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 10px;
-            height: 10px;
             transform: translate(-50%, -50%);
             color: #ff0000;
             font-size: 20px;
@@ -42,17 +48,13 @@
 
     <div id="ui">
         FPS: <span id="fps">0</span><br>
-        Управление: <br>
-        • Стрелки Вверх / Вниз — Вперед / Назад<br>
-        • Стрелки Влево / Вправо — Поворот
+        Режим: Low-Res CPU
     </div>
     <div id="crosshair">+</div>
 
-    <!-- Подключаем Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // 1. Двумерная карта уровня
         const map = [
             [1, 1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 0, 0, 0, 0, 1],
@@ -65,53 +67,40 @@
         ];
 
         const UNIT_SIZE = 4;
-
-        // 2. Сцена, Камера, Рендерер
         const scene = new THREE.Scene();
-        // Добавляем небольшой туман, чтобы коридоры уходили в темноту
-        scene.fog = new THREE.FogExp2(0x000000, 0.015);
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        // Включаем antialias: true для более гладких краев, раз уж текстуры чистые
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        // Маленькая дальность видимости (всего 35 units)
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 35);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        
+        // ВАЖНО: Фиксируем низкое разрешение (480x360) для разгрузки CPU
+        renderer.setSize(480, 360, false);
+        renderer.setPixelRatio(1);
         document.body.appendChild(renderer.domElement);
 
-        // 3. Материалы (Чистые цвета без текстур)
-        // Стены: Чистый средний серый
-        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
-        // Пол: Темно-серый
+        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x666666 });
         const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
-        // Потолок: Почти черный
         const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
 
-        // 4. Генерация карты
         const mapWidth = map[0].length;
         const mapHeight = map.length;
-        
-        // Оптимизация: используем BoxBufferGeometry
         const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
             for (let c = 0; c < mapWidth; c++) {
-                const x = (c - mapWidth / 2) * UNIT_SIZE;
-                const z = (r - mapHeight / 2) * UNIT_SIZE;
-
                 if (map[r][c] === 1) {
                     const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-                    wall.position.set(x, UNIT_SIZE / 2, z);
+                    wall.position.set((c - mapWidth / 2) * UNIT_SIZE, UNIT_SIZE / 2, (r - mapHeight / 2) * UNIT_SIZE);
                     scene.add(wall);
                 }
             }
         }
 
-        // Пол и потолок
         const totalWidth = mapWidth * UNIT_SIZE;
         const totalHeight = mapHeight * UNIT_SIZE;
-
         const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
+
         const floor = new THREE.Mesh(floorGeo, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(-UNIT_SIZE / 2, 0, -UNIT_SIZE / 2);
@@ -122,83 +111,44 @@
         ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE, -UNIT_SIZE / 2);
         scene.add(ceiling);
 
-        // Начальная позиция игрока
         camera.position.set(0, UNIT_SIZE / 2, 0);
 
-        // 5. Обработка клавиш (Стрелки)
-        const keys = {
-            ArrowUp: false,
-            ArrowDown: false,
-            ArrowLeft: false,
-            ArrowRight: false
-        };
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
         document.addEventListener('keydown', (e) => {
-            if (keys.hasOwnProperty(e.code)) {
-                keys[e.code] = true;
-                e.preventDefault(); // Предотвращаем скролл страницы стрелками
-            }
+            if (keys.hasOwnProperty(e.code)) { keys[e.code] = true; e.preventDefault(); }
         });
-
         document.addEventListener('keyup', (e) => {
             if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
         });
 
-        // 6. Подсчет FPS
         const fpsElement = document.getElementById('fps');
         let frameCount = 0;
         let lastTime = performance.now();
-
-        // 7. Игровой цикл
         const clock = new THREE.Clock();
-        const moveSpeed = 12.0;   // Скорость движения
-        const turnSpeed = 2.5;    // Скорость поворота (рад/сек)
 
         function animate() {
             requestAnimationFrame(animate);
-
             const delta = clock.getDelta();
 
-            // Поворот влево/вправо
-            if (keys.ArrowLeft) {
-                camera.rotation.y += turnSpeed * delta;
-            }
-            if (keys.ArrowRight) {
-                camera.rotation.y -= turnSpeed * delta;
-            }
+            if (keys.ArrowLeft) camera.rotation.y += 2.5 * delta;
+            if (keys.ArrowRight) camera.rotation.y -= 2.5 * delta;
+            if (keys.ArrowUp) camera.translateZ(-12.0 * delta);
+            if (keys.ArrowDown) camera.translateZ(12.0 * delta);
 
-            // Движение вперед/назад
-            if (keys.ArrowUp) {
-                camera.translateZ(-moveSpeed * delta);
-            }
-            if (keys.ArrowDown) {
-                camera.translateZ(moveSpeed * delta);
-            }
-
-            // Фиксируем высоту
             camera.position.y = UNIT_SIZE / 2;
-
             renderer.render(scene, camera);
 
-            // Обновление FPS каждые 500мс
             frameCount++;
             const currentTime = performance.now();
-            if (currentTime - lastTime >= 500) {
-                const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
-                fpsElement.textContent = fps;
+            if (currentTime - lastTime >= 1000) {
+                fpsElement.textContent = frameCount;
                 frameCount = 0;
                 lastTime = currentTime;
             }
         }
 
         animate();
-
-        // Адаптивность окна
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
