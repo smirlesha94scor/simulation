@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doom-style Map in Three.js</title>
+    <title>Doom-style Map (Classic Controls & Grey Walls)</title>
     <style>
         body {
             margin: 0;
@@ -11,18 +11,16 @@
             background-color: #000;
             font-family: monospace;
         }
-        #instructions {
+        #ui {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #ff0000;
-            font-size: 24px;
-            text-align: center;
-            cursor: pointer;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border: 2px solid #ff0000;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border: 1px solid #00ff00;
+            pointer-events: none;
             user-select: none;
         }
         #crosshair {
@@ -32,7 +30,7 @@
             width: 10px;
             height: 10px;
             transform: translate(-50%, -50%);
-            color: #00ff00;
+            color: #ff0000;
             font-size: 20px;
             pointer-events: none;
         }
@@ -40,18 +38,19 @@
 </head>
 <body>
 
-    <div id="instructions">
-        CLICK TO PLAY<br>
-        <span style="font-size: 16px; color: #fff;">WASD / Стрелки — Перемещение<br>Мышь — Обзор</span>
+    <div id="ui">
+        FPS: <span id="fps">0</span><br>
+        Управление: <br>
+        • Стрелки Вверх / Вниз — Вперед / Назад<br>
+        • Стрелки Влево / Вправо — Поворот
     </div>
     <div id="crosshair">+</div>
 
-    <!-- Подключаем Three.js и PointerLockControls -->
+    <!-- Подключаем Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 
     <script>
-        // 1. Двумерная карта уровня (1 - Стена, 0 - Пустой коридор)
+        // 1. Двумерная карта уровня
         const map = [
             [1, 1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 0, 0, 0, 0, 1],
@@ -63,48 +62,32 @@
             [1, 1, 1, 1, 1, 1, 1, 1]
         ];
 
-        const UNIT_SIZE = 4; // Размер одного блока карты
+        const UNIT_SIZE = 4;
 
-        // 2. Инициализация сцены, камеры и рендерера
+        // 2. Сцена, Камера, Рендерер
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.03); // Туман в стиле ретро-игр
+        scene.fog = new THREE.FogExp2(0x000000, 0.025);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        const renderer = new THREE.WebGLRenderer({ antialias: false }); // Отключаем сглаживание для пиксельного стиля
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // 3. Управление от первого лица
-        const controls = new THREE.PointerLockControls(camera, document.body);
-        const instructions = document.getElementById('instructions');
-
-        instructions.addEventListener('click', () => {
-            controls.lock();
-        });
-
-        controls.addEventListener('lock', () => {
-            instructions.style.display = 'none';
-        });
-
-        controls.addEventListener('unlock', () => {
-            instructions.style.display = 'block';
-        });
-
-        // 4. Генерация процедурной пиксельной текстуры кирпича (Doom Vibe)
-        function createBrickTexture() {
+        // 3. Процедурная СЕРАЯ текстура камня/бетона
+        function createGreyStoneTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 64;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
 
-            // Фон стены (тёмно-коричневый)
-            ctx.fillStyle = '#4a2e18';
+            // Основной серый фон
+            ctx.fillStyle = '#666666';
             ctx.fillRect(0, 0, 64, 64);
 
-            // Швы между кирпичами
-            ctx.fillStyle = '#1c1008';
+            // Тёмные швы между блоками
+            ctx.fillStyle = '#222222';
             for (let y = 0; y < 64; y += 16) {
                 ctx.fillRect(0, y, 64, 2);
             }
@@ -113,29 +96,27 @@
                 ctx.fillRect(x + 16, 32, 2, 32);
             }
 
-            // Добавляем пиксельный шум
-            for (let i = 0; i < 400; i++) {
-                ctx.fillStyle = Math.random() > 0.5 ? '#613c1f' : '#2e1c0e';
+            // Шум для текстуры бетона/камня
+            for (let i = 0; i < 500; i++) {
+                const shade = Math.floor(Math.random() * 80) + 70; // Оттенки серого
+                ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
                 ctx.fillRect(Math.floor(Math.random() * 64), Math.floor(Math.random() * 64), 2, 2);
             }
 
             const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter; // Важно для збережения пиксельного стиля!
+            texture.magFilter = THREE.NearestFilter; // Сохраняем ретро-пиксели
             texture.minFilter = THREE.NearestFilter;
             return texture;
         }
 
-        const wallTexture = createBrickTexture();
+        const wallTexture = createGreyStoneTexture();
         const wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
-
-        // Материалы для пола и потолка
         const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
         const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
 
-        // 5. Построение карты
+        // 4. Генерация карты
         const mapWidth = map[0].length;
         const mapHeight = map.length;
-
         const wallGeometry = new THREE.BoxGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
@@ -144,7 +125,6 @@
                 const z = (r - mapHeight / 2) * UNIT_SIZE;
 
                 if (map[r][c] === 1) {
-                    // Создаем блок стены
                     const wall = new THREE.Mesh(wallGeometry, wallMaterial);
                     wall.position.set(x, UNIT_SIZE / 2, z);
                     scene.add(wall);
@@ -152,7 +132,7 @@
             }
         }
 
-        // Пол и Потолок
+        // Пол и потолок
         const totalWidth = mapWidth * UNIT_SIZE;
         const totalHeight = mapHeight * UNIT_SIZE;
 
@@ -167,69 +147,75 @@
         ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE, -UNIT_SIZE / 2);
         scene.add(ceiling);
 
-        // 6. Точка спавна игрока (в центр комнаты)
+        // Начальная позиция игрока
         camera.position.set(0, UNIT_SIZE / 2, 0);
 
-        // 7. Обработка клавиш движения
-        let moveForward = false;
-        let moveBackward = false;
-        let moveLeft = false;
-        let moveRight = false;
-
-        const onKeyDown = (event) => {
-            switch (event.code) {
-                case 'KeyW': case 'ArrowUp': moveForward = true; break;
-                case 'KeyS': case 'ArrowDown': moveBackward = true; break;
-                case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
-                case 'KeyD': case 'ArrowRight': moveRight = true; break;
-            }
+        // 5. Обработка клавиш (Стрелки)
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
         };
 
-        const onKeyUp = (event) => {
-            switch (event.code) {
-                case 'KeyW': case 'ArrowUp': moveForward = false; break;
-                case 'KeyS': case 'ArrowDown': moveBackward = false; break;
-                case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
-                case 'KeyD': case 'ArrowRight': moveRight = false; break;
-            }
-        };
+        document.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+        });
 
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
+        document.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+        });
 
-        // 8. Игровой цикл
+        // 6. Подсчет FPS
+        const fpsElement = document.getElementById('fps');
+        let frameCount = 0;
+        let lastTime = performance.now();
+
+        // 7. Игровой цикл
         const clock = new THREE.Clock();
-        const speed = 12.0;
+        const moveSpeed = 10.0;   // Скорость движения вперед/назад
+        const turnSpeed = 2.0;    // Скорость поворота камеры (рад/сек)
 
         function animate() {
             requestAnimationFrame(animate);
 
-            if (controls.isLocked) {
-                const delta = clock.getDelta();
+            const delta = clock.getDelta();
 
-                // Расчет вектора направления
-                const moveVector = new THREE.Vector3();
-                if (moveForward) moveVector.z -= 1;
-                if (moveBackward) moveVector.z += 1;
-                if (moveLeft) moveVector.x -= 1;
-                if (moveRight) moveVector.x += 1;
-
-                moveVector.normalize(); // Равномерная скорость по диагонали
-
-                // Перемещение игрока
-                controls.moveRight(moveVector.x * speed * delta);
-                controls.moveForward(-moveVector.z * speed * delta);
-
-                // Ограничение игрока по высоте (чтобы не летал)
-                camera.position.y = UNIT_SIZE / 2;
+            // Поворот влево/вправо (вращаем камеру по оси Y)
+            if (keys.ArrowLeft) {
+                camera.rotation.y += turnSpeed * delta;
+            }
+            if (keys.ArrowRight) {
+                camera.rotation.y -= turnSpeed * delta;
             }
 
+            // Движение вперед/назад в направлении взгляда
+            if (keys.ArrowUp) {
+                camera.translateZ(-moveSpeed * delta);
+            }
+            if (keys.ArrowDown) {
+                camera.translateZ(moveSpeed * delta);
+            }
+
+            // Фиксируем высоту (чтобы не взлетать)
+            camera.position.y = UNIT_SIZE / 2;
+
             renderer.render(scene, camera);
+
+            // Обновление FPS каждые 500мс
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime - lastTime >= 500) {
+                const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                fpsElement.textContent = fps;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
         }
 
         animate();
 
-        // 9. Адаптивность при изменении размера окна
+        // Адаптивность окна
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
