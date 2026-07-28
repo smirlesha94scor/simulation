@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doom-style Map (Classic Controls & Grey Walls)</title>
+    <title>Doom-style Map (Solid Grey Walls)</title>
     <style>
         body {
             margin: 0;
@@ -22,6 +22,7 @@
             border: 1px solid #00ff00;
             pointer-events: none;
             user-select: none;
+            z-index: 100;
         }
         #crosshair {
             position: absolute;
@@ -33,6 +34,7 @@
             color: #ff0000;
             font-size: 20px;
             pointer-events: none;
+            z-index: 100;
         }
     </style>
 </head>
@@ -66,58 +68,31 @@
 
         // 2. Сцена, Камера, Рендерер
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.025);
+        // Добавляем небольшой туман, чтобы коридоры уходили в темноту
+        scene.fog = new THREE.FogExp2(0x000000, 0.015);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        // Включаем antialias: true для более гладких краев, раз уж текстуры чистые
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // 3. Процедурная СЕРАЯ текстура камня/бетона
-        function createGreyStoneTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-
-            // Основной серый фон
-            ctx.fillStyle = '#666666';
-            ctx.fillRect(0, 0, 64, 64);
-
-            // Тёмные швы между блоками
-            ctx.fillStyle = '#222222';
-            for (let y = 0; y < 64; y += 16) {
-                ctx.fillRect(0, y, 64, 2);
-            }
-            for (let x = 0; x < 64; x += 32) {
-                ctx.fillRect(x, 0, 2, 32);
-                ctx.fillRect(x + 16, 32, 2, 32);
-            }
-
-            // Шум для текстуры бетона/камня
-            for (let i = 0; i < 500; i++) {
-                const shade = Math.floor(Math.random() * 80) + 70; // Оттенки серого
-                ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
-                ctx.fillRect(Math.floor(Math.random() * 64), Math.floor(Math.random() * 64), 2, 2);
-            }
-
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter; // Сохраняем ретро-пиксели
-            texture.minFilter = THREE.NearestFilter;
-            return texture;
-        }
-
-        const wallTexture = createGreyStoneTexture();
-        const wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
+        // 3. Материалы (Чистые цвета без текстур)
+        // Стены: Чистый средний серый
+        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
+        // Пол: Темно-серый
         const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
+        // Потолок: Почти черный
         const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
 
         // 4. Генерация карты
         const mapWidth = map[0].length;
         const mapHeight = map.length;
-        const wallGeometry = new THREE.BoxGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+        
+        // Оптимизация: используем BoxBufferGeometry
+        const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
             for (let c = 0; c < mapWidth; c++) {
@@ -136,7 +111,7 @@
         const totalWidth = mapWidth * UNIT_SIZE;
         const totalHeight = mapHeight * UNIT_SIZE;
 
-        const floorGeo = new THREE.PlaneGeometry(totalWidth, totalHeight);
+        const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
         const floor = new THREE.Mesh(floorGeo, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(-UNIT_SIZE / 2, 0, -UNIT_SIZE / 2);
@@ -159,7 +134,10 @@
         };
 
         document.addEventListener('keydown', (e) => {
-            if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+            if (keys.hasOwnProperty(e.code)) {
+                keys[e.code] = true;
+                e.preventDefault(); // Предотвращаем скролл страницы стрелками
+            }
         });
 
         document.addEventListener('keyup', (e) => {
@@ -173,15 +151,15 @@
 
         // 7. Игровой цикл
         const clock = new THREE.Clock();
-        const moveSpeed = 10.0;   // Скорость движения вперед/назад
-        const turnSpeed = 2.0;    // Скорость поворота камеры (рад/сек)
+        const moveSpeed = 12.0;   // Скорость движения
+        const turnSpeed = 2.5;    // Скорость поворота (рад/сек)
 
         function animate() {
             requestAnimationFrame(animate);
 
             const delta = clock.getDelta();
 
-            // Поворот влево/вправо (вращаем камеру по оси Y)
+            // Поворот влево/вправо
             if (keys.ArrowLeft) {
                 camera.rotation.y += turnSpeed * delta;
             }
@@ -189,7 +167,7 @@
                 camera.rotation.y -= turnSpeed * delta;
             }
 
-            // Движение вперед/назад в направлении взгляда
+            // Движение вперед/назад
             if (keys.ArrowUp) {
                 camera.translateZ(-moveSpeed * delta);
             }
@@ -197,7 +175,7 @@
                 camera.translateZ(moveSpeed * delta);
             }
 
-            // Фиксируем высоту (чтобы не взлетать)
+            // Фиксируем высоту
             camera.position.y = UNIT_SIZE / 2;
 
             renderer.render(scene, camera);
