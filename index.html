@@ -3,21 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Low-Res Doom Map (Software Render Optimized)</title>
+    <title>Doom-style Map (Smooth HD)</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
             font-family: monospace;
-        }
-        /* Растягиваем canvas с сохранением пикселей */
-        canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-            image-rendering: pixelated; 
-            image-rendering: crisp-edges;
-            display: block;
         }
         #ui {
             position: absolute;
@@ -26,7 +18,7 @@
             color: #00ff00;
             font-size: 16px;
             background: rgba(0, 0, 0, 0.8);
-            padding: 8px 12px;
+            padding: 10px 14px;
             border: 1px solid #00ff00;
             pointer-events: none;
             user-select: none;
@@ -36,6 +28,8 @@
             position: absolute;
             top: 50%;
             left: 50%;
+            width: 10px;
+            height: 10px;
             transform: translate(-50%, -50%);
             color: #ff0000;
             font-size: 20px;
@@ -47,14 +41,18 @@
 <body>
 
     <div id="ui">
-        FPS: <span id="fps">0</span><br>
-        Режим: Low-Res CPU
+        FPS: <span id="fps">0</span><br><br>
+        Управление:<br>
+        • Стрелки Вверх / Вниз — Вперед / Назад<br>
+        • Стрелки Влево / Вправо — Поворот
     </div>
     <div id="crosshair">+</div>
 
+    <!-- Подключаем Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
+        // 1. Двумерная карта уровня
         const map = [
             [1, 1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 0, 0, 0, 0, 1],
@@ -67,40 +65,51 @@
         ];
 
         const UNIT_SIZE = 4;
-        const scene = new THREE.Scene();
-        
-        // Маленькая дальность видимости (всего 35 units)
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 35);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        // 2. Сцена и Камера
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+
+        // 3. Рендерер с включенным сглаживанием (убирает ступеньки)
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, // Включаем антиалиасинг
+            powerPreference: "high-performance" 
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
         
-        // ВАЖНО: Фиксируем низкое разрешение (480x360) для разгрузки CPU
-        renderer.setSize(480, 360, false);
-        renderer.setPixelRatio(1);
+        // Используем реальное разрешение экрана (до 2х для четкости)
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
         document.body.appendChild(renderer.domElement);
 
-        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x666666 });
+        // 4. Серые материалы
+        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x777777 });
         const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
         const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
 
+        // 5. Генерация карты
         const mapWidth = map[0].length;
         const mapHeight = map.length;
         const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
             for (let c = 0; c < mapWidth; c++) {
+                const x = (c - mapWidth / 2) * UNIT_SIZE;
+                const z = (r - mapHeight / 2) * UNIT_SIZE;
+
                 if (map[r][c] === 1) {
                     const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-                    wall.position.set((c - mapWidth / 2) * UNIT_SIZE, UNIT_SIZE / 2, (r - mapHeight / 2) * UNIT_SIZE);
+                    wall.position.set(x, UNIT_SIZE / 2, z);
                     scene.add(wall);
                 }
             }
         }
 
+        // Пол и Потолок
         const totalWidth = mapWidth * UNIT_SIZE;
         const totalHeight = mapHeight * UNIT_SIZE;
-        const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
 
+        const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
+        
         const floor = new THREE.Mesh(floorGeo, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(-UNIT_SIZE / 2, 0, -UNIT_SIZE / 2);
@@ -111,32 +120,44 @@
         ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE, -UNIT_SIZE / 2);
         scene.add(ceiling);
 
+        // Позиция игрока
         camera.position.set(0, UNIT_SIZE / 2, 0);
 
+        // 6. Управление
         const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
         document.addEventListener('keydown', (e) => {
-            if (keys.hasOwnProperty(e.code)) { keys[e.code] = true; e.preventDefault(); }
+            if (keys.hasOwnProperty(e.code)) {
+                keys[e.code] = true;
+                e.preventDefault();
+            }
         });
+
         document.addEventListener('keyup', (e) => {
             if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
         });
 
+        // 7. FPS и игровой цикл
         const fpsElement = document.getElementById('fps');
         let frameCount = 0;
         let lastTime = performance.now();
         const clock = new THREE.Clock();
 
+        const moveSpeed = 12.0;
+        const turnSpeed = 2.5;
+
         function animate() {
             requestAnimationFrame(animate);
+
             const delta = clock.getDelta();
 
-            if (keys.ArrowLeft) camera.rotation.y += 2.5 * delta;
-            if (keys.ArrowRight) camera.rotation.y -= 2.5 * delta;
-            if (keys.ArrowUp) camera.translateZ(-12.0 * delta);
-            if (keys.ArrowDown) camera.translateZ(12.0 * delta);
+            if (keys.ArrowLeft) camera.rotation.y += turnSpeed * delta;
+            if (keys.ArrowRight) camera.rotation.y -= turnSpeed * delta;
+            if (keys.ArrowUp) camera.translateZ(-moveSpeed * delta);
+            if (keys.ArrowDown) camera.translateZ(moveSpeed * delta);
 
             camera.position.y = UNIT_SIZE / 2;
+
             renderer.render(scene, camera);
 
             frameCount++;
@@ -149,6 +170,14 @@
         }
 
         animate();
+
+        // 8. Адаптивность к изменению размеров окна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
     </script>
 </body>
 </html>
