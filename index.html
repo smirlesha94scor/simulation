@@ -382,5 +382,22 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
+    <!-- Google Calendar Appointment Scheduling begin -->
+<link href="https://calendar.google.com/calendar/scheduling-button-script.css" rel="stylesheet">
+<script src="https://calendar.google.com/calendar/scheduling-button-script.js" async></script>
+<script>
+(function() {
+  var target = document.currentScript;
+  window.addEventListener('load', function() {
+    calendar.schedulingButton.load({
+      url: 'https://calendar.google.com/calendar/appointments/schedules/AcZssZ2VByFUpVxVyP7OYl2uxyMOgwrDyOguvSHnkYL-Vcwm7nAaARdAct1PVR5ZhBuLhMapl1ZxUvvA?gv=true',
+      color: '#039BE5',
+      label: 'Создать встречу',
+      target,
+    });
+  });
+})();
+</script>
+<!-- end Google Calendar Appointment Scheduling -->
 </body>
 </html>
