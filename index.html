@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Ambient Lighting & Volume</title>
+    <title>3D Doom | Light Ceiling & Volume</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; }
@@ -11,7 +11,7 @@
 </head>
 <body>
 
-    <div id="ui">Объемное освещение | Коллизия вплотную</div>
+    <div id="ui">Светлый потолок | Объемный свет</div>
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -43,16 +43,13 @@
         // ==========================================
         //  ОБЩИЙ ОБЪЕМНЫЙ СВЕТ (VOLUME LIGHTING)
         // ==========================================
-        // 1. Слабый фоновый свет (чтобы тени не были абсолютно черными)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.35); // Слегка усилили базовый свет
         scene.add(ambientLight);
 
-        // 2. Основной яркий свет сверху-справа (создает светлые грани)
         const mainLight = new THREE.DirectionalLight(0xffeedd, 0.8);
         mainLight.position.set(5, 8, 3);
         scene.add(mainLight);
 
-        // 3. Заполняющий холодный свет с противоположного угла (создает глубокий контраст на темных гранях)
         const fillLight = new THREE.DirectionalLight(0x446688, 0.4);
         fillLight.position.set(-5, 4, -5);
         scene.add(fillLight);
@@ -93,10 +90,11 @@
         // ==========================================
         //  МАТЕРИАЛЫ И ПОСТРОЕНИЕ СЦЕНЫ
         // ==========================================
-        // MeshLambertMaterial реагирует на DirectionalLight и дает четкие тени на гранях
         const wallMaterial = new THREE.MeshLambertMaterial({ map: brickTexture });
         const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
-        const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0x111111 });
+
+        // СВЕТЛЫЙ ПОТОЛОК: цвет 0xe0e0e0 (светло-серый/белый)
+        const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
 
         const overlap = 2;
         const totalWidth = mapWidth * UNIT_SIZE + overlap;
