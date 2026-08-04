@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Correct Minimap Arrow Rotation</title>
+    <title>3D Doom | Perfect Camera & Map Alignment</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -255,7 +255,7 @@
         }
 
         // ==========================================
-        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА
+        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА (ПОЛНОСТЬЮ СИНХРОНИЗИРОВАННАЯ)
         // ==========================================
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
@@ -301,8 +301,12 @@
                 }
             }
 
-            // ТОЧНЫЙ ПОВОРОТ СТРЕЛКИ В СТОРНУ ВЗГЛЯДА
-            const angle = camera.rotation.y;
+            // Вычисляем вектор взгляда (куда реально направлена камера в мире)
+            const forwardX = -Math.sin(camera.rotation.y);
+            const forwardZ = -Math.cos(camera.rotation.y);
+
+            // Получаем точный угол для отрисовки на 2D Canvas (вершина стрелки вверх = 0 рад)
+            const angle = Math.atan2(forwardX, -forwardZ);
 
             ctx.save();
             ctx.translate(centerX, centerY);
