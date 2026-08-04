@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Light Ceiling & Volume</title>
+    <title>3D Doom | Random Exit Maze</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; }
@@ -11,23 +11,44 @@
 </head>
 <body>
 
-    <div id="ui">Светлый потолок | Объемный свет</div>
+    <div id="ui">Выход в случайной точке лабиринта</div>
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
 
     <script>
-        const map = [
-            [1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 1, 0, 0, 1],
-            [1, 0, 1, 0, 1, 0, 0, 1],
-            [1, 0, 1, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 1, 1, 0, 1],
-            [1, 1, 1, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1]
-        ];
+        // ==========================================
+        //  1. ГЕНЕРАТОР ЛАБИРИНТА (DFS)
+        // ==========================================
+        const GRID_SIZE = 17; // Размер карты
 
+        function generateMaze(size) {
+            let grid = Array(size).fill().map(() => Array(size).fill(1));
+
+            function walk(x, y) {
+                grid[y][x] = 0;
+
+                const dirs = [
+                    [0, -2], [2, 0], [0, 2], [-2, 0]
+                ].sort(() => Math.random() - 0.5);
+
+                for (let [dx, dy] of dirs) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+
+                    if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && grid[ny][nx] === 1) {
+                        grid[y + dy / 2][x + dx / 2] = 0;
+                        walk(nx, ny);
+                    }
+                }
+            }
+
+            walk(1, 1);
+            return grid;
+        }
+
+        const map = generateMaze(GRID_SIZE);
         const UNIT_SIZE = 4;
         const mapWidth = map[0].length;
         const mapHeight = map.length;
@@ -41,21 +62,7 @@
         document.body.appendChild(renderer.domElement);
 
         // ==========================================
-        //  ОБЩИЙ ОБЪЕМНЫЙ СВЕТ (VOLUME LIGHTING)
-        // ==========================================
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.35); // Слегка усилили базовый свет
-        scene.add(ambientLight);
-
-        const mainLight = new THREE.DirectionalLight(0xffeedd, 0.8);
-        mainLight.position.set(5, 8, 3);
-        scene.add(mainLight);
-
-        const fillLight = new THREE.DirectionalLight(0x446688, 0.4);
-        fillLight.position.set(-5, 4, -5);
-        scene.add(fillLight);
-
-        // ==========================================
-        //  ПРОЦЕДУРНАЯ ТЕКСТУРА КИРПИЧА
+        //  2. ТЕКСТУРА КИРПИЧА
         // ==========================================
         function createBrickTexture() {
             const canvas = document.createElement('canvas');
@@ -63,14 +70,12 @@
             canvas.height = 128;
             const ctx = canvas.getContext('2d');
 
-            ctx.fillStyle = '#333333';
+            ctx.fillStyle = '#888888';
             ctx.fillRect(0, 0, 128, 128);
 
-            ctx.fillStyle = '#8b2604';
-            const rows = 8;
-            const cols = 4;
-            const brickH = 128 / rows;
-            const brickW = 128 / cols;
+            ctx.fillStyle = '#b83b14';
+            const rows = 8, cols = 4;
+            const brickH = 128 / rows, brickW = 128 / cols;
 
             for (let r = 0; r < rows; r++) {
                 const offsetX = (r % 2 === 0) ? 0 : brickW / 2;
@@ -88,54 +93,115 @@
         const brickTexture = createBrickTexture();
 
         // ==========================================
-        //  МАТЕРИАЛЫ И ПОСТРОЕНИЕ СЦЕНЫ
+        //  3. ПОСТРОЕНИЕ ЦЕЛЬНЫХ СТЕН И СЦЕНЫ
         // ==========================================
-        const wallMaterial = new THREE.MeshLambertMaterial({ map: brickTexture });
-        const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+        const wallMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
+        const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x555555 });
+        const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const exitMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Зеленый блок выходя
 
-        // СВЕТЛЫЙ ПОТОЛОК: цвет 0xe0e0e0 (светло-серый/белый)
-        const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
-
-        const overlap = 2;
-        const totalWidth = mapWidth * UNIT_SIZE + overlap;
-        const totalHeight = mapHeight * UNIT_SIZE + overlap;
+        const totalWidth = mapWidth * UNIT_SIZE;
+        const totalHeight = mapHeight * UNIT_SIZE;
         const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
 
         const floor = new THREE.Mesh(floorGeo, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
-        floor.position.set(-UNIT_SIZE / 2, -0.01, -UNIT_SIZE / 2);
+        floor.position.set(0, -0.01, 0);
         scene.add(floor);
 
         const ceiling = new THREE.Mesh(floorGeo, ceilingMaterial);
         ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE + 0.01, -UNIT_SIZE / 2);
+        ceiling.position.set(0, UNIT_SIZE + 0.01, 0);
         scene.add(ceiling);
 
-        const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE + 0.1, UNIT_SIZE);
+        // Объединение стен в единый меш
+        const geometries = [];
+        const baseBoxGeo = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
             for (let c = 0; c < mapWidth; c++) {
                 if (map[r][c] === 1) {
-                    const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-                    const x = (c - mapWidth / 2) * UNIT_SIZE;
-                    const z = (r - mapHeight / 2) * UNIT_SIZE;
-                    wall.position.set(x, UNIT_SIZE / 2, z);
-                    scene.add(wall);
+                    const clonedGeo = baseBoxGeo.clone();
+                    const x = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
+                    const z = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
+                    clonedGeo.translate(x, UNIT_SIZE / 2, z);
+                    geometries.push(clonedGeo);
                 }
             }
         }
 
-        // Старт игрока
-        camera.position.set(-UNIT_SIZE, UNIT_SIZE / 2, -UNIT_SIZE);
+        const mergedGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+        const mergedWallMesh = new THREE.Mesh(mergedGeometry, wallMaterial);
+        scene.add(mergedWallMesh);
 
-        // Коллизия
+        // ==========================================
+        //  4. РАНДОМИЗАЦИЯ СТАРТА И ВЫХОДА
+        // ==========================================
+        // Функция поиска всех пустых клеток (проходов)
+        function getEmptyCells() {
+            let cells = [];
+            for (let r = 1; r < mapHeight - 1; r++) {
+                for (let c = 1; c < mapWidth - 1; c++) {
+                    if (map[r][c] === 0) {
+                        cells.push({ r, c });
+                    }
+                }
+            }
+            return cells;
+        }
+
+        const emptyCells = getEmptyCells();
+
+        // 1. Игрок ставится в случайную пустую клетку
+        const startCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
+        const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
+        camera.position.set(startX, UNIT_SIZE / 2, startZ);
+
+        // 2. Ищем случайную клетку для ВЫХОДА, которая находится далеко от спавна игрока
+        let exitCell;
+        let maxDistance = 0;
+
+        // Фильтруем пустые клетки и находим удаленные от точки старта
+        for (let cell of emptyCells) {
+            const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
+            // Берем клетки на расстоянии больше 5 блоков от игрока
+            if (dist > 5 && Math.random() > 0.3) {
+                exitCell = cell;
+                break;
+            }
+        }
+
+        // Страховка: если подходящая клетка не выбрана случайным образом, берем самую дальнюю
+        if (!exitCell) {
+            emptyCells.forEach(cell => {
+                const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
+                if (dist > maxDistance) {
+                    maxDistance = dist;
+                    exitCell = cell;
+                }
+            });
+        }
+
+        const exitX = (exitCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
+        const exitZ = (exitCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
+
+        // Создаем зеленый блок выходя
+        const exitMesh = new THREE.Mesh(new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE), exitMaterial);
+        exitMesh.position.set(exitX, UNIT_SIZE / 2, exitZ);
+        scene.add(exitMesh);
+
+        // ==========================================
+        //  5. КОЛЛИЗИЯ И ИГРОВОЙ ЦИКЛ
+        // ==========================================
         const HALF_UNIT = UNIT_SIZE / 2;
+
         function isPointInWall(x, z) {
             for (let r = 0; r < mapHeight; r++) {
                 for (let c = 0; c < mapWidth; c++) {
                     if (map[r][c] === 1) {
-                        const wallX = (c - mapWidth / 2) * UNIT_SIZE;
-                        const wallZ = (r - mapHeight / 2) * UNIT_SIZE;
+                        const wallX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
+                        const wallZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
                         if (
                             x + PLAYER_RADIUS > wallX - HALF_UNIT &&
                             x - PLAYER_RADIUS < wallX + HALF_UNIT &&
@@ -182,6 +248,13 @@
 
             if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
             if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
+
+            // Проверка достижения зеленой клетки выхода
+            const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
+            if (distToExit < 2) {
+                alert("Победа! Вы нашли выход из лабиринта!");
+                location.reload();
+            }
 
             renderer.render(scene, camera);
         }
