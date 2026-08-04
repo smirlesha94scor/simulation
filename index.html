@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Local Minimap</title>
+    <title>3D Doom | Mouse Look & WASD</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -19,6 +19,7 @@
             z-index: 100;
             box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
             overflow: hidden;
+            pointer-events: none;
         }
         #minimap-canvas { width: 100%; height: 100%; display: block; }
 
@@ -38,6 +39,7 @@
             justify-content: center;
             z-index: 100;
             box-shadow: 0 0 10px rgba(0,255,0,0.3);
+            pointer-events: none;
         }
         #compass-svg {
             width: 50px;
@@ -51,12 +53,47 @@
             font-weight: bold;
         }
 
-        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; z-index: 10; }
+        #crosshair { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%,-50%); 
+            color: #f00; 
+            font-size: 24px; 
+            font-weight: bold; 
+            z-index: 10; 
+            pointer-events: none;
+        }
+
+        /* ПОДСКАЗКА ДЛЯ СТАРТА / ПАУЗЫ */
+        #instructions {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            color: #0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            z-index: 200;
+            cursor: pointer;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Круглая крупная мини-карта -->
+    <div id="instructions">
+        <div>КЛИКНИТЕ, ЧТОБЫ НАЧАТЬ ИГРУ</div>
+        <div style="font-size: 14px; margin-top: 10px; color: #aaa;">
+            Управление: WASD — движение | Мышь — обзор | ESC — пауза / выход
+        </div>
+    </div>
+
     <div id="minimap-container">
         <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
@@ -190,6 +227,7 @@
         const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
         camera.position.set(startX, UNIT_SIZE / 2, startZ);
+        camera.rotation.order = 'YXZ'; // Для правильного поворота мыши
 
         let exitCell;
         let maxDist = 0;
@@ -217,7 +255,7 @@
         }
 
         // ==========================================
-        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА КРУПНОГО МАСШТАБА
+        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА
         // ==========================================
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
@@ -228,21 +266,17 @@
             const centerX = width / 2;
             const centerY = height / 2;
 
-            // Масштаб: 1 клетка лабиринта = 24 пикселя на мини-карте
             const scale = 24 / UNIT_SIZE; 
-            const viewRadius = 4.5; // Радиус видимости вокруг игрока (в клетках)
+            const viewRadius = 4.5; 
 
             ctx.clearRect(0, 0, width, height);
 
-            // Теккущее положение игрока в игровых координатах
             const pX = camera.position.x;
             const pZ = camera.position.z;
 
-            // Переводим положение игрока в ячейки сетки
             const playerGridC = pX / UNIT_SIZE + mapWidth / 2;
             const playerGridR = pZ / UNIT_SIZE + mapHeight / 2;
 
-            // Отрисовываем только стены в окрестности игрока
             ctx.fillStyle = '#444';
             
             const minR = Math.max(0, Math.floor(playerGridR - viewRadius));
@@ -256,7 +290,6 @@
                         const wallWorldX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
                         const wallWorldZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
 
-                        // Относительные координаты стены от игрока
                         const relX = (wallWorldX - pX) * scale;
                         const relZ = (wallWorldZ - pZ) * scale;
 
@@ -268,7 +301,6 @@
                 }
             }
 
-            // Стрелка игрока строго по центру карт
             const angle = -camera.rotation.y + Math.PI;
 
             ctx.save();
@@ -285,11 +317,41 @@
         }
 
         // ==========================================
-        //  7. АНИМАЦИЯ И УПРАВЛЕНИЕ
+        //  7. ЗАХВАТ МЫШИ (POINTER LOCK) И КЛАВИШИ
         // ==========================================
-        const TURN_SPEED = 1.2;
+        const instructions = document.getElementById('instructions');
+        let isLocked = false;
 
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        instructions.addEventListener('click', () => {
+            document.body.requestPointerLock();
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === document.body) {
+                isLocked = true;
+                instructions.style.display = 'none';
+            } else {
+                isLocked = false;
+                instructions.style.display = 'flex';
+            }
+        });
+
+        // Поворот мыши
+        const MOUSE_SENSITIVITY = 0.002;
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isLocked) return;
+
+            camera.rotation.y -= e.movementX * MOUSE_SENSITIVITY;
+
+            // Наклон камеры вверх/вниз
+            camera.rotation.x -= e.movementY * MOUSE_SENSITIVITY;
+            // Ограничение наклона по вертикали
+            camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
+        });
+
+        // Управление WASD
+        const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false };
 
         document.addEventListener('keydown', (e) => { 
             if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
@@ -314,41 +376,53 @@
             return false;
         }
 
+        // ==========================================
+        //  8. ИГРОВОЙ ЦИКЛ
+        // ==========================================
         const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
 
-            const moveSpeed = 8.0 * delta;
-            const turnSpeed = TURN_SPEED * delta; 
+            if (isLocked) {
+                const moveSpeed = 8.0 * delta;
 
-            if (keys.ArrowLeft) camera.rotation.y += turnSpeed;
-            if (keys.ArrowRight) camera.rotation.y -= turnSpeed;
+                let moveX = 0, moveZ = 0;
 
-            let moveX = 0, moveZ = 0;
-            if (keys.ArrowUp) {
-                moveX -= Math.sin(camera.rotation.y) * moveSpeed;
-                moveZ -= Math.cos(camera.rotation.y) * moveSpeed;
-            }
-            if (keys.ArrowDown) {
-                moveX += Math.sin(camera.rotation.y) * moveSpeed;
-                moveZ += Math.cos(camera.rotation.y) * moveSpeed;
-            }
+                // Расчет вектора движения относительно поворота камеры
+                if (keys.KeyW) {
+                    moveX -= Math.sin(camera.rotation.y) * moveSpeed;
+                    moveZ -= Math.cos(camera.rotation.y) * moveSpeed;
+                }
+                if (keys.KeyS) {
+                    moveX += Math.sin(camera.rotation.y) * moveSpeed;
+                    moveZ += Math.cos(camera.rotation.y) * moveSpeed;
+                }
+                if (keys.KeyA) {
+                    moveX -= Math.cos(camera.rotation.y) * moveSpeed;
+                    moveZ += Math.sin(camera.rotation.y) * moveSpeed;
+                }
+                if (keys.KeyD) {
+                    moveX += Math.cos(camera.rotation.y) * moveSpeed;
+                    moveZ -= Math.sin(camera.rotation.y) * moveSpeed;
+                }
 
-            const newX = camera.position.x + moveX;
-            const newZ = camera.position.z + moveZ;
+                const newX = camera.position.x + moveX;
+                const newZ = camera.position.z + moveZ;
 
-            if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
-            if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
+                if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
+                if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
-            updateExitPointer();
-            drawLocalMinimap();
+                updateExitPointer();
+                drawLocalMinimap();
 
-            const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
-            if (distToExit < 2) {
-                alert("Победа! Вы нашли выход!");
-                location.reload();
+                const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
+                if (distToExit < 2) {
+                    document.exitPointerLock();
+                    alert("Победа! Вы нашли выход!");
+                    location.reload();
+                }
             }
 
             renderer.render(scene, camera);
