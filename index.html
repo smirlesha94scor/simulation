@@ -2,24 +2,23 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Random Exit Maze & Map Key</title>
+    <title>3D Doom | Modified Maze & Map</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
-        /* СТИЛИ МИНИКАРТЫ (По умолчанию скрыта) */
         #minimap-container {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%); /* Центрируем по экрану */
-            width: 80vh; /* Размер зависит от высоты экрана */
-            height: 80vh;
-            background: rgba(10, 15, 20, 0.95);
+            transform: translate(-50%, -50%);
+            width: 85vh;
+            height: 85vh;
+            background: rgba(10, 15, 20, 0.98);
             border: 4px solid #fff;
             border-radius: 8px;
             z-index: 1000;
             display: none; /* СКРЫТО ПО УМОЛЧАНИЮ */
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            box-shadow: 0 0 50px rgba(0,0,0,0.9);
         }
         #minimap-canvas { width: 100%; height: 100%; display: block; }
 
@@ -29,12 +28,11 @@
 </head>
 <body>
 
-    <!-- Контейнер карты -->
     <div id="minimap-container">
-        <canvas id="minimap-canvas" width="500" height="500"></canvas>
+        <canvas id="minimap-canvas" width="800" height="800"></canvas>
     </div>
 
-    <div id="ui">Цельные стены | Удерживайте [M] для карты</div>
+    <div id="ui">Меньше прямых | Удерживайте [M] для карты</div>
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -42,9 +40,10 @@
 
     <script>
         // ==========================================
-        //  1. ГЕНЕРАТОР ЛАБИРИНТА (DFS)
+        //  1. УЛУЧШЕННЫЙ ГЕНЕРАТОР ЛАБИРИНТА
+        //     (МЕНЬШЕ ПРЯМЫХ УЧАСТКОВ)
         // ==========================================
-        const GRID_SIZE = 21; // Немного увеличим карту для интереса
+        const GRID_SIZE = 23; // Немного увеличим для плотности
 
         function generateMaze(size) {
             let grid = Array(size).fill().map(() => Array(size).fill(1));
@@ -62,12 +61,32 @@
 
                     if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && grid[ny][nx] === 1) {
                         grid[y + dy / 2][x + dx / 2] = 0;
+                        
+                        // --- ИЗМЕНЕНИЕ: Уменьшение прямых участков ---
+                        // С шансом 30% делаем случайное ответвление "вбок"
+                        // от текущего пути, чтобы поломать длинную прямую.
+                        if (Math.random() < 0.3) {
+                            const rx = nx + (Math.random() > 0.5 ? 1 : -1);
+                            const ry = ny + (Math.random() > 0.5 ? 1 : -1);
+                            if (rx > 0 && rx < size - 1 && ry > 0 && ry < size - 1 && grid[ry][rx] === 1) {
+                                grid[ry][rx] = 0;
+                            }
+                        }
+
                         walk(nx, ny);
                     }
                 }
             }
 
             walk(1, 1);
+            
+            // Дополнительный проход для создания "петлевых" путей (убирает 100% тупиковость)
+            for (let i = 0; i < size * 2; i++) {
+                let rx = Math.floor(Math.random() * (size - 2)) + 1;
+                let ry = Math.floor(Math.random() * (size - 2)) + 1;
+                if (grid[ry][rx] === 1) grid[ry][rx] = 0;
+            }
+            
             return grid;
         }
 
@@ -89,55 +108,42 @@
         // ==========================================
         function createBrickTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 128;
-            canvas.height = 128;
+            canvas.width = 128, canvas.height = 128;
             const ctx = canvas.getContext('2d');
-
-            ctx.fillStyle = '#888888';
-            ctx.fillRect(0, 0, 128, 128);
-
+            ctx.fillStyle = '#888', ctx.fillRect(0, 0, 128, 128);
             ctx.fillStyle = '#b83b14';
             const rows = 8, cols = 4;
             const brickH = 128 / rows, brickW = 128 / cols;
-
             for (let r = 0; r < rows; r++) {
                 const offsetX = (r % 2 === 0) ? 0 : brickW / 2;
                 for (let c = -1; c < cols + 1; c++) {
                     ctx.fillRect(c * brickW + offsetX + 1, r * brickH + 1, brickW - 2, brickH - 2);
                 }
             }
-
             const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
+            texture.magFilter = THREE.NearestFilter, texture.minFilter = THREE.NearestFilter;
             return texture;
         }
 
         const brickTexture = createBrickTexture();
 
         // ==========================================
-        //  3. ПОСТРОЕНИЕ ЦЕЛЬНЫХ СТЕН И СЦЕНЫ
+        //  3. ПОСТРОЕНИЕ ЦЕЛЬНЫХ СТЕН
         // ==========================================
         const wallMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
         const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x555555 });
         const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const exitMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Зеленый блок выходя
+        const exitMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 
-        const totalWidth = mapWidth * UNIT_SIZE;
-        const totalHeight = mapHeight * UNIT_SIZE;
+        const totalWidth = mapWidth * UNIT_SIZE, totalHeight = mapHeight * UNIT_SIZE;
         const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
 
         const floor = new THREE.Mesh(floorGeo, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.set(0, -0.01, 0);
-        scene.add(floor);
+        floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.01, 0); scene.add(floor);
 
         const ceiling = new THREE.Mesh(floorGeo, ceilingMaterial);
-        ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.set(0, UNIT_SIZE + 0.01, 0);
-        scene.add(ceiling);
+        ceiling.rotation.x = Math.PI / 2; ceiling.position.set(0, UNIT_SIZE + 0.01, 0); scene.add(ceiling);
 
-        // Объединение стен в единый меш
         const geometries = [];
         const baseBoxGeo = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
@@ -158,15 +164,13 @@
         scene.add(mergedWallMesh);
 
         // ==========================================
-        //  4. РАНДОМИЗАЦИЯ СТАРТА И ВЫХОДА
+        //  4. ТОЧКИ СТАРТА И ВЫХОДА
         // ==========================================
         function getEmptyCells() {
             let cells = [];
             for (let r = 1; r < mapHeight - 1; r++) {
                 for (let c = 1; c < mapWidth - 1; c++) {
-                    if (map[r][c] === 0) {
-                        cells.push({ r, c });
-                    }
+                    if (map[r][c] === 0) cells.push({ r, c });
                 }
             }
             return cells;
@@ -174,6 +178,7 @@
 
         const emptyCells = getEmptyCells();
 
+        // Запоминаем точку СПАВНА
         const startCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
         const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
@@ -182,12 +187,10 @@
         let exitCell;
         for (let cell of emptyCells) {
             const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
-            if (dist > 8 && Math.random() > 0.4) { // Увеличили дистанцию
-                exitCell = cell;
-                break;
+            if (dist > 10 && Math.random() > 0.5) { 
+                exitCell = cell; break;
             }
         }
-
         if (!exitCell) {
             let maxDist = 0;
             emptyCells.forEach(cell => {
@@ -198,13 +201,11 @@
 
         const exitX = (exitCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const exitZ = (exitCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-
         const exitMesh = new THREE.Mesh(new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE), exitMaterial);
-        exitMesh.position.set(exitX, UNIT_SIZE / 2, exitZ);
-        scene.add(exitMesh);
+        exitMesh.position.set(exitX, UNIT_SIZE / 2, exitZ); scene.add(exitMesh);
 
         // ==========================================
-        //  5. ЛОГИКА КАРТЫ (Нажатие M)
+        //  5. ЛОГИКА КАРТЫ С МЕСТОМ СПАВНА
         // ==========================================
         const minimapContainer = document.getElementById('minimap-container');
         const minimapCanvas = document.getElementById('minimap-canvas');
@@ -219,8 +220,8 @@
 
             ctx.clearRect(0, 0, width, height);
 
-            // Стены
-            ctx.fillStyle = '#555';
+            // 1. Стены
+            ctx.fillStyle = '#444';
             for (let r = 0; r < mapHeight; r++) {
                 for (let c = 0; c < mapWidth; c++) {
                     if (map[r][c] === 1) {
@@ -229,11 +230,19 @@
                 }
             }
 
-            // Выход (Зеленый)
+            // 2. Выход (Зеленый)
             ctx.fillStyle = '#0f0';
             ctx.fillRect(exitCell.c * cellWidth, exitCell.r * cellHeight, cellWidth, cellHeight);
 
-            // Игрок (Красная стрелка)
+            // --- ИЗМЕНЕНИЕ: Место СПАВНА (Синий круг) ---
+            ctx.fillStyle = '#33f';
+            ctx.beginPath();
+            const spawnX = startCell.c * cellWidth + cellWidth / 2;
+            const spawnY = startCell.r * cellHeight + cellHeight / 2;
+            ctx.arc(spawnX, spawnY, cellWidth / 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. Игрок (Красная стрелка)
             const playerX = (camera.position.x / UNIT_SIZE + mapWidth / 2) * cellWidth;
             const playerY = (camera.position.z / UNIT_SIZE + mapHeight / 2) * cellHeight;
             const angle = camera.rotation.y + Math.PI;
@@ -243,83 +252,73 @@
             ctx.rotate(angle);
             ctx.fillStyle = '#f00';
             ctx.beginPath();
-            ctx.moveTo(0, -15);
-            ctx.lineTo(-8, 8);
-            ctx.lineTo(8, 8);
+            ctx.moveTo(0, -18);
+            ctx.lineTo(-10, 10);
+            ctx.lineTo(10, 10);
             ctx.closePath();
             ctx.fill();
             ctx.restore();
         }
 
         // ==========================================
-        //  6. КОЛЛИЗИЯ И ИГРОВОЙ ЦИКЛ
+        //  6. ОБРАБОТКА ВВОДА И АНИМАЦИЯ
         // ==========================================
-        const HALF_UNIT = UNIT_SIZE / 2;
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyM: false };
+        
+        document.addEventListener('keydown', (e) => { 
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
+            if (e.code === 'KeyM' && !isMapVisible) {
+                isMapVisible = true;
+                minimapContainer.style.display = 'block';
+                drawFullMap();
+            }
+        });
 
+        document.addEventListener('keyup', (e) => { 
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
+            if (e.code === 'KeyM') {
+                isMapVisible = false;
+                minimapContainer.style.display = 'none';
+            }
+        });
+
+        const HALF_UNIT = UNIT_SIZE / 2;
         function isPointInWall(x, z) {
             for (let r = 0; r < mapHeight; r++) {
                 for (let c = 0; c < mapWidth; c++) {
                     if (map[r][c] === 1) {
                         const wallX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
                         const wallZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-                        if (
-                            x + PLAYER_RADIUS > wallX - HALF_UNIT &&
-                            x - PLAYER_RADIUS < wallX + HALF_UNIT &&
-                            z + PLAYER_RADIUS > wallZ - HALF_UNIT &&
-                            z - PLAYER_RADIUS < wallZ + HALF_UNIT
-                        ) return true;
+                        if (x + PLAYER_RADIUS > wallX - HALF_UNIT && x - PLAYER_RADIUS < wallX + HALF_UNIT &&
+                            z + PLAYER_RADIUS > wallZ - HALF_UNIT && z - PLAYER_RADIUS < wallZ + HALF_UNIT) return true;
                     }
                 }
             }
             return false;
         }
 
-        // Управление (добавлена клавиша KeyM)
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyM: false };
-        
-        document.addEventListener('keydown', (e) => { 
-            if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
-            
-            // Логика нажатия M
-            if (e.code === 'KeyM' && !isMapVisible) {
-                isMapVisible = true;
-                minimapContainer.style.display = 'block'; // Показать карту
-                drawFullMap(); // Нарисовать один раз при открытии
-            }
-        });
-
-        document.addEventListener('keyup', (e) => { 
-            if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
-
-            // Логика отпускания M
-            if (e.code === 'KeyM') {
-                isMapVisible = false;
-                minimapContainer.style.display = 'none'; // Скрыть карту
-            }
-        });
-
         const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
-
             const delta = clock.getDelta();
             
-            // Если карта открыта, игрок не может двигаться
             if (isMapVisible) {
                 renderer.render(scene, camera);
                 return; 
             }
 
+            // Скорость передвижения
             const moveSpeed = 8.0 * delta;
-            const turnSpeed = 2.5 * delta;
+            
+            // --- ИЗМЕНЕНИЕ: Уменьшенная скорость поворота ---
+            // Было 2.5, стало 1.2. Поворот стал в два раза медленнее.
+            const turnSpeed = 1.2 * delta; 
 
             if (keys.ArrowLeft) camera.rotation.y += turnSpeed;
             if (keys.ArrowRight) camera.rotation.y -= turnSpeed;
 
-            let moveX = 0;
-            let moveZ = 0;
-
+            let moveX = 0, moveZ = 0;
             if (keys.ArrowUp) {
                 moveX -= Math.sin(camera.rotation.y) * moveSpeed;
                 moveZ -= Math.cos(camera.rotation.y) * moveSpeed;
@@ -337,7 +336,7 @@
 
             const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
             if (distToExit < 2) {
-                alert("Победа! Вы нашли выход!");
+                alert("Победа! Карта перезагрузится.");
                 location.reload();
             }
 
