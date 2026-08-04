@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Perfect Camera & Map Alignment</title>
+    <title>3D Doom | Rotating Minimap</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -95,7 +95,7 @@
     </div>
 
     <div id="minimap-container">
-        <canvas id="minimap-canvas" width="200" height="200"></canvas>
+        <canvas id="minimap-canvas" width="400" height="400"></canvas>
     </div>
 
     <div id="compass-container">
@@ -144,30 +144,46 @@
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
 
         // ==========================================
         //  2. ТЕКСТУРА КИРПИЧА
         // ==========================================
         function createBrickTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
+            canvas.width = 512; canvas.height = 512;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#888'; ctx.fillRect(0, 0, 128, 128);
+            ctx.fillStyle = '#888'; ctx.fillRect(0, 0, 512, 512);
             ctx.fillStyle = '#b83b14';
             const rows = 8, cols = 4;
-            const brickH = 128 / rows, brickW = 128 / cols;
+            const brickH = 512 / rows, brickW = 512 / cols;
             for (let r = 0; r < rows; r++) {
                 const offsetX = (r % 2 === 0) ? 0 : brickW / 2;
                 for (let c = -1; c < cols + 1; c++) {
-                    ctx.fillRect(c * brickW + offsetX + 1, r * brickH + 1, brickW - 2, brickH - 2);
+                    ctx.fillRect(c * brickW + offsetX + 2, r * brickH + 2, brickW - 4, brickH - 4);
                 }
             }
             const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
+            
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.generateMipmaps = true;
+            
+            const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+            if (maxAnisotropy > 0) {
+                texture.anisotropy = maxAnisotropy;
+            }
+
             return texture;
         }
 
@@ -255,7 +271,7 @@
         }
 
         // ==========================================
-        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА (ПОЛНОСТЬЮ СИНХРОНИЗИРОВАННАЯ)
+        //  6. ВРАЩАЮЩАЯСЯ МИНИ-КАРТА (СТРЕЛКА СТРОГО ВВЕРХ)
         // ==========================================
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
@@ -266,8 +282,11 @@
             const centerX = width / 2;
             const centerY = height / 2;
 
-            const scale = 24 / UNIT_SIZE; 
-            const viewRadius = 4.5; 
+            const scale = 48 / UNIT_SIZE; 
+            const viewRadius = 5.5; 
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
             ctx.clearRect(0, 0, width, height);
 
@@ -277,12 +296,19 @@
             const playerGridC = pX / UNIT_SIZE + mapWidth / 2;
             const playerGridR = pZ / UNIT_SIZE + mapHeight / 2;
 
-            ctx.fillStyle = '#444';
-            
             const minR = Math.max(0, Math.floor(playerGridR - viewRadius));
             const maxR = Math.min(mapHeight, Math.ceil(playerGridR + viewRadius));
             const minC = Math.max(0, Math.floor(playerGridC - viewRadius));
             const maxC = Math.min(mapWidth, Math.ceil(playerGridC + viewRadius));
+
+            // Поворачиваем всю карту противоположно углу взгляда камеры
+            const mapRotation = -camera.rotation.y;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(mapRotation);
+
+            ctx.fillStyle = '#444';
 
             for (let r = minR; r < maxR; r++) {
                 for (let c = minC; c < maxC; c++) {
@@ -290,35 +316,25 @@
                         const wallWorldX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
                         const wallWorldZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
 
+                        // Относительные мировые координаты блока
                         const relX = (wallWorldX - pX) * scale;
                         const relZ = (wallWorldZ - pZ) * scale;
 
-                        const drawX = centerX + relX - (UNIT_SIZE * scale) / 2;
-                        const drawY = centerY + relZ - (UNIT_SIZE * scale) / 2;
-
-                        ctx.fillRect(drawX, drawY, UNIT_SIZE * scale, UNIT_SIZE * scale);
+                        ctx.fillRect(relX - (UNIT_SIZE * scale) / 2, relZ - (UNIT_SIZE * scale) / 2, UNIT_SIZE * scale, UNIT_SIZE * scale);
                     }
                 }
             }
 
-            // Вычисляем вектор взгляда (куда реально направлена камера в мире)
-            const forwardX = -Math.sin(camera.rotation.y);
-            const forwardZ = -Math.cos(camera.rotation.y);
+            ctx.restore();
 
-            // Получаем точный угол для отрисовки на 2D Canvas (вершина стрелки вверх = 0 рад)
-            const angle = Math.atan2(forwardX, -forwardZ);
-
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.rotate(angle);
+            // Неподвижная стрелка игрока в центре, направленная строго ВВЕРХ
             ctx.fillStyle = '#f00';
             ctx.beginPath();
-            ctx.moveTo(0, -10); 
-            ctx.lineTo(-6, 6); 
-            ctx.lineTo(6, 6);
+            ctx.moveTo(centerX, centerY - 16); 
+            ctx.lineTo(centerX - 10, centerY + 10); 
+            ctx.lineTo(centerX + 10, centerY + 10);
             ctx.closePath();
             ctx.fill();
-            ctx.restore();
         }
 
         // ==========================================
