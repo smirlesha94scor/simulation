@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Rotating Minimap</title>
+    <title>3D Doom | Correct Rotating Minimap</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -271,7 +271,7 @@
         }
 
         // ==========================================
-        //  6. ВРАЩАЮЩАЯСЯ МИНИ-КАРТА (СТРЕЛКА СТРОГО ВВЕРХ)
+        //  6. ИСПРАВЛЕННАЯ ВРАЩАЮЩАЯСЯ МИНИ-КАРТА
         // ==========================================
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
@@ -301,8 +301,8 @@
             const minC = Math.max(0, Math.floor(playerGridC - viewRadius));
             const maxC = Math.min(mapWidth, Math.ceil(playerGridC + viewRadius));
 
-            // Поворачиваем всю карту противоположно углу взгляда камеры
-            const mapRotation = -camera.rotation.y;
+            // Корректный угол поворота карты под взгляд камеры
+            const mapRotation = camera.rotation.y;
 
             ctx.save();
             ctx.translate(centerX, centerY);
@@ -316,7 +316,6 @@
                         const wallWorldX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
                         const wallWorldZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
 
-                        // Относительные мировые координаты блока
                         const relX = (wallWorldX - pX) * scale;
                         const relZ = (wallWorldZ - pZ) * scale;
 
@@ -327,7 +326,7 @@
 
             ctx.restore();
 
-            // Неподвижная стрелка игрока в центре, направленная строго ВВЕРХ
+            // Неподвижная стрелка игрока строго ВВЕРХ
             ctx.fillStyle = '#f00';
             ctx.beginPath();
             ctx.moveTo(centerX, centerY - 16); 
