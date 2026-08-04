@@ -227,7 +227,7 @@
         const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
         camera.position.set(startX, UNIT_SIZE / 2, startZ);
-        camera.rotation.order = 'YXZ'; // Для правильного поворота мыши
+        camera.rotation.order = 'YXZ';
 
         let exitCell;
         let maxDist = 0;
@@ -301,7 +301,8 @@
                 }
             }
 
-            const angle = -camera.rotation.y + Math.PI;
+            // РАЗВОРОТ СТРЕЛКИ НА 180 ГРАДУСОВ (- camera.rotation.y)
+            const angle = -camera.rotation.y;
 
             ctx.save();
             ctx.translate(centerX, centerY);
@@ -317,7 +318,7 @@
         }
 
         // ==========================================
-        //  7. ЗАХВАТ МЫШИ (POINTER LOCK) И КЛАВИШИ
+        //  7. ЗАХВАТ МЫШИ И КЛАВИШИ
         // ==========================================
         const instructions = document.getElementById('instructions');
         let isLocked = false;
@@ -336,21 +337,16 @@
             }
         });
 
-        // Поворот мыши
         const MOUSE_SENSITIVITY = 0.002;
 
         document.addEventListener('mousemove', (e) => {
             if (!isLocked) return;
 
             camera.rotation.y -= e.movementX * MOUSE_SENSITIVITY;
-
-            // Наклон камеры вверх/вниз
             camera.rotation.x -= e.movementY * MOUSE_SENSITIVITY;
-            // Ограничение наклона по вертикали
             camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
         });
 
-        // Управление WASD
         const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false };
 
         document.addEventListener('keydown', (e) => { 
@@ -390,7 +386,6 @@
 
                 let moveX = 0, moveZ = 0;
 
-                // Расчет вектора движения относительно поворота камеры
                 if (keys.KeyW) {
                     moveX -= Math.sin(camera.rotation.y) * moveSpeed;
                     moveZ -= Math.cos(camera.rotation.y) * moveSpeed;
