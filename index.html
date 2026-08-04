@@ -2,16 +2,35 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Close Wall Collision</title>
+    <title>3D Doom | Fixed Joints & Close Collision</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
+        
+        /* МИНИКАРТА */
+        #minimap-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 180px;
+            height: 120px;
+            background: rgba(10, 15, 20, 0.95);
+            border: 2px solid #fff;
+            border-radius: 4px;
+            z-index: 100;
+        }
+        #minimap-canvas { width: 100%; height: 100%; display: block; }
+
         #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="ui">FPS: <span id="fps">0</span> | Коллизия: ВПЛОТНУЮ</div>
+    <div id="minimap-container">
+        <canvas id="minimap-canvas" width="180" height="120"></canvas>
+    </div>
+
+    <div id="ui">FPS: <span id="fps">0</span> | Стыки исправлены</div>
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -31,29 +50,52 @@
         const UNIT_SIZE = 4;
         const mapWidth = map[0].length;
         const mapHeight = map.length;
-
-        // 1. УМЕНЬШАЕМ РАДИУС ИГРОКА ДЛЯ УПОРА ВПЛОТНУЮ
-        // Было 0.8, делаем 0.1, чтобы подходить максимально близко к грани блока
-        const PLAYER_RADIUS = 0.1; 
+        const PLAYER_RADIUS = 0.1; // Радиус для упора вплотную
 
         const scene = new THREE.Scene();
-
-        // 2. УМЕНЬШАЕМ БЛИЖНЮЮ ПЛОСКОСТЬ КАМЕРЫ (0.01 вместо 0.1)
-        // Это не дает стене "пропадать", когда вы стоите к ней вплотную!
+        
+        // Near plane = 0.01 чтобы стены не исчезали перед глазами
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Построение сцены
+        // Материалы
         const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x666666 });
-        const wallGeo = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+        const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
+        const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
+
+        // =========================================================
+        //  ВОТ СУДА ВСТАВЛЯЕТСЯ КОД СОЗДАНИЯ ПОЛА, ПОТОЛКА И СТЕН:
+        // =========================================================
+        
+        // 1. Пол и Потолок с запасом (перекрытием)
+        const overlap = 2; 
+        const totalWidth = mapWidth * UNIT_SIZE + overlap;
+        const totalHeight = mapHeight * UNIT_SIZE + overlap;
+
+        const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
+
+        // Пол чуть ниже (Y = -0.01)
+        const floor = new THREE.Mesh(floorGeo, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(-UNIT_SIZE / 2, -0.01, -UNIT_SIZE / 2);
+        scene.add(floor);
+
+        // Потолок чуть выше (Y = UNIT_SIZE + 0.01)
+        const ceiling = new THREE.Mesh(floorGeo, ceilingMaterial);
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE + 0.01, -UNIT_SIZE / 2);
+        scene.add(ceiling);
+
+        // 2. Стены чуть выше по высоте (+0.1) для перекрытия щелей
+        const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE + 0.1, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
             for (let c = 0; c < mapWidth; c++) {
                 if (map[r][c] === 1) {
-                    const wall = new THREE.Mesh(wallGeo, wallMaterial);
+                    const wall = new THREE.Mesh(wallGeometry, wallMaterial);
                     const x = (c - mapWidth / 2) * UNIT_SIZE;
                     const z = (r - mapHeight / 2) * UNIT_SIZE;
                     wall.position.set(x, UNIT_SIZE / 2, z);
@@ -61,33 +103,85 @@
                 }
             }
         }
+        // =========================================================
 
         // Старт игрока
         camera.position.set(-UNIT_SIZE, UNIT_SIZE / 2, -UNIT_SIZE);
 
-        // Точная проверка границ стены с учетом размера блока (UNIT_SIZE = 4, половина = 2)
+        // Физика столкновений
         const HALF_UNIT = UNIT_SIZE / 2;
-
         function isPointInWall(x, z) {
             for (let r = 0; r < mapHeight; r++) {
                 for (let c = 0; c < mapWidth; c++) {
                     if (map[r][c] === 1) {
                         const wallX = (c - mapWidth / 2) * UNIT_SIZE;
                         const wallZ = (r - mapHeight / 2) * UNIT_SIZE;
-
-                        // Проверяем, попадает ли точка в прямоугольник стены с учетом радиуса игрока
                         if (
                             x + PLAYER_RADIUS > wallX - HALF_UNIT &&
                             x - PLAYER_RADIUS < wallX + HALF_UNIT &&
                             z + PLAYER_RADIUS > wallZ - HALF_UNIT &&
                             z - PLAYER_RADIUS < wallZ + HALF_UNIT
-                        ) {
-                            return true; // Столкновение!
-                        }
+                        ) return true;
                     }
                 }
             }
             return false;
+        }
+
+        // Рендеринг мини-карты
+        const minimapCanvas = document.getElementById('minimap-canvas');
+        const ctx = minimapCanvas.getContext('2d');
+
+        function drawMinimap() {
+            const width = minimapCanvas.width;
+            const height = minimapCanvas.height;
+            const cellWidth = width / mapWidth;
+            const cellHeight = height / mapHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Сетка
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 0.5;
+            for(let x = 0; x <= width; x += cellWidth) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for(let y = 0; y <= height; y += cellHeight) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // Стены
+            for (let r = 0; r < mapHeight; r++) {
+                for (let c = 0; c < mapWidth; c++) {
+                    if (map[r][c] === 1) {
+                        ctx.fillStyle = '#555';
+                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+                    }
+                }
+            }
+
+            // Игрок-стрелка
+            const playerX = (camera.position.x / UNIT_SIZE + mapWidth / 2) * cellWidth;
+            const playerY = (camera.position.z / UNIT_SIZE + mapHeight / 2) * cellHeight;
+            const angle = camera.rotation.y + Math.PI;
+
+            ctx.save();
+            ctx.translate(playerX, playerY);
+            ctx.rotate(angle);
+            ctx.fillStyle = '#ff3333';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, -12);
+            ctx.lineTo(-6, 4);
+            ctx.lineTo(-2, 2);
+            ctx.lineTo(0, 6);
+            ctx.lineTo(2, 2);
+            ctx.lineTo(6, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
         }
 
         // Управление
@@ -119,21 +213,14 @@
                 moveZ += Math.cos(camera.rotation.y) * moveSpeed;
             }
 
-            // ПРОВЕРКА КОЛЛИЗИИ (Раздельно X и Z для скольжения вдоль стены)
             const newX = camera.position.x + moveX;
             const newZ = camera.position.z + moveZ;
 
-            // Двигаем по X, если нет препятствия
-            if (!isPointInWall(newX, camera.position.z)) {
-                camera.position.x = newX;
-            }
-
-            // Двигаем по Z, если нет препятствия
-            if (!isPointInWall(camera.position.x, newZ)) {
-                camera.position.z = newZ;
-            }
+            if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
+            if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
             renderer.render(scene, camera);
+            drawMinimap();
         }
 
         animate();
