@@ -2,40 +2,27 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Direct Exit Arrow</title>
+    <title>3D Doom | Local Minimap</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
+        /* КРУПНАЯ МИНИ-КАРТА В УГЛУ */
         #minimap-container {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 85vh;
-            height: 85vh;
-            background: rgba(10, 15, 20, 0.98);
-            border: 4px solid #fff;
-            border-radius: 8px;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 0 50px rgba(0,0,0,0.9);
+            bottom: 20px;
+            left: 20px;
+            width: 180px;
+            height: 180px;
+            background: rgba(10, 15, 20, 0.85);
+            border: 2px solid #0f0;
+            border-radius: 50%;
+            z-index: 100;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            overflow: hidden;
         }
         #minimap-canvas { width: 100%; height: 100%; display: block; }
 
-        #ui { 
-            position: absolute; 
-            top: 10px; 
-            left: 10px; 
-            color: #0f0; 
-            background: rgba(0,0,0,0.85); 
-            padding: 12px; 
-            border: 1px solid #0f0; 
-            z-index: 100; 
-            border-radius: 4px;
-            user-select: none;
-        }
-
-        /* ИСПРАВЛЕННЫЙ КОМПАС И СТРЕЛКА */
+        /* УКАЗАТЕЛЬ НА ВЫХОД */
         #compass-container {
             position: absolute;
             top: 15px;
@@ -69,15 +56,11 @@
 </head>
 <body>
 
+    <!-- Круглая крупная мини-карта -->
     <div id="minimap-container">
-        <canvas id="minimap-canvas" width="800" height="800"></canvas>
+        <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
 
-    <div id="ui">
-        <div>Удерживайте [M] для карты</div>
-    </div>
-
-    <!-- Указатель на выход (SVG) -->
     <div id="compass-container">
         <svg id="compass-svg" viewBox="0 0 100 100">
             <polygon points="50,5 20,95 50,75 80,95" fill="#0f0" stroke="#000" stroke-width="3"/>
@@ -154,7 +137,7 @@
         const brickTexture = createBrickTexture();
 
         // ==========================================
-        //  3. ПОСТРОЕНИЕ ЦЕЛЬНЫХ СТЕН
+        //  3. ПОСТРОЕНИЕ СТЕН
         // ==========================================
         const wallMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
         const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x555555 });
@@ -234,46 +217,68 @@
         }
 
         // ==========================================
-        //  6. КАРТА (M)
+        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА КРУПНОГО МАСШТАБА
         // ==========================================
-        const minimapContainer = document.getElementById('minimap-container');
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
-        let isMapVisible = false;
 
-        function drawFullMap() {
-            const width = minimapCanvas.width, height = minimapCanvas.height;
-            const cellWidth = width / mapWidth, cellHeight = height / mapHeight;
+        function drawLocalMinimap() {
+            const width = minimapCanvas.width;
+            const height = minimapCanvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Масштаб: 1 клетка лабиринта = 24 пикселя на мини-карте
+            const scale = 24 / UNIT_SIZE; 
+            const viewRadius = 4.5; // Радиус видимости вокруг игрока (в клетках)
 
             ctx.clearRect(0, 0, width, height);
 
+            // Теккущее положение игрока в игровых координатах
+            const pX = camera.position.x;
+            const pZ = camera.position.z;
+
+            // Переводим положение игрока в ячейки сетки
+            const playerGridC = pX / UNIT_SIZE + mapWidth / 2;
+            const playerGridR = pZ / UNIT_SIZE + mapHeight / 2;
+
+            // Отрисовываем только стены в окрестности игрока
             ctx.fillStyle = '#444';
-            for (let r = 0; r < mapHeight; r++) {
-                for (let c = 0; c < mapWidth; c++) {
-                    if (map[r][c] === 1) ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+            
+            const minR = Math.max(0, Math.floor(playerGridR - viewRadius));
+            const maxR = Math.min(mapHeight, Math.ceil(playerGridR + viewRadius));
+            const minC = Math.max(0, Math.floor(playerGridC - viewRadius));
+            const maxC = Math.min(mapWidth, Math.ceil(playerGridC + viewRadius));
+
+            for (let r = minR; r < maxR; r++) {
+                for (let c = minC; c < maxC; c++) {
+                    if (map[r][c] === 1) {
+                        const wallWorldX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
+                        const wallWorldZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
+
+                        // Относительные координаты стены от игрока
+                        const relX = (wallWorldX - pX) * scale;
+                        const relZ = (wallWorldZ - pZ) * scale;
+
+                        const drawX = centerX + relX - (UNIT_SIZE * scale) / 2;
+                        const drawY = centerY + relZ - (UNIT_SIZE * scale) / 2;
+
+                        ctx.fillRect(drawX, drawY, UNIT_SIZE * scale, UNIT_SIZE * scale);
+                    }
                 }
             }
 
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(exitCell.c * cellWidth, exitCell.r * cellHeight, cellWidth, cellHeight);
-
-            ctx.fillStyle = '#33f';
-            ctx.beginPath();
-            const spawnX = startCell.c * cellWidth + cellWidth / 2;
-            const spawnY = startCell.r * cellHeight + cellHeight / 2;
-            ctx.arc(spawnX, spawnY, cellWidth / 2.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            const playerX = (camera.position.x / UNIT_SIZE + mapWidth / 2) * cellWidth;
-            const playerY = (camera.position.z / UNIT_SIZE + mapHeight / 2) * cellHeight;
-            const angle = camera.rotation.y + Math.PI;
+            // Стрелка игрока строго по центру карт
+            const angle = -camera.rotation.y + Math.PI;
 
             ctx.save();
-            ctx.translate(playerX, playerY);
+            ctx.translate(centerX, centerY);
             ctx.rotate(angle);
             ctx.fillStyle = '#f00';
             ctx.beginPath();
-            ctx.moveTo(0, -14); ctx.lineTo(-8, 8); ctx.lineTo(8, 8);
+            ctx.moveTo(0, -10); 
+            ctx.lineTo(-6, 6); 
+            ctx.lineTo(6, 6);
             ctx.closePath();
             ctx.fill();
             ctx.restore();
@@ -282,25 +287,16 @@
         // ==========================================
         //  7. АНИМАЦИЯ И УПРАВЛЕНИЕ
         // ==========================================
-        const TURN_SPEED = 1.2; // Зафиксированная скорость поворота
+        const TURN_SPEED = 1.2;
 
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyM: false };
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
         document.addEventListener('keydown', (e) => { 
             if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
-            if (e.code === 'KeyM' && !isMapVisible) {
-                isMapVisible = true;
-                minimapContainer.style.display = 'block';
-                drawFullMap();
-            }
         });
 
         document.addEventListener('keyup', (e) => { 
             if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
-            if (e.code === 'KeyM') {
-                isMapVisible = false;
-                minimapContainer.style.display = 'none';
-            }
         });
 
         const HALF_UNIT = UNIT_SIZE / 2;
@@ -323,11 +319,6 @@
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
-            
-            if (isMapVisible) {
-                renderer.render(scene, camera);
-                return; 
-            }
 
             const moveSpeed = 8.0 * delta;
             const turnSpeed = TURN_SPEED * delta; 
@@ -352,6 +343,7 @@
             if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
             updateExitPointer();
+            drawLocalMinimap();
 
             const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
             if (distToExit < 2) {
