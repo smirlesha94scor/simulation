@@ -42,7 +42,7 @@
         // Это не дает стене "пропадать", когда вы стоите к ней вплотную!
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
