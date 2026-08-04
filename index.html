@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Mouse Look & WASD</title>
+    <title>3D Doom | Correct Minimap Arrow</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -255,7 +255,7 @@
         }
 
         // ==========================================
-        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА
+        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА (С КОРРЕКТНОЙ СТРЕЛКОЙ)
         // ==========================================
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
@@ -301,8 +301,8 @@
                 }
             }
 
-            // РАЗВОРОТ СТРЕЛКИ НА 180 ГРАДУСОВ (- camera.rotation.y)
-            const angle = -camera.rotation.y;
+            // Корректный поворот стрелки игроков
+            const angle = camera.rotation.y + Math.PI;
 
             ctx.save();
             ctx.translate(centerX, centerY);
