@@ -2,147 +2,28 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Doom Engine | Classic Controls & GTA Minimap</title>
+    <title>3D Doom | Close Wall Collision</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Courier New', Courier, monospace;
-            user-select: none;
-        }
-
-        /* 2D РЕДАКТОР КАРТЫ (СПРАВА ВВЕРХУ) */
-        #editor-container {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #00ff00;
-            padding: 8px;
-            z-index: 200;
-            border-radius: 4px;
-            display: none; /* Скрыт по умолчанию */
-        }
-
-        .editor-title {
-            color: #00ff00;
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            text-align: center;
-        }
-
-        #map-grid {
-            display: grid;
-            grid-template-columns: repeat(8, 20px);
-            grid-template-rows: repeat(8, 20px);
-            gap: 1px;
-            background: #333;
-            padding: 1px;
-            border: 1px solid #555;
-            cursor: pointer;
-        }
-
-        .cell {
-            width: 20px;
-            height: 20px;
-            background: #111;
-            box-sizing: border-box;
-        }
-
-        .cell.wall {
-            background: #aaa;
-            border: 1px solid #fff;
-        }
-
-        /* МИНИКАРТА "GTA STYLE" (СЛЕВА ВНИЗУ) */
-        #minimap-container {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 180px; /* Прямоугольная, шире */
-            height: 120px;
-            background: rgba(10, 15, 20, 0.95); /* Очень темный, "полицейский" синий */
-            border: 3px solid #fff; /* Белая рамка */
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(0, 255, 255, 0.2);
-            border-radius: 4px;
-            z-index: 100;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        #minimap-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* ИНФОРМАЦИОННАЯ ПАНЕЛЬ И ПРИЦЕЛ */
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #00ff00;
-            font-size: 12px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 8px;
-            border: 1px solid #00ff00;
-            pointer-events: none;
-            z-index: 150;
-            border-radius: 2px;
-        }
-
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #ff0000;
-            font-size: 24px;
-            pointer-events: none;
-            z-index: 150;
-            font-weight: bold;
-        }
+        body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
+        #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <!-- 2D РЕДАКТОР -->
-    <div id="editor-container">
-        <div class="editor-title">Map Editor [E]</div>
-        <div id="map-grid"></div>
-    </div>
-
-    <!-- МИНИКАРТА GTA -->
-    <div id="minimap-container" style="display: block;">
-        <canvas id="minimap-canvas" width="180" height="120"></canvas>
-    </div>
-
-    <!-- UI И ПРИЦЕЛ -->
-    <div id="ui">
-        FPS: <span id="fps">0</span><br><br>
-        Управление:<br>
-        • СТРЕЛКИ — Движение<br>
-        • [ E ] — Редактор<br>
-        • [ M ] — Радар
-    </div>
+    <div id="ui">FPS: <span id="fps">0</span> | Коллизия: ВПЛОТНУЮ</div>
     <div id="crosshair">+</div>
 
-    <!-- THREE.JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // 1. Исходная карта (8x8)
-        let map = [
+        const map = [
             [1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1, 1, 0, 1],
+            [1, 1, 1, 0, 0, 0, 0, 1],
             [1, 0, 0, 0, 0, 0, 0, 1],
             [1, 1, 1, 1, 1, 1, 1, 1]
         ];
@@ -151,253 +32,111 @@
         const mapWidth = map[0].length;
         const mapHeight = map.length;
 
-        // 2. Инициализация 3D Сцены
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+        // 1. УМЕНЬШАЕМ РАДИУС ИГРОКА ДЛЯ УПОРА ВПЛОТНУЮ
+        // Было 0.8, делаем 0.1, чтобы подходить максимально близко к грани блока
+        const PLAYER_RADIUS = 0.1; 
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        const scene = new THREE.Scene();
+
+        // 2. УМЕНЬШАЕМ БЛИЖНЮЮ ПЛОСКОСТЬ КАМЕРЫ (0.01 вместо 0.1)
+        // Это не дает стене "пропадать", когда вы стоите к ней вплотную!
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x777777 });
-        const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x222222 });
-        const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 });
+        // Построение сцены
+        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x666666 });
+        const wallGeo = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
 
-        const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
-
-        // Группа для хранения объектов стен в 3D
-        const wallsGroup = new THREE.Group();
-        scene.add(wallsGroup);
-
-        // Пол и Потолок
-        const totalWidth = mapWidth * UNIT_SIZE;
-        const totalHeight = mapHeight * UNIT_SIZE;
-        const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
-
-        const floor = new THREE.Mesh(floorGeo, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.set(-UNIT_SIZE / 2, 0, -UNIT_SIZE / 2);
-        scene.add(floor);
-
-        const ceiling = new THREE.Mesh(floorGeo, ceilingMaterial);
-        ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE, -UNIT_SIZE / 2);
-        scene.add(ceiling);
-
-        // Позиция камеры (игрока)
-        camera.position.set(0, UNIT_SIZE / 2, 0);
-
-        // 3. Построение 3D Стен
-        function rebuild3DMap() {
-            while (wallsGroup.children.length > 0) {
-                wallsGroup.remove(wallsGroup.children[0]);
+        for (let r = 0; r < mapHeight; r++) {
+            for (let c = 0; c < mapWidth; c++) {
+                if (map[r][c] === 1) {
+                    const wall = new THREE.Mesh(wallGeo, wallMaterial);
+                    const x = (c - mapWidth / 2) * UNIT_SIZE;
+                    const z = (r - mapHeight / 2) * UNIT_SIZE;
+                    wall.position.set(x, UNIT_SIZE / 2, z);
+                    scene.add(wall);
+                }
             }
+        }
 
+        // Старт игрока
+        camera.position.set(-UNIT_SIZE, UNIT_SIZE / 2, -UNIT_SIZE);
+
+        // Точная проверка границ стены с учетом размера блока (UNIT_SIZE = 4, половина = 2)
+        const HALF_UNIT = UNIT_SIZE / 2;
+
+        function isPointInWall(x, z) {
             for (let r = 0; r < mapHeight; r++) {
                 for (let c = 0; c < mapWidth; c++) {
                     if (map[r][c] === 1) {
-                        const wall = new THREE.Mesh(wallGeometry, wallMaterial);
-                        const x = (c - mapWidth / 2) * UNIT_SIZE;
-                        const z = (r - mapHeight / 2) * UNIT_SIZE;
-                        wall.position.set(x, UNIT_SIZE / 2, z);
-                        wallsGroup.add(wall);
+                        const wallX = (c - mapWidth / 2) * UNIT_SIZE;
+                        const wallZ = (r - mapHeight / 2) * UNIT_SIZE;
+
+                        // Проверяем, попадает ли точка в прямоугольник стены с учетом радиуса игрока
+                        if (
+                            x + PLAYER_RADIUS > wallX - HALF_UNIT &&
+                            x - PLAYER_RADIUS < wallX + HALF_UNIT &&
+                            z + PLAYER_RADIUS > wallZ - HALF_UNIT &&
+                            z - PLAYER_RADIUS < wallZ + HALF_UNIT
+                        ) {
+                            return true; // Столкновение!
+                        }
                     }
                 }
             }
+            return false;
         }
 
-        // 4. Построение 2D Редактора
-        const gridElement = document.getElementById('map-grid');
-
-        function create2DGrid() {
-            gridElement.innerHTML = '';
-            for (let r = 0; r < mapHeight; r++) {
-                for (let c = 0; c < mapWidth; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell' + (map[r][c] === 1 ? ' wall' : '');
-                    cell.dataset.row = r;
-                    cell.dataset.col = c;
-
-                    cell.addEventListener('mousedown', () => {
-                        // Запрещаем убирать внешнюю рамку
-                        if (r === 0 || r === mapHeight - 1 || c === 0 || c === mapWidth - 1) return;
-
-                        map[r][c] = map[r][c] === 1 ? 0 : 1;
-                        cell.classList.toggle('wall');
-                        rebuild3DMap();
-                    });
-
-                    gridElement.appendChild(cell);
-                }
-            }
-        }
-
-        function toggleEditor() {
-            const container = document.getElementById('editor-container');
-            container.style.display = container.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function toggleMinimap() {
-            const container = document.getElementById('minimap-container');
-            container.style.display = container.style.display === 'none' ? 'block' : 'none';
-        }
-
-        // 5. РЕНДЕРИНГ МИНИКАРТЫ GTA (Canvas 2D)
-        const minimapCanvas = document.getElementById('minimap-canvas');
-        const ctx = minimapCanvas.getContext('2d');
-        let radarScanAngle = 0; // Для эффекта вращающегося радара
-
-        function drawMinimap() {
-            if (document.getElementById('minimap-container').style.display === 'none') return;
-
-            const width = minimapCanvas.width;
-            const height = minimapCanvas.height;
-            const cellWidth = width / mapWidth;
-            const cellHeight = height / mapHeight;
-
-            // Центр карты для вращения сетки
-            const centerX = width / 2;
-            const centerY = height / 2;
-
-            ctx.clearRect(0, 0, width, height);
-
-            // А. Отрисовка фоновой сетки радара (ВРАЩАЕТСЯ)
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            radarScanAngle += 0.005; // Скорость вращения сетки
-            ctx.rotate(radarScanAngle);
-            
-            ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)'; // Тусклый циан
-            ctx.lineWidth = 0.5;
-            for(let i = -width; i < width * 2; i += cellWidth * 1.5) {
-                ctx.beginPath(); ctx.moveTo(i, -height); ctx.lineTo(i, height * 2); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(-width, i); ctx.lineTo(width * 2, i); ctx.stroke();
-            }
-            ctx.restore();
-
-            // Б. Отрисовка клеток карты (НЕ ВРАЩАЮТСЯ)
-            for (let r = 0; r < mapHeight; r++) {
-                for (let c = 0; c < mapWidth; c++) {
-                    if (map[r][c] === 1) {
-                        ctx.fillStyle = '#666'; // Стены (серые блоки)
-                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
-                    }
-                    
-                    // Сетка самой карты (очень тусклая)
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-                    ctx.strokeRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
-                }
-            }
-
-            // В. Отрисовка игрока (ЦЕНТР, ТРЕУГОЛЬНИК GTA-STYLE)
-            const playerX = (camera.position.x / UNIT_SIZE + mapWidth / 2) * cellWidth;
-            const playerY = (camera.position.z / UNIT_SIZE + mapHeight / 2) * cellHeight;
-
-            // Направление взгляда (угол yaw)
-            const angle = camera.rotation.y + Math.PI;
-
-            // Треугольник игрока
-            ctx.save();
-            ctx.translate(playerX, playerY);
-            ctx.rotate(angle);
-
-            ctx.fillStyle = '#ff3333'; // Ярко-красный треугольник
-            ctx.strokeStyle = '#fff'; // Белый контур
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(0, -7);  // Нос
-            ctx.lineTo(-5, 5);  // Левый хвост
-            ctx.lineTo(5, 5);   // Правый хвост
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.restore();
-        }
-
-        // Инициализация
-        rebuild3DMap();
-        create2DGrid();
-
-        // 6. КЛАССИЧЕСКОЕ УПРАВЛЕНИЕ (СТРЕЛКИ)
+        // Управление
         const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        document.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = true; });
+        document.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = false; });
 
-        document.addEventListener('keydown', (e) => {
-            if (keys.hasOwnProperty(e.code)) { 
-                keys[e.code] = true; 
-                e.preventDefault(); // Запрещаем скролл страницы
-            }
-            
-            // Клавиши UI
-            if (e.code === 'KeyE') toggleEditor();
-            if (e.code === 'KeyM') toggleMinimap();
-        });
-        document.addEventListener('keyup', (e) => {
-            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
-        });
-
-        // 7. Игровой цикл
-        const fpsElement = document.getElementById('fps');
-        let frameCount = 0;
-        let lastTime = performance.now();
         const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
 
             const delta = clock.getDelta();
-            const moveSpeed = 12.0 * delta;
+            const moveSpeed = 8.0 * delta;
             const turnSpeed = 2.5 * delta;
 
-            // КЛАССИЧЕСКОЕ ДВИЖЕНИЕ
-            if (keys.ArrowLeft) camera.rotation.y += turnSpeed;   // Поворот влево
-            if (keys.ArrowRight) camera.rotation.y -= turnSpeed;  // Поворот вправо
-            if (keys.ArrowUp) camera.translateZ(-moveSpeed);      // Вперед
-            if (keys.ArrowDown) camera.translateZ(moveSpeed);      // Назад
+            if (keys.ArrowLeft) camera.rotation.y += turnSpeed;
+            if (keys.ArrowRight) camera.rotation.y -= turnSpeed;
 
-            // Фиксируем высоту
-            camera.position.y = UNIT_SIZE / 2;
+            let moveX = 0;
+            let moveZ = 0;
 
-            // Рендерим 3D и миникарту
-            renderer.render(scene, camera);
-            drawMinimap();
-
-            // FPS
-            frameCount++;
-            const currentTime = performance.now();
-            if (currentTime - lastTime >= 1000) {
-                fpsElement.textContent = frameCount;
-                frameCount = 0;
-                lastTime = currentTime;
+            if (keys.ArrowUp) {
+                moveX -= Math.sin(camera.rotation.y) * moveSpeed;
+                moveZ -= Math.cos(camera.rotation.y) * moveSpeed;
             }
+            if (keys.ArrowDown) {
+                moveX += Math.sin(camera.rotation.y) * moveSpeed;
+                moveZ += Math.cos(camera.rotation.y) * moveSpeed;
+            }
+
+            // ПРОВЕРКА КОЛЛИЗИИ (Раздельно X и Z для скольжения вдоль стены)
+            const newX = camera.position.x + moveX;
+            const newZ = camera.position.z + moveZ;
+
+            // Двигаем по X, если нет препятствия
+            if (!isPointInWall(newX, camera.position.z)) {
+                camera.position.x = newX;
+            }
+
+            // Двигаем по Z, если нет препятствия
+            if (!isPointInWall(camera.position.x, newZ)) {
+                camera.position.z = newZ;
+            }
+
+            renderer.render(scene, camera);
         }
 
         animate();
-
-        // Адаптивность к размеру окна
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    
-    <!-- Google Calendar Appointment Scheduling begin -->
-<link href="https://calendar.google.com/calendar/scheduling-button-script.css" rel="stylesheet">
-<script src="https://calendar.google.com/calendar/scheduling-button-script.js" async></script>
-<script>
-(function() {
-  var target = document.currentScript;
-  window.addEventListener('load', function() {
-    calendar.schedulingButton.load({
-      url: 'https://calendar.google.com/calendar/appointments/schedules/AcZssZ2VByFUpVxVyP7OYl2uxyMOgwrDyOguvSHnkYL-Vcwm7nAaARdAct1PVR5ZhBuLhMapl1ZxUvvA?gv=true',
-      color: '#039BE5',
-      label: 'Создать встречу',
-      target,
-    });
-  });
-})();
-</script>
-<!-- end Google Calendar Appointment Scheduling -->
+    </script>
 </body>
 </html>
