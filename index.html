@@ -2,34 +2,16 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Brick Texture & Lighting</title>
+    <title>3D Doom | Ambient Lighting & Volume</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
-        
-        #minimap-container {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 180px;
-            height: 120px;
-            background: rgba(10, 15, 20, 0.95);
-            border: 2px solid #fff;
-            border-radius: 4px;
-            z-index: 100;
-        }
-        #minimap-canvas { width: 100%; height: 100%; display: block; }
-
         #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="minimap-container">
-        <canvas id="minimap-canvas" width="180" height="120"></canvas>
-    </div>
-
-    <div id="ui">FPS: <span id="fps">0</span> | Текстура кирпича + Динамический свет</div>
+    <div id="ui">Объемное освещение | Коллизия вплотную</div>
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -59,7 +41,24 @@
         document.body.appendChild(renderer.domElement);
 
         // ==========================================
-        //  ПРОЦЕДУРНАЯ ТЕКСТУРА КИРПИЧА (Canvas)
+        //  ОБЩИЙ ОБЪЕМНЫЙ СВЕТ (VOLUME LIGHTING)
+        // ==========================================
+        // 1. Слабый фоновый свет (чтобы тени не были абсолютно черными)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+
+        // 2. Основной яркий свет сверху-справа (создает светлые грани)
+        const mainLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+        mainLight.position.set(5, 8, 3);
+        scene.add(mainLight);
+
+        // 3. Заполняющий холодный свет с противоположного угла (создает глубокий контраст на темных гранях)
+        const fillLight = new THREE.DirectionalLight(0x446688, 0.4);
+        fillLight.position.set(-5, 4, -5);
+        scene.add(fillLight);
+
+        // ==========================================
+        //  ПРОЦЕДУРНАЯ ТЕКСТУРА КИРПИЧА
         // ==========================================
         function createBrickTexture() {
             const canvas = document.createElement('canvas');
@@ -67,11 +66,9 @@
             canvas.height = 128;
             const ctx = canvas.getContext('2d');
 
-            // Фон (цемент)
-            ctx.fillStyle = '#444444';
+            ctx.fillStyle = '#333333';
             ctx.fillRect(0, 0, 128, 128);
 
-            // Кирпичи
             ctx.fillStyle = '#8b2604';
             const rows = 8;
             const cols = 4;
@@ -81,13 +78,12 @@
             for (let r = 0; r < rows; r++) {
                 const offsetX = (r % 2 === 0) ? 0 : brickW / 2;
                 for (let c = -1; c < cols + 1; c++) {
-                    // Рисуем кирпич с зазором в 2px под швы
                     ctx.fillRect(c * brickW + offsetX + 1, r * brickH + 1, brickW - 2, brickH - 2);
                 }
             }
 
             const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter; // Пиксельный стилизованный вид
+            texture.magFilter = THREE.NearestFilter;
             texture.minFilter = THREE.NearestFilter;
             return texture;
         }
@@ -95,30 +91,13 @@
         const brickTexture = createBrickTexture();
 
         // ==========================================
-        //  ОСВЕЩЕНИЕ ДЛЯ КОНТРАСТА СТЕН
+        //  МАТЕРИАЛЫ И ПОСТРОЕНИЕ СЦЕНЫ
         // ==========================================
-        // 1. Мягкий базовый свет (чтобы небыло абсолютной тьмы)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
-        scene.add(ambientLight);
-
-        // 2. Направленный свет сбоку (создает контраст стен под разными углами)
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(5, 10, -7);
-        scene.add(dirLight);
-
-        // 3. Свет от игрока (как фонарик/факел в руках)
-        const playerLight = new THREE.PointLight(0xffaa55, 1.2, 15);
-        scene.add(playerLight);
-
-        // ==========================================
-        //  МАТЕРИАЛЫ И ГЕОМЕТРИЯ (MeshLambertMaterial)
-        // ==========================================
-        // MeshLambertMaterial реагирует на свет и создает тени под разными углами!
+        // MeshLambertMaterial реагирует на DirectionalLight и дает четкие тени на гранях
         const wallMaterial = new THREE.MeshLambertMaterial({ map: brickTexture });
         const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
         const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0x111111 });
 
-        // Пол и Потолок
         const overlap = 2;
         const totalWidth = mapWidth * UNIT_SIZE + overlap;
         const totalHeight = mapHeight * UNIT_SIZE + overlap;
@@ -134,7 +113,6 @@
         ceiling.position.set(-UNIT_SIZE / 2, UNIT_SIZE + 0.01, -UNIT_SIZE / 2);
         scene.add(ceiling);
 
-        // Стены с кирпичной текстурой
         const wallGeometry = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE + 0.1, UNIT_SIZE);
 
         for (let r = 0; r < mapHeight; r++) {
@@ -152,7 +130,7 @@
         // Старт игрока
         camera.position.set(-UNIT_SIZE, UNIT_SIZE / 2, -UNIT_SIZE);
 
-        // Коллизии
+        // Коллизия
         const HALF_UNIT = UNIT_SIZE / 2;
         function isPointInWall(x, z) {
             for (let r = 0; r < mapHeight; r++) {
@@ -170,44 +148,6 @@
                 }
             }
             return false;
-        }
-
-        // Миникарта
-        const minimapCanvas = document.getElementById('minimap-canvas');
-        const ctx = minimapCanvas.getContext('2d');
-
-        function drawMinimap() {
-            const width = minimapCanvas.width;
-            const height = minimapCanvas.height;
-            const cellWidth = width / mapWidth;
-            const cellHeight = height / mapHeight;
-
-            ctx.clearRect(0, 0, width, height);
-
-            for (let r = 0; r < mapHeight; r++) {
-                for (let c = 0; c < mapWidth; c++) {
-                    if (map[r][c] === 1) {
-                        ctx.fillStyle = '#8b2604';
-                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
-                    }
-                }
-            }
-
-            const playerX = (camera.position.x / UNIT_SIZE + mapWidth / 2) * cellWidth;
-            const playerY = (camera.position.z / UNIT_SIZE + mapHeight / 2) * cellHeight;
-            const angle = camera.rotation.y + Math.PI;
-
-            ctx.save();
-            ctx.translate(playerX, playerY);
-            ctx.rotate(angle);
-            ctx.fillStyle = '#ff3333';
-            ctx.beginPath();
-            ctx.moveTo(0, -10);
-            ctx.lineTo(-5, 5);
-            ctx.lineTo(5, 5);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
         }
 
         // Управление
@@ -245,11 +185,7 @@
             if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
             if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
-            // Привязываем свет факела к позиции камеры игрока
-            playerLight.position.copy(camera.position);
-
             renderer.render(scene, camera);
-            drawMinimap();
         }
 
         animate();
