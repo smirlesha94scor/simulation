@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Correct Minimap Arrow</title>
+    <title>3D Doom | Correct Minimap Arrow Rotation</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -301,8 +301,8 @@
                 }
             }
 
-            // РАЗВОРОТ СТРЕЛКИ НА 180 ГРАДУСОВ
-            const angle = -camera.rotation.y;
+            // ТОЧНЫЙ ПОВОРОТ СТРЕЛКИ В СТОРНУ ВЗГЛЯДА
+            const angle = camera.rotation.y;
 
             ctx.save();
             ctx.translate(centerX, centerY);
