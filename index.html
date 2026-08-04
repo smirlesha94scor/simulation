@@ -2,16 +2,39 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Random Exit Maze</title>
+    <title>3D Doom | Random Exit Maze & Map Key</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
-        #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; }
-        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; }
+        
+        /* СТИЛИ МИНИКАРТЫ (По умолчанию скрыта) */
+        #minimap-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Центрируем по экрану */
+            width: 80vh; /* Размер зависит от высоты экрана */
+            height: 80vh;
+            background: rgba(10, 15, 20, 0.95);
+            border: 4px solid #fff;
+            border-radius: 8px;
+            z-index: 1000;
+            display: none; /* СКРЫТО ПО УМОЛЧАНИЮ */
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+        #minimap-canvas { width: 100%; height: 100%; display: block; }
+
+        #ui { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; border: 1px solid #0f0; z-index: 100; }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; z-index: 10; }
     </style>
 </head>
 <body>
 
-    <div id="ui">Выход в случайной точке лабиринта</div>
+    <!-- Контейнер карты -->
+    <div id="minimap-container">
+        <canvas id="minimap-canvas" width="500" height="500"></canvas>
+    </div>
+
+    <div id="ui">Цельные стены | Удерживайте [M] для карты</div>
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -21,7 +44,7 @@
         // ==========================================
         //  1. ГЕНЕРАТОР ЛАБИРИНТА (DFS)
         // ==========================================
-        const GRID_SIZE = 17; // Размер карты
+        const GRID_SIZE = 21; // Немного увеличим карту для интереса
 
         function generateMaze(size) {
             let grid = Array(size).fill().map(() => Array(size).fill(1));
@@ -137,7 +160,6 @@
         // ==========================================
         //  4. РАНДОМИЗАЦИЯ СТАРТА И ВЫХОДА
         // ==========================================
-        // Функция поиска всех пустых клеток (проходов)
         function getEmptyCells() {
             let cells = [];
             for (let r = 1; r < mapHeight - 1; r++) {
@@ -152,47 +174,85 @@
 
         const emptyCells = getEmptyCells();
 
-        // 1. Игрок ставится в случайную пустую клетку
         const startCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
         const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
         camera.position.set(startX, UNIT_SIZE / 2, startZ);
 
-        // 2. Ищем случайную клетку для ВЫХОДА, которая находится далеко от спавна игрока
         let exitCell;
-        let maxDistance = 0;
-
-        // Фильтруем пустые клетки и находим удаленные от точки старта
         for (let cell of emptyCells) {
             const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
-            // Берем клетки на расстоянии больше 5 блоков от игрока
-            if (dist > 5 && Math.random() > 0.3) {
+            if (dist > 8 && Math.random() > 0.4) { // Увеличили дистанцию
                 exitCell = cell;
                 break;
             }
         }
 
-        // Страховка: если подходящая клетка не выбрана случайным образом, берем самую дальнюю
         if (!exitCell) {
+            let maxDist = 0;
             emptyCells.forEach(cell => {
                 const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
-                if (dist > maxDistance) {
-                    maxDistance = dist;
-                    exitCell = cell;
-                }
+                if (dist > maxDist) { maxDist = dist; exitCell = cell; }
             });
         }
 
         const exitX = (exitCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const exitZ = (exitCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
 
-        // Создаем зеленый блок выходя
         const exitMesh = new THREE.Mesh(new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE), exitMaterial);
         exitMesh.position.set(exitX, UNIT_SIZE / 2, exitZ);
         scene.add(exitMesh);
 
         // ==========================================
-        //  5. КОЛЛИЗИЯ И ИГРОВОЙ ЦИКЛ
+        //  5. ЛОГИКА КАРТЫ (Нажатие M)
+        // ==========================================
+        const minimapContainer = document.getElementById('minimap-container');
+        const minimapCanvas = document.getElementById('minimap-canvas');
+        const ctx = minimapCanvas.getContext('2d');
+        let isMapVisible = false;
+
+        function drawFullMap() {
+            const width = minimapCanvas.width;
+            const height = minimapCanvas.height;
+            const cellWidth = width / mapWidth;
+            const cellHeight = height / mapHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Стены
+            ctx.fillStyle = '#555';
+            for (let r = 0; r < mapHeight; r++) {
+                for (let c = 0; c < mapWidth; c++) {
+                    if (map[r][c] === 1) {
+                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+                    }
+                }
+            }
+
+            // Выход (Зеленый)
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(exitCell.c * cellWidth, exitCell.r * cellHeight, cellWidth, cellHeight);
+
+            // Игрок (Красная стрелка)
+            const playerX = (camera.position.x / UNIT_SIZE + mapWidth / 2) * cellWidth;
+            const playerY = (camera.position.z / UNIT_SIZE + mapHeight / 2) * cellHeight;
+            const angle = camera.rotation.y + Math.PI;
+
+            ctx.save();
+            ctx.translate(playerX, playerY);
+            ctx.rotate(angle);
+            ctx.fillStyle = '#f00';
+            ctx.beginPath();
+            ctx.moveTo(0, -15);
+            ctx.lineTo(-8, 8);
+            ctx.lineTo(8, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // ==========================================
+        //  6. КОЛЛИЗИЯ И ИГРОВОЙ ЦИКЛ
         // ==========================================
         const HALF_UNIT = UNIT_SIZE / 2;
 
@@ -214,10 +274,29 @@
             return false;
         }
 
-        // Управление
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-        document.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = true; });
-        document.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = false; });
+        // Управление (добавлена клавиша KeyM)
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyM: false };
+        
+        document.addEventListener('keydown', (e) => { 
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
+            
+            // Логика нажатия M
+            if (e.code === 'KeyM' && !isMapVisible) {
+                isMapVisible = true;
+                minimapContainer.style.display = 'block'; // Показать карту
+                drawFullMap(); // Нарисовать один раз при открытии
+            }
+        });
+
+        document.addEventListener('keyup', (e) => { 
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
+
+            // Логика отпускания M
+            if (e.code === 'KeyM') {
+                isMapVisible = false;
+                minimapContainer.style.display = 'none'; // Скрыть карту
+            }
+        });
 
         const clock = new THREE.Clock();
 
@@ -225,6 +304,13 @@
             requestAnimationFrame(animate);
 
             const delta = clock.getDelta();
+            
+            // Если карта открыта, игрок не может двигаться
+            if (isMapVisible) {
+                renderer.render(scene, camera);
+                return; 
+            }
+
             const moveSpeed = 8.0 * delta;
             const turnSpeed = 2.5 * delta;
 
@@ -249,10 +335,9 @@
             if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
             if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
-            // Проверка достижения зеленой клетки выхода
             const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
             if (distToExit < 2) {
-                alert("Победа! Вы нашли выход из лабиринта!");
+                alert("Победа! Вы нашли выход!");
                 location.reload();
             }
 
