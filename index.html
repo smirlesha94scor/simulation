@@ -34,23 +34,15 @@
             border-radius: 4px;
             user-select: none;
         }
-        .setting-row {
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px;
-        }
-        input[type=range] { cursor: pointer; accent-color: #0f0; }
 
-        /* УКАЗАТЕЛЬ НА ВЫХОД */
+        /* ИСПРАВЛЕННЫЙ КОМПАС И СТРЕЛКА */
         #compass-container {
             position: absolute;
             top: 15px;
             right: 15px;
-            width: 100px;
-            height: 100px;
-            background: rgba(0, 0, 0, 0.7);
+            width: 90px;
+            height: 90px;
+            background: rgba(0, 0, 0, 0.85);
             border: 2px solid #0f0;
             border-radius: 50%;
             display: flex;
@@ -58,18 +50,19 @@
             align-items: center;
             justify-content: center;
             z-index: 100;
+            box-shadow: 0 0 10px rgba(0,255,0,0.3);
         }
-        #compass-arrow {
-            width: 0; 
-            height: 0; 
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-bottom: 40px solid #0f0;
-            transform-origin: 50% 70%;
-            transition: transform 0.1s ease-out;
-            filter: drop-shadow(0 0 5px #0f0);
+        #compass-svg {
+            width: 50px;
+            height: 50px;
+            transition: transform 0.05s linear;
         }
-        #compass-label { color: #0f0; font-size: 10px; margin-top: 4px; }
+        #compass-label { 
+            color: #0f0; 
+            font-size: 10px; 
+            margin-top: 2px; 
+            font-weight: bold;
+        }
 
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; z-index: 10; }
     </style>
@@ -82,16 +75,13 @@
 
     <div id="ui">
         <div>Удерживайте [M] для карты</div>
-        <div class="setting-row">
-            <label for="turnSpeedInput">Скорость поворота:</label>
-            <input type="range" id="turnSpeedInput" min="0.1" max="3.0" step="0.1" value="0.6">
-            <span id="turnSpeedValue">0.6</span>
-        </div>
     </div>
 
-    <!-- Указатель на выход -->
+    <!-- Указатель на выход (SVG) -->
     <div id="compass-container">
-        <div id="compass-arrow"></div>
+        <svg id="compass-svg" viewBox="0 0 100 100">
+            <polygon points="50,5 20,95 50,75 80,95" fill="#0f0" stroke="#000" stroke-width="3"/>
+        </svg>
         <div id="compass-label">ВЫХОД</div>
     </div>
 
@@ -102,7 +92,7 @@
 
     <script>
         // ==========================================
-        //  1. СЛОЖНЫЙ ГЕНЕРАТОР ЛАБИРИНТА (31x31)
+        //  1. ГЕНЕРАТОР ЛАБИРИНТА (31x31)
         // ==========================================
         const GRID_SIZE = 31;
 
@@ -233,18 +223,14 @@
         // ==========================================
         //  5. ПРЯМОЙ УКАЗАТЕЛЬ НА ВЫХОД
         // ==========================================
-        const compassArrow = document.getElementById('compass-arrow');
+        const compassSvg = document.getElementById('compass-svg');
 
         function updateExitPointer() {
-            // Угол направления от игрока до координат выхода
             const angleToExit = Math.atan2(exitX - camera.position.x, exitZ - camera.position.z);
-            
-            // Относительный угол относительно взгляда игрока
             let relativeAngle = angleToExit - camera.rotation.y;
 
-            // Перевод в градусы
             const degrees = (relativeAngle * 180 / Math.PI) + 180;
-            compassArrow.style.transform = `rotate(${degrees}deg)`;
+            compassSvg.style.transform = `rotate(${degrees}deg)`;
         }
 
         // ==========================================
@@ -294,21 +280,13 @@
         }
 
         // ==========================================
-        //  7. НАСТРОЙКИ И АНИМАЦИЯ
+        //  7. АНИМАЦИЯ И УПРАВЛЕНИЕ
         // ==========================================
-        let turnSpeedMultiplier = 0.6;
-        const turnSpeedInput = document.getElementById('turnSpeedInput');
-        const turnSpeedValue = document.getElementById('turnSpeedValue');
-
-        turnSpeedInput.addEventListener('input', (e) => {
-            turnSpeedMultiplier = parseFloat(e.target.value);
-            turnSpeedValue.textContent = turnSpeedMultiplier.toFixed(1);
-        });
+        const TURN_SPEED = 1.2; // Зафиксированная скорость поворота
 
         const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyM: false };
 
         document.addEventListener('keydown', (e) => { 
-            if (document.activeElement === turnSpeedInput) return;
             if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
             if (e.code === 'KeyM' && !isMapVisible) {
                 isMapVisible = true;
@@ -352,7 +330,7 @@
             }
 
             const moveSpeed = 8.0 * delta;
-            const turnSpeed = turnSpeedMultiplier * delta; 
+            const turnSpeed = TURN_SPEED * delta; 
 
             if (keys.ArrowLeft) camera.rotation.y += turnSpeed;
             if (keys.ArrowRight) camera.rotation.y -= turnSpeed;
@@ -373,7 +351,6 @@
             if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
             if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
-            // Обновляем поворот стрелки в сторону выхода
             updateExitPointer();
 
             const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
