@@ -255,7 +255,7 @@
         }
 
         // ==========================================
-        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА (С КОРРЕКТНОЙ СТРЕЛКОЙ)
+        //  6. ЛОКАЛЬНАЯ МИНИ-КАРТА
         // ==========================================
         const minimapCanvas = document.getElementById('minimap-canvas');
         const ctx = minimapCanvas.getContext('2d');
@@ -301,8 +301,8 @@
                 }
             }
 
-            // Корректный поворот стрелки игроков
-            const angle = camera.rotation.y + Math.PI;
+            // РАЗВОРОТ СТРЕЛКИ НА 180 ГРАДУСОВ
+            const angle = -camera.rotation.y;
 
             ctx.save();
             ctx.translate(centerX, centerY);
