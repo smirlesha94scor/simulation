@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Maze Game</title>
+    <title>3D Doom | Direct Exit Arrow</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         
@@ -22,7 +22,6 @@
         }
         #minimap-canvas { width: 100%; height: 100%; display: block; }
 
-        /* ИНТЕРФЕЙС И НАСТРОЙКИ */
         #ui { 
             position: absolute; 
             top: 10px; 
@@ -42,10 +41,35 @@
             gap: 10px;
             font-size: 13px;
         }
-        input[type=range] {
-            cursor: pointer;
-            accent-color: #0f0;
+        input[type=range] { cursor: pointer; accent-color: #0f0; }
+
+        /* УКАЗАТЕЛЬ НА ВЫХОД */
+        #compass-container {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #0f0;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
         }
+        #compass-arrow {
+            width: 0; 
+            height: 0; 
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 40px solid #0f0;
+            transform-origin: 50% 70%;
+            transition: transform 0.1s ease-out;
+            filter: drop-shadow(0 0 5px #0f0);
+        }
+        #compass-label { color: #0f0; font-size: 10px; margin-top: 4px; }
 
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #f00; font-size: 24px; font-weight: bold; z-index: 10; }
     </style>
@@ -65,6 +89,12 @@
         </div>
     </div>
 
+    <!-- Указатель на выход -->
+    <div id="compass-container">
+        <div id="compass-arrow"></div>
+        <div id="compass-label">ВЫХОД</div>
+    </div>
+
     <div id="crosshair">+</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -72,48 +102,26 @@
 
     <script>
         // ==========================================
-        //  1. ГЕНЕРАТОР ЛАБИРИНТА
+        //  1. СЛОЖНЫЙ ГЕНЕРАТОР ЛАБИРИНТА (31x31)
         // ==========================================
-        const GRID_SIZE = 23;
+        const GRID_SIZE = 31;
 
         function generateMaze(size) {
             let grid = Array(size).fill().map(() => Array(size).fill(1));
 
             function walk(x, y) {
                 grid[y][x] = 0;
-
-                const dirs = [
-                    [0, -2], [2, 0], [0, 2], [-2, 0]
-                ].sort(() => Math.random() - 0.5);
+                const dirs = [[0, -2], [2, 0], [0, 2], [-2, 0]].sort(() => Math.random() - 0.5);
 
                 for (let [dx, dy] of dirs) {
-                    const nx = x + dx;
-                    const ny = y + dy;
-
+                    const nx = x + dx, ny = y + dy;
                     if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && grid[ny][nx] === 1) {
                         grid[y + dy / 2][x + dx / 2] = 0;
-                        
-                        if (Math.random() < 0.3) {
-                            const rx = nx + (Math.random() > 0.5 ? 1 : -1);
-                            const ry = ny + (Math.random() > 0.5 ? 1 : -1);
-                            if (rx > 0 && rx < size - 1 && ry > 0 && ry < size - 1 && grid[ry][rx] === 1) {
-                                grid[ry][rx] = 0;
-                            }
-                        }
-
                         walk(nx, ny);
                     }
                 }
             }
-
             walk(1, 1);
-            
-            for (let i = 0; i < size * 2; i++) {
-                let rx = Math.floor(Math.random() * (size - 2)) + 1;
-                let ry = Math.floor(Math.random() * (size - 2)) + 1;
-                if (grid[ry][rx] === 1) grid[ry][rx] = 0;
-            }
-            
             return grid;
         }
 
@@ -205,26 +213,17 @@
         }
 
         const emptyCells = getEmptyCells();
-
         const startCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
         const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
         camera.position.set(startX, UNIT_SIZE / 2, startZ);
 
         let exitCell;
-        for (let cell of emptyCells) {
+        let maxDist = 0;
+        emptyCells.forEach(cell => {
             const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
-            if (dist > 10 && Math.random() > 0.5) { 
-                exitCell = cell; break;
-            }
-        }
-        if (!exitCell) {
-            let maxDist = 0;
-            emptyCells.forEach(cell => {
-                const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
-                if (dist > maxDist) { maxDist = dist; exitCell = cell; }
-            });
-        }
+            if (dist > maxDist) { maxDist = dist; exitCell = cell; }
+        });
 
         const exitX = (exitCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
         const exitZ = (exitCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
@@ -232,7 +231,24 @@
         exitMesh.position.set(exitX, UNIT_SIZE / 2, exitZ); scene.add(exitMesh);
 
         // ==========================================
-        //  5. ОТРИСОВКА КАРТЫ (Нажатие M)
+        //  5. ПРЯМОЙ УКАЗАТЕЛЬ НА ВЫХОД
+        // ==========================================
+        const compassArrow = document.getElementById('compass-arrow');
+
+        function updateExitPointer() {
+            // Угол направления от игрока до координат выхода
+            const angleToExit = Math.atan2(exitX - camera.position.x, exitZ - camera.position.z);
+            
+            // Относительный угол относительно взгляда игрока
+            let relativeAngle = angleToExit - camera.rotation.y;
+
+            // Перевод в градусы
+            const degrees = (relativeAngle * 180 / Math.PI) + 180;
+            compassArrow.style.transform = `rotate(${degrees}deg)`;
+        }
+
+        // ==========================================
+        //  6. КАРТА (M)
         // ==========================================
         const minimapContainer = document.getElementById('minimap-container');
         const minimapCanvas = document.getElementById('minimap-canvas');
@@ -240,19 +256,15 @@
         let isMapVisible = false;
 
         function drawFullMap() {
-            const width = minimapCanvas.width;
-            const height = minimapCanvas.height;
-            const cellWidth = width / mapWidth;
-            const cellHeight = height / mapHeight;
+            const width = minimapCanvas.width, height = minimapCanvas.height;
+            const cellWidth = width / mapWidth, cellHeight = height / mapHeight;
 
             ctx.clearRect(0, 0, width, height);
 
             ctx.fillStyle = '#444';
             for (let r = 0; r < mapHeight; r++) {
                 for (let c = 0; c < mapWidth; c++) {
-                    if (map[r][c] === 1) {
-                        ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
-                    }
+                    if (map[r][c] === 1) ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
                 }
             }
 
@@ -275,33 +287,28 @@
             ctx.rotate(angle);
             ctx.fillStyle = '#f00';
             ctx.beginPath();
-            ctx.moveTo(0, -18);
-            ctx.lineTo(-10, 10);
-            ctx.lineTo(10, 10);
+            ctx.moveTo(0, -14); ctx.lineTo(-8, 8); ctx.lineTo(8, 8);
             ctx.closePath();
             ctx.fill();
             ctx.restore();
         }
 
         // ==========================================
-        //  6. НАСТРОЙКИ СКОРОСТИ И УПРАВЛЕНИЕ
+        //  7. НАСТРОЙКИ И АНИМАЦИЯ
         // ==========================================
         let turnSpeedMultiplier = 0.6;
         const turnSpeedInput = document.getElementById('turnSpeedInput');
         const turnSpeedValue = document.getElementById('turnSpeedValue');
 
-        // Обработчик ползунка скорости
         turnSpeedInput.addEventListener('input', (e) => {
             turnSpeedMultiplier = parseFloat(e.target.value);
             turnSpeedValue.textContent = turnSpeedMultiplier.toFixed(1);
         });
 
         const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyM: false };
-        
-        document.addEventListener('keydown', (e) => { 
-            // Игнорируем нажатие клавиш, если фокус на ползунке
-            if (document.activeElement === turnSpeedInput) return;
 
+        document.addEventListener('keydown', (e) => { 
+            if (document.activeElement === turnSpeedInput) return;
             if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
             if (e.code === 'KeyM' && !isMapVisible) {
                 isMapVisible = true;
@@ -345,7 +352,6 @@
             }
 
             const moveSpeed = 8.0 * delta;
-            // Динамическая скорость поворота на основе значения ползунка
             const turnSpeed = turnSpeedMultiplier * delta; 
 
             if (keys.ArrowLeft) camera.rotation.y += turnSpeed;
@@ -367,9 +373,12 @@
             if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
             if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
 
+            // Обновляем поворот стрелки в сторону выхода
+            updateExitPointer();
+
             const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
             if (distToExit < 2) {
-                alert("Победа! Карта перезагрузится.");
+                alert("Победа! Вы нашли выход!");
                 location.reload();
             }
 
