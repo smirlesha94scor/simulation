@@ -2,447 +2,213 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Doom | Correct Rotating Minimap</title>
+    <title>Three.js Симуляция: Выбор времени и даты</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
-        
-        /* КРУПНАЯ МИНИ-КАРТА В УГЛУ */
-        #minimap-container {
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #ui {
             position: absolute;
-            bottom: 20px;
+            top: 20px;
             left: 20px;
-            width: 180px;
-            height: 180px;
-            background: rgba(10, 15, 20, 0.85);
-            border: 2px solid #0f0;
-            border-radius: 50%;
-            z-index: 100;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
-            overflow: hidden;
-            pointer-events: none;
-        }
-        #minimap-canvas { width: 100%; height: 100%; display: block; }
-
-        /* УКАЗАТЕЛЬ НА ВЫХОД */
-        #compass-container {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 90px;
-            height: 90px;
-            background: rgba(0, 0, 0, 0.85);
-            border: 2px solid #0f0;
-            border-radius: 50%;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            box-shadow: 0 0 10px rgba(0,255,0,0.3);
-            pointer-events: none;
+            gap: 10px;
+            min-width: 250px;
         }
-        #compass-svg {
-            width: 50px;
-            height: 50px;
-            transition: transform 0.05s linear;
-        }
-        #compass-label { 
-            color: #0f0; 
-            font-size: 10px; 
-            margin-top: 2px; 
-            font-weight: bold;
-        }
-
-        #crosshair { 
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%,-50%); 
-            color: #f00; 
-            font-size: 24px; 
-            font-weight: bold; 
-            z-index: 10; 
-            pointer-events: none;
-        }
-
-        /* ПОДСКАЗКА ДЛЯ СТАРТА / ПАУЗЫ */
-        #instructions {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            color: #0f0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            z-index: 200;
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        label { font-size: 12px; color: #ccc; }
+        input, button { 
+            background: #222; 
+            color: #fff; 
+            border: 1px solid #444; 
+            padding: 6px 10px; 
+            border-radius: 4px; 
             cursor: pointer;
-            user-select: none;
         }
+        input[type="range"] { padding: 0; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <div id="instructions">
-        <div>КЛИКНИТЕ, ЧТОБЫ НАЧАТЬ ИГРУ</div>
-        <div style="font-size: 14px; margin-top: 10px; color: #aaa;">
-            Управление: WASD — движение | Мышь — обзор | ESC — пауза / выход
-        </div>
+<div id="ui">
+    <div class="control-group">
+        <label>Дата и время симуляции:</label>
+        <input type="datetime-local" id="datetime-input">
     </div>
 
-    <div id="minimap-container">
-        <canvas id="minimap-canvas" width="400" height="400"></canvas>
+    <div class="control-group">
+        <label>Скорость времени: <span id="speed-val">1x</span></label>
+        <input type="range" id="time-speed" min="0" max="1000000" value="100000" step="1000">
     </div>
 
-    <div id="compass-container">
-        <svg id="compass-svg" viewBox="0 0 100 100">
-            <polygon points="50,5 20,95 50,75 80,95" fill="#0f0" stroke="#000" stroke-width="3"/>
-        </svg>
-        <div id="compass-label">ВЫХОД</div>
+    <div class="control-group">
+        <label>Режим камеры:</label>
+        <button id="cam-btn" onclick="toggleCamera()">Камера: Свободная</button>
     </div>
-
-    <div id="crosshair">+</div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
-
-    <script>
-        // ==========================================
-        //  1. ГЕНЕРАТОР ЛАБИРИНТА (31x31)
-        // ==========================================
-        const GRID_SIZE = 31;
-
-        function generateMaze(size) {
-            let grid = Array(size).fill().map(() => Array(size).fill(1));
-
-            function walk(x, y) {
-                grid[y][x] = 0;
-                const dirs = [[0, -2], [2, 0], [0, 2], [-2, 0]].sort(() => Math.random() - 0.5);
-
-                for (let [dx, dy] of dirs) {
-                    const nx = x + dx, ny = y + dy;
-                    if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && grid[ny][nx] === 1) {
-                        grid[y + dy / 2][x + dx / 2] = 0;
-                        walk(nx, ny);
-                    }
-                }
-            }
-            walk(1, 1);
-            return grid;
-        }
-
-        const map = generateMaze(GRID_SIZE);
-        const UNIT_SIZE = 4;
-        const mapWidth = map[0].length;
-        const mapHeight = map.length;
-        const PLAYER_RADIUS = 0.1;
-
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        });
-
-        // ==========================================
-        //  2. ТЕКСТУРА КИРПИЧА
-        // ==========================================
-        function createBrickTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#888'; ctx.fillRect(0, 0, 512, 512);
-            ctx.fillStyle = '#b83b14';
-            const rows = 8, cols = 4;
-            const brickH = 512 / rows, brickW = 512 / cols;
-            for (let r = 0; r < rows; r++) {
-                const offsetX = (r % 2 === 0) ? 0 : brickW / 2;
-                for (let c = -1; c < cols + 1; c++) {
-                    ctx.fillRect(c * brickW + offsetX + 2, r * brickH + 2, brickW - 4, brickH - 4);
-                }
-            }
-            const texture = new THREE.CanvasTexture(canvas);
-            
-            texture.magFilter = THREE.LinearFilter;
-            texture.minFilter = THREE.LinearMipmapLinearFilter;
-            texture.generateMipmaps = true;
-            
-            const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
-            if (maxAnisotropy > 0) {
-                texture.anisotropy = maxAnisotropy;
-            }
-
-            return texture;
-        }
-
-        const brickTexture = createBrickTexture();
-
-        // ==========================================
-        //  3. ПОСТРОЕНИЕ СТЕН
-        // ==========================================
-        const wallMaterial = new THREE.MeshBasicMaterial({ map: brickTexture });
-        const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x555555 });
-        const ceilingMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const exitMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-
-        const totalWidth = mapWidth * UNIT_SIZE, totalHeight = mapHeight * UNIT_SIZE;
-        const floorGeo = new THREE.PlaneBufferGeometry(totalWidth, totalHeight);
-
-        const floor = new THREE.Mesh(floorGeo, floorMaterial);
-        floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.01, 0); scene.add(floor);
-
-        const ceiling = new THREE.Mesh(floorGeo, ceilingMaterial);
-        ceiling.rotation.x = Math.PI / 2; ceiling.position.set(0, UNIT_SIZE + 0.01, 0); scene.add(ceiling);
-
-        const geometries = [];
-        const baseBoxGeo = new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
-
-        for (let r = 0; r < mapHeight; r++) {
-            for (let c = 0; c < mapWidth; c++) {
-                if (map[r][c] === 1) {
-                    const clonedGeo = baseBoxGeo.clone();
-                    const x = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
-                    const z = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-                    clonedGeo.translate(x, UNIT_SIZE / 2, z);
-                    geometries.push(clonedGeo);
-                }
-            }
-        }
-
-        const mergedGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
-        const mergedWallMesh = new THREE.Mesh(mergedGeometry, wallMaterial);
-        scene.add(mergedWallMesh);
-
-        // ==========================================
-        //  4. ТОЧКИ СТАРТА И ВЫХОДА
-        // ==========================================
-        function getEmptyCells() {
-            let cells = [];
-            for (let r = 1; r < mapHeight - 1; r++) {
-                for (let c = 1; c < mapWidth - 1; c++) {
-                    if (map[r][c] === 0) cells.push({ r, c });
-                }
-            }
-            return cells;
-        }
-
-        const emptyCells = getEmptyCells();
-        const startCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-        const startX = (startCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
-        const startZ = (startCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-        camera.position.set(startX, UNIT_SIZE / 2, startZ);
-        camera.rotation.order = 'YXZ';
-
-        let exitCell;
-        let maxDist = 0;
-        emptyCells.forEach(cell => {
-            const dist = Math.hypot(cell.c - startCell.c, cell.r - startCell.r);
-            if (dist > maxDist) { maxDist = dist; exitCell = cell; }
-        });
-
-        const exitX = (exitCell.c - mapWidth / 2 + 0.5) * UNIT_SIZE;
-        const exitZ = (exitCell.r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-        const exitMesh = new THREE.Mesh(new THREE.BoxBufferGeometry(UNIT_SIZE, UNIT_SIZE, UNIT_SIZE), exitMaterial);
-        exitMesh.position.set(exitX, UNIT_SIZE / 2, exitZ); scene.add(exitMesh);
-
-        // ==========================================
-        //  5. ПРЯМОЙ УКАЗАТЕЛЬ НА ВЫХОД
-        // ==========================================
-        const compassSvg = document.getElementById('compass-svg');
-
-        function updateExitPointer() {
-            const angleToExit = Math.atan2(exitX - camera.position.x, exitZ - camera.position.z);
-            let relativeAngle = angleToExit - camera.rotation.y;
-
-            const degrees = (relativeAngle * 180 / Math.PI) + 180;
-            compassSvg.style.transform = `rotate(${degrees}deg)`;
-        }
-
-        // ==========================================
-        //  6. ИСПРАВЛЕННАЯ ВРАЩАЮЩАЯСЯ МИНИ-КАРТА
-        // ==========================================
-        const minimapCanvas = document.getElementById('minimap-canvas');
-        const ctx = minimapCanvas.getContext('2d');
-
-        function drawLocalMinimap() {
-            const width = minimapCanvas.width;
-            const height = minimapCanvas.height;
-            const centerX = width / 2;
-            const centerY = height / 2;
-
-            const scale = 48 / UNIT_SIZE; 
-            const viewRadius = 5.5; 
-
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-
-            ctx.clearRect(0, 0, width, height);
-
-            const pX = camera.position.x;
-            const pZ = camera.position.z;
-
-            const playerGridC = pX / UNIT_SIZE + mapWidth / 2;
-            const playerGridR = pZ / UNIT_SIZE + mapHeight / 2;
-
-            const minR = Math.max(0, Math.floor(playerGridR - viewRadius));
-            const maxR = Math.min(mapHeight, Math.ceil(playerGridR + viewRadius));
-            const minC = Math.max(0, Math.floor(playerGridC - viewRadius));
-            const maxC = Math.min(mapWidth, Math.ceil(playerGridC + viewRadius));
-
-            // Корректный угол поворота карты под взгляд камеры
-            const mapRotation = camera.rotation.y;
-
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.rotate(mapRotation);
-
-            ctx.fillStyle = '#444';
-
-            for (let r = minR; r < maxR; r++) {
-                for (let c = minC; c < maxC; c++) {
-                    if (map[r][c] === 1) {
-                        const wallWorldX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
-                        const wallWorldZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-
-                        const relX = (wallWorldX - pX) * scale;
-                        const relZ = (wallWorldZ - pZ) * scale;
-
-                        ctx.fillRect(relX - (UNIT_SIZE * scale) / 2, relZ - (UNIT_SIZE * scale) / 2, UNIT_SIZE * scale, UNIT_SIZE * scale);
-                    }
-                }
-            }
-
-            ctx.restore();
-
-            // Неподвижная стрелка игрока строго ВВЕРХ
-            ctx.fillStyle = '#f00';
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY - 16); 
-            ctx.lineTo(centerX - 10, centerY + 10); 
-            ctx.lineTo(centerX + 10, centerY + 10);
-            ctx.closePath();
-            ctx.fill();
-        }
-
-        // ==========================================
-        //  7. ЗАХВАТ МЫШИ И КЛАВИШИ
-        // ==========================================
-        const instructions = document.getElementById('instructions');
-        let isLocked = false;
-
-        instructions.addEventListener('click', () => {
-            document.body.requestPointerLock();
-        });
-
-        document.addEventListener('pointerlockchange', () => {
-            if (document.pointerLockElement === document.body) {
-                isLocked = true;
-                instructions.style.display = 'none';
-            } else {
-                isLocked = false;
-                instructions.style.display = 'flex';
-            }
-        });
-
-        const MOUSE_SENSITIVITY = 0.002;
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isLocked) return;
-
-            camera.rotation.y -= e.movementX * MOUSE_SENSITIVITY;
-            camera.rotation.x -= e.movementY * MOUSE_SENSITIVITY;
-            camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
-        });
-
-        const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false };
-
-        document.addEventListener('keydown', (e) => { 
-            if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
-        });
-
-        document.addEventListener('keyup', (e) => { 
-            if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
-        });
-
-        const HALF_UNIT = UNIT_SIZE / 2;
-        function isPointInWall(x, z) {
-            for (let r = 0; r < mapHeight; r++) {
-                for (let c = 0; c < mapWidth; c++) {
-                    if (map[r][c] === 1) {
-                        const wallX = (c - mapWidth / 2 + 0.5) * UNIT_SIZE;
-                        const wallZ = (r - mapHeight / 2 + 0.5) * UNIT_SIZE;
-                        if (x + PLAYER_RADIUS > wallX - HALF_UNIT && x - PLAYER_RADIUS < wallX + HALF_UNIT &&
-                            z + PLAYER_RADIUS > wallZ - HALF_UNIT && z - PLAYER_RADIUS < wallZ + HALF_UNIT) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        // ==========================================
-        //  8. ИГРОВОЙ ЦИКЛ
-        // ==========================================
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-
-            if (isLocked) {
-                const moveSpeed = 8.0 * delta;
-
-                let moveX = 0, moveZ = 0;
-
-                if (keys.KeyW) {
-                    moveX -= Math.sin(camera.rotation.y) * moveSpeed;
-                    moveZ -= Math.cos(camera.rotation.y) * moveSpeed;
-                }
-                if (keys.KeyS) {
-                    moveX += Math.sin(camera.rotation.y) * moveSpeed;
-                    moveZ += Math.cos(camera.rotation.y) * moveSpeed;
-                }
-                if (keys.KeyA) {
-                    moveX -= Math.cos(camera.rotation.y) * moveSpeed;
-                    moveZ += Math.sin(camera.rotation.y) * moveSpeed;
-                }
-                if (keys.KeyD) {
-                    moveX += Math.cos(camera.rotation.y) * moveSpeed;
-                    moveZ -= Math.sin(camera.rotation.y) * moveSpeed;
-                }
-
-                const newX = camera.position.x + moveX;
-                const newZ = camera.position.z + moveZ;
-
-                if (!isPointInWall(newX, camera.position.z)) camera.position.x = newX;
-                if (!isPointInWall(camera.position.x, newZ)) camera.position.z = newZ;
-
-                updateExitPointer();
-                drawLocalMinimap();
-
-                const distToExit = Math.hypot(camera.position.x - exitX, camera.position.z - exitZ);
-                if (distToExit < 2) {
-                    document.exitPointerLock();
-                    alert("Победа! Вы нашли выход!");
-                    location.reload();
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        animate();
-    </script>
+</div>
+
+<script>
+// --- 1. Реальные астрономические константы (в метрах) ---
+const SUN_RADIUS = 696340000;           
+const EARTH_RADIUS = 6371000;           
+const ORBIT_RADIUS = 149597870700;      
+const AXIS_TILT = THREE.MathUtils.degToRad(23.44); 
+
+// Точка отсчета: Весеннее равноденствие 2026 года (20 марта ~14:46 UTC)
+// В этот момент Земля пересекает нулевую точку орбиты
+const EPOCH = new Date(Date.UTC(2026, 2, 20, 14, 46, 0)).getTime();
+
+let simDate = new Date(); // Текущее время симуляции
+let timeScale = 100000;   // Множитель скорости прокрутки времени
+
+// --- 2. Инициализация сцены ---
+const scene = new THREE.Scene();
+
+const renderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    logarithmicDepthBuffer: true 
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+// --- 3. Камеры ---
+const aspect = window.innerWidth / window.innerHeight;
+
+const freeCam = new THREE.PerspectiveCamera(45, aspect, 10, ORBIT_RADIUS * 10);
+freeCam.position.set(0, ORBIT_RADIUS * 0.5, ORBIT_RADIUS * 1.5);
+
+const surfaceCam = new THREE.PerspectiveCamera(60, aspect, 0.1, ORBIT_RADIUS * 10);
+let activeCamera = freeCam;
+
+const controls = new THREE.OrbitControls(freeCam, renderer.domElement);
+controls.enableDamping = true;
+
+// --- 4. Объекты ---
+// 4.1 Солнце
+const sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(SUN_RADIUS, 64, 64),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+);
+scene.add(sunMesh);
+
+const sunLight = new THREE.PointLight(0xffffff, 2.0, 0, 0);
+scene.add(sunLight);
+scene.add(new THREE.AmbientLight(0x111122));
+
+// 4.2 Иерархия Земли
+const orbitGroup = new THREE.Group();
+scene.add(orbitGroup);
+
+const tiltGroup = new THREE.Group();
+tiltGroup.position.x = ORBIT_RADIUS; 
+tiltGroup.rotation.z = AXIS_TILT;
+orbitGroup.add(tiltGroup);
+
+const earthMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
+    new THREE.MeshStandardMaterial({ color: 0x2233ff, roughness: 0.6 })
+);
+tiltGroup.add(earthMesh);
+
+// 4.3 Камера на поверхности (2 метра)
+const surfaceCamHolder = new THREE.Group();
+surfaceCamHolder.position.set(0, EARTH_RADIUS + 2, 0); 
+earthMesh.add(surfaceCamHolder);
+surfaceCamHolder.add(surfaceCam);
+surfaceCam.lookAt(surfaceCamHolder.position.x + 100, surfaceCamHolder.position.y, surfaceCamHolder.position.z);
+
+// --- 5. Связка времени с физикой ---
+const datetimeInput = document.getElementById('datetime-input');
+const speedInput = document.getElementById('time-speed');
+const speedVal = document.getElementById('speed-val');
+
+// Инициализация поля ввода текущей датой
+function updateUIFromDate() {
+    // Приводим дату к формату YYYY-MM-THH:mm для HTML input
+    const local = new Date(simDate.getTime() - simDate.getTimezoneOffset() * 60000);
+    datetimeInput.value = local.toISOString().slice(0, 16);
+}
+
+// При изменении пользователем даты вручную:
+datetimeInput.addEventListener('change', (e) => {
+    simDate = new Date(e.target.value);
+});
+
+// Управление скоростью
+speedInput.addEventListener('input', (e) => {
+    timeScale = parseFloat(e.target.value);
+    speedVal.innerText = `${timeScale.toLocaleString()}x`;
+});
+
+// Функция обновления поворотов Земли на основе объекта Date
+function updatePositionsFromDate(date) {
+    const elapsedSeconds = (date.getTime() - EPOCH) / 1000;
+
+    // 1. Угол орбиты (1 оборот = 365.2425 дней)
+    const yearInSeconds = 31556952;
+    const orbitAngle = (elapsedSeconds / yearInSeconds) * (Math.PI * 2);
+    orbitGroup.rotation.y = orbitAngle;
+
+    // 2. Угол вращения вокруг своей оси (1 оборот = 86164.1 сек — сидерические сутки)
+    const dayInSeconds = 86164.1;
+    const dayAngle = (elapsedSeconds / dayInSeconds) * (Math.PI * 2);
+    earthMesh.rotation.y = dayAngle;
+}
+
+// --- 6. Переключение камер ---
+function toggleCamera() {
+    const btn = document.getElementById('cam-btn');
+    if (activeCamera === freeCam) {
+        activeCamera = surfaceCam;
+        controls.enabled = false;
+        btn.innerText = "Камера: Поверхность (2м)";
+    } else {
+        activeCamera = freeCam;
+        controls.enabled = true;
+        btn.innerText = "Камера: Свободная";
+    }
+}
+
+// --- 7. Анимационный цикл ---
+const clock = new THREE.Clock();
+updateUIFromDate();
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    const delta = clock.getDelta();
+
+    // Если время идет (скорость > 0), продвигаем simDate вперед
+    if (timeScale > 0) {
+        simDate = new Date(simDate.getTime() + (delta * timeScale * 1000));
+        updateUIFromDate();
+    }
+
+    // Рассчитываем физические углы на основе симулируемого времени
+    updatePositionsFromDate(simDate);
+
+    if (activeCamera === freeCam) {
+        controls.update();
+    }
+
+    renderer.render(scene, activeCamera);
+}
+
+window.addEventListener('resize', () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    freeCam.aspect = w / h; freeCam.updateProjectionMatrix();
+    surfaceCam.aspect = w / h; surfaceCam.updateProjectionMatrix();
+    renderer.setSize(w, h);
+});
+
+animate();
+</script>
 </body>
 </html>
