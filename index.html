@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Three.js Симуляция Земля-Солнце</title>
+    <title>Three.js Симуляция: Поворот камеры стрелками</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #ui {
@@ -18,6 +18,7 @@
             gap: 10px;
             min-width: 260px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 100;
         }
         .control-group { display: flex; flex-direction: column; gap: 4px; }
         label { font-size: 12px; color: #aaa; }
@@ -31,6 +32,7 @@
         }
         input[type="range"] { padding: 0; }
         button:hover { background: #333; }
+        .help-text { font-size: 11px; color: #888; margin-top: 5px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -43,10 +45,9 @@
         <input type="datetime-local" id="datetime-input">
     </div>
 
-    <!-- Ползунок скорости от 1x до 3x -->
     <div class="control-group">
         <label>Скорость времени: <span id="speed-val">1x</span></label>
-        <input type="range" id="time-speed" min="1" max="10" value="1" step="0.1">
+        <input type="range" id="time-speed" min="1" max="3" value="1" step="0.1">
     </div>
 
     <div class="control-group">
@@ -54,10 +55,14 @@
         <button id="cam-btn" onclick="toggleCamera()">Камера: Около Земли</button>
         <button onclick="resetCamera()">Сбросить фокус на Землю</button>
     </div>
+
+    <div class="help-text">
+        Управление: <b>Стрелки клавиатуры</b> для поворота камеры в обоих режимах.
+    </div>
 </div>
 
 <script>
-// --- 1. Реальные астрономические константы (в метрах) ---
+// --- 1. Астрономические константы ---
 const SUN_RADIUS = 696340000;           
 const EARTH_RADIUS = 6371000;           
 const ORBIT_RADIUS = 149597870700;      
@@ -66,7 +71,7 @@ const AXIS_TILT = THREE.MathUtils.degToRad(23.44);
 const EPOCH = new Date(Date.UTC(2026, 2, 20, 14, 46, 0)).getTime();
 
 let simDate = new Date(); 
-let timeScale = 1; // Начальная скорость 1x
+let timeScale = 1; 
 
 // --- 2. Инициализация сцены ---
 const scene = new THREE.Scene();
@@ -84,7 +89,7 @@ document.body.appendChild(renderer.domElement);
 const aspect = window.innerWidth / window.innerHeight;
 
 const freeCam = new THREE.PerspectiveCamera(45, aspect, 1000, ORBIT_RADIUS * 20);
-const surfaceCam = new THREE.PerspectiveCamera(60, aspect, 0.1, ORBIT_RADIUS * 20);
+const surfaceCam = new THREE.PerspectiveCamera(75, aspect, 0.1, ORBIT_RADIUS * 20);
 let activeCamera = freeCam;
 
 const controls = new THREE.OrbitControls(freeCam, renderer.domElement);
@@ -92,18 +97,18 @@ controls.enableDamping = true;
 controls.maxDistance = ORBIT_RADIUS * 10;
 controls.minDistance = EARTH_RADIUS * 1.2;
 
-// --- 4. Создание объектов ---
+// --- 4. Объекты ---
 
 // 4.1 СОЛНЦЕ
 const sunMesh = new THREE.Mesh(
     new THREE.SphereGeometry(SUN_RADIUS, 64, 64),
-    new THREE.MeshBasicMaterial({ color: 0xffddaa })
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
 );
 scene.add(sunMesh);
 
 const sunLight = new THREE.PointLight(0xffffff, 3.0, 0, 0);
 scene.add(sunLight);
-scene.add(new THREE.AmbientLight(0x222233));
+scene.add(new THREE.AmbientLight(0x111122));
 
 // 4.2 ИЕРАРХИЯ ЗЕМЛИ
 const orbitGroup = new THREE.Group();
@@ -124,6 +129,31 @@ const earthMesh = new THREE.Mesh(
 );
 tiltGroup.add(earthMesh);
 
+// 4.3 Атмосфера
+const atmosphereGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.015, 64, 64);
+const atmosphereMat = new THREE.ShaderMaterial({
+    vertexShader: `
+        varying vec3 vNormal;
+        void main() {
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        varying vec3 vNormal;
+        void main() {
+            float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+            gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+        }
+    `,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide,
+    transparent: true
+});
+
+const atmosphereMesh = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+tiltGroup.add(atmosphereMesh);
+
 // Линия орбиты
 const orbitCurve = new THREE.EllipseCurve(0, 0, ORBIT_RADIUS, ORBIT_RADIUS);
 const points = orbitCurve.getPoints(128);
@@ -133,14 +163,78 @@ const orbitGeo = new THREE.BufferGeometry().setFromPoints(
 const orbitMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
 scene.add(new THREE.Line(orbitGeo, orbitMat));
 
-// 4.3 Камера на поверхности (2 метра над Землей)
+// 4.4 Камера человека (на высоте 2м над поверхностью)
 const surfaceCamHolder = new THREE.Group();
-surfaceCamHolder.position.set(0, EARTH_RADIUS + 2, 0); 
+surfaceCamHolder.position.set(EARTH_RADIUS, 0, 0); 
 earthMesh.add(surfaceCamHolder);
-surfaceCamHolder.add(surfaceCam);
-surfaceCam.lookAt(surfaceCamHolder.position.x + 100, surfaceCamHolder.position.y, surfaceCamHolder.position.z);
 
-// --- 5. Фокусировка камеры ---
+// Создаем внутренний узел для вращения взглядом от первого лица
+const surfaceCamRotationNode = new THREE.Group();
+surfaceCamRotationNode.position.set(2, 0, 0); // 2м над поверхностью
+surfaceCamHolder.add(surfaceCamRotationNode);
+surfaceCamRotationNode.add(surfaceCam);
+
+// Углы поворота головы человека
+let humanYaw = 0;   // Поворот влево/вправо
+let humanPitch = 0; // Поворот вверх/вниз
+
+function updateSurfaceCameraLook() {
+    // Ограничиваем угол обзора вверх/вниз, чтобы не закручивалась голова
+    humanPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, humanPitch));
+
+    // Рассчитываем вектор взгляда
+    const target = new THREE.Vector3(
+        Math.cos(humanPitch) * Math.cos(humanYaw),
+        Math.sin(humanPitch),
+        Math.cos(humanPitch) * Math.sin(humanYaw)
+    );
+    
+    surfaceCam.up.set(1, 0, 0); // Верх — это наружу от Земли
+    surfaceCam.lookAt(target.add(surfaceCam.position));
+}
+updateSurfaceCameraLook();
+
+// --- 5. Логика управления стрелками ---
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+window.addEventListener('keydown', (e) => {
+    if (keys.hasOwnProperty(e.code)) {
+        keys[e.code] = true;
+        e.preventDefault();
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (keys.hasOwnProperty(e.code)) {
+        keys[e.code] = false;
+        e.preventDefault();
+    }
+});
+
+function handleCameraRotation(delta) {
+    const rotateSpeed = 1.2; // Скорость вращения (рад/сек)
+
+    if (activeCamera === surfaceCam) {
+        // Управление в режиме человека
+        if (keys.ArrowLeft)  humanYaw += rotateSpeed * delta;
+        if (keys.ArrowRight) humanYaw -= rotateSpeed * delta;
+        if (keys.ArrowUp)    humanPitch += rotateSpeed * delta;
+        if (keys.ArrowDown)  humanPitch -= rotateSpeed * delta;
+
+        if (keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown) {
+            updateSurfaceCameraLook();
+        }
+    } else if (activeCamera === freeCam) {
+        // Управление OrbitControls стрелками в свободной камере
+        const orbitSpeed = 40; // Скорость поворота орбиты
+        if (keys.ArrowLeft)  controls.rotateLeft(rotateSpeed * delta);
+        if (keys.ArrowRight) controls.rotateLeft(-rotateSpeed * delta);
+        if (keys.ArrowUp)    controls.rotateUp(rotateSpeed * delta);
+        if (keys.ArrowDown)  controls.rotateUp(-rotateSpeed * delta);
+    }
+}
+
+// --- 6. Фокусировка камеры ---
 function focusCameraOnEarth() {
     const earthWorldPos = new THREE.Vector3();
     earthMesh.getWorldPosition(earthWorldPos);
@@ -161,7 +255,7 @@ function resetCamera() {
     }
 }
 
-// --- 6. Работа со временем и интерфейсом ---
+// --- 7. Работа со временем и UI ---
 const datetimeInput = document.getElementById('datetime-input');
 const speedInput = document.getElementById('time-speed');
 const speedVal = document.getElementById('speed-val');
@@ -192,13 +286,13 @@ function updatePositionsFromDate(date) {
     earthMesh.rotation.y = dayAngle;
 }
 
-// --- 7. Переключение камер ---
+// --- 8. Переключение камер ---
 function toggleCamera() {
     const btn = document.getElementById('cam-btn');
     if (activeCamera === freeCam) {
         activeCamera = surfaceCam;
         controls.enabled = false;
-        btn.innerText = "Камера: Поверхность (2м)";
+        btn.innerText = "Камера: Человек (2м)";
     } else {
         activeCamera = freeCam;
         controls.enabled = true;
@@ -207,7 +301,7 @@ function toggleCamera() {
     }
 }
 
-// --- 8. Анимационный цикл ---
+// --- 9. Анимационный цикл ---
 const clock = new THREE.Clock();
 updateUIFromDate();
 
@@ -218,6 +312,9 @@ function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
+
+    // Обработка поворотов с клавиатуры
+    handleCameraRotation(delta);
 
     if (timeScale > 0) {
         simDate = new Date(simDate.getTime() + (delta * timeScale * 1000));
