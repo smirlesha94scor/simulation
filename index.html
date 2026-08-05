@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Three.js Симуляция: Выбор времени и даты</title>
+    <title>Three.js Реалистичная симуляция</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #ui {
@@ -10,16 +10,17 @@
             top: 20px;
             left: 20px;
             color: #fff;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             padding: 15px;
             border-radius: 8px;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            min-width: 250px;
+            min-width: 260px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         .control-group { display: flex; flex-direction: column; gap: 4px; }
-        label { font-size: 12px; color: #ccc; }
+        label { font-size: 12px; color: #aaa; }
         input, button { 
             background: #222; 
             color: #fff; 
@@ -29,6 +30,7 @@
             cursor: pointer;
         }
         input[type="range"] { padding: 0; }
+        button:hover { background: #333; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -42,36 +44,36 @@
     </div>
 
     <div class="control-group">
-        <label>Скорость времени: <span id="speed-val">1x</span></label>
+        <label>Скорость времени: <span id="speed-val">100 000x</span></label>
         <input type="range" id="time-speed" min="0" max="1000000" value="100000" step="1000">
     </div>
 
     <div class="control-group">
         <label>Режим камеры:</label>
-        <button id="cam-btn" onclick="toggleCamera()">Камера: Свободная</button>
+        <button id="cam-btn" onclick="toggleCamera()">Камера: Около Земли</button>
+        <button onclick="resetCamera()">Сбросить фокус на Землю</button>
     </div>
 </div>
 
 <script>
 // --- 1. Реальные астрономические константы (в метрах) ---
-const SUN_RADIUS = 696340000;           
-const EARTH_RADIUS = 6371000;           
-const ORBIT_RADIUS = 149597870700;      
+const SUN_RADIUS = 696340000;           // 696 340 км
+const EARTH_RADIUS = 6371000;           // 6 371 км
+const ORBIT_RADIUS = 149597870700;      // 1 А.Е. (~150 млн км)
 const AXIS_TILT = THREE.MathUtils.degToRad(23.44); 
 
-// Точка отсчета: Весеннее равноденствие 2026 года (20 марта ~14:46 UTC)
-// В этот момент Земля пересекает нулевую точку орбиты
+// Точка отсчета: Весеннее равноденствие 2026 года
 const EPOCH = new Date(Date.UTC(2026, 2, 20, 14, 46, 0)).getTime();
 
-let simDate = new Date(); // Текущее время симуляции
-let timeScale = 100000;   // Множитель скорости прокрутки времени
+let simDate = new Date(); 
+let timeScale = 100000;   
 
 // --- 2. Инициализация сцены ---
 const scene = new THREE.Scene();
 
 const renderer = new THREE.WebGLRenderer({ 
     antialias: true,
-    logarithmicDepthBuffer: true 
+    logarithmicDepthBuffer: true // Предотвращает Z-fighting и сжатие глубин
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -81,28 +83,32 @@ document.body.appendChild(renderer.domElement);
 // --- 3. Камеры ---
 const aspect = window.innerWidth / window.innerHeight;
 
-const freeCam = new THREE.PerspectiveCamera(45, aspect, 10, ORBIT_RADIUS * 10);
-freeCam.position.set(0, ORBIT_RADIUS * 0.5, ORBIT_RADIUS * 1.5);
+// Свободная камера: near=1000м, far=10 трлн метров (хватит на космические масштабы)
+const freeCam = new THREE.PerspectiveCamera(45, aspect, 1000, ORBIT_RADIUS * 20);
 
-const surfaceCam = new THREE.PerspectiveCamera(60, aspect, 0.1, ORBIT_RADIUS * 10);
+// Камера на поверхности (2м над Землей)
+const surfaceCam = new THREE.PerspectiveCamera(60, aspect, 0.1, ORBIT_RADIUS * 20);
 let activeCamera = freeCam;
 
 const controls = new THREE.OrbitControls(freeCam, renderer.domElement);
 controls.enableDamping = true;
+controls.maxDistance = ORBIT_RADIUS * 10;
+controls.minDistance = EARTH_RADIUS * 1.2;
 
-// --- 4. Объекты ---
-// 4.1 Солнце
+// --- 4. Создание объектов ---
+
+// 4.1 СОЛНЦЕ
 const sunMesh = new THREE.Mesh(
     new THREE.SphereGeometry(SUN_RADIUS, 64, 64),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
+    new THREE.MeshBasicMaterial({ color: 0xffddaa })
 );
 scene.add(sunMesh);
 
-const sunLight = new THREE.PointLight(0xffffff, 2.0, 0, 0);
+const sunLight = new THREE.PointLight(0xffffff, 3.0, 0, 0);
 scene.add(sunLight);
-scene.add(new THREE.AmbientLight(0x111122));
+scene.add(new THREE.AmbientLight(0x222233));
 
-// 4.2 Иерархия Земли
+// 4.2 ИЕРАРХИЯ ЗЕМЛИ
 const orbitGroup = new THREE.Group();
 scene.add(orbitGroup);
 
@@ -113,56 +119,92 @@ orbitGroup.add(tiltGroup);
 
 const earthMesh = new THREE.Mesh(
     new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
-    new THREE.MeshStandardMaterial({ color: 0x2233ff, roughness: 0.6 })
+    new THREE.MeshStandardMaterial({ 
+        color: 0x1565c0, 
+        roughness: 0.7,
+        metalness: 0.1
+    })
 );
 tiltGroup.add(earthMesh);
 
-// 4.3 Камера на поверхности (2 метра)
+// Маркерная сетка на Земле (чтобы видеть структуру шара вблизи)
+const gridHelper = new THREE.GridHelper(EARTH_RADIUS * 2, 16, 0x00ff00, 0x444444);
+gridHelper.position.y = EARTH_RADIUS;
+tiltGroup.add(gridHelper);
+
+// Линия орбиты для наглядности в космосе
+const orbitCurve = new THREE.EllipseCurve(0, 0, ORBIT_RADIUS, ORBIT_RADIUS);
+const points = orbitCurve.getPoints(128);
+const orbitGeo = new THREE.BufferGeometry().setFromPoints(
+    points.map(p => new THREE.Vector3(p.x, 0, p.y))
+);
+const orbitMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+scene.add(new THREE.Line(orbitGeo, orbitMat));
+
+// 4.3 Камера на поверхности (2 метра над Землей)
 const surfaceCamHolder = new THREE.Group();
 surfaceCamHolder.position.set(0, EARTH_RADIUS + 2, 0); 
 earthMesh.add(surfaceCamHolder);
 surfaceCamHolder.add(surfaceCam);
 surfaceCam.lookAt(surfaceCamHolder.position.x + 100, surfaceCamHolder.position.y, surfaceCamHolder.position.z);
 
-// --- 5. Связка времени с физикой ---
+// --- 5. Фокусировка камеры ---
+function focusCameraOnEarth() {
+    // Получаем мировые координаты Земли
+    const earthWorldPos = new THREE.Vector3();
+    earthMesh.getWorldPosition(earthWorldPos);
+
+    // Ставим камеру на расстоянии 5 радиусов Земли от самой Земли
+    freeCam.position.set(
+        earthWorldPos.x + EARTH_RADIUS * 5,
+        earthWorldPos.y + EARTH_RADIUS * 2,
+        earthWorldPos.z + EARTH_RADIUS * 5
+    );
+    
+    controls.target.copy(earthWorldPos);
+    controls.update();
+}
+
+function resetCamera() {
+    if (activeCamera === freeCam) {
+        focusCameraOnEarth();
+    }
+}
+
+// --- 6. Работа со временем и интерфейсом ---
 const datetimeInput = document.getElementById('datetime-input');
 const speedInput = document.getElementById('time-speed');
 const speedVal = document.getElementById('speed-val');
 
-// Инициализация поля ввода текущей датой
 function updateUIFromDate() {
-    // Приводим дату к формату YYYY-MM-THH:mm для HTML input
     const local = new Date(simDate.getTime() - simDate.getTimezoneOffset() * 60000);
     datetimeInput.value = local.toISOString().slice(0, 16);
 }
 
-// При изменении пользователем даты вручную:
 datetimeInput.addEventListener('change', (e) => {
     simDate = new Date(e.target.value);
 });
 
-// Управление скоростью
 speedInput.addEventListener('input', (e) => {
     timeScale = parseFloat(e.target.value);
     speedVal.innerText = `${timeScale.toLocaleString()}x`;
 });
 
-// Функция обновления поворотов Земли на основе объекта Date
 function updatePositionsFromDate(date) {
     const elapsedSeconds = (date.getTime() - EPOCH) / 1000;
 
-    // 1. Угол орбиты (1 оборот = 365.2425 дней)
+    // Годовая орбита (365.2425 дней)
     const yearInSeconds = 31556952;
     const orbitAngle = (elapsedSeconds / yearInSeconds) * (Math.PI * 2);
     orbitGroup.rotation.y = orbitAngle;
 
-    // 2. Угол вращения вокруг своей оси (1 оборот = 86164.1 сек — сидерические сутки)
+    // Суточное вращение (Сидерические сутки 86164.1 сек)
     const dayInSeconds = 86164.1;
     const dayAngle = (elapsedSeconds / dayInSeconds) * (Math.PI * 2);
     earthMesh.rotation.y = dayAngle;
 }
 
-// --- 6. Переключение камер ---
+// --- 7. Переключение камер ---
 function toggleCamera() {
     const btn = document.getElementById('cam-btn');
     if (activeCamera === freeCam) {
@@ -172,29 +214,40 @@ function toggleCamera() {
     } else {
         activeCamera = freeCam;
         controls.enabled = true;
-        btn.innerText = "Камера: Свободная";
+        btn.innerText = "Камера: Около Земли";
+        focusCameraOnEarth();
     }
 }
 
-// --- 7. Анимационный цикл ---
+// --- 8. Анимационный цикл ---
 const clock = new THREE.Clock();
 updateUIFromDate();
+
+// Первоначальное смещение объектов и установка камеры
+updatePositionsFromDate(simDate);
+focusCameraOnEarth();
 
 function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
 
-    // Если время идет (скорость > 0), продвигаем simDate вперед
     if (timeScale > 0) {
         simDate = new Date(simDate.getTime() + (delta * timeScale * 1000));
         updateUIFromDate();
     }
 
-    // Рассчитываем физические углы на основе симулируемого времени
     updatePositionsFromDate(simDate);
 
     if (activeCamera === freeCam) {
+        // Следование цели OrbitControls за движущейся по орбите Землей
+        const earthWorldPos = new THREE.Vector3();
+        earthMesh.getWorldPosition(earthWorldPos);
+        
+        const camOffset = freeCam.position.clone().sub(controls.target);
+        controls.target.copy(earthWorldPos);
+        freeCam.position.copy(earthWorldPos).add(camOffset);
+        
         controls.update();
     }
 
