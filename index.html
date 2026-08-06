@@ -2,52 +2,62 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Солнце и Земля - Three.js</title>
+    <title>Солнце и Земля - Фиксированная орбита</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
-        #info {
+        #ui {
             position: absolute;
             top: 10px;
             left: 10px;
             color: #fff;
             font-family: sans-serif;
             font-size: 13px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 12px;
             border-radius: 6px;
-            pointer-events: none;
         }
+        button {
+            background: #2b5278;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            margin-top: 6px;
+            margin-right: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #3b6e9e; }
     </style>
-
-    <!-- Подключаем Three.js и OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
-    <div id="info">
-        <b>Модель системы Солнце-Земля</b><br>
-        • Наклон оси Земли: 23.44°<br>
-        • Форма: геоид/эллипсоид (сплюснутость 1:0.9966)<br>
-        • Орбита: эллиптическая (e = 0.0167)<br>
-        • Освещение: параллельные лучи (имитация дальнего Солнца)
+    <div id="ui">
+        <div id="cam-info">Режим: <b>Вид из космоса</b></div>
+        <div id="orbit-info">Орбита: <b>Зафиксирована</b></div>
+        <button id="toggle-cam">Переключить камеру (C)</button>
+        <button id="toggle-orbit">Старт/Стоп орбита (Пробел)</button>
     </div>
 
     <script>
-        // --- 1. СЦЕНА, КАМЕРА И РЕНДЕРЕР ---
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 25, 45);
+        
+        // --- 1. КАМЕРЫ ---
+        const spaceCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        spaceCamera.position.set(0, 25, 45);
+
+        const humanCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.0001, 1000);
+        let activeCamera = spaceCamera;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        const controls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
         controls.enableDamping = true;
 
-        // --- 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ТЕКСТУР (без внешних файлов) ---
+        // --- 2. ТЕКСТУРЫ И СОЛНЦЕ ---
         function createSunTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
@@ -65,9 +75,9 @@
             const canvas = document.createElement('canvas');
             canvas.width = 1024; canvas.height = 512;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#1a3b5c'; // Океан
+            ctx.fillStyle = '#1a3b5c';
             ctx.fillRect(0, 0, 1024, 512);
-            ctx.fillStyle = '#2d6a4f'; // Материки (условная сетка)
+            ctx.fillStyle = '#2d6a4f';
             for (let i = 0; i < 80; i++) {
                 ctx.beginPath();
                 ctx.arc(Math.random() * 1024, Math.random() * 512, 20 + Math.random() * 60, 0, Math.PI * 2);
@@ -76,114 +86,115 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        // --- 3. СОЛНЦЕ (Маленькое и близкое визуально) ---
-        const sunRadius = 1.8;
-        const sunGeo = new THREE.SphereGeometry(sunRadius, 32, 32);
-        const sunMat = new THREE.MeshBasicMaterial({ map: createSunTexture() });
-        const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+        const sunMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(1.8, 32, 32),
+            new THREE.MeshBasicMaterial({ map: createSunTexture() })
+        );
         scene.add(sunMesh);
 
-        // --- 4. ОСВЕЩЕНИЕ (Параллельные лучи от Солнца к Земле) ---
-        // DirectionalLight обеспечивает параллельные лучи, как от бесконечно удаленного Солнца
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
         scene.add(sunLight);
+        scene.add(new THREE.AmbientLight(0x111122, 0.15));
 
-        // Мягкий рассеянный свет для теневой стороны Земли (космический фон)
-        const ambientLight = new THREE.AmbientLight(0x111122, 0.2);
-        scene.add(ambientLight);
-
-        // --- 5. ЗЕМЛЯ И ИЕРАРХИЯ ОБОЛОЧЕК НАКЛОНА ---
-        // Иерархия: PositionGroup (орбита) -> TiltGroup (наклон 23.44°) -> EarthMesh (сплюснутая Земля)
+        // --- 3. ЗЕМЛЯ И ПОЗИЦИОНИРОВАНИЕ ---
         const earthPositionGroup = new THREE.Group();
         scene.add(earthPositionGroup);
 
         const earthTiltGroup = new THREE.Group();
-        const axialTilt = THREE.MathUtils.degToRad(23.44); // 23.44 градуса
-        earthTiltGroup.rotation.z = axialTilt; 
+        earthTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.44);
         earthPositionGroup.add(earthTiltGroup);
 
-        // Геометрия Земли с реальными пропорциями сплюснутости (Геоид/Сфероид)
-        const earthEquatorialRadius = 1.0;
-        const earthPolarRadius = 0.9966; // Реальное отношение радиусов Земли (6356.8 / 6378.1)
-        const earthGeo = new THREE.SphereGeometry(earthEquatorialRadius, 64, 64);
-        
-        const earthMat = new THREE.MeshStandardMaterial({
-            map: createEarthTexture(),
-            roughness: 0.7,
-            metalness: 0.1
-        });
-
+        const R_eq = 1.0;
+        const R_pol = 0.9966;
+        const earthGeo = new THREE.SphereGeometry(R_eq, 64, 64);
+        const earthMat = new THREE.MeshStandardMaterial({ map: createEarthTexture(), roughness: 0.7 });
         const earthMesh = new THREE.Mesh(earthGeo, earthMat);
-        // Применяем физическую сплюснутость по оси Y
-        earthMesh.scale.set(1, earthPolarRadius, 1);
+        earthMesh.scale.set(1, R_pol, 1);
         earthTiltGroup.add(earthMesh);
 
-        // Наглядная визуализация оси вращения Земли
-        const axisGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(0, -1.8, 0),
-            new THREE.Vector3(0, 1.8, 0)
-        ]);
-        const axisMat = new THREE.LineBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.5 });
-        const axisLine = new THREE.Line(axisGeo, axisMat);
-        earthTiltGroup.add(axisLine);
+        // Настройка камеры на поверхности
+        const humanHeight = 0.0005; 
+        humanCamera.position.set(R_eq + humanHeight, 0, 0);
+        humanCamera.up.set(1, 0, 0);
+        humanCamera.lookAt(R_eq + humanHeight, 0, 1);
+        earthMesh.add(humanCamera);
 
-        // --- 6. ТРАЕКТОРИЯ ОРБИТЫ (Эллипс e = 0.0167) ---
-        const a = 18.0; // Большая полуось
-        const e = 0.0167; // Эксцентриситет орбиты Земли
-        const b = a * Math.sqrt(1 - e * e); // Малая полуось
-        const c = a * e; // Фокальное расстояние (Солнце в фокусе)
-
-        // Помещаем Солнце в фокус эллипса
+        // --- 4. ОРБИТА ---
+        const a = 18.0, e = 0.0167, b = a * Math.sqrt(1 - e * e), c = a * e;
         sunMesh.position.set(-c, 0, 0);
 
-        // Рисуем линию орбиты
-        const orbitPoints = [];
-        for (let i = 0; i <= 128; i++) {
-            const theta = (i / 128) * Math.PI * 2;
-            orbitPoints.push(new THREE.Vector3(a * Math.cos(theta) - c, 0, b * Math.sin(theta)));
-        }
-        const orbitGeo = new THREE.BufferGeometry().setFromPoints(orbitPoints);
-        const orbitMat = new THREE.LineBasicMaterial({ color: 0x444466 });
-        scene.add(new THREE.Line(orbitGeo, orbitMat));
+        // Задаем начальное фиксированное положение на орбите
+        let orbitAngle = 0;
+        earthPositionGroup.position.set(a * Math.cos(orbitAngle) - c, 0, b * Math.sin(orbitAngle));
 
-        // Звездный фон
         const starsGeo = new THREE.BufferGeometry();
         const starCoords = [];
-        for (let i = 0; i < 1500; i++) {
-            starCoords.push((Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300, (Math.random() - 0.5) * 300);
+        for (let i = 0; i < 2000; i++) {
+            starCoords.push((Math.random() - 0.5) * 400, (Math.random() - 0.5) * 400, (Math.random() - 0.5) * 400);
         }
         starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.5 })));
+        scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 })));
 
-        // --- 7. АНИМАЦИОННЫЙ ЦИКЛ ---
-        let orbitAngle = 0;
+        // --- 5. ФЛАГ СОСТОЯНИЯ ОРБИТЫ И УПРАВЛЕНИЕ ---
+        let isOrbitMoving = false; // По умолчанию орбита зафиксирована
 
+        function toggleOrbit() {
+            isOrbitMoving = !isOrbitMoving;
+            document.getElementById('orbit-info').innerHTML = 
+                `Орбита: <b>${isOrbitMoving ? 'В движении' : 'Зафиксирована'}</b>`;
+        }
+
+        function toggleCamera() {
+            if (activeCamera === spaceCamera) {
+                activeCamera = humanCamera;
+                controls.enabled = false;
+                document.getElementById('cam-info').innerHTML = 'Режим: <b>Глазами человека на Земле</b>';
+            } else {
+                activeCamera = spaceCamera;
+                controls.enabled = true;
+                document.getElementById('cam-info').innerHTML = 'Режим: <b>Вид из космоса</b>';
+            }
+        }
+
+        document.getElementById('toggle-cam').addEventListener('click', toggleCamera);
+        document.getElementById('toggle-orbit').addEventListener('click', toggleOrbit);
+        
+        window.addEventListener('keydown', (e) => { 
+            if (e.code === 'KeyC') toggleCamera(); 
+            if (e.code === 'Space') toggleOrbit();
+        });
+
+        // --- 6. АНИМАЦИЯ ---
         function animate() {
             requestAnimationFrame(animate);
 
-            // 1. Движение по эллиптической орбите
-            orbitAngle += 0.003;
-            const x = a * Math.cos(orbitAngle) - c;
-            const z = b * Math.sin(orbitAngle);
-            earthPositionGroup.position.set(x, 0, z);
+            // Движение по орбите происходит только при включенном флаге
+            if (isOrbitMoving) {
+                orbitAngle += 0.0015;
+                earthPositionGroup.position.set(a * Math.cos(orbitAngle) - c, 0, b * Math.sin(orbitAngle));
+            }
 
-            // 2. Вращение Земли вокруг собственной наклоненной оси
-            earthMesh.rotation.y += 0.015;
+            // Суточное вращение Земли продолжается всегда
+            earthMesh.rotation.y += 0.005;
 
-            // 3. Коррекция света: DirectionalLight всегда светит от центра Солнца на Землю
+            // Направление света от Солнца к Земле
             sunLight.position.copy(sunMesh.position);
             sunLight.target = earthMesh;
 
-            controls.update();
-            renderer.render(scene, camera);
+            if (activeCamera === spaceCamera) {
+                controls.update();
+            }
+
+            renderer.render(scene, activeCamera);
         }
 
         animate();
 
-        // Адаптация под изменение размеров окна
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            spaceCamera.aspect = window.innerWidth / window.innerHeight;
+            spaceCamera.updateProjectionMatrix();
+            humanCamera.aspect = window.innerWidth / window.innerHeight;
+            humanCamera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
