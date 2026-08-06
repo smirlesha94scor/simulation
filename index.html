@@ -2,9 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Three.js: Синее небо и Земля (Вид от 1-го лица)</title>
+    <title>Вид от первого лица (Canvas 2D)</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
         #ui {
             position: absolute;
             top: 20px;
@@ -16,26 +17,20 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            min-width: 260px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            min-width: 250px;
             z-index: 100;
         }
         .control-group { display: flex; flex-direction: column; gap: 4px; }
         label { font-size: 12px; color: #aaa; }
-        input, button { 
+        input { 
             background: #222; 
             color: #fff; 
             border: 1px solid #444; 
             padding: 6px 10px; 
             border-radius: 4px; 
-            cursor: pointer;
         }
-        input[type="range"] { padding: 0; }
-        button:hover { background: #333; }
         .help-text { font-size: 11px; color: #888; margin-top: 5px; }
     </style>
-    <!-- Подключаем только базовую библиотеку Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
@@ -51,255 +46,133 @@
     </div>
 
     <div class="help-text">
-        Управление: <b>Стрелки клавиатуры</b> — обзор во все стороны (небо/земля/горизонт).
+        Управление: <b>Стрелки клавиатуры</b> — осмотр во все стороны (небо/земля).
     </div>
 </div>
 
+<canvas id="view"></canvas>
+
 <script>
-// --- 1. Генерация Программных Текстур (Без внешних URL) ---
-function createGroundTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    
-    // Зеленый травяной покров
-    ctx.fillStyle = '#3a5f0b';
-    ctx.fillRect(0, 0, 512, 512);
-    
-    // Рисуем шум/текстуру земли
-    for (let i = 0; i < 5000; i++) {
-        ctx.fillStyle = Math.random() > 0.5 ? '#2d4a08' : '#4c7c0e';
-        ctx.fillRect(Math.random() * 512, Math.random() * 512, 4, 4);
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(50, 50);
-    return texture;
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
 }
+window.addEventListener('resize', resize);
+resize();
 
-function createEarthTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    
-    // Синий океан
-    ctx.fillStyle = '#1b4d89';
-    ctx.fillRect(0, 0, 1024, 512);
-    
-    // Зеленая суша (материки)
-    ctx.fillStyle = '#2e7d32';
-    for (let i = 0; i < 40; i++) {
-        ctx.beginPath();
-        ctx.arc(Math.random() * 1024, Math.random() * 512, 40 + Math.random() * 100, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    return new THREE.CanvasTexture(canvas);
-}
+// Углы поворота головы (в радианах)
+let yaw = 0;      // Поворот влево/вправо
+let pitch = 0;    // Поворот вверх/вниз
 
-// --- 2. Константы и Параметры ---
-const EARTH_RADIUS = 1000;
-const SUN_DISTANCE = 5000;
-const AXIS_TILT = THREE.MathUtils.degToRad(23.44);
-const EPOCH = new Date(Date.UTC(2026, 2, 20, 14, 46, 0)).getTime();
+// Обработка клавиш-стрелок
+const keys = {};
+window.addEventListener('keydown', e => { if (e.code.startsWith('Arrow')) keys[e.code] = true; });
+window.addEventListener('keyup', e => { if (e.code.startsWith('Arrow')) keys[e.code] = false; });
 
+// Время
 let simDate = new Date();
 let timeScale = 1;
 
-// --- 3. Сцена, Рендерер и Небо ---
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x4a90e2); // Естественный голубой цвет неба
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.body.appendChild(renderer.domElement);
-
-// --- 4. Камера от первого лица ---
-const aspect = window.innerWidth / window.innerHeight;
-const camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 20000);
-
-// --- 5. Освещение ---
-const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
-scene.add(sunLight);
-scene.add(new THREE.AmbientLight(0x667799, 0.6));
-
-// --- 6. Земля ---
-const orbitGroup = new THREE.Group();
-scene.add(orbitGroup);
-
-const tiltGroup = new THREE.Group();
-tiltGroup.position.x = SUN_DISTANCE;
-tiltGroup.rotation.z = AXIS_TILT;
-orbitGroup.add(tiltGroup);
-
-const earthMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
-    new THREE.MeshStandardMaterial({ 
-        map: createEarthTexture(),
-        roughness: 0.8
-    })
-);
-tiltGroup.add(earthMesh);
-
-// --- 7. Человек (Рост 2 метра) и Земля под ногами ---
-const humanPivot = new THREE.Group();
-humanPivot.position.set(0, EARTH_RADIUS, 0); // На вершине Земли
-earthMesh.add(humanPivot);
-
-// Рельефная площадка земли под ногами для вида 1-го лица
-const localGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(3000, 3000),
-    new THREE.MeshStandardMaterial({ 
-        map: createGroundTexture(),
-        roughness: 0.9
-    })
-);
-localGround.rotation.x = -Math.PI / 2;
-localGround.position.y = -0.05;
-humanPivot.add(localGround);
-
-// Голова с камерой на высоте 2м
-const headNode = new THREE.Group();
-headNode.position.set(0, 2, 0);
-humanPivot.add(headNode);
-headNode.add(camera);
-
-// --- 8. Вращение Камеры Стрелками ---
-let humanYaw = 0;   
-let humanPitch = -0.05; 
-
-function updateHumanLook() {
-    // Ограничение наклона головы (вверх/вниз)
-    humanPitch = Math.max(-Math.PI/2 + 0.05, Math.min(Math.PI/2 - 0.05, humanPitch));
-
-    const lookDir = new THREE.Vector3(
-        Math.cos(humanPitch) * Math.sin(humanYaw),
-        Math.sin(humanPitch),
-        Math.cos(humanPitch) * Math.cos(humanYaw)
-    );
-
-    camera.position.set(0, 0, 0);
-    camera.up.set(0, 1, 0);
-    camera.lookAt(lookDir);
-}
-updateHumanLook();
-
-const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-
-window.addEventListener('keydown', (e) => {
-    if (keys.hasOwnProperty(e.code)) {
-        keys[e.code] = true;
-        e.preventDefault();
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (keys.hasOwnProperty(e.code)) {
-        keys[e.code] = false;
-        e.preventDefault();
-    }
-});
-
-function handleCameraRotation(delta) {
-    const rotateSpeed = 1.4; 
-
-    if (keys.ArrowLeft)  humanYaw += rotateSpeed * delta;
-    if (keys.ArrowRight) humanYaw -= rotateSpeed * delta;
-    if (keys.ArrowUp)    humanPitch += rotateSpeed * delta;
-    if (keys.ArrowDown)  humanPitch -= rotateSpeed * delta;
-
-    if (keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown) {
-        updateHumanLook();
-    }
-}
-
-// --- 9. Симуляция времени ---
 const datetimeInput = document.getElementById('datetime-input');
 const speedInput = document.getElementById('time-speed');
 const speedVal = document.getElementById('speed-val');
 
-function updateUIFromDate() {
+function updateUI() {
     const local = new Date(simDate.getTime() - simDate.getTimezoneOffset() * 60000);
     datetimeInput.value = local.toISOString().slice(0, 16);
 }
-
-datetimeInput.addEventListener('change', (e) => {
-    simDate = new Date(e.target.value);
-});
+updateUI();
 
 speedInput.addEventListener('input', (e) => {
     timeScale = parseFloat(e.target.value);
     speedVal.innerText = `${timeScale}x`;
 });
 
-function updatePositionsFromDate(date) {
-    const elapsedSeconds = (date.getTime() - EPOCH) / 1000;
+let lastTime = performance.now();
 
-    // Вращение по орбите
-    const yearInSeconds = 31556952;
-    const orbitAngle = (elapsedSeconds / yearInSeconds) * (Math.PI * 2);
-    orbitGroup.rotation.y = orbitAngle;
+function draw() {
+    const now = performance.now();
+    const delta = (now - lastTime) / 1000;
+    lastTime = now;
 
-    // Суточное вращение Земли
-    const dayInSeconds = 86164.1;
-    const dayAngle = (elapsedSeconds / dayInSeconds) * (Math.PI * 2);
-    earthMesh.rotation.y = dayAngle;
+    // Поворот камеры стрелками
+    const speed = 1.5;
+    if (keys.ArrowLeft)  yaw -= speed * delta;
+    if (keys.ArrowRight) yaw += speed * delta;
+    if (keys.ArrowUp)    pitch += speed * delta;
+    if (keys.ArrowDown)  pitch -= speed * delta;
 
-    // Расчет света Солнца
-    const earthWorldPos = new THREE.Vector3();
-    earthMesh.getWorldPosition(earthWorldPos);
+    // Ограничение наклона вверх/вниз (90 градусов)
+    pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
 
-    const sunDir = new THREE.Vector3().subVectors(new THREE.Vector3(0,0,0), earthWorldPos).normalize();
-    sunLight.position.copy(earthWorldPos).sub(sunDir.clone().multiplyScalar(SUN_DISTANCE));
-    sunLight.target.position.copy(earthWorldPos);
-    sunLight.target.updateMatrixWorld();
+    // Симуляция времени
+    simDate = new Date(simDate.getTime() + delta * timeScale * 1000);
+    updateUI();
 
-    // Смена цвета неба (День / Закат / Ночь)
-    const humanWorldPos = new THREE.Vector3();
-    headNode.getWorldPosition(humanWorldPos);
-    
-    const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(humanPivot.getWorldQuaternion(new THREE.Quaternion()));
-    const dot = upVector.dot(sunDir.negate());
+    // Расчет линии горизонта от угла наклона pitch
+    const horizonY = height / 2 + Math.tan(pitch) * (height / 2);
 
-    if (dot > 0.15) {
-        scene.background.setHex(0x4a90e2); // Синий день
-    } else if (dot > -0.1) {
-        scene.background.setHex(0xd96b27); // Закат
-    } else {
-        scene.background.setHex(0x0a0e17); // Ночь
-    }
-}
+    // 1. Отрисовка Синего Неба
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, Math.max(0, horizonY));
+    skyGrad.addColorStop(0, '#1a5276');
+    skyGrad.addColorStop(1, '#5adeff');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, width, Math.max(0, horizonY));
 
-// --- 10. Главный цикл анимации ---
-const clock = new THREE.Clock();
-updateUIFromDate();
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    const delta = clock.getDelta();
-    handleCameraRotation(delta);
-
-    if (timeScale > 0) {
-        simDate = new Date(simDate.getTime() + (delta * timeScale * 1000));
-        updateUIFromDate();
+    // 2. Отрисовка Земли (внизу)
+    if (horizonY < height) {
+        const groundGrad = ctx.createLinearGradient(0, Math.max(0, horizonY), 0, height);
+        groundGrad.addColorStop(0, '#2d5a27');
+        groundGrad.addColorStop(1, '#153311');
+        ctx.fillStyle = groundGrad;
+        ctx.fillRect(0, Math.max(0, horizonY), width, height - horizonY);
     }
 
-    updatePositionsFromDate(simDate);
-    renderer.render(scene, camera);
+    // 3. Линия горизонта и ориентиры при повороте (360 градусов)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, horizonY);
+    ctx.lineTo(width, horizonY);
+    ctx.stroke();
+
+    // Метки сторон света для наглядности вращения
+    const fov = Math.PI / 3; // Поле зрения ~60 градусов
+    const directions = [
+        { label: 'СЕВЕР', angle: 0 },
+        { label: 'ВОСТОК', angle: Math.PI / 2 },
+        { label: 'ЮГ', angle: Math.PI },
+        { label: 'ЗАПАД', angle: -Math.PI / 2 }
+    ];
+
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+
+    directions.forEach(dir => {
+        let diff = dir.angle - yaw;
+        // Нормализация угла в пределы [-PI, PI]
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+
+        if (Math.abs(diff) < fov / 2) {
+            const x = width / 2 + (diff / (fov / 2)) * (width / 2);
+            ctx.fillText(dir.label, x, horizonY - 15);
+            ctx.fillRect(x - 2, horizonY - 10, 4, 10);
+        }
+    });
+
+    ctx.restore();
+
+    requestAnimationFrame(draw);
 }
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-animate();
+draw();
 </script>
 </body>
 </html>
