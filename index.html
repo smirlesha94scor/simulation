@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Three.js: Синее небо и Земля от 1-го лица</title>
+    <title>Three.js: Стабильный вид от 1-го лица</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #ui {
@@ -53,18 +53,18 @@
     <div class="control-group">
         <label>Режим камеры:</label>
         <button id="cam-btn" onclick="toggleCamera()">Камера: На Земле (2м)</button>
-        <button onclick="resetCamera()">Сбросить фокус на Землю</button>
+        <button onclick="resetCamera()">Сбросить фокус в космос</button>
     </div>
 
     <div class="help-text">
-        Управление: <b>Стрелки клавиатуры</b> — осмотр вокруг (небо/земля/горизонт).
+        Управление: <b>Стрелки клавиатуры</b> — поворот головы во все стороны.
     </div>
 </div>
 
 <script>
-// --- 1. Масштабы и Константы ---
-const EARTH_RADIUS = 1000;              
-const SUN_DISTANCE = 20000;         
+// --- 1. Константы ---
+const EARTH_RADIUS = 500;              
+const SUN_DISTANCE = 3000;         
 const AXIS_TILT = THREE.MathUtils.degToRad(23.44); 
 const EPOCH = new Date(Date.UTC(2026, 2, 20, 14, 46, 0)).getTime();
 
@@ -73,6 +73,7 @@ let timeScale = 1;
 
 // --- 2. Сцена и Рендерер ---
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x60a0ff); // Синее небо
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -82,8 +83,8 @@ document.body.appendChild(renderer.domElement);
 
 // --- 3. Камеры ---
 const aspect = window.innerWidth / window.innerHeight;
-const freeCam = new THREE.PerspectiveCamera(45, aspect, 1, 100000);
-const surfaceCam = new THREE.PerspectiveCamera(75, aspect, 0.1, 100000);
+const freeCam = new THREE.PerspectiveCamera(45, aspect, 0.1, 50000);
+const surfaceCam = new THREE.PerspectiveCamera(70, aspect, 0.1, 10000);
 let activeCamera = surfaceCam;
 
 const controls = new THREE.OrbitControls(freeCam, renderer.domElement);
@@ -93,19 +94,16 @@ controls.enableDamping = true;
 const textureLoader = new THREE.TextureLoader();
 const earthMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
 const earthBump = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg');
-const earthSpec = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg');
 
 // --- 5. Источники света и Солнце ---
-const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
 scene.add(sunLight);
+scene.add(new THREE.AmbientLight(0x556688, 0.6));
 
-const ambientLight = new THREE.AmbientLight(0x334466, 0.5);
-scene.add(ambientLight);
-
-// Визуальное Солнце
+// Визуальный шар Солнца
 const sunMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(600, 32, 32),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
+    new THREE.SphereGeometry(80, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffffaa })
 );
 scene.add(sunMesh);
 
@@ -118,55 +116,39 @@ tiltGroup.position.x = SUN_DISTANCE;
 tiltGroup.rotation.z = AXIS_TILT;
 orbitGroup.add(tiltGroup);
 
-// Глобус Земли
 const earthMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(EARTH_RADIUS, 128, 128),
+    new THREE.SphereGeometry(EARTH_RADIUS, 64, 64),
     new THREE.MeshPhongMaterial({ 
         map: earthMap,                       
         normalMap: earthBump,             
-        normalScale: new THREE.Vector2(0.8, 0.8),
-        specularMap: earthSpec,           
-        specular: new THREE.Color(0x333333),
-        shininess: 15
+        shininess: 5
     })
 );
 tiltGroup.add(earthMesh);
 
-// --- 7. Купол Голубого Неба ---
-const skyGeo = new THREE.SphereGeometry(30000, 32, 32);
-const skyMat = new THREE.MeshBasicMaterial({
-    color: 0x5a9eff,
-    side: THREE.BackSide
-});
-const skyBox = new THREE.Mesh(skyGeo, skyMat);
-scene.add(skyBox);
-
-// --- 8. Размещение человека (2м на Земле) ---
+// --- 7. Человек на поверхности (2 метра) ---
 const humanPivot = new THREE.Group();
-humanPivot.position.set(0, EARTH_RADIUS, 0); // Поверхность северного полушария
+humanPivot.position.set(0, EARTH_RADIUS, 0); 
 earthMesh.add(humanPivot);
 
-// Небольшая площадка земли под ногами для естественного горизонта
-const groundPlaneGeo = new THREE.PlaneGeometry(500, 500);
-const groundPlaneMat = new THREE.MeshPhongMaterial({
-    map: earthMap,
-    side: THREE.DoubleSide
-});
-const groundPlane = new THREE.Mesh(groundPlaneGeo, groundPlaneMat);
-groundPlane.rotation.x = -Math.PI / 2;
-groundPlane.position.set(0, -0.05, 0);
-humanPivot.add(groundPlane);
+// Ландшафт под ногами
+const localGroundGeo = new THREE.PlaneGeometry(2000, 2000);
+const localGroundMat = new THREE.MeshPhongMaterial({ map: earthMap, side: THREE.DoubleSide });
+const localGround = new THREE.Mesh(localGroundGeo, localGroundMat);
+localGround.rotation.x = -Math.PI / 2;
+localGround.position.y = -0.1;
+humanPivot.add(localGround);
 
 const headNode = new THREE.Group();
-headNode.position.set(0, 2, 0); // 2 метра над поверхностью
+headNode.position.set(0, 2, 0); // 2м рост
 humanPivot.add(headNode);
 headNode.add(surfaceCam);
 
 let humanYaw = 0;   
-let humanPitch = -0.1; 
+let humanPitch = -0.05; 
 
 function updateHumanLook() {
-    humanPitch = Math.max(-Math.PI/2 + 0.05, Math.min(Math.PI/2 - 0.05, humanPitch));
+    humanPitch = Math.max(-Math.PI/2.05, Math.min(Math.PI/2.05, humanPitch));
 
     const lookDir = new THREE.Vector3(
         Math.cos(humanPitch) * Math.sin(humanYaw),
@@ -180,7 +162,7 @@ function updateHumanLook() {
 }
 updateHumanLook();
 
-// --- 9. Управление Стрелками ---
+// --- 8. Управление стрелками ---
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
 window.addEventListener('keydown', (e) => {
@@ -217,7 +199,7 @@ function handleCameraRotation(delta) {
     }
 }
 
-// --- 10. Время и Логика ---
+// --- 9. Симуляция времени ---
 const datetimeInput = document.getElementById('datetime-input');
 const speedInput = document.getElementById('time-speed');
 const speedVal = document.getElementById('speed-val');
@@ -258,10 +240,25 @@ function updatePositionsFromDate(date) {
 
     sunMesh.position.set(0, 0, 0);
 
-    // Перемещение неба за человеком
+    // Цвет неба меняется день/ночь
     const humanWorldPos = new THREE.Vector3();
     headNode.getWorldPosition(humanWorldPos);
-    skyBox.position.copy(humanWorldPos);
+    const sunVector = new THREE.Vector3().subVectors(new THREE.Vector3(0,0,0), humanWorldPos).normalize();
+    
+    const upVector = new THREE.Vector3(0, 1, 0).applyQuaternion(humanPivot.getWorldQuaternion(new THREE.Quaternion()));
+    const dot = upVector.dot(sunVector);
+
+    if (activeCamera === surfaceCam) {
+        if (dot > 0.1) {
+            scene.background.setHex(0x5a9eff); // День
+        } else if (dot > -0.1) {
+            scene.background.setHex(0xfd7e14); // Закат
+        } else {
+            scene.background.setHex(0x050510); // Ночь
+        }
+    } else {
+        scene.background.setHex(0x000000); // Космос
+    }
 }
 
 function focusCameraOnEarth() {
@@ -289,19 +286,17 @@ function toggleCamera() {
     if (activeCamera === freeCam) {
         activeCamera = surfaceCam;
         controls.enabled = false;
-        skyBox.visible = true;
         btn.innerText = "Камера: На Земле (2м)";
         updateHumanLook();
     } else {
         activeCamera = freeCam;
         controls.enabled = true;
-        skyBox.visible = false;
         btn.innerText = "Камера: Около Земли (Космос)";
         focusCameraOnEarth();
     }
 }
 
-// --- 11. Анимация ---
+// --- 10. Анимация ---
 const clock = new THREE.Clock();
 updateUIFromDate();
 updatePositionsFromDate(simDate);
