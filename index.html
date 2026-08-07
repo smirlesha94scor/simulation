@@ -2,18 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Земля — Гладкий горизонт и Компас</title>
+    <title>Земля — Управление и Карта положения</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #ui {
             position: absolute; top: 10px; left: 10px; color: #fff;
-            font-family: sans-serif; font-size: 13px;
-            background: rgba(0, 0, 0, 0.75); padding: 10px 14px; border-radius: 6px;
+            background: rgba(0, 0, 0, 0.8); padding: 12px; border-radius: 8px; z-index: 10;
         }
         button {
             background: #2b5278; color: white; border: none;
-            padding: 6px 10px; margin-top: 8px; border-radius: 4px; cursor: pointer;
+            padding: 6px 12px; margin-top: 8px; border-radius: 4px; cursor: pointer;
         }
+        button:hover { background: #3b6e9e; }
+        
+        /* Стили карты выбора положения */
+        #map-container {
+            position: absolute; bottom: 15px; right: 15px;
+            width: 280px; background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #444; border-radius: 8px; padding: 8px; color: #fff;
+            z-index: 10;
+        }
+        #map-canvas {
+            width: 100%; height: 140px; background: #1a3b5c;
+            cursor: crosshair; border-radius: 4px; display: block;
+        }
+        .info-text { font-size: 11px; color: #aaa; margin-top: 4px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -22,6 +35,14 @@
     <div id="ui">
         Режим: <b id="cam-mode">Вид из космоса</b><br>
         <button id="toggle-cam">Переключить вид (C)</button>
+        <div class="info-text">Стрелки (← → ↑ ↓): Огляд поворотом головы</div>
+    </div>
+
+    <!-- 2D Карта выбора координат -->
+    <div id="map-container">
+        <div style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">Выбор положения на Земле:</div>
+        <canvas id="map-canvas" width="280" height="140"></canvas>
+        <div class="info-text" id="coords-text">Широта: 0.0°, Долгота: 0.0°</div>
     </div>
 
     <script>
@@ -32,10 +53,17 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // --- МАСШТАБЫ ---
+        // --- МАСШТАБЫ И НАСТРОЙКИ ---
         const R_eq = 10.0;
         const R_pol = 9.9664;
-        const humanHeight = 0.000003135; // 2 метра в масштабе R_eq = 10
+        const humanHeight = 0.000003135; // 2 метра
+
+        let currentLat = 0; // Широта (degrees)
+        let currentLon = 0; // Долгота (degrees)
+
+        // Переменные вращения головы (поворот стрелками)
+        let yaw = 0;   // Влево/Вправо
+        let pitch = 0; // Вверх/Вниз
 
         // --- КАМЕРЫ ---
         const spaceCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -43,11 +71,14 @@
 
         const humanCamera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.0000001, 1000);
         
+        // Вспомогательный контейнер для камеры (pivot)
+        const humanPivot = new THREE.Group();
+        
         let activeCamera = spaceCamera;
         const controls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
         controls.enableDamping = true;
 
-        // --- ОСВЕЩЕНИЕ И СОЛНЦЕ ---
+        // --- СОЛНЦЕ И ОСВЕЩЕНИЕ ---
         const sunMesh = new THREE.Mesh(
             new THREE.SphereGeometry(2.0, 32, 32),
             new THREE.MeshBasicMaterial({ color: 0xffaa00 })
@@ -59,7 +90,7 @@
         scene.add(sunLight);
         scene.add(new THREE.AmbientLight(0x111122, 0.2));
 
-        // --- ЗЕМЛЯ С ВЫСОКОЙ ДЕТАЛИЗАЦИЕЙ (256x256 для идеального горизонта) ---
+        // --- ЗЕМЛЯ ---
         const earthPositionGroup = new THREE.Group();
         scene.add(earthPositionGroup);
 
@@ -67,63 +98,140 @@
         earthTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.44);
         earthPositionGroup.add(earthTiltGroup);
 
-        // Увеличено число сегментов с 64 до 256
         const earthGeo = new THREE.SphereGeometry(R_eq, 256, 256);
         const earthMat = new THREE.MeshStandardMaterial({ roughness: 0.8, color: 0x1d3557 });
         const earthMesh = new THREE.Mesh(earthGeo, earthMat);
-        
         earthMesh.scale.set(1, R_pol / R_eq, 1);
         earthTiltGroup.add(earthMesh);
 
-        // --- ПОЗИЦИОНИРОВАНИЕ КАМЕРЫ ---
-        humanCamera.position.set(R_eq + humanHeight, 0, 0);
-        humanCamera.up.set(1, 0, 0); // Зенит
-        humanCamera.lookAt(R_eq + humanHeight, 0, 10); // Взгляд на Восток/Горизонт
-        earthMesh.add(humanCamera);
+        // Привязываем Pivot и Камеру к Земле
+        earthMesh.add(humanPivot);
+        humanPivot.add(humanCamera);
 
-        // --- ФУНКЦИЯ СОЗДАНИЯ 3D-ТЕКСТА СТОРУН СВЕТА ---
+        // --- МЕТКИ СТОРУН СВЕТА ---
         function createCompassLabel(text, color) {
             const canvas = document.createElement('canvas');
             canvas.width = 256; canvas.height = 256;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = color;
             ctx.font = 'Bold 120px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(text, 128, 128);
 
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
-            const sprite = new THREE.Sprite(spriteMat);
-            sprite.scale.set(0.005, 0.005, 1); // Маленький размер на горизонте
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+            sprite.scale.set(0.005, 0.005, 1);
             return sprite;
         }
 
-        // РАСТАВЛЯЕМ СТОРУНЫ СВЕТА (Светятся на горизонте)
-        const dist = 0.1; // Дистанция меток от человека
-
         const north = createCompassLabel('С (N)', '#ff3333');
-        north.position.set(R_eq + humanHeight, dist, 0); // Север (вдоль локальной оси Y)
-        earthMesh.add(north);
-
         const south = createCompassLabel('Ю (S)', '#3388ff');
-        south.position.set(R_eq + humanHeight, -dist, 0); // Юг
-        earthMesh.add(south);
-
         const east = createCompassLabel('В (E)', '#33ff33');
-        east.position.set(R_eq + humanHeight, 0, dist); // Восток (вдоль локальной оси Z)
-        earthMesh.add(east);
-
         const west = createCompassLabel('З (W)', '#ffff33');
-        west.position.set(R_eq + humanHeight, 0, -dist); // Запад
-        earthMesh.add(west);
 
-        // --- УПРАВЛЕНИЕ КАМЕРАМИ ---
+        humanPivot.add(north); humanPivot.add(south); humanPivot.add(east); humanPivot.add(west);
+
+        function updateCompassPositions() {
+            const dist = 0.1;
+            north.position.set(0, dist, 0);
+            south.position.set(0, -dist, 0);
+            east.position.set(0, 0, dist);
+            west.position.set(0, 0, -dist);
+        }
+        updateCompassPositions();
+
+        // --- ФУНКЦИЯ ОБНОВЛЕНИЯ ПОЛОЖЕНИЯ НА ЗЕМЛЕ ---
+        function updateHumanPosition(lat, lon) {
+            currentLat = lat;
+            currentLon = lon;
+
+            const phi = THREE.MathUtils.degToRad(90 - lat);
+            const theta = THREE.MathUtils.degToRad(lon);
+
+            // Позиция на поверхности эллипсоида
+            const x = R_eq * Math.sin(phi) * Math.cos(theta);
+            const y = R_pol * Math.cos(phi);
+            const z = R_eq * Math.sin(phi) * Math.sin(theta);
+
+            humanPivot.position.set(x, y, z);
+
+            // Вычисляем нормаль (вектор ВЕРХ) к поверхности эллипсоида
+            const normal = new THREE.Vector3(x / (R_eq * R_eq), y / (R_pol * R_pol), z / (R_eq * R_eq)).normalize();
+            
+            // Ориентируем Pivot вдоль нормали к поверхности
+            const upVector = new THREE.Vector3(0, 1, 0);
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(upVector, normal);
+            humanPivot.quaternion.copy(quaternion);
+
+            // Смещение камеры на высоту человека
+            humanCamera.position.set(0, humanHeight, 0);
+            
+            drawMap();
+            document.getElementById('coords-text').innerText = `Широта: ${lat.toFixed(1)}°, Долгота: ${lon.toFixed(1)}°`;
+        }
+
+        updateHumanPosition(0, 0); // Старт на экваторе
+
+        // --- УПРАВЛЕНИЕ СТРЕЛКАМИ (ПОВОРОТ ГОЛОВЫ) ---
+        const keys = {};
+        window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        function handleLookControls() {
+            if (activeCamera !== humanCamera) return;
+
+            const speed = 0.02;
+            if (keys['ArrowLeft'])  yaw += speed;
+            if (keys['ArrowRight']) yaw -= speed;
+            if (keys['ArrowUp'])    pitch = Math.min(Math.PI / 2.2, pitch + speed);
+            if (keys['ArrowDown'])  pitch = Math.max(-Math.PI / 2.2, pitch - speed);
+
+            // Обновление поворота камеры
+            const euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
+            humanCamera.quaternion.setFromEuler(euler);
+        }
+
+        // --- 2D КАРТА (ОТРИСОВКА И КЛИКИ) ---
+        const mapCanvas = document.getElementById('map-canvas');
+        const mapCtx = mapCanvas.getContext('2d');
+
+        function drawMap() {
+            mapCtx.fillStyle = '#1a3b5c';
+            mapCtx.fillRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+            // Сетка экватора и меридиана
+            mapCtx.strokeStyle = '#335577';
+            mapCtx.beginPath();
+            mapCtx.moveTo(0, 70); mapCtx.lineTo(280, 70);
+            mapCtx.moveTo(140, 0); mapCtx.lineTo(140, 140);
+            mapCtx.stroke();
+
+            // Точка текущего положения
+            const px = (currentLon + 180) * (280 / 360);
+            const py = (90 - currentLat) * (140 / 180);
+
+            mapCtx.fillStyle = '#ff3333';
+            mapCtx.beginPath();
+            mapCtx.arc(px, py, 5, 0, Math.PI * 2);
+            mapCtx.fill();
+        }
+
+        mapCanvas.addEventListener('click', (e) => {
+            const rect = mapCanvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const lon = (clickX / 280) * 360 - 180;
+            const lat = 90 - (clickY / 140) * 180;
+
+            updateHumanPosition(lat, lon);
+        });
+
+        // --- УПРАВЛЕНИЕ ВИДАМИ ---
         function toggleCamera() {
             if (activeCamera === spaceCamera) {
                 activeCamera = humanCamera;
                 controls.enabled = false;
-                document.getElementById('cam-mode').innerText = 'Глазами человека (2м от Земли)';
+                document.getElementById('cam-mode').innerText = 'Глазами человека';
             } else {
                 activeCamera = spaceCamera;
                 controls.enabled = true;
@@ -139,6 +247,8 @@
             requestAnimationFrame(animate);
 
             earthMesh.rotation.y += 0.003;
+
+            handleLookControls();
 
             sunLight.position.copy(sunMesh.position);
             sunLight.target = earthMesh;
