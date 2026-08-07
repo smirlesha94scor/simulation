@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Земля R_eq = 10 units</title>
+    <title>Земля — Гладкий горизонт и Компас</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         #ui {
@@ -27,22 +27,21 @@
     <script>
         const scene = new THREE.Scene();
 
-        // 1. ВКЛЮЧАЕМ logarithmicDepthBuffer ДЛЯ РАБОТЫ С МИКРО-РАССТОЯНИЯМИ
         const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // --- МАСШТАБЫ И ЗЕМЛЯ ---
-        const R_eq = 10.0;          // Экваториальный радиус = 10 units
-        const R_pol = 9.9664;        // Полярный радиус (физическая пропорция)
+        // --- МАСШТАБЫ ---
+        const R_eq = 10.0;
+        const R_pol = 9.9664;
         const humanHeight = 0.000003135; // 2 метра в масштабе R_eq = 10
 
         // --- КАМЕРЫ ---
         const spaceCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        spaceCamera.position.set(0, 15, 30); // Соразмерный вид космоса для R = 10
+        spaceCamera.position.set(0, 15, 30);
 
-        const humanCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.0000001, 1000);
+        const humanCamera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.0000001, 1000);
         
         let activeCamera = spaceCamera;
         const controls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
@@ -60,28 +59,64 @@
         scene.add(sunLight);
         scene.add(new THREE.AmbientLight(0x111122, 0.2));
 
-        // --- ЗЕМЛЯ ---
+        // --- ЗЕМЛЯ С ВЫСОКОЙ ДЕТАЛИЗАЦИЕЙ (256x256 для идеального горизонта) ---
         const earthPositionGroup = new THREE.Group();
         scene.add(earthPositionGroup);
 
         const earthTiltGroup = new THREE.Group();
-        earthTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.44); // Наклон оси 23.44°
+        earthTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.44);
         earthPositionGroup.add(earthTiltGroup);
 
-        // Создаем сферу радиусом 10 units
-        const earthGeo = new THREE.SphereGeometry(R_eq, 64, 64);
-        const earthMat = new THREE.MeshStandardMaterial({ roughness: 0.8, color: 0x223366 });
+        // Увеличено число сегментов с 64 до 256
+        const earthGeo = new THREE.SphereGeometry(R_eq, 256, 256);
+        const earthMat = new THREE.MeshStandardMaterial({ roughness: 0.8, color: 0x1d3557 });
         const earthMesh = new THREE.Mesh(earthGeo, earthMat);
         
-        // Применяем геоидальную сплюснутость по оси Y
         earthMesh.scale.set(1, R_pol / R_eq, 1);
         earthTiltGroup.add(earthMesh);
 
-        // --- ПОЗИЦИОНИРОВАНИЕ ЧЕЛОВЕКА СТРОГО НА 2 МЕТРАХ НАД ЗЕМЛЕЙ ---
+        // --- ПОЗИЦИОНИРОВАНИЕ КАМЕРЫ ---
         humanCamera.position.set(R_eq + humanHeight, 0, 0);
-        humanCamera.up.set(1, 0, 0); // Зенит (верх) смотрит в космос от центра Земли
-        humanCamera.lookAt(R_eq + humanHeight, 0, 10); // Взгляд строго на горизонт
-        earthMesh.add(humanCamera); // Привязка к вращению планеты
+        humanCamera.up.set(1, 0, 0); // Зенит
+        humanCamera.lookAt(R_eq + humanHeight, 0, 10); // Взгляд на Восток/Горизонт
+        earthMesh.add(humanCamera);
+
+        // --- ФУНКЦИЯ СОЗДАНИЯ 3D-ТЕКСТА СТОРУН СВЕТА ---
+        function createCompassLabel(text, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.font = 'Bold 120px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 128);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(0.005, 0.005, 1); // Маленький размер на горизонте
+            return sprite;
+        }
+
+        // РАСТАВЛЯЕМ СТОРУНЫ СВЕТА (Светятся на горизонте)
+        const dist = 0.1; // Дистанция меток от человека
+
+        const north = createCompassLabel('С (N)', '#ff3333');
+        north.position.set(R_eq + humanHeight, dist, 0); // Север (вдоль локальной оси Y)
+        earthMesh.add(north);
+
+        const south = createCompassLabel('Ю (S)', '#3388ff');
+        south.position.set(R_eq + humanHeight, -dist, 0); // Юг
+        earthMesh.add(south);
+
+        const east = createCompassLabel('В (E)', '#33ff33');
+        east.position.set(R_eq + humanHeight, 0, dist); // Восток (вдоль локальной оси Z)
+        earthMesh.add(east);
+
+        const west = createCompassLabel('З (W)', '#ffff33');
+        west.position.set(R_eq + humanHeight, 0, -dist); // Запад
+        earthMesh.add(west);
 
         // --- УПРАВЛЕНИЕ КАМЕРАМИ ---
         function toggleCamera() {
@@ -103,10 +138,8 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Суточное вращение вокруг оси (против часовой стрелки, если смотреть с Северного полюса)
-            earthMesh.rotation.y += 0.005;
+            earthMesh.rotation.y += 0.003;
 
-            // Направление света
             sunLight.position.copy(sunMesh.position);
             sunLight.target = earthMesh;
 
