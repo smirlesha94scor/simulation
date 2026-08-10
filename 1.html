@@ -2,186 +2,184 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Minimal 2D Satisfactory</title>
+  <title>2D Satisfactory Complete</title>
   <style>
     body {
-      margin: 0;
-      background: #1a1a1a;
-      color: #fff;
-      font-family: monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      margin: 0; background: #1a1a1a; color: #fff; font-family: monospace;
+      display: flex; flex-direction: column; align-items: center;
     }
     #ui {
-      margin: 10px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      background: #2a2a2a;
-      padding: 10px;
-      border-radius: 5px;
-      flex-wrap: wrap;
+      margin: 10px; display: flex; gap: 6px; align-items: center;
+      background: #2a2a2a; padding: 10px; border-radius: 5px; flex-wrap: wrap;
     }
     button {
-      background: #ff9900;
-      border: none;
-      color: #000;
-      padding: 8px 12px;
-      font-weight: bold;
-      cursor: pointer;
+      background: #ff9900; border: none; color: #000; padding: 6px 10px;
+      font-weight: bold; cursor: pointer;
     }
-    button.craft-btn {
-      background: #4caf50;
-      color: #fff;
-    }
-    button.active {
-      outline: 3px solid #fff;
-    }
-    canvas {
-      border: 2px solid #444;
-      background: #111;
-    }
-    .info {
-      font-size: 14px;
-      color: #aaa;
-      margin-top: 5px;
-    }
+    button.craft-btn { background: #4caf50; color: #fff; }
+    button.active { outline: 3px solid #fff; }
+    canvas { border: 2px solid #444; background: #111; }
+    .info { font-size: 13px; color: #aaa; margin-top: 5px; }
   </style>
 </head>
 <body>
 
 <div id="ui">
-  <div>⚡ Энергия: <span id="power">-</span></div>
-  <div>📦 Инвентарь: Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span></div>
-  <div>| Ручной крафт:</div>
-  <button class="craft-btn" onclick="craftIngot()">🔨 Сделать слиток (1 Руда)</button>
-  <div>| Постройки:</div>
+  <div>⚡ <span id="power">-</span> | 🌿 Биомасса: <span id="inv-bio">0</span></div>
+  <div>📦 Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span> | Пластины: <span id="inv-plate">0</span> | 🎟️ <span id="score">0</span></div>
+  <button class="craft-btn" onclick="craftIngot()">🔨 Слиток</button>
+  <button class="craft-btn" onclick="craftPlate()">🛠️ Пластина</button>
+  <button id="btn-burner" onclick="setMode('burner')">🔥 Генератор (5 Пластин)</button>
   <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка (5 Слитков)</button>
   <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня (5 Слитков)</button>
+  <button id="btn-constructor" onclick="setMode('constructor')">⚙️ Конструктор (5 Пластин)</button>
+  <button id="btn-splitter" onclick="setMode('splitter')">🔀 Разветвитель (2 Пластины)</button>
+  <button id="btn-merger" onclick="setMode('merger')">🔀 Соединитель (2 Пластины)</button>
+  <button id="btn-sink" onclick="setMode('sink')">♻️ Утилизатор (5 Пластин)</button>
   <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер (1 Слиток)</button>
-  <button id="btn-clear" onclick="setMode('select')">🔍 Инспекция</button>
+  <button id="btn-clear" onclick="setMode('select')">🔍 Инспекция / Сбор</button>
 </div>
 
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">Клик мышкой — поставить/добыть. R — повернуть направление постройки (Текущее: <span id="dir-info">Восток</span>).</div>
+<div class="info">Клик — действие/сбор биомассы. R — поворот перед постройкой (Текущее: <span id="dir-info">Восток</span>).</div>
 
 <script>
 const CANVAS_SIZE = { w: 800, h: 600 };
 const TILE = 40;
 const GRID = { cols: CANVAS_SIZE.w / TILE, rows: CANVAS_SIZE.h / TILE };
-
-// Константы направлений: 0: Восток (Right), 1: Юг (Down), 2: Запад (Left), 3: Север (Up)
 const DIRS = [{x:1,y:0}, {x:0,y:1}, {x:-1,y:0}, {x:0,y:-1}];
 const DIR_NAMES = ["Восток", "Юг", "Запад", "Север"];
 
-// Состояние игры: 0 слитков на старте, добываем и плавим сами!
 const state = {
-  inventory: { iron_ore: 0, iron_ingot: 0 },
-  powerProduction: 20,
+  inventory: { iron_ore: 0, iron_ingot: 0, iron_plate: 0, biomass: 10 },
+  score: 0,
+  powerProduction: 0,
   powerConsumption: 0,
   buildMode: 'select',
   buildDir: 0,
   grid: Array(GRID.cols).fill(null).map(() => Array(GRID.rows).fill(null)),
-  resourceDeposits: []
+  resourceDeposits: [{x: 2, y: 7}, {x: 2, y: 8}, {x: 3, y: 7}],
+  biomassNodes: [{x: 10, y: 3}, {x: 12, y: 4}, {x: 11, y: 8}]
 };
 
-// Генерация рудных жил
-state.resourceDeposits.push({x: 3, y: 7}, {x: 3, y: 8}, {x: 4, y: 7});
-
-// Функция ручного крафта
 function craftIngot() {
-  if (state.inventory.iron_ore > 0) {
-    state.inventory.iron_ore--;
-    state.inventory.iron_ingot++;
+  if (state.inventory.iron_ore >= 1) { state.inventory.iron_ore--; state.inventory.iron_ingot++; }
+}
+function craftPlate() {
+  if (state.inventory.iron_ingot >= 2) { state.inventory.iron_ingot -= 2; state.inventory.iron_plate++; }
+}
+
+// Генератор на биомассе
+class BiomassBurner {
+  constructor(x, y) {
+    this.type = 'burner'; this.x = x; this.y = y;
+    this.fuel = 100; this.maxFuel = 100; this.powerGen = 30;
+  }
+  tick() {
+    if (this.fuel > 0) {
+      this.fuel -= 0.1;
+    } else if (state.inventory.biomass > 0) {
+      state.inventory.biomass--;
+      this.fuel = this.maxFuel;
+    }
   }
 }
 
-// Классы построек
 class Miner {
-  constructor(x, y) {
-    this.type = 'miner';
-    this.x = x; this.y = y;
-    this.progress = 0;
-    this.powerReq = 5;
-  }
+  constructor(x, y) { this.type = 'miner'; this.x = x; this.y = y; this.progress = 0; this.powerReq = 5; }
   tick() {
     this.progress += 1;
-    if (this.progress >= 120) {
+    if (this.progress >= 90) {
       this.progress = 0;
       const target = getEntity(this.x + 1, this.y);
-      if (target && target.acceptItem) {
-        target.acceptItem('iron_ore');
-      } else {
-        state.inventory.iron_ore++;
-      }
+      if (target && target.acceptItem) target.acceptItem('iron_ore');
+      else state.inventory.iron_ore++;
     }
   }
 }
 
 class Smelter {
-  constructor(x, y) {
-    this.type = 'smelter';
-    this.x = x; this.y = y;
-    this.bufferIn = 0;
-    this.progress = 0;
-    this.powerReq = 10;
-  }
-  acceptItem(item) {
-    if (item === 'iron_ore' && this.bufferIn < 10) {
-      this.bufferIn++;
-      return true;
-    }
-    return false;
-  }
+  constructor(x, y) { this.type = 'smelter'; this.x = x; this.y = y; this.bufferIn = 0; this.progress = 0; this.powerReq = 10; }
+  acceptItem(item) { if (item === 'iron_ore' && this.bufferIn < 10) { this.bufferIn++; return true; } return false; }
   tick() {
     if (this.bufferIn > 0) {
       this.progress++;
-      if (this.progress >= 180) {
-        this.progress = 0;
-        this.bufferIn--;
+      if (this.progress >= 120) {
+        this.progress = 0; this.bufferIn--;
         const target = getEntity(this.x + 1, this.y);
-        if (target && target.acceptItem) {
-          target.acceptItem('iron_ingot');
-        } else {
-          state.inventory.iron_ingot++;
-        }
+        if (target && target.acceptItem) target.acceptItem('iron_ingot');
+        else state.inventory.iron_ingot++;
       }
     }
   }
 }
 
+class ConstructorBuilding {
+  constructor(x, y) { this.type = 'constructor'; this.x = x; this.y = y; this.bufferIn = 0; this.progress = 0; this.powerReq = 15; }
+  acceptItem(item) { if (item === 'iron_ingot' && this.bufferIn < 10) { this.bufferIn++; return true; } return false; }
+  tick() {
+    if (this.bufferIn >= 2) {
+      this.progress++;
+      if (this.progress >= 150) {
+        this.progress = 0; this.bufferIn -= 2;
+        const target = getEntity(this.x + 1, this.y);
+        if (target && target.acceptItem) target.acceptItem('iron_plate');
+        else state.inventory.iron_plate++;
+      }
+    }
+  }
+}
+
+class Splitter {
+  constructor(x, y, dirIndex) { this.type = 'splitter'; this.x = x; this.y = y; this.dir = dirIndex; this.toggle = false; this.powerReq = 0; }
+  acceptItem(item) {
+    const leftDir = (this.dir + 3) % 4, rightDir = (this.dir + 1) % 4;
+    const targetDir = this.toggle ? leftDir : rightDir;
+    this.toggle = !this.toggle;
+    const d = DIRS[targetDir];
+    const target = getEntity(this.x + d.x, this.y + d.y);
+    return target && target.acceptItem ? target.acceptItem(item) : false;
+  }
+  tick() {}
+}
+
+// Соединитель (Merger) — сливает потоки в одно направление
+class Merger {
+  constructor(x, y, dirIndex) { this.type = 'merger'; this.x = x; this.y = y; this.dir = dirIndex; this.powerReq = 0; }
+  acceptItem(item) {
+    const d = DIRS[this.dir];
+    const target = getEntity(this.x + d.x, this.y + d.y);
+    return target && target.acceptItem ? target.acceptItem(item) : false;
+  }
+  tick() {}
+}
+
+class AwesomeSink {
+  constructor(x, y) { this.type = 'sink'; this.x = x; this.y = y; this.powerReq = 5; }
+  acceptItem(item) {
+    if (item === 'iron_ore') state.score += 1;
+    if (item === 'iron_ingot') state.score += 5;
+    if (item === 'iron_plate') state.score += 20;
+    return true;
+  }
+  tick() {}
+}
+
 class Belt {
   constructor(x, y, dirIndex) {
-    this.type = 'belt';
-    this.x = x; this.y = y;
-    this.dir = dirIndex;
-    this.item = null;
-    this.progress = 0;
+    this.type = 'belt'; this.x = x; this.y = y;
+    this.dir = dirIndex; this.item = null; this.progress = 0; this.speed = 0.02;
   }
-  acceptItem(item) {
-    if (!this.item) {
-      this.item = item;
-      this.progress = 0;
-      return true;
-    }
-    return false;
-  }
+  acceptItem(item) { if (!this.item) { this.item = item; this.progress = 0; return true; } return false; }
   tick() {
     if (this.item) {
-      this.progress += 2;
-      if (this.progress >= 100) {
+      this.progress += this.speed;
+      if (this.progress >= 1.0) {
         const d = DIRS[this.dir];
         const target = getEntity(this.x + d.x, this.y + d.y);
         if (target && target.acceptItem && target.acceptItem(this.item)) {
-          this.item = null;
-          this.progress = 0;
-        } else if (!target) {
-          if (this.item === 'iron_ore') state.inventory.iron_ore++;
-          if (this.item === 'iron_ingot') state.inventory.iron_ingot++;
-          this.item = null;
-          this.progress = 0;
-        }
+          this.item = null; this.progress = 0;
+        } else { this.progress = 1.0; }
       }
     }
   }
@@ -194,9 +192,7 @@ function getEntity(x, y) {
 
 function setMode(mode) {
   state.buildMode = mode;
-  document.querySelectorAll('#ui button').forEach(b => {
-    if (!b.classList.contains('craft-btn')) b.classList.remove('active');
-  });
+  document.querySelectorAll('#ui button').forEach(b => { if (!b.classList.contains('craft-btn')) b.classList.remove('active'); });
   if (mode !== 'select') document.getElementById(`btn-${mode}`).classList.add('active');
 }
 
@@ -214,114 +210,128 @@ canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const gx = Math.floor((e.clientX - rect.left) / TILE);
   const gy = Math.floor((e.clientY - rect.top) / TILE);
-
   const existing = state.grid[gx][gy];
 
   if (state.buildMode === 'select') {
-    const deposit = state.resourceDeposits.find(d => d.x === gx && d.y === gy);
-    if (deposit) {
-      state.inventory.iron_ore++;
-    }
+    if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) state.inventory.iron_ore++;
+    const bioIdx = state.biomassNodes.findIndex(b => b.x === gx && b.y === gy);
+    if (bioIdx !== -1) state.inventory.biomass += 5;
     return;
   }
 
   if (existing) return;
 
-  if (state.buildMode === 'miner') {
-    const isDeposit = state.resourceDeposits.some(d => d.x === gx && d.y === gy);
-    if (isDeposit && state.inventory.iron_ingot >= 5) {
-      state.inventory.iron_ingot -= 5;
-      state.grid[gx][gy] = new Miner(gx, gy);
+  if (state.buildMode === 'burner' && state.inventory.iron_plate >= 5) {
+    state.inventory.iron_plate -= 5; state.grid[gx][gy] = new BiomassBurner(gx, gy);
+  } else if (state.buildMode === 'miner' && state.inventory.iron_ingot >= 5) {
+    if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) {
+      state.inventory.iron_ingot -= 5; state.grid[gx][gy] = new Miner(gx, gy);
     }
-  } else if (state.buildMode === 'smelter') {
-    if (state.inventory.iron_ingot >= 5) {
-      state.inventory.iron_ingot -= 5;
-      state.grid[gx][gy] = new Smelter(gx, gy);
-    }
-  } else if (state.buildMode === 'belt') {
-    if (state.inventory.iron_ingot >= 1) {
-      state.inventory.iron_ingot -= 1;
-      state.grid[gx][gy] = new Belt(gx, gy, state.buildDir);
-    }
+  } else if (state.buildMode === 'smelter' && state.inventory.iron_ingot >= 5) {
+    state.inventory.iron_ingot -= 5; state.grid[gx][gy] = new Smelter(gx, gy);
+  } else if (state.buildMode === 'constructor' && state.inventory.iron_plate >= 5) {
+    state.inventory.iron_plate -= 5; state.grid[gx][gy] = new ConstructorBuilding(gx, gy);
+  } else if (state.buildMode === 'splitter' && state.inventory.iron_plate >= 2) {
+    state.inventory.iron_plate -= 2; state.grid[gx][gy] = new Splitter(gx, gy, state.buildDir);
+  } else if (state.buildMode === 'merger' && state.inventory.iron_plate >= 2) {
+    state.inventory.iron_plate -= 2; state.grid[gx][gy] = new Merger(gx, gy, state.buildDir);
+  } else if (state.buildMode === 'sink' && state.inventory.iron_plate >= 5) {
+    state.inventory.iron_plate -= 5; state.grid[gx][gy] = new AwesomeSink(gx, gy);
+  } else if (state.buildMode === 'belt' && state.inventory.iron_ingot >= 1) {
+    state.inventory.iron_ingot -= 1; state.grid[gx][gy] = new Belt(gx, gy, state.buildDir);
   }
 });
 
 function gameLoop() {
-  let consumption = 0;
+  let consumption = 0, production = 0;
   for (let x = 0; x < GRID.cols; x++) {
     for (let y = 0; y < GRID.rows; y++) {
       const e = state.grid[x][y];
-      if (e && e.powerReq) consumption += e.powerReq;
+      if (e) {
+        if (e.powerReq) consumption += e.powerReq;
+        if (e.powerGen && e.fuel > 0) production += e.powerGen;
+      }
     }
   }
   state.powerConsumption = consumption;
-  const hasPower = state.powerProduction >= state.powerConsumption;
+  state.powerProduction = production;
+  const hasPower = production >= consumption;
 
-  if (hasPower) {
-    for (let x = 0; x < GRID.cols; x++) {
-      for (let y = 0; y < GRID.rows; y++) {
-        const e = state.grid[x][y];
-        if (e) e.tick();
+  for (let x = 0; x < GRID.cols; x++) {
+    for (let y = 0; y < GRID.rows; y++) {
+      const e = state.grid[x][y];
+      if (e) {
+        if (e.type === 'burner') e.tick();
+        else if (hasPower) e.tick();
       }
     }
   }
 
   ctx.clearRect(0, 0, CANVAS_SIZE.w, CANVAS_SIZE.h);
 
+  // Сетка
   ctx.strokeStyle = '#222';
   for (let x = 0; x < GRID.cols; x++) {
-    for (let y = 0; y < GRID.rows; y++) {
-      ctx.strokeRect(x * TILE, y * TILE, TILE, TILE);
-    }
+    for (let y = 0; y < GRID.rows; y++) ctx.strokeRect(x * TILE, y * TILE, TILE, TILE);
   }
 
+  // Руда и биомасса
   ctx.fillStyle = '#795548';
-  state.resourceDeposits.forEach(d => {
-    ctx.fillRect(d.x * TILE + 4, d.y * TILE + 4, TILE - 8, TILE - 8);
-  });
+  state.resourceDeposits.forEach(d => ctx.fillRect(d.x * TILE + 4, d.y * TILE + 4, TILE - 8, TILE - 8));
+  ctx.fillStyle = '#33691e';
+  state.biomassNodes.forEach(b => ctx.fillRect(b.x * TILE + 6, b.y * TILE + 6, TILE - 12, TILE - 12));
 
+  // Отрисовка построек
   for (let x = 0; x < GRID.cols; x++) {
     for (let y = 0; y < GRID.rows; y++) {
       const e = state.grid[x][y];
       if (!e) continue;
+      const px = x * TILE, py = y * TILE;
 
-      const px = x * TILE;
-      const py = y * TILE;
-
-      if (e.type === 'miner') {
-        ctx.fillStyle = '#ff9900';
-        ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#000';
-        ctx.fillText('⛏️', px + 12, py + 24);
+      if (e.type === 'burner') {
+        ctx.fillStyle = '#d32f2f'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#fff'; ctx.fillText(`🔋${Math.ceil(e.fuel)}`, px + 4, py + 24);
+      } else if (e.type === 'miner') {
+        ctx.fillStyle = '#ff9900'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#000'; ctx.fillText('⛏️', px + 12, py + 24);
       } else if (e.type === 'smelter') {
-        ctx.fillStyle = '#e65100';
-        ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(`🔥${e.bufferIn}`, px + 8, py + 24);
+        ctx.fillStyle = '#e65100'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#fff'; ctx.fillText(`🔥${e.bufferIn}`, px + 8, py + 24);
+      } else if (e.type === 'constructor') {
+        ctx.fillStyle = '#1565c0'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#fff'; ctx.fillText(`⚙️${e.bufferIn}`, px + 8, py + 24);
+      } else if (e.type === 'splitter') {
+        ctx.fillStyle = '#9c27b0'; ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+        ctx.fillStyle = '#fff'; ctx.fillText('🔀', px + 12, py + 24);
+      } else if (e.type === 'merger') {
+        ctx.fillStyle = '#00897b'; ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+        ctx.fillStyle = '#fff'; ctx.fillText('🔀', px + 12, py + 24);
+      } else if (e.type === 'sink') {
+        ctx.fillStyle = '#2e7d32'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#fff'; ctx.fillText('♻️', px + 12, py + 24);
       } else if (e.type === 'belt') {
-        ctx.fillStyle = '#555';
-        ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
-        
-        ctx.fillStyle = '#aaa';
+        ctx.fillStyle = '#444'; ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+        ctx.fillStyle = '#888';
         const arrows = ["➔", "⬇", "⬅", "⬆"];
         ctx.fillText(arrows[e.dir], px + 14, py + 24);
 
         if (e.item) {
-          ctx.fillStyle = e.item === 'iron_ore' ? '#a1887f' : '#e0e0e0';
-          const progressOffset = (e.progress / 100) * 16 - 8;
-          const dx = DIRS[e.dir].x * progressOffset;
-          const dy = DIRS[e.dir].y * progressOffset;
-          ctx.beginPath();
-          ctx.arc(px + 20 + dx, py + 20 + dy, 6, 0, Math.PI * 2);
-          ctx.fill();
+          const d = DIRS[e.dir];
+          const currentX = (px + 20) + d.x * TILE * e.progress;
+          const currentY = (py + 20) + d.y * TILE * e.progress;
+          ctx.fillStyle = e.item === 'iron_ore' ? '#a1887f' : (e.item === 'iron_ingot' ? '#e0e0e0' : '#4fc3f7');
+          ctx.beginPath(); ctx.arc(currentX, currentY, 5, 0, Math.PI * 2); ctx.fill();
         }
       }
     }
   }
 
   document.getElementById('power').innerText = `${state.powerConsumption} / ${state.powerProduction} МВт`;
+  document.getElementById('inv-bio').innerText = state.inventory.biomass;
   document.getElementById('inv-ore').innerText = state.inventory.iron_ore;
   document.getElementById('inv-ingot').innerText = state.inventory.iron_ingot;
+  document.getElementById('inv-plate').innerText = state.inventory.iron_plate;
+  document.getElementById('score').innerText = state.score;
 
   requestAnimationFrame(gameLoop);
 }
