@@ -1,910 +1,332 @@
 <!DOCTYPE html>
-<html lang="ru" class="dark">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Калькулятор Расписания Сбросов</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            50: '#eef2ff',
-                            100: '#e0e7ff',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                            700: '#4338ca',
-                            900: '#312e81',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Custom scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.6);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(51, 65, 85, 0.8);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(71, 85, 105, 1);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Minimal 2D Satisfactory</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1a1a1a;
+      color: #fff;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #ui {
+      margin: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    button {
+      background: #ff9900;
+      border: none;
+      color: #000;
+      padding: 8px 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button.active {
+      outline: 3px solid #fff;
+    }
+    canvas {
+      border: 2px solid #444;
+      background: #111;
+    }
+    .info {
+      font-size: 14px;
+      color: #aaa;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+<body>
 
-    <!-- Header -->
-    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
-                    <i class="fa-solid font-bold fa-rotate-left text-white text-lg"></i>
-                </div>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Reset Scheduler</h1>
-                    <p class="text-xs text-slate-400">Генератор & Аналитик Сбросов</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center space-x-2">
-                <button id="btnExportText" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
-                    <i class="fa-regular fa-copy"></i>
-                    <span class="hidden sm:inline">Скопировать</span>
-                </button>
-                <button id="btnExportCSV" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
-                    <i class="fa-solid fa-file-csv"></i>
-                    <span class="hidden sm:inline">Экспорт CSV</span>
-                </button>
-            </div>
-        </div>
-    </header>
+<div id="ui">
+  <div>⚡ Энергия: <span id="power">-</span></div>
+  <div>📦 Инвентарь: Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span></div>
+  <div>| Выбор:</div>
+  <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка (5 Слитков)</button>
+  <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня (5 Слитков)</button>
+  <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер (1 Слиток)</button>
+  <button id="btn-clear" onclick="setMode('select')">🔍 Инспекция</button>
+</div>
 
-    <!-- Toast Notification Box -->
-    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3">
-        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
-        <span id="toastMessage" class="text-sm font-medium">Уведомление</span>
-    </div>
+<canvas id="game" width="800" height="600"></canvas>
+<div class="info">Клик мышкой — поставить/взаимодействовать. R — повернуть направление постройки (Текущее: <span id="dir-info">Восток</span>).</div>
 
-    <!-- Main Content -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+<script>
+const CANVAS_SIZE = { w: 800, h: 600 };
+const TILE = 40;
+const GRID = { cols: CANVAS_SIZE.w / TILE, rows: CANVAS_SIZE.h / TILE };
+
+// Константы направлений: 0: Восток (Right), 1: Юг (Down), 2: Запад (Left), 3: Север (Up)
+const DIRS = [{x:1,y:0}, {x:0,y:1}, {x:-1,y:0}, {x:0,y:-1}];
+const DIR_NAMES = ["Восток", "Юг", "Запад", "Север"];
+
+// Состояние игры
+const state = {
+  inventory: { iron_ore: 0, iron_ingot: 10 }, // 10 слитков на старт
+  powerProduction: 20, // Базовый биогенератор
+  powerConsumption: 0,
+  buildMode: 'select',
+  buildDir: 0,
+  grid: Array(GRID.cols).fill(null).map(() => Array(GRID.rows).fill(null)),
+  resourceDeposits: [] // Жилы железа
+};
+
+// Генерация рудных жил
+state.resourceDeposits.push({x: 3, y: 7}, {x: 3, y: 8}, {x: 4, y: 7});
+
+// Карта объектов
+class Miner {
+  constructor(x, y) {
+    this.type = 'miner';
+    this.x = x; this.y = y;
+    this.progress = 0;
+    this.powerReq = 5;
+  }
+  tick() {
+    this.progress += 1;
+    if (this.progress >= 120) { // Каждые 2 секунды
+      this.progress = 0;
+      // Пытаемся толкать в соседнюю ячейку
+      const dir = DIRS[state.buildDir]; // Для простоты всегда берем текущее направление или фиксированное
+      const target = getEntity(this.x + 1, this.y);
+      if (target && target.acceptItem) {
+        target.acceptItem('iron_ore');
+      } else {
+        state.inventory.iron_ore++; // Если некуда — в инвентарь
+      }
+    }
+  }
+}
+
+class Smelter {
+  constructor(x, y) {
+    this.type = 'smelter';
+    this.x = x; this.y = y;
+    this.bufferIn = 0;
+    this.progress = 0;
+    this.powerReq = 10;
+  }
+  acceptItem(item) {
+    if (item === 'iron_ore' && this.bufferIn < 10) {
+      this.bufferIn++;
+      return true;
+    }
+    return false;
+  }
+  tick() {
+    if (this.bufferIn > 0) {
+      this.progress++;
+      if (this.progress >= 180) { // 3 секунды
+        this.progress = 0;
+        this.bufferIn--;
+        // Выход слитков
+        const target = getEntity(this.x + 1, this.y);
+        if (target && target.acceptItem) {
+          target.acceptItem('iron_ingot');
+        } else {
+          state.inventory.iron_ingot++;
+        }
+      }
+    }
+  }
+}
+
+class Belt {
+  constructor(x, y, dirIndex) {
+    this.type = 'belt';
+    this.x = x; this.y = y;
+    this.dir = dirIndex;
+    this.item = null;
+    this.progress = 0;
+  }
+  acceptItem(item) {
+    if (!this.item) {
+      this.item = item;
+      this.progress = 0;
+      return true;
+    }
+    return false;
+  }
+  tick() {
+    if (this.item) {
+      this.progress += 2; // Скорость движения
+      if (this.progress >= 100) {
+        const d = DIRS[this.dir];
+        const target = getEntity(this.x + d.x, this.y + d.y);
+        if (target && target.acceptItem && target.acceptItem(this.item)) {
+          this.item = null;
+          this.progress = 0;
+        } else if (!target) {
+          // Если конвейер ведет в пустоту — сбрасываем в инвентарь
+          if (this.item === 'iron_ore') state.inventory.iron_ore++;
+          if (this.item === 'iron_ingot') state.inventory.iron_ingot++;
+          this.item = null;
+          this.progress = 0;
+        }
+      }
+    }
+  }
+}
+
+function getEntity(x, y) {
+  if (x < 0 || x >= GRID.cols || y < 0 || y >= GRID.rows) return null;
+  return state.grid[x][y];
+}
+
+// Управление кнопками
+function setMode(mode) {
+  state.buildMode = mode;
+  document.querySelectorAll('#ui button').forEach(b => b.classList.remove('active'));
+  if (mode !== 'select') document.getElementById(`btn-${mode}`).classList.add('active');
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'r' || e.key === 'К' || e.key === 'к') {
+    state.buildDir = (state.buildDir + 1) % 4;
+    document.getElementById('dir-info').innerText = DIR_NAMES[state.buildDir];
+  }
+});
+
+// Клик по Canvas
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const gx = Math.floor((e.clientX - rect.left) / TILE);
+  const gy = Math.floor((e.clientY - rect.top) / TILE);
+
+  const existing = state.grid[gx][gy];
+
+  if (state.buildMode === 'select') {
+    // Ручной сбор ресурсов
+    const deposit = state.resourceDeposits.find(d => d.x === gx && d.y === gy);
+    if (deposit) {
+      state.inventory.iron_ore++;
+    }
+    return;
+  }
+
+  if (existing) return; // Ячейка занята
+
+  // Строительство
+  if (state.buildMode === 'miner') {
+    const isDeposit = state.resourceDeposits.some(d => d.x === gx && d.y === gy);
+    if (isDeposit && state.inventory.iron_ingot >= 5) {
+      state.inventory.iron_ingot -= 5;
+      state.grid[gx][gy] = new Miner(gx, gy);
+    }
+  } else if (state.buildMode === 'smelter') {
+    if (state.inventory.iron_ingot >= 5) {
+      state.inventory.iron_ingot -= 5;
+      state.grid[gx][gy] = new Smelter(gx, gy);
+    }
+  } else if (state.buildMode === 'belt') {
+    if (state.inventory.iron_ingot >= 1) {
+      state.inventory.iron_ingot -= 1;
+      state.grid[gx][gy] = new Belt(gx, gy, state.buildDir);
+    }
+  }
+});
+
+// Игровой цикл
+function gameLoop() {
+  // 1. Расчет энергии
+  let consumption = 0;
+  for (let x = 0; x < GRID.cols; x++) {
+    for (let y = 0; y < GRID.rows; y++) {
+      const e = state.grid[x][y];
+      if (e && e.powerReq) consumption += e.powerReq;
+    }
+  }
+  state.powerConsumption = consumption;
+  const hasPower = state.powerProduction >= state.powerConsumption;
+
+  // 2. Обновление логики (Tick)
+  if (hasPower) {
+    for (let x = 0; x < GRID.cols; x++) {
+      for (let y = 0; y < GRID.rows; y++) {
+        const e = state.grid[x][y];
+        if (e) e.tick();
+      }
+    }
+  }
+
+  // 3. Отрисовка
+  ctx.clearRect(0, 0, CANVAS_SIZE.w, CANVAS_SIZE.h);
+
+  // Сетка
+  ctx.strokeStyle = '#222';
+  for (let x = 0; x < GRID.cols; x++) {
+    for (let y = 0; y < GRID.rows; y++) {
+      ctx.strokeRect(x * TILE, y * TILE, TILE, TILE);
+    }
+  }
+
+  // Рудные жилы
+  ctx.fillStyle = '#795548';
+  state.resourceDeposits.forEach(d => {
+    ctx.fillRect(d.x * TILE + 4, d.y * TILE + 4, TILE - 8, TILE - 8);
+  });
+
+  // Объекты
+  for (let x = 0; x < GRID.cols; x++) {
+    for (let y = 0; y < GRID.rows; y++) {
+      const e = state.grid[x][y];
+      if (!e) continue;
+
+      const px = x * TILE;
+      const py = y * TILE;
+
+      if (e.type === 'miner') {
+        ctx.fillStyle = '#ff9900';
+        ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#000';
+        ctx.fillText('⛏️', px + 12, py + 24);
+      } else if (e.type === 'smelter') {
+        ctx.fillStyle = '#e65100';
+        ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`🔥${e.bufferIn}`, px + 8, py + 24);
+      } else if (e.type === 'belt') {
+        ctx.fillStyle = '#555';
+        ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
         
-        <!-- Left Panel: Controls & Settings (4 cols) -->
-        <aside class="lg:col-span-4 space-y-6">
-            
-            <!-- Config Card -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm space-y-5">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h2 class="font-semibold text-slate-200 flex items-center space-x-2">
-                        <i class="fa-solid fa-sliders text-brand-500"></i>
-                        <span>Параметры сброса</span>
-                    </h2>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 font-medium border border-brand-500/20">Настройки</span>
-                </div>
+        // Стрелка направления
+        ctx.fillStyle = '#aaa';
+        const arrows = ["➔", "⬇", "⬅", "⬆"];
+        ctx.fillText(arrows[e.dir], px + 14, py + 24);
 
-                <!-- Interval Inputs -->
-                <div class="space-y-3">
-                    <label class="block text-xs font-medium text-slate-300">Интервал сброса</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <div class="relative">
-                                <input type="number" id="inputHours" min="0" max="168" value="7" class="w-full bg-slate-950 border border-slate-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-xl px-3 py-2 text-sm text-white pr-10 outline-none transition">
-                                <span class="absolute right-3 top-2.5 text-xs text-slate-500 pointer-events-none">ч</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="relative">
-                                <input type="number" id="inputMinutes" min="0" max="59" value="0" class="w-full bg-slate-950 border border-slate-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-xl px-3 py-2 text-sm text-white pr-10 outline-none transition">
-                                <span class="absolute right-3 top-2.5 text-xs text-slate-500 pointer-events-none">мин</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Presets -->
-                <div class="space-y-2">
-                    <label class="block text-xs font-medium text-slate-400">Быстрые пресеты:</label>
-                    <div class="flex flex-wrap gap-1.5">
-                        <button data-h="4" data-m="0" class="preset-btn px-2.5 py-1 text-xs bg-slate-800 hover:bg-brand-600 hover:text-white text-slate-300 rounded-lg border border-slate-700/80 transition">4 часа</button>
-                        <button data-h="6" data-m="0" class="preset-btn px-2.5 py-1 text-xs bg-slate-800 hover:bg-brand-600 hover:text-white text-slate-300 rounded-lg border border-slate-700/80 transition">6 часов</button>
-                        <button data-h="7" data-m="0" class="preset-btn px-2.5 py-1 text-xs bg-slate-800 hover:bg-brand-600 hover:text-white text-slate-300 rounded-lg border border-slate-700/80 transition">7 часов</button>
-                        <button data-h="8" data-m="0" class="preset-btn px-2.5 py-1 text-xs bg-slate-800 hover:bg-brand-600 hover:text-white text-slate-300 rounded-lg border border-slate-700/80 transition">8 часов</button>
-                        <button data-h="12" data-m="0" class="preset-btn px-2.5 py-1 text-xs bg-slate-800 hover:bg-brand-600 hover:text-white text-slate-300 rounded-lg border border-slate-700/80 transition">12 часов</button>
-                    </div>
-                </div>
-
-                <!-- Start Date & Time -->
-                <div class="space-y-3 pt-2 border-t border-slate-800">
-                    <div class="flex justify-between items-center">
-                        <label class="block text-xs font-medium text-slate-300">Начало отсчета</label>
-                        <button id="btnSetNow" class="text-xs text-brand-400 hover:text-brand-300 flex items-center space-x-1">
-                            <i class="fa-solid fa-clock"></i>
-                            <span>Сейчас</span>
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <input type="date" id="startDate" class="w-full bg-slate-950 border border-slate-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-xl px-3 py-2 text-xs text-white outline-none transition">
-                        </div>
-                        <div>
-                            <input type="time" id="startTime" value="00:00" class="w-full bg-slate-950 border border-slate-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-xl px-3 py-2 text-xs text-white outline-none transition">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Display Range Limit -->
-                <div class="space-y-2 pt-2 border-t border-slate-800">
-                    <label class="block text-xs font-medium text-slate-300">Отображать сбросы за:</label>
-                    <select id="selectDisplayRange" class="w-full bg-slate-950 border border-slate-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 rounded-xl px-3 py-2 text-xs text-white outline-none transition">
-                        <option value="cycle">1 полный цикл повторения</option>
-                        <option value="7">7 дней</option>
-                        <option value="14">14 дней</option>
-                        <option value="30">30 дней</option>
-                        <option value="50">50 сбросов</option>
-                        <option value="100">100 сбросов</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Live Countdown Widget Card -->
-            <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-brand-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-brand-500/10 rounded-full blur-xl pointer-events-none"></div>
-                
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-semibold text-brand-400 uppercase tracking-wider flex items-center space-x-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span>Следующий сброс</span>
-                    </span>
-                    <span id="nextResetIndexBadge" class="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">#--</span>
-                </div>
-
-                <div class="space-y-1 mb-4">
-                    <div id="countdownTimer" class="text-3xl font-extrabold tracking-tight text-white font-mono">00:00:00</div>
-                    <p id="nextResetExactDate" class="text-xs text-slate-400">Ожидание данных...</p>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="space-y-1">
-                    <div class="flex justify-between text-[11px] text-slate-400">
-                        <span>Прогресс интервала</span>
-                        <span id="intervalProgressPercent">0%</span>
-                    </div>
-                    <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-                        <div id="intervalProgressBar" class="bg-gradient-to-r from-brand-500 to-cyan-400 h-full w-0 transition-all duration-500"></div>
-                    </div>
-                </div>
-            </div>
-
-        </aside>
-
-        <!-- Right Panel: Schedule, Analytics, Lookup (8 cols) -->
-        <section class="lg:col-span-8 space-y-5">
-
-            <!-- Navigation Tabs -->
-            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                <nav class="flex space-x-2" aria-label="Tabs">
-                    <button id="tabSchedule" class="tab-btn active-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl transition flex items-center space-x-2">
-                        <i class="fa-solid fa-calendar-days"></i>
-                        <span>Расписание</span>
-                    </button>
-                    <button id="tabStats" class="tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl transition flex items-center space-x-2">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Аналитика Цикла</span>
-                    </button>
-                    <button id="tabLookup" class="tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl transition flex items-center space-x-2">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <span>Проверка времени</span>
-                    </button>
-                </nav>
-
-                <!-- Search Input for Schedule -->
-                <div id="searchContainer" class="relative hidden sm:block w-48">
-                    <input type="text" id="scheduleSearch" placeholder="Поиск (напр. 04:00)..." class="w-full bg-slate-900 border border-slate-800 focus:border-brand-500 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white outline-none">
-                    <i class="fa-solid fa-search absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
-                </div>
-            </div>
-
-            <!-- TAB CONTENT 1: SCHEDULE VIEW -->
-            <div id="viewSchedule" class="space-y-4">
-                
-                <!-- Quick Filter Info -->
-                <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/50 p-3 rounded-xl border border-slate-800/80 text-xs text-slate-400">
-                    <div class="flex items-center space-x-2">
-                        <i class="fa-solid fa-circle-info text-brand-400"></i>
-                        <span id="scheduleSummaryText">Сгенерировано расписание</span>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <span class="inline-flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span><span>Прошедший</span></span>
-                        <span class="inline-flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block"></span><span>Следующий</span></span>
-                    </div>
-                </div>
-
-                <!-- Schedule Container (Grouped by Days) -->
-                <div id="scheduleGrid" class="space-y-4">
-                    <!-- Dynamic Days Cards injected by JS -->
-                </div>
-            </div>
-
-            <!-- TAB CONTENT 2: CYCLE STATS -->
-            <div id="viewStats" class="hidden space-y-6">
-                <!-- Key Metrics Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-                        <p class="text-xs text-slate-400 mb-1">Длина цикла</p>
-                        <p id="statCycleDays" class="text-xl font-bold text-white">7 дней</p>
-                        <p id="statCycleHours" class="text-[11px] text-slate-500">(168 часов)</p>
-                    </div>
-                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-                        <p class="text-xs text-slate-400 mb-1">Сбросов за цикл</p>
-                        <p id="statResetsPerCycle" class="text-xl font-bold text-brand-400">24</p>
-                        <p class="text-[11px] text-slate-500">до полного повтора</p>
-                    </div>
-                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-                        <p class="text-xs text-slate-400 mb-1">Средне в сутки</p>
-                        <p id="statResetsPerDay" class="text-xl font-bold text-cyan-400">3.43</p>
-                        <p class="text-[11px] text-slate-500">сбросов в день</p>
-                    </div>
-                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4">
-                        <p class="text-xs text-slate-400 mb-1">Суточный сдвиг</p>
-                        <p id="statDailyShift" class="text-xl font-bold text-emerald-400">+1 час</p>
-                        <p class="text-[11px] text-slate-500">смещение времён</p>
-                    </div>
-                </div>
-
-                <!-- Math Formula Explanation Card -->
-                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
-                    <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
-                        <i class="fa-solid fa-square-root-variable text-brand-400"></i>
-                        <span>Математическая формула цикла</span>
-                    </h3>
-                    
-                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs font-mono space-y-2 text-slate-300">
-                        <p class="text-slate-400">// Формула N-го сброса:</p>
-                        <p class="text-brand-300 text-sm font-bold">T(n) = (StartMinutes + n × Interval) mod 1440</p>
-                        <p id="formulaExample" class="text-slate-400 mt-2">// Расчёт для выбранных параметров:</p>
-                    </div>
-
-                    <div class="text-xs text-slate-400 leading-relaxed space-y-2">
-                        <p><strong>Почему цикл именно такой?</strong> Длина полного цикла определяется как <span class="text-slate-200">Наименьшее Общее Кратное (НОК)</span> интервала сброса и 24 часов (1440 минут).</p>
-                        <p>После прохождения этого времени часы полностью совпадут с начальными, и расписание начнёт циклически повторяться в точности по дням недели.</p>
-                    </div>
-                </div>
-
-                <!-- Days of Week Pattern Card -->
-                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3">
-                    <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
-                        <i class="fa-solid fa-list-ol text-cyan-400"></i>
-                        <span>Шаблон повторения по дням цикла</span>
-                    </h3>
-                    <div id="cyclePatternList" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <!-- Dynamic pattern list -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB CONTENT 3: TIME LOOKUP -->
-            <div id="viewLookup" class="hidden space-y-5">
-                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
-                    <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
-                        <i class="fa-solid fa-bullseye text-brand-400"></i>
-                        <span>Проверить произвольную дату и время</span>
-                    </h3>
-                    <p class="text-xs text-slate-400">Введите интересное вам время, чтобы проверить, совпадает ли оно со сбросом, или найти ближайшие предшествующий и следующий сбросы.</p>
-
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <input type="datetime-local" id="lookupInputDateTime" class="bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl px-3 py-2 text-xs text-white outline-none flex-1">
-                        <button id="btnCheckLookup" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-xl transition flex items-center justify-center space-x-2">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <span>Проверить</span>
-                        </button>
-                    </div>
-
-                    <!-- Lookup Result Banner -->
-                    <div id="lookupResult" class="hidden p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
-                        <div id="lookupStatusBadge" class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium">
-                            <!-- Populated by JS -->
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
-                            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
-                                <span class="text-slate-500 block mb-1">Предшествующий сброс:</span>
-                                <span id="lookupPrevReset" class="font-medium text-slate-200 block">--</span>
-                                <span id="lookupPrevDiff" class="text-[11px] text-slate-400">--</span>
-                            </div>
-                            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
-                                <span class="text-slate-500 block mb-1">Следующий сброс:</span>
-                                <span id="lookupNextReset" class="font-medium text-brand-400 block">--</span>
-                                <span id="lookupNextDiff" class="text-[11px] text-slate-400">--</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
-    </main>
-
-    <!-- Application Logic Script -->
-    <script>
-        // State variables
-        let appState = {
-            intervalMinutes: 420, // 7 hours
-            startDate: '', // YYYY-MM-DD
-            startTime: '00:00', // HH:MM
-            displayRange: 'cycle',
-            activeTab: 'schedule',
-            searchQuery: ''
-        };
-
-        // DOM Elements
-        const inputHours = document.getElementById('inputHours');
-        const inputMinutes = document.getElementById('inputMinutes');
-        const startDateInput = document.getElementById('startDate');
-        const startTimeInput = document.getElementById('startTime');
-        const selectDisplayRange = document.getElementById('selectDisplayRange');
-        const btnSetNow = document.getElementById('btnSetNow');
-        
-        const tabSchedule = document.getElementById('tabSchedule');
-        const tabStats = document.getElementById('tabStats');
-        const tabLookup = document.getElementById('tabLookup');
-        
-        const viewSchedule = document.getElementById('viewSchedule');
-        const viewStats = document.getElementById('viewStats');
-        const viewLookup = document.getElementById('viewLookup');
-        const searchContainer = document.getElementById('searchContainer');
-        const scheduleSearch = document.getElementById('scheduleSearch');
-
-        const countdownTimer = document.getElementById('countdownTimer');
-        const nextResetExactDate = document.getElementById('nextResetExactDate');
-        const nextResetIndexBadge = document.getElementById('nextResetIndexBadge');
-        const intervalProgressBar = document.getElementById('intervalProgressBar');
-        const intervalProgressPercent = document.getElementById('intervalProgressPercent');
-
-        // Initialize default dates
-        function initDefaults() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            
-            startDateInput.value = `${year}-${month}-${day}`;
-            document.getElementById('lookupInputDateTime').value = `${year}-${month}-${day}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-            
-            updateStateFromInputs();
+        // Предмет на ленте
+        if (e.item) {
+          ctx.fillStyle = e.item === 'iron_ore' ? '#a1887f' : '#e0e0e0';
+          const progressOffset = (e.progress / 100) * 16 - 8;
+          const dx = DIRS[e.dir].x * progressOffset;
+          const dy = DIRS[e.dir].y * progressOffset;
+          ctx.beginPath();
+          ctx.arc(px + 20 + dx, py + 20 + dy, 6, 0, Math.PI * 2);
+          ctx.fill();
         }
-
-        // Helper Math Functions
-        function gcd(a, b) {
-            return b === 0 ? a : gcd(b, a % b);
-        }
-
-        function lcm(a, b) {
-            if (a === 0 || b === 0) return 0;
-            return Math.abs((a * b) / gcd(a, b));
-        }
-
-        function updateStateFromInputs() {
-            const h = parseInt(inputHours.value) || 0;
-            const m = parseInt(inputMinutes.value) || 0;
-            appState.intervalMinutes = Math.max(1, (h * 60) + m); // Minimum 1 min
-            appState.startDate = startDateInput.value;
-            appState.startTime = startTimeInput.value || '00:00';
-            appState.displayRange = selectDisplayRange.value;
-
-            renderAll();
-        }
-
-        // Get Start Timestamp
-        function getStartTimestamp() {
-            if (!appState.startDate) return Date.now();
-            const [hours, mins] = appState.startTime.split(':').map(Number);
-            const [year, month, day] = appState.startDate.split('-').map(Number);
-            return new Date(year, month - 1, day, hours || 0, mins || 0, 0, 0).getTime();
-        }
-
-        // Generate list of resets
-        function generateResets() {
-            const startMs = getStartTimestamp();
-            const intervalMs = appState.intervalMinutes * 60 * 1000;
-            const dayMs = 24 * 60 * 60 * 1000;
-
-            // Calculate total resets to generate based on displayRange
-            const lcmMinutes = lcm(appState.intervalMinutes, 1440);
-            const cycleResetsCount = Math.round(lcmMinutes / appState.intervalMinutes);
-            
-            let targetCount = cycleResetsCount;
-
-            if (appState.displayRange === '7') {
-                targetCount = Math.ceil((7 * dayMs) / intervalMs);
-            } else if (appState.displayRange === '14') {
-                targetCount = Math.ceil((14 * dayMs) / intervalMs);
-            } else if (appState.displayRange === '30') {
-                targetCount = Math.ceil((30 * dayMs) / intervalMs);
-            } else if (appState.displayRange === '50') {
-                targetCount = 50;
-            } else if (appState.displayRange === '100') {
-                targetCount = 100;
-            }
-
-            // Ensure we at least show until current date + 1 day
-            const now = Date.now();
-            if (startMs + targetCount * intervalMs < now + dayMs) {
-                const neededForNow = Math.ceil((now + dayMs - startMs) / intervalMs);
-                targetCount = Math.max(targetCount, neededForNow);
-            }
-
-            const resets = [];
-            for (let i = 0; i < targetCount; i++) {
-                const resetMs = startMs + (i * intervalMs);
-                const dateObj = new Date(resetMs);
-                
-                resets.push({
-                    index: i + 1,
-                    timestamp: resetMs,
-                    dateObj: dateObj,
-                    dateStr: dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                    timeStr: dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-                    weekday: dateObj.toLocaleDateString('ru-RU', { weekday: 'short' }),
-                    fullWeekday: dateObj.toLocaleDateString('ru-RU', { weekday: 'long' }),
-                    isPast: resetMs < Date.now()
-                });
-            }
-
-            return { resets, cycleResetsCount, lcmMinutes };
-        }
-
-        // Render Main Schedule View
-        function renderSchedule() {
-            const { resets, cycleResetsCount } = generateResets();
-            const scheduleGrid = document.getElementById('scheduleGrid');
-            scheduleGrid.innerHTML = '';
-
-            const query = appState.searchQuery.trim().toLowerCase();
-
-            // Group resets by Day string
-            const grouped = {};
-            resets.forEach(r => {
-                // If filter query exists, check if time or date matches
-                if (query && !r.timeStr.toLowerCase().includes(query) && !r.dateStr.includes(query) && !r.fullWeekday.toLowerCase().includes(query)) {
-                    return;
-                }
-
-                if (!grouped[r.dateStr]) {
-                    grouped[r.dateStr] = {
-                        dateStr: r.dateStr,
-                        weekday: r.weekday,
-                        fullWeekday: r.fullWeekday,
-                        dateObj: r.dateObj,
-                        items: []
-                    };
-                }
-                grouped[r.dateStr].items.push(r);
-            });
-
-            const dayKeys = Object.keys(grouped);
-
-            document.getElementById('scheduleSummaryText').textContent = 
-                `Показано сбросов: ${resets.length} (Полноценный цикл: ${cycleResetsCount} сбросов)`;
-
-            if (dayKeys.length === 0) {
-                scheduleGrid.innerHTML = `
-                    <div class="p-8 text-center text-slate-500 bg-slate-900/50 rounded-2xl border border-slate-800">
-                        <i class="fa-solid fa-filter-circle-xmark text-3xl mb-2 text-slate-600"></i>
-                        <p class="text-sm">Сбросов по вашему запросу не найдено</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const now = Date.now();
-            const startMs = getStartTimestamp();
-
-            dayKeys.forEach((dayKey, dayIndex) => {
-                const dayGroup = grouped[dayKey];
-                
-                // Day Number relative to start
-                const dayDiff = Math.floor((dayGroup.dateObj.setHours(0,0,0,0) - new Date(startMs).setHours(0,0,0,0)) / (24*60*60*1000)) + 1;
-                
-                const isToday = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) === dayKey;
-
-                const dayCard = document.createElement('div');
-                dayCard.className = `bg-slate-900/90 border ${isToday ? 'border-brand-500/50 ring-1 ring-brand-500/30' : 'border-slate-800'} rounded-2xl p-4 shadow-md transition`;
-
-                let itemsHTML = dayGroup.items.map(item => {
-                    const isPassed = item.timestamp < now;
-                    // Check if it's the immediate next reset
-                    const intervalMs = appState.intervalMinutes * 60 * 1000;
-                    const isNext = !isPassed && (item.timestamp - now) <= intervalMs && (item.timestamp - now) >= 0;
-
-                    let badgeClass = "bg-slate-800/80 text-slate-300 border-slate-700";
-                    let statusDot = "";
-
-                    if (isNext) {
-                        badgeClass = "bg-brand-600 text-white font-bold ring-2 ring-brand-400/50 border-brand-400";
-                        statusDot = `<span class="w-2 h-2 rounded-full bg-cyan-300 animate-ping inline-block mr-1"></span>`;
-                    } else if (isPassed) {
-                        badgeClass = "bg-slate-950/60 text-slate-500 border-slate-800/80 line-through";
-                    }
-
-                    return `
-                        <div class="flex flex-col items-center justify-center p-2.5 rounded-xl border ${badgeClass} transition hover:scale-[1.02]">
-                            <span class="text-[10px] opacity-75 font-mono">#${item.index}</span>
-                            <span class="text-base font-semibold tracking-wide flex items-center my-0.5">
-                                ${statusDot}${item.timeStr}
-                            </span>
-                            <span class="text-[10px] opacity-60 capitalize">${item.weekday}</span>
-                        </div>
-                    `;
-                }).join('');
-
-                dayCard.innerHTML = `
-                    <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5 mb-3">
-                        <div class="flex items-center space-x-2">
-                            <span class="font-bold text-sm text-slate-200">${dayGroup.dateStr}</span>
-                            <span class="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 capitalize font-medium">${dayGroup.fullWeekday}</span>
-                            ${isToday ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Сегодня</span>` : ''}
-                        </div>
-                        <span class="text-xs text-slate-500 font-medium">День ${dayDiff}</span>
-                    </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-                        ${itemsHTML}
-                    </div>
-                `;
-
-                scheduleGrid.appendChild(dayCard);
-            });
-        }
-
-        // Render Analytics View
-        function renderStats() {
-            const intervalMins = appState.intervalMinutes;
-            const lcmMins = lcm(intervalMins, 1440);
-            
-            const cycleHours = lcmMins / 60;
-            const cycleDays = cycleHours / 24;
-            const resetsPerCycle = lcmMins / intervalMins;
-            const resetsPerDay = (1440 / intervalMins).toFixed(2);
-            
-            // Calculate daily shift
-            const moduloMin = 1440 % intervalMins;
-            const shiftMin = (intervalMins - moduloMin) % intervalMins;
-            const shiftHours = (shiftMin / 60);
-
-            document.getElementById('statCycleDays').textContent = `${cycleDays} ${pluralize(cycleDays, ['день', 'дня', 'дней'])}`;
-            document.getElementById('statCycleHours').textContent = `(${cycleHours} часов)`;
-            document.getElementById('statResetsPerCycle').textContent = resetsPerCycle;
-            document.getElementById('statResetsPerDay').textContent = resetsPerDay;
-            
-            if (shiftMin === 0) {
-                document.getElementById('statDailyShift').textContent = 'Без сдвига';
-            } else {
-                const sh = Math.floor(shiftMin / 60);
-                const sm = shiftMin % 60;
-                let shiftStr = sh > 0 ? `+${sh} ч` : '';
-                if (sm > 0) shiftStr += ` ${sm} м`;
-                document.getElementById('statDailyShift').textContent = shiftStr;
-            }
-
-            // Formula example calculation
-            const h = Math.floor(intervalMins / 60);
-            const m = intervalMins % 60;
-            document.getElementById('formulaExample').innerHTML = `
-                НОК(${intervalMins} мин, 1440 мин) = ${lcmMins} мин (${cycleDays} дн.)<br>
-                Каждый день сбросы смещаются на: ${shiftMin} мин (${shiftHours.toFixed(1)} ч).
-            `;
-
-            // Days Pattern List
-            const patternContainer = document.getElementById('cyclePatternList');
-            patternContainer.innerHTML = '';
-
-            const startMs = getStartTimestamp();
-            const intervalMs = intervalMins * 60 * 1000;
-
-            for (let d = 0; d < Math.min(cycleDays, 14); d++) {
-                const dayStartMs = startMs + (d * 24 * 60 * 60 * 1000);
-                const dayEndMs = dayStartMs + (24 * 60 * 60 * 1000);
-                
-                // Find resets in this day
-                const dayResets = [];
-                // Calculate first reset index of the day
-                let firstIndex = Math.ceil((dayStartMs - startMs) / intervalMs);
-                let currentResetMs = startMs + (firstIndex * intervalMs);
-
-                while (currentResetMs < dayEndMs) {
-                    const dt = new Date(currentResetMs);
-                    dayResets.push(dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
-                    firstIndex++;
-                    currentResetMs = startMs + (firstIndex * intervalMs);
-                }
-
-                const patternItem = document.createElement('div');
-                patternItem.className = 'bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex flex-col space-y-1';
-                patternItem.innerHTML = `
-                    <div class="flex justify-between font-medium text-slate-300">
-                        <span>День ${d + 1} цикла</span>
-                        <span class="text-slate-500">${dayResets.length} сброс(а)</span>
-                    </div>
-                    <div class="text-brand-400 font-mono text-[11px] flex flex-wrap gap-1.5 pt-1">
-                        ${dayResets.map(t => `<span class="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">${t}</span>`).join('')}
-                    </div>
-                `;
-                patternContainer.appendChild(patternItem);
-            }
-        }
-
-        // Date Lookup logic
-        function checkLookup() {
-            const val = document.getElementById('lookupInputDateTime').value;
-            if (!val) return;
-
-            const targetMs = new Date(val).getTime();
-            const startMs = getStartTimestamp();
-            const intervalMs = appState.intervalMinutes * 60 * 1000;
-
-            const resultContainer = document.getElementById('lookupResult');
-            resultContainer.classList.remove('hidden');
-
-            const diff = targetMs - startMs;
-            const resetIndexFloat = diff / intervalMs;
-            const prevIndex = Math.floor(resetIndexFloat);
-            const nextIndex = Math.ceil(resetIndexFloat);
-
-            const isExact = (diff % intervalMs === 0) && diff >= 0;
-
-            const statusBadge = document.getElementById('lookupStatusBadge');
-            if (isExact) {
-                statusBadge.className = "inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-                statusBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>Это точное время сброса (Сброс #${prevIndex + 1})</span>`;
-            } else {
-                statusBadge.className = "inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30";
-                statusBadge.innerHTML = `<i class="fa-solid fa-clock"></i><span>Не совпадает со сбросом</span>`;
-            }
-
-            const prevResetMs = startMs + (prevIndex * intervalMs);
-            const nextResetMs = startMs + (nextIndex * intervalMs);
-
-            const prevDate = new Date(prevResetMs);
-            const nextDate = new Date(nextResetMs);
-
-            document.getElementById('lookupPrevReset').textContent = `#${prevIndex + 1} — ${prevDate.toLocaleString('ru-RU')}`;
-            document.getElementById('lookupPrevDiff').textContent = `${formatDuration(targetMs - prevResetMs)} назад`;
-
-            document.getElementById('lookupNextReset').textContent = `#${nextIndex + 1} — ${nextDate.toLocaleString('ru-RU')}`;
-            document.getElementById('lookupNextDiff').textContent = `через ${formatDuration(nextResetMs - targetMs)}`;
-        }
-
-        // Countdown Timer update loop
-        function updateCountdown() {
-            const now = Date.now();
-            const startMs = getStartTimestamp();
-            const intervalMs = appState.intervalMinutes * 60 * 1000;
-
-            if (now < startMs) {
-                // Before start time
-                const diff = startMs - now;
-                countdownTimer.textContent = formatDuration(diff);
-                nextResetExactDate.textContent = `До первого сброса (#1 в ${new Date(startMs).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})})`;
-                nextResetIndexBadge.textContent = `#1`;
-                intervalProgressBar.style.width = `0%`;
-                intervalProgressPercent.textContent = `0%`;
-                return;
-            }
-
-            const elapsed = now - startMs;
-            const completedCount = Math.floor(elapsed / intervalMs);
-            const nextIndex = completedCount + 1;
-            const nextResetMs = startMs + (nextIndex * intervalMs);
-            const currentIntervalStartMs = startMs + (completedCount * intervalMs);
-
-            const remainingMs = nextResetMs - now;
-            const currentProgress = ((now - currentIntervalStartMs) / intervalMs) * 100;
-
-            countdownTimer.textContent = formatDuration(remainingMs);
-            nextResetExactDate.textContent = `${new Date(nextResetMs).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'})} в ${new Date(nextResetMs).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})}`;
-            nextResetIndexBadge.textContent = `#${nextIndex}`;
-            
-            intervalProgressBar.style.width = `${Math.min(100, Math.max(0, currentProgress))}%`;
-            intervalProgressPercent.textContent = `${Math.round(currentProgress)}%`;
-        }
-
-        // Utility: Format ms into HH:MM:SS
-        function formatDuration(ms) {
-            if (ms < 0) ms = 0;
-            const totalSec = Math.floor(ms / 1000);
-            const hours = Math.floor(totalSec / 3600);
-            const minutes = Math.floor((totalSec % 3600) / 60);
-            const seconds = totalSec % 60;
-
-            const hStr = String(hours).padStart(2, '0');
-            const mStr = String(minutes).padStart(2, '0');
-            const sStr = String(seconds).padStart(2, '0');
-
-            if (hours > 24) {
-                const days = Math.floor(hours / 24);
-                const remHours = hours % 24;
-                return `${days}д ${String(remHours).padStart(2,'0')}ч ${mStr}м`;
-            }
-
-            return `${hStr}:${mStr}:${sStr}`;
-        }
-
-        // Utility: Pluralize Russian words
-        function pluralize(number, titles) {
-            const cases = [2, 0, 1, 1, 1, 2];
-            return titles[(number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5]];
-        }
-
-        // Toast Notification System
-        function showToast(message, isSuccess = true) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            const toastIcon = document.getElementById('toastIcon');
-
-            toastMessage.textContent = message;
-            toastIcon.className = isSuccess ? 'fa-solid fa-circle-check text-emerald-400 text-lg' : 'fa-solid fa-circle-exclamation text-amber-400 text-lg';
-
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
-        }
-
-        // Copy Text / CSV Export
-        function exportScheduleText() {
-            const { resets } = generateResets();
-            let text = `График сбросов (Интервал: ${inputHours.value}ч ${inputMinutes.value}м, Старт: ${appState.startDate} ${appState.startTime})\n`;
-            text += `--------------------------------------------------\n`;
-            resets.forEach(r => {
-                text += `#${r.index} | ${r.dateStr} (${r.weekday}) в ${r.timeStr}\n`;
-            });
-
-            copyToClipboard(text);
-            showToast('Расписание скопировано в буфер обмена!');
-        }
-
-        function exportScheduleCSV() {
-            const { resets } = generateResets();
-            let csv = `Index,Date,DayOfWeek,Time,Timestamp\n`;
-            resets.forEach(r => {
-                csv += `${r.index},"${r.dateStr}","${r.fullWeekday}","${r.timeStr}",${r.timestamp}\n`;
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `reset_schedule_${appState.intervalMinutes}m.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast('Файл CSV успешно создан!');
-        }
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-            } catch (err) {
-                console.error('Ошибка копирования', err);
-            }
-            document.body.removeChild(textArea);
-        }
-
-        // Master Render Trigger
-        function renderAll() {
-            renderSchedule();
-            renderStats();
-            updateCountdown();
-        }
-
-        // Event Listeners
-        inputHours.addEventListener('input', updateStateFromInputs);
-        inputMinutes.addEventListener('input', updateStateFromInputs);
-        startDateInput.addEventListener('change', updateStateFromInputs);
-        startTimeInput.addEventListener('change', updateStateFromInputs);
-        selectDisplayRange.addEventListener('change', updateStateFromInputs);
-
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                inputHours.value = e.currentTarget.dataset.h;
-                inputMinutes.value = e.currentTarget.dataset.m;
-                updateStateFromInputs();
-                showToast(`Установлен пресет: ${e.currentTarget.dataset.h} ч.`);
-            });
-        });
-
-        btnSetNow.addEventListener('click', () => {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const mins = String(now.getMinutes()).padStart(2, '0');
-
-            startDateInput.value = `${year}-${month}-${day}`;
-            startTimeInput.value = `${hours}:${mins}`;
-            updateStateFromInputs();
-            showToast('Установлено текущее время!');
-        });
-
-        // Tab Switching
-        tabSchedule.addEventListener('click', () => {
-            tabSchedule.className = 'tab-btn active-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-brand-600 text-white shadow-md shadow-brand-500/20 flex items-center space-x-2';
-            tabStats.className = 'tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center space-x-2';
-            tabLookup.className = 'tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center space-x-2';
-            
-            viewSchedule.classList.remove('hidden');
-            viewStats.classList.add('hidden');
-            viewLookup.classList.add('hidden');
-            searchContainer.classList.remove('hidden');
-        });
-
-        tabStats.addEventListener('click', () => {
-            tabStats.className = 'tab-btn active-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-brand-600 text-white shadow-md shadow-brand-500/20 flex items-center space-x-2';
-            tabSchedule.className = 'tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center space-x-2';
-            tabLookup.className = 'tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center space-x-2';
-            
-            viewStats.classList.remove('hidden');
-            viewSchedule.classList.add('hidden');
-            viewLookup.classList.add('hidden');
-            searchContainer.classList.add('hidden');
-        });
-
-        tabLookup.addEventListener('click', () => {
-            tabLookup.className = 'tab-btn active-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-brand-600 text-white shadow-md shadow-brand-500/20 flex items-center space-x-2';
-            tabSchedule.className = 'tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center space-x-2';
-            tabStats.className = 'tab-btn inactive-tab px-4 py-2 text-xs sm:text-sm font-medium rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center space-x-2';
-            
-            viewLookup.classList.remove('hidden');
-            viewSchedule.classList.add('hidden');
-            viewStats.classList.add('hidden');
-            searchContainer.classList.add('hidden');
-            
-            checkLookup();
-        });
-
-        scheduleSearch.addEventListener('input', (e) => {
-            appState.searchQuery = e.target.value;
-            renderSchedule();
-        });
-
-        document.getElementById('btnCheckLookup').addEventListener('click', checkLookup);
-        document.getElementById('btnExportText').addEventListener('click', exportScheduleText);
-        document.getElementById('btnExportCSV').addEventListener('click', exportScheduleCSV);
-
-        // On Page Load
-        window.onload = function() {
-            initDefaults();
-            // Start countdown loop
-            setInterval(updateCountdown, 1000);
-        };
-    </script>
+      }
+    }
+  }
+
+  // Обновление UI
+  document.getElementById('power').innerText = `${state.powerConsumption} / ${state.powerProduction} МВт`;
+  document.getElementById('inv-ore').innerText = state.inventory.iron_ore;
+  document.getElementById('inv-ingot').innerText = state.inventory.iron_ingot;
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
 </body>
 </html>
