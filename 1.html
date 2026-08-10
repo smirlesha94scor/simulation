@@ -1,426 +1,330 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>2D Satisfactory Complete</title>
-  <style>
-    body {
-      margin: 0; background: #1a1a1a; color: #fff; font-family: monospace;
-      display: flex; flex-direction: column; align-items: center;
-      padding-bottom: 20px; user-select: none;
-    }
-    #ui {
-      margin: 10px; display: flex; gap: 6px; align-items: center;
-      background: #2a2a2a; padding: 10px; border-radius: 5px; flex-wrap: wrap;
-      max-width: 800px;
-    }
-    button {
-      background: #ff9900; border: none; color: #000; padding: 6px 10px;
-      font-weight: bold; cursor: pointer; border-radius: 3px; transition: opacity 0.2s;
-    }
-    button.craft-btn { background: #4caf50; color: #fff; }
-    button.active { outline: 3px solid #fff; }
-    button.disabled { opacity: 0.3; cursor: not-allowed; }
-    canvas { border: 2px solid #444; background: #111; }
-    
-    .guide-box {
-      background: #222; border: 1px solid #444; border-radius: 5px;
-      padding: 12px; margin: 10px 0; max-width: 800px; font-size: 13px; line-height: 1.4;
-    }
-    .guide-title { color: #ff9900; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
-    .price-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-      margin-top: 8px; background: #1a1a1a; padding: 8px; border-radius: 4px;
-    }
-    .price-item { font-size: 11px; background: #2a2a2a; padding: 4px; border-radius: 3px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>2D Симулятор электросети города</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 320px;
+            background: #252525;
+            padding: 15px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+        }
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #111;
+        }
+        .panel {
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .stat-val { font-weight: bold; }
+        .ok { color: #4CAF50; }
+        .warn { color: #FFC107; }
+        .danger { color: #F44336; }
+        button {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        button:hover { background: #555; }
+        button.active { background: #007acc; border-color: #0099ff; }
+        .instructions { font-size: 0.85em; color: #aaa; }
+    </style>
 </head>
 <body>
 
-<div id="ui">
-  <div>⚡ <span id="power">-</span> | 🌿 Биомасса: <span id="inv-bio">0</span></div>
-  <div>📦 Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span> | Пластины: <span id="inv-plate">0</span> | 🎟️ <span id="score">0</span></div>
-  <button id="btn-craft-ingot" class="craft-btn" onclick="craftIngot()">🔨 Слиток (1 Руда)</button>
-  <button id="btn-craft-plate" class="craft-btn" onclick="craftPlate()">🛠️ Пластина (2 Слитка)</button>
-  <button id="btn-burner" onclick="setMode('burner')">🔥 Генератор</button>
-  <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка</button>
-  <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня</button>
-  <button id="btn-constructor" onclick="setMode('constructor')">⚙️ Конструктор</button>
-  <button id="btn-splitter" onclick="setMode('splitter')">🔀 Разветвитель</button>
-  <button id="btn-merger" onclick="setMode('merger')">🔀 Соединитель</button>
-  <button id="btn-sink" onclick="setMode('sink')">♻️ Утилизатор</button>
-  <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер</button>
-  <button id="btn-clear" class="active" onclick="setMode('select')">🔍 Инспектор</button>
+<div id="sidebar">
+    <h2>Симулятор электросети</h2>
+    
+    <div class="panel">
+        <h3>Состояние сети</h3>
+        <div>Генерация: <span id="gen-val" class="stat-val">0</span> МВт</div>
+        <div>Потребление: <span id="load-val" class="stat-val">0</span> МВт</div>
+        <div>Статус: <span id="status-val" class="stat-val ok">Стабильно</span></div>
+    </div>
+
+    <div class="panel">
+        <h3>Инструменты</h3>
+        <button id="btn-wire" class="active">Провод ЛЭП (клик по 2 узлам)</button>
+        <button id="btn-plant">Добавить ТЭЦ (100 МВт)</button>
+        <button id="btn-city">Добавить Район (40 МВт)</button>
+        <button id="btn-clear" style="margin-top: 15px; background: #822;">Очистить всё</button>
+    </div>
+
+    <div class="instructions">
+        <p><b>Управление:</b></p>
+        <ul>
+            <li>Клик по узлу выделит его.</li>
+            <li>В режиме "Провод" соедините два узла.</li>
+            <li>Клик по существующей ЛЭП — удалит её.</li>
+        </ul>
+    </div>
 </div>
 
-<div class="guide-box">
-  <div class="guide-title">📋 Управление:</div>
-  1. Кликайте сразу по коричневым узлам (руда) или зелёным (биомасса) для сбора ресурсов.<br>
-  2. <b>ЛКМ</b> — Постройка выбранного объекта.<br>
-  3. <b>ПКМ (Правая кнопка мыши)</b> — Демонтаж здания/конвейера с возвратом ресурсов.<br>
-  4. Клавиша <b>R</b> — Поворот направления перед постройкой.<br>
-
-  <div class="guide-title" style="margin-top: 10px;">🏷️ Стоимость построек:</div>
-  <div class="price-grid">
-    <div class="price-item">🔥 Генератор: <b>5 Пластин</b></div>
-    <div class="price-item">⛏️ Вышка: <b>5 Слитков</b></div>
-    <div class="price-item">🔥 Плавильня: <b>5 Слитков</b></div>
-    <div class="price-item">⚙️ Конструктор: <b>5 Пластин</b></div>
-    <div class="price-item">🔀 Разветвитель: <b>2 Пластины</b></div>
-    <div class="price-item">🔀 Соединитель: <b>2 Пластины</b></div>
-    <div class="price-item">♻️ Утилизатор: <b>5 Пластин</b></div>
-    <div class="price-item">➡️ Конвейер: <b>1 Слиток</b></div>
-  </div>
+<div id="canvas-container">
+    <canvas id="gridCanvas"></canvas>
 </div>
-
-<canvas id="game" width="800" height="600"></canvas>
-<div style="font-size: 12px; color: #aaa; margin-top: 5px;">Направление постройки (R): <span id="dir-info" style="color: #ff9900;">Восток</span></div>
 
 <script>
-const CANVAS_SIZE = { w: 800, h: 600 };
-const TILE = 40;
-const GRID = { cols: CANVAS_SIZE.w / TILE, rows: CANVAS_SIZE.h / TILE };
-const DIRS = [{x:1,y:0}, {x:0,y:1}, {x:-1,y:0}, {x:0,y:-1}];
-const DIR_NAMES = ["Восток", "Юг", "Запад", "Север"];
-
-const COSTS = {
-  burner: { iron_plate: 5 },
-  miner: { iron_ingot: 5 },
-  smelter: { iron_ingot: 5 },
-  constructor: { iron_plate: 5 },
-  splitter: { iron_plate: 2 },
-  merger: { iron_plate: 2 },
-  sink: { iron_plate: 5 },
-  belt: { iron_ingot: 1 }
-};
-
-const state = {
-  inventory: { iron_ore: 0, iron_ingot: 0, iron_plate: 0, biomass: 10 },
-  score: 0,
-  powerProduction: 0,
-  powerConsumption: 0,
-  buildMode: 'select',
-  buildDir: 0,
-  grid: Array(GRID.cols).fill(null).map(() => Array(GRID.rows).fill(null)),
-  resourceDeposits: [{x: 2, y: 7}, {x: 2, y: 8}, {x: 3, y: 7}],
-  biomassNodes: [{x: 10, y: 3}, {x: 12, y: 4}, {x: 11, y: 8}]
-};
-
-function craftIngot() {
-  if (state.inventory.iron_ore >= 1) { state.inventory.iron_ore--; state.inventory.iron_ingot++; }
-}
-function craftPlate() {
-  if (state.inventory.iron_ingot >= 2) { state.inventory.iron_ingot -= 2; state.inventory.iron_plate++; }
-}
-
-class BiomassBurner {
-  constructor(x, y) {
-    this.type = 'burner'; this.x = x; this.y = y;
-    this.fuel = 100; this.maxFuel = 100; this.powerGen = 30;
-  }
-  tick() {
-    if (this.fuel > 0) {
-      this.fuel -= 0.1;
-    } else if (state.inventory.biomass > 0) {
-      state.inventory.biomass--;
-      this.fuel = this.maxFuel;
-    }
-  }
-}
-
-class Miner {
-  constructor(x, y) { this.type = 'miner'; this.x = x; this.y = y; this.progress = 0; this.powerReq = 5; }
-  tick() {
-    this.progress += 1;
-    if (this.progress >= 90) {
-      this.progress = 0;
-      const target = getEntity(this.x + 1, this.y);
-      if (target && target.acceptItem) target.acceptItem('iron_ore');
-      else state.inventory.iron_ore++;
-    }
-  }
-}
-
-class Smelter {
-  constructor(x, y) { this.type = 'smelter'; this.x = x; this.y = y; this.bufferIn = 0; this.progress = 0; this.powerReq = 10; }
-  acceptItem(item) { if (item === 'iron_ore' && this.bufferIn < 10) { this.bufferIn++; return true; } return false; }
-  tick() {
-    if (this.bufferIn > 0) {
-      this.progress++;
-      if (this.progress >= 120) {
-        this.progress = 0; this.bufferIn--;
-        const target = getEntity(this.x + 1, this.y);
-        if (target && target.acceptItem) target.acceptItem('iron_ingot');
-        else state.inventory.iron_ingot++;
-      }
-    }
-  }
-}
-
-class ConstructorBuilding {
-  constructor(x, y) { this.type = 'constructor'; this.x = x; this.y = y; this.bufferIn = 0; this.progress = 0; this.powerReq = 15; }
-  acceptItem(item) { if (item === 'iron_ingot' && this.bufferIn < 10) { this.bufferIn++; return true; } return false; }
-  tick() {
-    if (this.bufferIn >= 2) {
-      this.progress++;
-      if (this.progress >= 150) {
-        this.progress = 0; this.bufferIn -= 2;
-        const target = getEntity(this.x + 1, this.y);
-        if (target && target.acceptItem) target.acceptItem('iron_plate');
-        else state.inventory.iron_plate++;
-      }
-    }
-  }
-}
-
-class Splitter {
-  constructor(x, y, dirIndex) { this.type = 'splitter'; this.x = x; this.y = y; this.dir = dirIndex; this.toggle = false; this.powerReq = 0; }
-  acceptItem(item) {
-    const leftDir = (this.dir + 3) % 4, rightDir = (this.dir + 1) % 4;
-    const targetDir = this.toggle ? leftDir : rightDir;
-    this.toggle = !this.toggle;
-    const d = DIRS[targetDir];
-    const target = getEntity(this.x + d.x, this.y + d.y);
-    return target && target.acceptItem ? target.acceptItem(item) : false;
-  }
-  tick() {}
-}
-
-class Merger {
-  constructor(x, y, dirIndex) { this.type = 'merger'; this.x = x; this.y = y; this.dir = dirIndex; this.powerReq = 0; }
-  acceptItem(item) {
-    const d = DIRS[this.dir];
-    const target = getEntity(this.x + d.x, this.y + d.y);
-    return target && target.acceptItem ? target.acceptItem(item) : false;
-  }
-  tick() {}
-}
-
-class AwesomeSink {
-  constructor(x, y) { this.type = 'sink'; this.x = x; this.y = y; this.powerReq = 5; }
-  acceptItem(item) {
-    if (item === 'iron_ore') state.score += 1;
-    if (item === 'iron_ingot') state.score += 5;
-    if (item === 'iron_plate') state.score += 20;
-    return true;
-  }
-  tick() {}
-}
-
-class Belt {
-  constructor(x, y, dirIndex) {
-    this.type = 'belt'; this.x = x; this.y = y;
-    this.dir = dirIndex; this.item = null; this.progress = 0; this.speed = 0.02;
-  }
-  acceptItem(item) { if (!this.item) { this.item = item; this.progress = 0; return true; } return false; }
-  tick() {
-    if (this.item) {
-      this.progress += this.speed;
-      if (this.progress >= 1.0) {
-        const d = DIRS[this.dir];
-        const target = getEntity(this.x + d.x, this.y + d.y);
-        if (target && target.acceptItem && target.acceptItem(this.item)) {
-          this.item = null; this.progress = 0;
-        } else { this.progress = 1.0; }
-      }
-    }
-  }
-}
-
-function getEntity(x, y) {
-  if (x < 0 || x >= GRID.cols || y < 0 || y >= GRID.rows) return null;
-  return state.grid[x][y];
-}
-
-function canAfford(type) {
-  const cost = COSTS[type];
-  if (!cost) return true;
-  for (let res in cost) {
-    if (state.inventory[res] < cost[res]) return false;
-  }
-  return true;
-}
-
-function setMode(mode) {
-  state.buildMode = mode;
-  document.querySelectorAll('#ui button').forEach(b => { if (!b.classList.contains('craft-btn')) b.classList.remove('active'); });
-  if (mode === 'select') {
-    document.getElementById('btn-clear').classList.add('active');
-  } else {
-    document.getElementById(`btn-${mode}`).classList.add('active');
-  }
-}
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'r' || e.key === 'К' || e.key === 'к') {
-    state.buildDir = (state.buildDir + 1) % 4;
-    document.getElementById('dir-info').innerText = DIR_NAMES[state.buildDir];
-  }
-});
-
-const canvas = document.getElementById('game');
+const canvas = document.getElementById('gridCanvas');
 const ctx = canvas.getContext('2d');
 
-canvas.addEventListener('contextmenu', e => e.preventDefault());
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-canvas.addEventListener('mousedown', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const gx = Math.floor((e.clientX - rect.left) / TILE);
-  const gy = Math.floor((e.clientY - rect.top) / TILE);
-  const existing = state.grid[gx][gy];
+// ================= Данные и Структуры =================
+const NodeTypes = {
+    PLANT: { name: 'ТЭЦ', color: '#ff9800', radius: 18, capacity: 100, demand: 0 },
+    CITY:  { name: 'Район', color: '#2196F3', radius: 15, capacity: 0, demand: 40 },
+    SUBSTATION: { name: 'Подстанция', color: '#9c27b0', radius: 10, capacity: 0, demand: 0 }
+};
 
-  // Демонтаж (ПКМ)
-  if (e.button === 2) {
-    if (existing) {
-      const cost = COSTS[existing.type];
-      if (cost) {
-        for (let res in cost) state.inventory[res] += cost[res];
-      }
-      state.grid[gx][gy] = null;
-    }
-    return;
-  }
+let nodes = [
+    { id: 1, x: 150, y: 200, type: NodeTypes.PLANT, powered: true, currentSupply: 100 },
+    { id: 2, x: 450, y: 200, type: NodeTypes.SUBSTATION, powered: false, currentSupply: 0 },
+    { id: 3, x: 750, y: 150, type: NodeTypes.CITY, powered: false, currentSupply: 0 },
+    { id: 4, x: 750, y: 300, type: NodeTypes.CITY, powered: false, currentSupply: 0 }
+];
 
-  // Постройка / Инспекция (ЛКМ)
-  if (e.button === 0) {
-    if (state.buildMode === 'select') {
-      if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) state.inventory.iron_ore++;
-      const bioIdx = state.biomassNodes.findIndex(b => b.x === gx && b.y === gy);
-      if (bioIdx !== -1) state.inventory.biomass += 5;
-      return;
-    }
+let wires = [
+    { from: 1, to: 2, maxCapacity: 120, flow: 0 },
+    { from: 2, to: 3, maxCapacity: 50, flow: 0 },
+    { from: 2, to: 4, maxCapacity: 50, flow: 0 }
+];
 
-    if (existing) return;
+let selectedNode = null;
+let currentTool = 'wire'; // 'wire', 'plant', 'city'
+let animOffset = 0;
 
-    if (canAfford(state.buildMode)) {
-      const cost = COSTS[state.buildMode];
-      for (let res in cost) state.inventory[res] -= cost[res];
+// ================= Логика Расчета Сети =================
+function updateSimulation() {
+    // Сброс показателей
+    nodes.forEach(n => {
+        n.currentSupply = (n.type === NodeTypes.PLANT) ? n.type.capacity : 0;
+        n.powered = false;
+    });
+    wires.forEach(w => w.flow = 0);
 
-      if (state.buildMode === 'burner') state.grid[gx][gy] = new BiomassBurner(gx, gy);
-      else if (state.buildMode === 'miner') {
-        if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) {
-          state.grid[gx][gy] = new Miner(gx, gy);
-        } else {
-          for (let res in cost) state.inventory[res] += cost[res]; // Возврат при ошибке
+    // Распределяем питание от станций через обход графа (BFS)
+    let plants = nodes.filter(n => n.type === NodeTypes.PLANT);
+    
+    plants.forEach(plant => {
+        let visitedNodes = new Set([plant.id]);
+        let queue = [plant];
+        plant.powered = true;
+
+        while (queue.length > 0) {
+            let curr = queue.shift();
+
+            // Ищем соседей
+            wires.forEach(wire => {
+                let neighborId = null;
+                if (wire.from === curr.id) neighborId = wire.to;
+                if (wire.to === curr.id) neighborId = wire.from;
+
+                if (neighborId && !visitedNodes.has(neighborId)) {
+                    let neighbor = nodes.find(n => n.id === neighborId);
+                    visitedNodes.add(neighborId);
+                    neighbor.powered = true;
+                    queue.push(neighbor);
+
+                    // Условно направляем ток
+                    wire.flow = Math.min(wire.maxCapacity, curr.currentSupply);
+                }
+            });
         }
-      }
-      else if (state.buildMode === 'smelter') state.grid[gx][gy] = new Smelter(gx, gy);
-      else if (state.buildMode === 'constructor') state.grid[gx][gy] = new ConstructorBuilding(gx, gy);
-      else if (state.buildMode === 'splitter') state.grid[gx][gy] = new Splitter(gx, gy, state.buildDir);
-      else if (state.buildMode === 'merger') state.grid[gx][gy] = new Merger(gx, gy, state.buildDir);
-      else if (state.buildMode === 'sink') state.grid[gx][gy] = new AwesomeSink(gx, gy);
-      else if (state.buildMode === 'belt') state.grid[gx][gy] = new Belt(gx, gy, state.buildDir);
+    });
+
+    // Расчет сводных данных
+    let totalGen = nodes.filter(n => n.type === NodeTypes.PLANT).reduce((acc, n) => acc + n.type.capacity, 0);
+    let totalDemand = nodes.reduce((acc, n) => acc + n.type.demand, 0);
+    let metDemand = nodes.filter(n => n.powered).reduce((acc, n) => acc + n.type.demand, 0);
+
+    // Обновляем UI
+    document.getElementById('gen-val').innerText = totalGen;
+    document.getElementById('load-val').innerText = `${metDemand} / ${totalDemand}`;
+
+    const statusEl = document.getElementById('status-val');
+    if (metDemand === totalDemand) {
+        statusEl.innerText = "100% Запитано";
+        statusEl.className = "stat-val ok";
+    } else if (metDemand > 0) {
+        statusEl.innerText = "Дефицит энергии!";
+        statusEl.className = "stat-val warn";
+    } else {
+        statusEl.innerText = "Блэкаут";
+        statusEl.className = "stat-val danger";
     }
-  }
+}
+
+// ================= Рендеринг (2D Canvas) =================
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    animOffset = (animOffset + 0.8) % 16; // Скорость анимации тока
+
+    // 1. Отрисовка проводов (ЛЭП)
+    wires.forEach(wire => {
+        let n1 = nodes.find(n => n.id === wire.from);
+        let n2 = nodes.find(n => n.id === wire.to);
+        if (!n1 || !n2) return;
+
+        let isPowered = n1.powered && n2.powered;
+
+        // Основная линия
+        ctx.beginPath();
+        ctx.moveTo(n1.x, n1.y);
+        ctx.lineTo(n2.x, n2.y);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = isPowered ? '#4CAF50' : '#444';
+        ctx.stroke();
+
+        // Анимация тока (пунктир)
+        if (isPowered) {
+            ctx.beginPath();
+            ctx.moveTo(n1.x, n1.y);
+            ctx.lineTo(n2.x, n2.y);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.setLineDash([4, 8]);
+            ctx.lineDashOffset = -animOffset;
+            ctx.stroke();
+            ctx.setLineDash([]); // сброс
+        }
+    });
+
+    // 2. Отрисовка узлов
+    nodes.forEach(node => {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.type.radius, 0, Math.PI * 2);
+        
+        // Цвет заливки в зависимости от типа и наличия питания
+        if (node.type === NodeTypes.CITY) {
+            ctx.fillStyle = node.powered ? '#2196F3' : '#555';
+        } else {
+            ctx.fillStyle = node.type.color;
+        }
+        
+        ctx.fill();
+        ctx.lineWidth = selectedNode === node ? 4 : 2;
+        ctx.strokeStyle = selectedNode === node ? '#fff' : '#000';
+        ctx.stroke();
+
+        // Индикатор питаемого города (свечение)
+        if (node.type === NodeTypes.CITY && node.powered) {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.type.radius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(33, 150, 243, 0.4)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        // Текст/Подписи
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(node.type.name, node.x, node.y + node.type.radius + 15);
+    });
+
+    requestAnimationFrame(draw);
+}
+
+// ================= Интерактив и События =================
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Проверяем клик по узлу
+    let clickedNode = nodes.find(n => Math.hypot(n.x - x, n.y - y) < n.type.radius + 5);
+
+    if (currentTool === 'wire') {
+        if (clickedNode) {
+            if (!selectedNode) {
+                selectedNode = clickedNode;
+            } else if (selectedNode !== clickedNode) {
+                // Создаем соединение, если его еще нет
+                let exists = wires.some(w => 
+                    (w.from === selectedNode.id && w.to === clickedNode.id) ||
+                    (w.from === clickedNode.id && w.to === selectedNode.id)
+                );
+                if (!exists) {
+                    wires.push({ from: selectedNode.id, to: clickedNode.id, maxCapacity: 100, flow: 0 });
+                }
+                selectedNode = null;
+            } else {
+                selectedNode = null; // Отмена при повторном клике
+            }
+        } else {
+            selectedNode = null;
+        }
+    } else if (currentTool === 'plant') {
+        let newId = Date.now();
+        nodes.push({ id: newId, x, y, type: NodeTypes.PLANT, powered: true, currentSupply: 100 });
+    } else if (currentTool === 'city') {
+        let newId = Date.now();
+        nodes.push({ id: newId, x, y, type: NodeTypes.CITY, powered: false, currentSupply: 0 });
+    }
+
+    updateSimulation();
 });
 
-function updateUI() {
-  document.getElementById('power').innerText = `${state.powerConsumption} / ${state.powerProduction} МВт`;
-  document.getElementById('inv-bio').innerText = state.inventory.biomass;
-  document.getElementById('inv-ore').innerText = state.inventory.iron_ore;
-  document.getElementById('inv-ingot').innerText = state.inventory.iron_ingot;
-  document.getElementById('inv-plate').innerText = state.inventory.iron_plate;
-  document.getElementById('score').innerText = state.score;
+// Управление кнопками UI
+const btnWire = document.getElementById('btn-wire');
+const btnPlant = document.getElementById('btn-plant');
+const btnCity = document.getElementById('btn-city');
 
-  // Обновление доступности кнопок
-  document.getElementById('btn-craft-ingot').classList.toggle('disabled', state.inventory.iron_ore < 1);
-  document.getElementById('btn-craft-plate').classList.toggle('disabled', state.inventory.iron_ingot < 2);
-
-  for (let type in COSTS) {
-    const btn = document.getElementById(`btn-${type}`);
-    if (btn) btn.classList.toggle('disabled', !canAfford(type));
-  }
+function setTool(tool, btn) {
+    currentTool = tool;
+    selectedNode = null;
+    document.querySelectorAll('#sidebar button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
 }
 
-function gameLoop() {
-  let consumption = 0, production = 0;
-  for (let x = 0; x < GRID.cols; x++) {
-    for (let y = 0; y < GRID.rows; y++) {
-      const e = state.grid[x][y];
-      if (e) {
-        if (e.powerReq) consumption += e.powerReq;
-        if (e.powerGen && e.fuel > 0) production += e.powerGen;
-      }
-    }
-  }
-  state.powerConsumption = consumption;
-  state.powerProduction = production;
-  const hasPower = production >= consumption;
+btnWire.onclick = () => setTool('wire', btnWire);
+btnPlant.onclick = () => setTool('plant', btnPlant);
+btnCity.onclick = () => setTool('city', btnCity);
 
-  for (let x = 0; x < GRID.cols; x++) {
-    for (let y = 0; y < GRID.rows; y++) {
-      const e = state.grid[x][y];
-      if (e) {
-        if (e.type === 'burner') e.tick();
-        else if (hasPower) e.tick();
-      }
-    }
-  }
+document.getElementById('btn-clear').onclick = () => {
+    nodes = [];
+    wires = [];
+    selectedNode = null;
+    updateSimulation();
+};
 
-  ctx.clearRect(0, 0, CANVAS_SIZE.w, CANVAS_SIZE.h);
-
-  // Сетка
-  ctx.strokeStyle = '#222';
-  for (let x = 0; x < GRID.cols; x++) {
-    for (let y = 0; y < GRID.rows; y++) ctx.strokeRect(x * TILE, y * TILE, TILE, TILE);
-  }
-
-  // Руда и биомасса
-  ctx.fillStyle = '#795548';
-  state.resourceDeposits.forEach(d => ctx.fillRect(d.x * TILE + 4, d.y * TILE + 4, TILE - 8, TILE - 8));
-  ctx.fillStyle = '#33691e';
-  state.biomassNodes.forEach(b => ctx.fillRect(b.x * TILE + 6, b.y * TILE + 6, TILE - 12, TILE - 12));
-
-  // Отрисовка построек
-  for (let x = 0; x < GRID.cols; x++) {
-    for (let y = 0; y < GRID.rows; y++) {
-      const e = state.grid[x][y];
-      if (!e) continue;
-      const px = x * TILE, py = y * TILE;
-
-      if (e.type === 'burner') {
-        ctx.fillStyle = '#d32f2f'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#fff'; ctx.fillText(`🔋${Math.ceil(e.fuel)}`, px + 4, py + 24);
-      } else if (e.type === 'miner') {
-        ctx.fillStyle = '#ff9900'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#000'; ctx.fillText('⛏️', px + 12, py + 24);
-      } else if (e.type === 'smelter') {
-        ctx.fillStyle = '#e65100'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#fff'; ctx.fillText(`🔥${e.bufferIn}`, px + 8, py + 24);
-      } else if (e.type === 'constructor') {
-        ctx.fillStyle = '#1565c0'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#fff'; ctx.fillText(`⚙️${e.bufferIn}`, px + 8, py + 24);
-      } else if (e.type === 'splitter') {
-        ctx.fillStyle = '#9c27b0'; ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
-        ctx.fillStyle = '#fff'; ctx.fillText('🔀', px + 12, py + 24);
-      } else if (e.type === 'merger') {
-        ctx.fillStyle = '#00897b'; ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
-        ctx.fillStyle = '#fff'; ctx.fillText('🔀', px + 12, py + 24);
-      } else if (e.type === 'sink') {
-        ctx.fillStyle = '#2e7d32'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        ctx.fillStyle = '#fff'; ctx.fillText('♻️', px + 12, py + 24);
-      } else if (e.type === 'belt') {
-        ctx.fillStyle = '#444'; ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
-        ctx.fillStyle = '#888';
-        const arrows = ["➔", "⬇", "⬅", "⬆"];
-        ctx.fillText(arrows[e.dir], px + 14, py + 24);
-
-        if (e.item) {
-          const d = DIRS[e.dir];
-          const currentX = (px + 20) + d.x * TILE * e.progress;
-          const currentY = (py + 20) + d.y * TILE * e.progress;
-          ctx.fillStyle = e.item === 'iron_ore' ? '#a1887f' : (e.item === 'iron_ingot' ? '#e0e0e0' : '#4fc3f7');
-          ctx.beginPath(); ctx.arc(currentX, currentY, 5, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-    }
-  }
-
-  updateUI();
-  requestAnimationFrame(gameLoop);
-}
-
-gameLoop();
+// Запуск
+updateSimulation();
+draw();
 </script>
+
 </body>
 </html>
