@@ -21,6 +21,7 @@
       background: #2a2a2a;
       padding: 10px;
       border-radius: 5px;
+      flex-wrap: wrap;
     }
     button {
       background: #ff9900;
@@ -29,6 +30,10 @@
       padding: 8px 12px;
       font-weight: bold;
       cursor: pointer;
+    }
+    button.craft-btn {
+      background: #4caf50;
+      color: #fff;
     }
     button.active {
       outline: 3px solid #fff;
@@ -40,6 +45,7 @@
     .info {
       font-size: 14px;
       color: #aaa;
+      margin-top: 5px;
     }
   </style>
 </head>
@@ -48,7 +54,9 @@
 <div id="ui">
   <div>⚡ Энергия: <span id="power">-</span></div>
   <div>📦 Инвентарь: Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span></div>
-  <div>| Выбор:</div>
+  <div>| Ручной крафт:</div>
+  <button class="craft-btn" onclick="craftIngot()">🔨 Сделать слиток (1 Руда)</button>
+  <div>| Постройки:</div>
   <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка (5 Слитков)</button>
   <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня (5 Слитков)</button>
   <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер (1 Слиток)</button>
@@ -56,7 +64,7 @@
 </div>
 
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">Клик мышкой — поставить/взаимодействовать. R — повернуть направление постройки (Текущее: <span id="dir-info">Восток</span>).</div>
+<div class="info">Клик мышкой — поставить/добыть. R — повернуть направление постройки (Текущее: <span id="dir-info">Восток</span>).</div>
 
 <script>
 const CANVAS_SIZE = { w: 800, h: 600 };
@@ -67,21 +75,29 @@ const GRID = { cols: CANVAS_SIZE.w / TILE, rows: CANVAS_SIZE.h / TILE };
 const DIRS = [{x:1,y:0}, {x:0,y:1}, {x:-1,y:0}, {x:0,y:-1}];
 const DIR_NAMES = ["Восток", "Юг", "Запад", "Север"];
 
-// Состояние игры
+// Состояние игры: 0 слитков на старте, добываем и плавим сами!
 const state = {
-  inventory: { iron_ore: 0, iron_ingot: 10 }, // 10 слитков на старт
-  powerProduction: 20, // Базовый биогенератор
+  inventory: { iron_ore: 0, iron_ingot: 0 },
+  powerProduction: 20,
   powerConsumption: 0,
   buildMode: 'select',
   buildDir: 0,
   grid: Array(GRID.cols).fill(null).map(() => Array(GRID.rows).fill(null)),
-  resourceDeposits: [] // Жилы железа
+  resourceDeposits: []
 };
 
 // Генерация рудных жил
 state.resourceDeposits.push({x: 3, y: 7}, {x: 3, y: 8}, {x: 4, y: 7});
 
-// Карта объектов
+// Функция ручного крафта
+function craftIngot() {
+  if (state.inventory.iron_ore > 0) {
+    state.inventory.iron_ore--;
+    state.inventory.iron_ingot++;
+  }
+}
+
+// Классы построек
 class Miner {
   constructor(x, y) {
     this.type = 'miner';
@@ -91,15 +107,13 @@ class Miner {
   }
   tick() {
     this.progress += 1;
-    if (this.progress >= 120) { // Каждые 2 секунды
+    if (this.progress >= 120) {
       this.progress = 0;
-      // Пытаемся толкать в соседнюю ячейку
-      const dir = DIRS[state.buildDir]; // Для простоты всегда берем текущее направление или фиксированное
       const target = getEntity(this.x + 1, this.y);
       if (target && target.acceptItem) {
         target.acceptItem('iron_ore');
       } else {
-        state.inventory.iron_ore++; // Если некуда — в инвентарь
+        state.inventory.iron_ore++;
       }
     }
   }
@@ -123,10 +137,9 @@ class Smelter {
   tick() {
     if (this.bufferIn > 0) {
       this.progress++;
-      if (this.progress >= 180) { // 3 секунды
+      if (this.progress >= 180) {
         this.progress = 0;
         this.bufferIn--;
-        // Выход слитков
         const target = getEntity(this.x + 1, this.y);
         if (target && target.acceptItem) {
           target.acceptItem('iron_ingot');
@@ -156,7 +169,7 @@ class Belt {
   }
   tick() {
     if (this.item) {
-      this.progress += 2; // Скорость движения
+      this.progress += 2;
       if (this.progress >= 100) {
         const d = DIRS[this.dir];
         const target = getEntity(this.x + d.x, this.y + d.y);
@@ -164,7 +177,6 @@ class Belt {
           this.item = null;
           this.progress = 0;
         } else if (!target) {
-          // Если конвейер ведет в пустоту — сбрасываем в инвентарь
           if (this.item === 'iron_ore') state.inventory.iron_ore++;
           if (this.item === 'iron_ingot') state.inventory.iron_ingot++;
           this.item = null;
@@ -180,10 +192,11 @@ function getEntity(x, y) {
   return state.grid[x][y];
 }
 
-// Управление кнопками
 function setMode(mode) {
   state.buildMode = mode;
-  document.querySelectorAll('#ui button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#ui button').forEach(b => {
+    if (!b.classList.contains('craft-btn')) b.classList.remove('active');
+  });
   if (mode !== 'select') document.getElementById(`btn-${mode}`).classList.add('active');
 }
 
@@ -194,7 +207,6 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Клик по Canvas
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
@@ -206,7 +218,6 @@ canvas.addEventListener('click', (e) => {
   const existing = state.grid[gx][gy];
 
   if (state.buildMode === 'select') {
-    // Ручной сбор ресурсов
     const deposit = state.resourceDeposits.find(d => d.x === gx && d.y === gy);
     if (deposit) {
       state.inventory.iron_ore++;
@@ -214,9 +225,8 @@ canvas.addEventListener('click', (e) => {
     return;
   }
 
-  if (existing) return; // Ячейка занята
+  if (existing) return;
 
-  // Строительство
   if (state.buildMode === 'miner') {
     const isDeposit = state.resourceDeposits.some(d => d.x === gx && d.y === gy);
     if (isDeposit && state.inventory.iron_ingot >= 5) {
@@ -236,9 +246,7 @@ canvas.addEventListener('click', (e) => {
   }
 });
 
-// Игровой цикл
 function gameLoop() {
-  // 1. Расчет энергии
   let consumption = 0;
   for (let x = 0; x < GRID.cols; x++) {
     for (let y = 0; y < GRID.rows; y++) {
@@ -249,7 +257,6 @@ function gameLoop() {
   state.powerConsumption = consumption;
   const hasPower = state.powerProduction >= state.powerConsumption;
 
-  // 2. Обновление логики (Tick)
   if (hasPower) {
     for (let x = 0; x < GRID.cols; x++) {
       for (let y = 0; y < GRID.rows; y++) {
@@ -259,10 +266,8 @@ function gameLoop() {
     }
   }
 
-  // 3. Отрисовка
   ctx.clearRect(0, 0, CANVAS_SIZE.w, CANVAS_SIZE.h);
 
-  // Сетка
   ctx.strokeStyle = '#222';
   for (let x = 0; x < GRID.cols; x++) {
     for (let y = 0; y < GRID.rows; y++) {
@@ -270,13 +275,11 @@ function gameLoop() {
     }
   }
 
-  // Рудные жилы
   ctx.fillStyle = '#795548';
   state.resourceDeposits.forEach(d => {
     ctx.fillRect(d.x * TILE + 4, d.y * TILE + 4, TILE - 8, TILE - 8);
   });
 
-  // Объекты
   for (let x = 0; x < GRID.cols; x++) {
     for (let y = 0; y < GRID.rows; y++) {
       const e = state.grid[x][y];
@@ -299,12 +302,10 @@ function gameLoop() {
         ctx.fillStyle = '#555';
         ctx.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
         
-        // Стрелка направления
         ctx.fillStyle = '#aaa';
         const arrows = ["➔", "⬇", "⬅", "⬆"];
         ctx.fillText(arrows[e.dir], px + 14, py + 24);
 
-        // Предмет на ленте
         if (e.item) {
           ctx.fillStyle = e.item === 'iron_ore' ? '#a1887f' : '#e0e0e0';
           const progressOffset = (e.progress / 100) * 16 - 8;
@@ -318,7 +319,6 @@ function gameLoop() {
     }
   }
 
-  // Обновление UI
   document.getElementById('power').innerText = `${state.powerConsumption} / ${state.powerProduction} МВт`;
   document.getElementById('inv-ore').innerText = state.inventory.iron_ore;
   document.getElementById('inv-ingot').innerText = state.inventory.iron_ingot;
