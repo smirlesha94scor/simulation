@@ -7,19 +7,31 @@
     body {
       margin: 0; background: #1a1a1a; color: #fff; font-family: monospace;
       display: flex; flex-direction: column; align-items: center;
+      padding-bottom: 20px;
     }
     #ui {
       margin: 10px; display: flex; gap: 6px; align-items: center;
       background: #2a2a2a; padding: 10px; border-radius: 5px; flex-wrap: wrap;
+      max-width: 800px;
     }
     button {
       background: #ff9900; border: none; color: #000; padding: 6px 10px;
-      font-weight: bold; cursor: pointer;
+      font-weight: bold; cursor: pointer; border-radius: 3px;
     }
     button.craft-btn { background: #4caf50; color: #fff; }
     button.active { outline: 3px solid #fff; }
     canvas { border: 2px solid #444; background: #111; }
-    .info { font-size: 13px; color: #aaa; margin-top: 5px; }
+    
+    .guide-box {
+      background: #222; border: 1px solid #444; border-radius: 5px;
+      padding: 12px; margin: 10px 0; max-width: 800px; font-size: 13px; line-height: 1.4;
+    }
+    .guide-title { color: #ff9900; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
+    .price-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      margin-top: 8px; background: #1a1a1a; padding: 8px; border-radius: 4px;
+    }
+    .price-item { font-size: 11px; background: #2a2a2a; padding: 4px; border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -27,21 +39,42 @@
 <div id="ui">
   <div>⚡ <span id="power">-</span> | 🌿 Биомасса: <span id="inv-bio">0</span></div>
   <div>📦 Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span> | Пластины: <span id="inv-plate">0</span> | 🎟️ <span id="score">0</span></div>
-  <button class="craft-btn" onclick="craftIngot()">🔨 Слиток</button>
-  <button class="craft-btn" onclick="craftPlate()">🛠️ Пластина</button>
-  <button id="btn-burner" onclick="setMode('burner')">🔥 Генератор (5 Пластин)</button>
-  <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка (5 Слитков)</button>
-  <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня (5 Слитков)</button>
-  <button id="btn-constructor" onclick="setMode('constructor')">⚙️ Конструктор (5 Пластин)</button>
-  <button id="btn-splitter" onclick="setMode('splitter')">🔀 Разветвитель (2 Пластины)</button>
-  <button id="btn-merger" onclick="setMode('merger')">🔀 Соединитель (2 Пластины)</button>
-  <button id="btn-sink" onclick="setMode('sink')">♻️ Утилизатор (5 Пластин)</button>
-  <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер (1 Слиток)</button>
-  <button id="btn-clear" onclick="setMode('select')">🔍 Инспекция / Сбор</button>
+  <button class="craft-btn" onclick="craftIngot()">🔨 Слиток (1 Руда)</button>
+  <button class="craft-btn" onclick="craftPlate()">🛠️ Пластина (2 Слитка)</button>
+  <button id="btn-burner" onclick="setMode('burner')">🔥 Генератор</button>
+  <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка</button>
+  <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня</button>
+  <button id="btn-constructor" onclick="setMode('constructor')">⚙️ Конструктор</button>
+  <button id="btn-splitter" onclick="setMode('splitter')">🔀 Разветвитель</button>
+  <button id="btn-merger" onclick="setMode('merger')">🔀 Соединитель</button>
+  <button id="btn-sink" onclick="setMode('sink')">♻️ Утилизатор</button>
+  <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер</button>
+  <button id="btn-clear" onclick="setMode('select')">🔍 Инспектор</button>
+</div>
+
+<!-- Блок с инструкцией и ценами -->
+<div class="guide-box">
+  <div class="guide-title">📋 Как играть:</div>
+  1. Выберите режим <b>🔍 Инспектор</b> и кликайте по коричневым узлам (руда) или зелёным (биомасса) для ручного сбора.<br>
+  2. Крафтьте Слитки и Пластины вручную с помощью зелёных кнопок.<br>
+  3. Постройте <b>🔥 Генератор</b> (для энергии) и <b>⛏️ Вышку</b> прямо на коричневой жиле руды.<br>
+  4. Нажимайте клавишу <b>R</b> для поворота конвейеров перед постройкой и соберите автоматическую линию!<br>
+
+  <div class="guide-title" style="margin-top: 10px;">🏷️ Стоимость построек:</div>
+  <div class="price-grid">
+    <div class="price-item">🔥 Генератор: <b>5 Пластин</b></div>
+    <div class="price-item">⛏️ Вышка: <b>5 Слитков</b></div>
+    <div class="price-item">🔥 Плавильня: <b>5 Слитков</b></div>
+    <div class="price-item">⚙️ Конструктор: <b>5 Пластин</b></div>
+    <div class="price-item">🔀 Разветвитель: <b>2 Пластины</b></div>
+    <div class="price-item">🔀 Соединитель: <b>2 Пластины</b></div>
+    <div class="price-item">♻️ Утилизатор: <b>5 Пластин</b></div>
+    <div class="price-item">➡️ Конвейер: <b>1 Слиток</b></div>
+  </div>
 </div>
 
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">Клик — действие/сбор биомассы. R — поворот перед постройкой (Текущее: <span id="dir-info">Восток</span>).</div>
+<div style="font-size: 12px; color: #aaa; margin-top: 5px;">Направление постройки (R): <span id="dir-info" style="color: #ff9900;">Восток</span></div>
 
 <script>
 const CANVAS_SIZE = { w: 800, h: 600 };
@@ -69,7 +102,6 @@ function craftPlate() {
   if (state.inventory.iron_ingot >= 2) { state.inventory.iron_ingot -= 2; state.inventory.iron_plate++; }
 }
 
-// Генератор на биомассе
 class BiomassBurner {
   constructor(x, y) {
     this.type = 'burner'; this.x = x; this.y = y;
@@ -143,7 +175,6 @@ class Splitter {
   tick() {}
 }
 
-// Соединитель (Merger) — сливает потоки в одно направление
 class Merger {
   constructor(x, y, dirIndex) { this.type = 'merger'; this.x = x; this.y = y; this.dir = dirIndex; this.powerReq = 0; }
   acceptItem(item) {
