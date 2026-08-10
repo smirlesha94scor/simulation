@@ -7,7 +7,7 @@
     body {
       margin: 0; background: #1a1a1a; color: #fff; font-family: monospace;
       display: flex; flex-direction: column; align-items: center;
-      padding-bottom: 20px;
+      padding-bottom: 20px; user-select: none;
     }
     #ui {
       margin: 10px; display: flex; gap: 6px; align-items: center;
@@ -16,10 +16,11 @@
     }
     button {
       background: #ff9900; border: none; color: #000; padding: 6px 10px;
-      font-weight: bold; cursor: pointer; border-radius: 3px;
+      font-weight: bold; cursor: pointer; border-radius: 3px; transition: opacity 0.2s;
     }
     button.craft-btn { background: #4caf50; color: #fff; }
     button.active { outline: 3px solid #fff; }
+    button.disabled { opacity: 0.3; cursor: not-allowed; }
     canvas { border: 2px solid #444; background: #111; }
     
     .guide-box {
@@ -39,8 +40,8 @@
 <div id="ui">
   <div>⚡ <span id="power">-</span> | 🌿 Биомасса: <span id="inv-bio">0</span></div>
   <div>📦 Руда: <span id="inv-ore">0</span> | Слитки: <span id="inv-ingot">0</span> | Пластины: <span id="inv-plate">0</span> | 🎟️ <span id="score">0</span></div>
-  <button class="craft-btn" onclick="craftIngot()">🔨 Слиток (1 Руда)</button>
-  <button class="craft-btn" onclick="craftPlate()">🛠️ Пластина (2 Слитка)</button>
+  <button id="btn-craft-ingot" class="craft-btn" onclick="craftIngot()">🔨 Слиток (1 Руда)</button>
+  <button id="btn-craft-plate" class="craft-btn" onclick="craftPlate()">🛠️ Пластина (2 Слитка)</button>
   <button id="btn-burner" onclick="setMode('burner')">🔥 Генератор</button>
   <button id="btn-miner" onclick="setMode('miner')">⛏️ Вышка</button>
   <button id="btn-smelter" onclick="setMode('smelter')">🔥 Плавильня</button>
@@ -49,16 +50,15 @@
   <button id="btn-merger" onclick="setMode('merger')">🔀 Соединитель</button>
   <button id="btn-sink" onclick="setMode('sink')">♻️ Утилизатор</button>
   <button id="btn-belt" onclick="setMode('belt')">➡️ Конвейер</button>
-  <button id="btn-clear" onclick="setMode('select')">🔍 Инспектор</button>
+  <button id="btn-clear" class="active" onclick="setMode('select')">🔍 Инспектор</button>
 </div>
 
-<!-- Блок с инструкцией и ценами -->
 <div class="guide-box">
-  <div class="guide-title">📋 Как играть:</div>
-  1. Выберите режим <b>🔍 Инспектор</b> и кликайте по коричневым узлам (руда) или зелёным (биомасса) для ручного сбора.<br>
-  2. Крафтьте Слитки и Пластины вручную с помощью зелёных кнопок.<br>
-  3. Постройте <b>🔥 Генератор</b> (для энергии) и <b>⛏️ Вышку</b> прямо на коричневой жиле руды.<br>
-  4. Нажимайте клавишу <b>R</b> для поворота конвейеров перед постройкой и соберите автоматическую линию!<br>
+  <div class="guide-title">📋 Управление:</div>
+  1. Кликайте сразу по коричневым узлам (руда) или зелёным (биомасса) для сбора ресурсов.<br>
+  2. <b>ЛКМ</b> — Постройка выбранного объекта.<br>
+  3. <b>ПКМ (Правая кнопка мыши)</b> — Демонтаж здания/конвейера с возвратом ресурсов.<br>
+  4. Клавиша <b>R</b> — Поворот направления перед постройкой.<br>
 
   <div class="guide-title" style="margin-top: 10px;">🏷️ Стоимость построек:</div>
   <div class="price-grid">
@@ -82,6 +82,17 @@ const TILE = 40;
 const GRID = { cols: CANVAS_SIZE.w / TILE, rows: CANVAS_SIZE.h / TILE };
 const DIRS = [{x:1,y:0}, {x:0,y:1}, {x:-1,y:0}, {x:0,y:-1}];
 const DIR_NAMES = ["Восток", "Юг", "Запад", "Север"];
+
+const COSTS = {
+  burner: { iron_plate: 5 },
+  miner: { iron_ingot: 5 },
+  smelter: { iron_ingot: 5 },
+  constructor: { iron_plate: 5 },
+  splitter: { iron_plate: 2 },
+  merger: { iron_plate: 2 },
+  sink: { iron_plate: 5 },
+  belt: { iron_ingot: 1 }
+};
 
 const state = {
   inventory: { iron_ore: 0, iron_ingot: 0, iron_plate: 0, biomass: 10 },
@@ -221,10 +232,23 @@ function getEntity(x, y) {
   return state.grid[x][y];
 }
 
+function canAfford(type) {
+  const cost = COSTS[type];
+  if (!cost) return true;
+  for (let res in cost) {
+    if (state.inventory[res] < cost[res]) return false;
+  }
+  return true;
+}
+
 function setMode(mode) {
   state.buildMode = mode;
   document.querySelectorAll('#ui button').forEach(b => { if (!b.classList.contains('craft-btn')) b.classList.remove('active'); });
-  if (mode !== 'select') document.getElementById(`btn-${mode}`).classList.add('active');
+  if (mode === 'select') {
+    document.getElementById('btn-clear').classList.add('active');
+  } else {
+    document.getElementById(`btn-${mode}`).classList.add('active');
+  }
 }
 
 window.addEventListener('keydown', (e) => {
@@ -237,41 +261,76 @@ window.addEventListener('keydown', (e) => {
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-canvas.addEventListener('click', (e) => {
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('mousedown', (e) => {
   const rect = canvas.getBoundingClientRect();
   const gx = Math.floor((e.clientX - rect.left) / TILE);
   const gy = Math.floor((e.clientY - rect.top) / TILE);
   const existing = state.grid[gx][gy];
 
-  if (state.buildMode === 'select') {
-    if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) state.inventory.iron_ore++;
-    const bioIdx = state.biomassNodes.findIndex(b => b.x === gx && b.y === gy);
-    if (bioIdx !== -1) state.inventory.biomass += 5;
+  // Демонтаж (ПКМ)
+  if (e.button === 2) {
+    if (existing) {
+      const cost = COSTS[existing.type];
+      if (cost) {
+        for (let res in cost) state.inventory[res] += cost[res];
+      }
+      state.grid[gx][gy] = null;
+    }
     return;
   }
 
-  if (existing) return;
-
-  if (state.buildMode === 'burner' && state.inventory.iron_plate >= 5) {
-    state.inventory.iron_plate -= 5; state.grid[gx][gy] = new BiomassBurner(gx, gy);
-  } else if (state.buildMode === 'miner' && state.inventory.iron_ingot >= 5) {
-    if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) {
-      state.inventory.iron_ingot -= 5; state.grid[gx][gy] = new Miner(gx, gy);
+  // Постройка / Инспекция (ЛКМ)
+  if (e.button === 0) {
+    if (state.buildMode === 'select') {
+      if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) state.inventory.iron_ore++;
+      const bioIdx = state.biomassNodes.findIndex(b => b.x === gx && b.y === gy);
+      if (bioIdx !== -1) state.inventory.biomass += 5;
+      return;
     }
-  } else if (state.buildMode === 'smelter' && state.inventory.iron_ingot >= 5) {
-    state.inventory.iron_ingot -= 5; state.grid[gx][gy] = new Smelter(gx, gy);
-  } else if (state.buildMode === 'constructor' && state.inventory.iron_plate >= 5) {
-    state.inventory.iron_plate -= 5; state.grid[gx][gy] = new ConstructorBuilding(gx, gy);
-  } else if (state.buildMode === 'splitter' && state.inventory.iron_plate >= 2) {
-    state.inventory.iron_plate -= 2; state.grid[gx][gy] = new Splitter(gx, gy, state.buildDir);
-  } else if (state.buildMode === 'merger' && state.inventory.iron_plate >= 2) {
-    state.inventory.iron_plate -= 2; state.grid[gx][gy] = new Merger(gx, gy, state.buildDir);
-  } else if (state.buildMode === 'sink' && state.inventory.iron_plate >= 5) {
-    state.inventory.iron_plate -= 5; state.grid[gx][gy] = new AwesomeSink(gx, gy);
-  } else if (state.buildMode === 'belt' && state.inventory.iron_ingot >= 1) {
-    state.inventory.iron_ingot -= 1; state.grid[gx][gy] = new Belt(gx, gy, state.buildDir);
+
+    if (existing) return;
+
+    if (canAfford(state.buildMode)) {
+      const cost = COSTS[state.buildMode];
+      for (let res in cost) state.inventory[res] -= cost[res];
+
+      if (state.buildMode === 'burner') state.grid[gx][gy] = new BiomassBurner(gx, gy);
+      else if (state.buildMode === 'miner') {
+        if (state.resourceDeposits.some(d => d.x === gx && d.y === gy)) {
+          state.grid[gx][gy] = new Miner(gx, gy);
+        } else {
+          for (let res in cost) state.inventory[res] += cost[res]; // Возврат при ошибке
+        }
+      }
+      else if (state.buildMode === 'smelter') state.grid[gx][gy] = new Smelter(gx, gy);
+      else if (state.buildMode === 'constructor') state.grid[gx][gy] = new ConstructorBuilding(gx, gy);
+      else if (state.buildMode === 'splitter') state.grid[gx][gy] = new Splitter(gx, gy, state.buildDir);
+      else if (state.buildMode === 'merger') state.grid[gx][gy] = new Merger(gx, gy, state.buildDir);
+      else if (state.buildMode === 'sink') state.grid[gx][gy] = new AwesomeSink(gx, gy);
+      else if (state.buildMode === 'belt') state.grid[gx][gy] = new Belt(gx, gy, state.buildDir);
+    }
   }
 });
+
+function updateUI() {
+  document.getElementById('power').innerText = `${state.powerConsumption} / ${state.powerProduction} МВт`;
+  document.getElementById('inv-bio').innerText = state.inventory.biomass;
+  document.getElementById('inv-ore').innerText = state.inventory.iron_ore;
+  document.getElementById('inv-ingot').innerText = state.inventory.iron_ingot;
+  document.getElementById('inv-plate').innerText = state.inventory.iron_plate;
+  document.getElementById('score').innerText = state.score;
+
+  // Обновление доступности кнопок
+  document.getElementById('btn-craft-ingot').classList.toggle('disabled', state.inventory.iron_ore < 1);
+  document.getElementById('btn-craft-plate').classList.toggle('disabled', state.inventory.iron_ingot < 2);
+
+  for (let type in COSTS) {
+    const btn = document.getElementById(`btn-${type}`);
+    if (btn) btn.classList.toggle('disabled', !canAfford(type));
+  }
+}
 
 function gameLoop() {
   let consumption = 0, production = 0;
@@ -357,13 +416,7 @@ function gameLoop() {
     }
   }
 
-  document.getElementById('power').innerText = `${state.powerConsumption} / ${state.powerProduction} МВт`;
-  document.getElementById('inv-bio').innerText = state.inventory.biomass;
-  document.getElementById('inv-ore').innerText = state.inventory.iron_ore;
-  document.getElementById('inv-ingot').innerText = state.inventory.iron_ingot;
-  document.getElementById('inv-plate').innerText = state.inventory.iron_plate;
-  document.getElementById('score').innerText = state.score;
-
+  updateUI();
   requestAnimationFrame(gameLoop);
 }
 
