@@ -1,330 +1,351 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>2D Симулятор электросети города</title>
-    <style>
-        body {
-            margin: 0;
-            background-color: #1a1a1a;
-            color: #fff;
-            font-family: Arial, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #sidebar {
-            width: 320px;
-            background: #252525;
-            padding: 15px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
-        }
-        #canvas-container {
-            flex-grow: 1;
-            position: relative;
-        }
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            background: #111;
-        }
-        .panel {
-            background: #333;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        .stat-val { font-weight: bold; }
-        .ok { color: #4CAF50; }
-        .warn { color: #FFC107; }
-        .danger { color: #F44336; }
-        button {
-            background: #444;
-            color: white;
-            border: 1px solid #666;
-            padding: 8px 12px;
-            cursor: pointer;
-            border-radius: 4px;
-            width: 100%;
-            margin-top: 5px;
-        }
-        button:hover { background: #555; }
-        button.active { background: #007acc; border-color: #0099ff; }
-        .instructions { font-size: 0.85em; color: #aaa; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Конструктор Электросети</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0d1117;
+      color: #c9d1d9;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+    }
+    #main-area {
+      flex: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #toolbar {
+      height: 50px;
+      background-color: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      gap: 10px;
+    }
+    .tool-btn {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.2s;
+    }
+    .tool-btn:hover {
+      background: #30363d;
+    }
+    .tool-btn.active {
+      background: #238636;
+      border-color: #2ea44f;
+      color: #fff;
+    }
+    .tool-btn.delete.active {
+      background: #da3633;
+      border-color: #f85149;
+    }
+    #canvas-container {
+      flex: 1;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+    #ui-panel {
+      width: 260px;
+      background-color: #161b22;
+      border-left: 1px solid #30363d;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      color: #58a6ff;
+    }
+    .stat-card {
+      background: #21262d;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #7ee787;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #8b949e;
+    }
+    .hint {
+      font-size: 12px;
+      color: #8b949e;
+      line-height: 1.4;
+      background: #0d1117;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px dashed #30363d;
+    }
+  </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <h2>Симулятор электросети</h2>
+  <div id="main-area">
+    <div id="toolbar">
+      <button class="tool-btn active" data-tool="select">👆 Выбор</button>
+      <button class="tool-btn" data-tool="plant">⚡ Станция</button>
+      <button class="tool-btn" data-tool="substation">🔷 Подстанция</button>
+      <button class="tool-btn" data-tool="house">🏠 Дом</button>
+      <button class="tool-btn" data-tool="wire">🔌 ЛЭП (Провод)</button>
+      <button class="tool-btn delete" data-tool="delete">🗑️ Удалить</button>
+    </div>
+    <div id="canvas-container">
+      <canvas id="simCanvas"></canvas>
+    </div>
+  </div>
+
+  <div id="ui-panel">
+    <h2>Статистика</h2>
     
-    <div class="panel">
-        <h3>Состояние сети</h3>
-        <div>Генерация: <span id="gen-val" class="stat-val">0</span> МВт</div>
-        <div>Потребление: <span id="load-val" class="stat-val">0</span> МВт</div>
-        <div>Статус: <span id="status-val" class="stat-val ok">Стабильно</span></div>
+    <div class="stat-card">
+      <div class="stat-label">Всего узлов</div>
+      <div class="stat-value" id="nodesCount" style="color: #58a6ff;">0</div>
     </div>
 
-    <div class="panel">
-        <h3>Инструменты</h3>
-        <button id="btn-wire" class="active">Провод ЛЭП (клик по 2 узлам)</button>
-        <button id="btn-plant">Добавить ТЭЦ (100 МВт)</button>
-        <button id="btn-city">Добавить Район (40 МВт)</button>
-        <button id="btn-clear" style="margin-top: 15px; background: #822;">Очистить всё</button>
+    <div class="stat-card">
+      <div class="stat-label">Запитано домов</div>
+      <div class="stat-value" id="poweredHouses">0 / 0</div>
     </div>
 
-    <div class="instructions">
-        <p><b>Управление:</b></p>
-        <ul>
-            <li>Клик по узлу выделит его.</li>
-            <li>В режиме "Провод" соедините два узла.</li>
-            <li>Клик по существующей ЛЭП — удалит её.</li>
-        </ul>
+    <div class="hint" id="helpText">
+      Выберите инструмент сверху и кликните на поле, чтобы разместить объект.
     </div>
-</div>
+  </div>
 
-<div id="canvas-container">
-    <canvas id="gridCanvas"></canvas>
-</div>
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
 
-<script>
-const canvas = document.getElementById('gridCanvas');
-const ctx = canvas.getContext('2d');
-
-function resizeCanvas() {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-// ================= Данные и Структуры =================
-const NodeTypes = {
-    PLANT: { name: 'ТЭЦ', color: '#ff9800', radius: 18, capacity: 100, demand: 0 },
-    CITY:  { name: 'Район', color: '#2196F3', radius: 15, capacity: 0, demand: 40 },
-    SUBSTATION: { name: 'Подстанция', color: '#9c27b0', radius: 10, capacity: 0, demand: 0 }
-};
-
-let nodes = [
-    { id: 1, x: 150, y: 200, type: NodeTypes.PLANT, powered: true, currentSupply: 100 },
-    { id: 2, x: 450, y: 200, type: NodeTypes.SUBSTATION, powered: false, currentSupply: 0 },
-    { id: 3, x: 750, y: 150, type: NodeTypes.CITY, powered: false, currentSupply: 0 },
-    { id: 4, x: 750, y: 300, type: NodeTypes.CITY, powered: false, currentSupply: 0 }
-];
-
-let wires = [
-    { from: 1, to: 2, maxCapacity: 120, flow: 0 },
-    { from: 2, to: 3, maxCapacity: 50, flow: 0 },
-    { from: 2, to: 4, maxCapacity: 50, flow: 0 }
-];
-
-let selectedNode = null;
-let currentTool = 'wire'; // 'wire', 'plant', 'city'
-let animOffset = 0;
-
-// ================= Логика Расчета Сети =================
-function updateSimulation() {
-    // Сброс показателей
-    nodes.forEach(n => {
-        n.currentSupply = (n.type === NodeTypes.PLANT) ? n.type.capacity : 0;
-        n.powered = false;
-    });
-    wires.forEach(w => w.flow = 0);
-
-    // Распределяем питание от станций через обход графа (BFS)
-    let plants = nodes.filter(n => n.type === NodeTypes.PLANT);
-    
-    plants.forEach(plant => {
-        let visitedNodes = new Set([plant.id]);
-        let queue = [plant];
-        plant.powered = true;
-
-        while (queue.length > 0) {
-            let curr = queue.shift();
-
-            // Ищем соседей
-            wires.forEach(wire => {
-                let neighborId = null;
-                if (wire.from === curr.id) neighborId = wire.to;
-                if (wire.to === curr.id) neighborId = wire.from;
-
-                if (neighborId && !visitedNodes.has(neighborId)) {
-                    let neighbor = nodes.find(n => n.id === neighborId);
-                    visitedNodes.add(neighborId);
-                    neighbor.powered = true;
-                    queue.push(neighbor);
-
-                    // Условно направляем ток
-                    wire.flow = Math.min(wire.maxCapacity, curr.currentSupply);
-                }
-            });
-        }
-    });
-
-    // Расчет сводных данных
-    let totalGen = nodes.filter(n => n.type === NodeTypes.PLANT).reduce((acc, n) => acc + n.type.capacity, 0);
-    let totalDemand = nodes.reduce((acc, n) => acc + n.type.demand, 0);
-    let metDemand = nodes.filter(n => n.powered).reduce((acc, n) => acc + n.type.demand, 0);
-
-    // Обновляем UI
-    document.getElementById('gen-val').innerText = totalGen;
-    document.getElementById('load-val').innerText = `${metDemand} / ${totalDemand}`;
-
-    const statusEl = document.getElementById('status-val');
-    if (metDemand === totalDemand) {
-        statusEl.innerText = "100% Запитано";
-        statusEl.className = "stat-val ok";
-    } else if (metDemand > 0) {
-        statusEl.innerText = "Дефицит энергии!";
-        statusEl.className = "stat-val warn";
-    } else {
-        statusEl.innerText = "Блэкаут";
-        statusEl.className = "stat-val danger";
+    function resizeCanvas() {
+      canvas.width = document.getElementById('canvas-container').clientWidth;
+      canvas.height = document.getElementById('canvas-container').clientHeight;
     }
-}
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
-// ================= Рендеринг (2D Canvas) =================
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    animOffset = (animOffset + 0.8) % 16; // Скорость анимации тока
+    // Состояние
+    let currentTool = 'select';
+    let selectedNodeForWire = null;
+    let nextId = 1;
 
-    // 1. Отрисовка проводов (ЛЭП)
-    wires.forEach(wire => {
-        let n1 = nodes.find(n => n.id === wire.from);
-        let n2 = nodes.find(n => n.id === wire.to);
-        if (!n1 || !n2) return;
+    let nodes = [];
+    let lines = [];
+    let dashOffset = 0;
 
-        let isPowered = n1.powered && n2.powered;
-
-        // Основная линия
-        ctx.beginPath();
-        ctx.moveTo(n1.x, n1.y);
-        ctx.lineTo(n2.x, n2.y);
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = isPowered ? '#4CAF50' : '#444';
-        ctx.stroke();
-
-        // Анимация тока (пунктир)
-        if (isPowered) {
-            ctx.beginPath();
-            ctx.moveTo(n1.x, n1.y);
-            ctx.lineTo(n2.x, n2.y);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#fff';
-            ctx.setLineDash([4, 8]);
-            ctx.lineDashOffset = -animOffset;
-            ctx.stroke();
-            ctx.setLineDash([]); // сброс
-        }
+    // Переключение инструментов
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTool = btn.dataset.tool;
+        selectedNodeForWire = null;
+        updateHelpText();
+      });
     });
 
-    // 2. Отрисовка узлов
-    nodes.forEach(node => {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.type.radius, 0, Math.PI * 2);
-        
-        // Цвет заливки в зависимости от типа и наличия питания
-        if (node.type === NodeTypes.CITY) {
-            ctx.fillStyle = node.powered ? '#2196F3' : '#555';
-        } else {
-            ctx.fillStyle = node.type.color;
-        }
-        
-        ctx.fill();
-        ctx.lineWidth = selectedNode === node ? 4 : 2;
-        ctx.strokeStyle = selectedNode === node ? '#fff' : '#000';
-        ctx.stroke();
+    function updateHelpText() {
+      const help = document.getElementById('helpText');
+      switch (currentTool) {
+        case 'plant': help.innerText = 'Кликните на карту, чтобы построить Электростанцию.'; break;
+        case 'substation': help.innerText = 'Кликните на карту, чтобы построить Подстанцию.'; break;
+        case 'house': help.innerText = 'Кликните на карту, чтобы построить Дом.'; break;
+        case 'wire': help.innerText = 'Кликните сначала на первый узел, затем на второй, чтобы соединить их проводом.'; break;
+        case 'delete': help.innerText = 'Кликните по объекту, чтобы удалить его.'; break;
+        default: help.innerText = 'Режим просмотра. Вы можете изменять структуру сети через меню.'; break;
+      }
+    }
 
-        // Индикатор питаемого города (свечение)
-        if (node.type === NodeTypes.CITY && node.powered) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, node.type.radius + 5, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(33, 150, 243, 0.4)';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-        }
+    // Обработка клика по Canvas
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
 
-        // Текст/Подписи
-        ctx.fillStyle = '#fff';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(node.type.name, node.x, node.y + node.type.radius + 15);
-    });
+      const clickedNode = nodes.find(n => Math.hypot(n.x - x, n.y - y) < 25);
 
-    requestAnimationFrame(draw);
-}
-
-// ================= Интерактив и События =================
-canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Проверяем клик по узлу
-    let clickedNode = nodes.find(n => Math.hypot(n.x - x, n.y - y) < n.type.radius + 5);
-
-    if (currentTool === 'wire') {
+      if (currentTool === 'delete') {
         if (clickedNode) {
-            if (!selectedNode) {
-                selectedNode = clickedNode;
-            } else if (selectedNode !== clickedNode) {
-                // Создаем соединение, если его еще нет
-                let exists = wires.some(w => 
-                    (w.from === selectedNode.id && w.to === clickedNode.id) ||
-                    (w.from === clickedNode.id && w.to === selectedNode.id)
-                );
-                if (!exists) {
-                    wires.push({ from: selectedNode.id, to: clickedNode.id, maxCapacity: 100, flow: 0 });
-                }
-                selectedNode = null;
-            } else {
-                selectedNode = null; // Отмена при повторном клике
-            }
-        } else {
-            selectedNode = null;
+          nodes = nodes.filter(n => n.id !== clickedNode.id);
+          lines = lines.filter(l => l.from !== clickedNode.id && l.to !== clickedNode.id);
         }
-    } else if (currentTool === 'plant') {
-        let newId = Date.now();
-        nodes.push({ id: newId, x, y, type: NodeTypes.PLANT, powered: true, currentSupply: 100 });
-    } else if (currentTool === 'city') {
-        let newId = Date.now();
-        nodes.push({ id: newId, x, y, type: NodeTypes.CITY, powered: false, currentSupply: 0 });
+      } 
+      else if (currentTool === 'wire') {
+        if (clickedNode) {
+          if (!selectedNodeForWire) {
+            selectedNodeForWire = clickedNode;
+          } else if (selectedNodeForWire.id !== clickedNode.id) {
+            // Проверяем, нет ли уже такой линии
+            const exists = lines.some(l => 
+              (l.from === selectedNodeForWire.id && l.to === clickedNode.id) ||
+              (l.from === clickedNode.id && l.to === selectedNodeForWire.id)
+            );
+            if (!exists) {
+              lines.push({ from: selectedNodeForWire.id, to: clickedNode.id });
+            }
+            selectedNodeForWire = null;
+          }
+        }
+      } 
+      else if (['plant', 'substation', 'house'].includes(currentTool)) {
+        if (!clickedNode) {
+          nodes.push({
+            id: nextId++,
+            type: currentTool,
+            x: x,
+            y: y,
+            powered: false
+          });
+        }
+      }
+
+      calculatePower();
+      updateStats();
+    });
+
+    // Алгоритм поиска питаемых домов (BFS)
+    function calculatePower() {
+      // Сбрасываем статус питания
+      nodes.forEach(n => n.powered = (n.type === 'plant'));
+
+      let queue = nodes.filter(n => n.type === 'plant').map(n => n.id);
+      let visited = new Set(queue);
+
+      while (queue.length > 0) {
+        let currentId = queue.shift();
+
+        // Ищем все соседние узлы
+        lines.forEach(line => {
+          let neighborId = null;
+          if (line.from === currentId) neighborId = line.to;
+          if (line.to === currentId) neighborId = line.from;
+
+          if (neighborId && !visited.has(neighborId)) {
+            visited.add(neighborId);
+            queue.push(neighborId);
+            let node = nodes.find(n => n.id === neighborId);
+            if (node) node.powered = true;
+          }
+        });
+      }
     }
 
-    updateSimulation();
-});
+    function updateStats() {
+      document.getElementById('nodesCount').innerText = nodes.length;
+      const houses = nodes.filter(n => n.type === 'house');
+      const powered = houses.filter(n => n.powered);
+      document.getElementById('poweredHouses').innerText = `${powered.length} / ${houses.length}`;
+    }
 
-// Управление кнопками UI
-const btnWire = document.getElementById('btn-wire');
-const btnPlant = document.getElementById('btn-plant');
-const btnCity = document.getElementById('btn-city');
+    // Отрисовка
+    function drawGrid() {
+      ctx.strokeStyle = '#161b22';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+    }
 
-function setTool(tool, btn) {
-    currentTool = tool;
-    selectedNode = null;
-    document.querySelectorAll('#sidebar button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-}
+    function drawLines() {
+      lines.forEach(line => {
+        const start = nodes.find(n => n.id === line.from);
+        const end = nodes.find(n => n.id === line.to);
+        if (!start || !end) return;
 
-btnWire.onclick = () => setTool('wire', btnWire);
-btnPlant.onclick = () => setTool('plant', btnPlant);
-btnCity.onclick = () => setTool('city', btnCity);
+        const isPowered = start.powered && end.powered;
 
-document.getElementById('btn-clear').onclick = () => {
-    nodes = [];
-    wires = [];
-    selectedNode = null;
-    updateSimulation();
-};
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = isPowered ? '#388bfd' : '#484f58';
+        ctx.stroke();
 
-// Запуск
-updateSimulation();
-draw();
-</script>
+        if (isPowered) {
+          ctx.beginPath();
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#7ee787';
+          ctx.setLineDash([6, 6]);
+          ctx.lineDashOffset = -dashOffset;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      });
+    }
 
+    function drawNodes() {
+      nodes.forEach(node => {
+        ctx.beginPath();
+
+        // Подсветка выбранного узла при протяжке провода
+        if (selectedNodeForWire && selectedNodeForWire.id === node.id) {
+          ctx.arc(node.x, node.y, 25, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(88, 166, 255, 0.3)';
+          ctx.fill();
+        }
+
+        if (node.type === 'plant') {
+          ctx.fillStyle = '#2ea44f';
+          ctx.fillRect(node.x - 20, node.y - 20, 40, 40);
+          ctx.strokeStyle = '#7ee787';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(node.x - 20, node.y - 20, 40, 40);
+        } 
+        else if (node.type === 'substation') {
+          ctx.fillStyle = node.powered ? '#1f6feb' : '#30363d';
+          ctx.beginPath();
+          ctx.moveTo(node.x, node.y - 16); ctx.lineTo(node.x + 16, node.y);
+          ctx.lineTo(node.x, node.y + 16); ctx.lineTo(node.x - 16, node.y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = node.powered ? '#58a6ff' : '#8b949e';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } 
+        else if (node.type === 'house') {
+          ctx.arc(node.x, node.y, 14, 0, Math.PI * 2);
+          ctx.fillStyle = node.powered ? '#a371f7' : '#da3633';
+          ctx.fill();
+        }
+      });
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawLines();
+      drawNodes();
+      dashOffset += 0.6;
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
 </body>
 </html>
