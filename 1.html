@@ -98,6 +98,12 @@
       border-radius: 6px;
       border: 1px dashed #30363d;
     }
+    .rules-list {
+      font-size: 11px;
+      color: #8b949e;
+      padding-left: 15px;
+      margin: 5px 0 0 0;
+    }
   </style>
 </head>
 <body>
@@ -117,26 +123,38 @@
   </div>
 
   <div id="ui-panel">
-    <h2>Статистика</h2>
+    <h2>Правила сети</h2>
     
-    <div class="stat-card">
-      <div class="stat-label">Всего узлов</div>
-      <div class="stat-value" id="nodesCount" style="color: #58a6ff;">0</div>
-    </div>
-
     <div class="stat-card">
       <div class="stat-label">Запитано домов</div>
       <div class="stat-value" id="poweredHouses">0 / 0</div>
     </div>
 
+    <div class="stat-card">
+      <div class="stat-label">Перегруженные ПС</div>
+      <div class="stat-value" id="overloadedCount" style="color: #da3633;">0</div>
+    </div>
+
+    <div class="hint">
+      <strong>Правила размещения:</strong>
+      <ul class="rules-list">
+        <li>Макс. 3 дома на 1 подстанцию.</li>
+        <li>Радиус действия ПС — 200px.</li>
+        <li>При перегрузке ПС отключается.</li>
+      </ul>
+    </div>
+
     <div class="hint" id="helpText">
-      Выберите инструмент сверху и кликните на поле, чтобы разместить объект.
+      Выберите инструмент и кликните по полю.
     </div>
   </div>
 
   <script>
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
+
+    const SUBSTATION_RADIUS = 200;
+    const MAX_HOUSES_PER_SUBSTATION = 3;
 
     function resizeCanvas() {
       canvas.width = document.getElementById('canvas-container').clientWidth;
@@ -145,18 +163,17 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Состояние
     let currentTool = 'select';
     let selectedNodeForWire = null;
+    let hoveredSubstation = null;
     let nextId = 1;
 
     let nodes = [];
     let lines = [];
     let dashOffset = 0;
 
-    // Переключение инструментов
     document.querySelectorAll('.tool-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentTool = btn.dataset.tool;
@@ -168,16 +185,23 @@
     function updateHelpText() {
       const help = document.getElementById('helpText');
       switch (currentTool) {
-        case 'plant': help.innerText = 'Кликните на карту, чтобы построить Электростанцию.'; break;
-        case 'substation': help.innerText = 'Кликните на карту, чтобы построить Подстанцию.'; break;
-        case 'house': help.innerText = 'Кликните на карту, чтобы построить Дом.'; break;
-        case 'wire': help.innerText = 'Кликните сначала на первый узел, затем на второй, чтобы соединить их проводом.'; break;
-        case 'delete': help.innerText = 'Кликните по объекту, чтобы удалить его.'; break;
-        default: help.innerText = 'Режим просмотра. Вы можете изменять структуру сети через меню.'; break;
+        case 'plant': help.innerText = 'Постройте Электростанцию — источник энергии.'; break;
+        case 'substation': help.innerText = `Подстанция питает до ${MAX_HOUSES_PER_SUBSTATION} домов в радиусе ${SUBSTATION_RADIUS}px.`; break;
+        case 'house': help.innerText = 'Разместите прямоугольный дом в зоне действия подстанции.'; break;
+        case 'wire': help.innerText = 'Соединяйте Станцию с Подстанцией, а Подстанцию с Домом.'; break;
+        case 'delete': help.innerText = 'Удаление элементов сети.'; break;
+        default: help.innerText = 'Режим просмотра.'; break;
       }
     }
 
-    // Обработка клика по Canvas
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      hoveredSubstation = nodes.find(n => n.type === 'substation' && Math.hypot(n.x - x, n.y - y) < 25);
+    });
+
     canvas.addEventListener('click', (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -196,13 +220,22 @@
           if (!selectedNodeForWire) {
             selectedNodeForWire = clickedNode;
           } else if (selectedNodeForWire.id !== clickedNode.id) {
-            // Проверяем, нет ли уже такой линии
-            const exists = lines.some(l => 
-              (l.from === selectedNodeForWire.id && l.to === clickedNode.id) ||
-              (l.from === clickedNode.id && l.to === selectedNodeForWire.id)
-            );
-            if (!exists) {
-              lines.push({ from: selectedNodeForWire.id, to: clickedNode.id });
+            
+            const dist = Math.hypot(selectedNodeForWire.x - clickedNode.x, selectedNodeForWire.y - clickedNode.y);
+            const isSubstationToHouse = 
+              (selectedNodeForWire.type === 'substation' && clickedNode.type === 'house') ||
+              (selectedNodeForWire.type === 'house' && clickedNode.type === 'substation');
+
+            if (isSubstationToHouse && dist > SUBSTATION_RADIUS) {
+              alert(`Слишком далеко! Подстанция достает только на ${SUBSTATION_RADIUS}px (сейчас: ${Math.round(dist)}px).`);
+            } else {
+              const exists = lines.some(l => 
+                (l.from === selectedNodeForWire.id && l.to === clickedNode.id) ||
+                (l.from === clickedNode.id && l.to === selectedNodeForWire.id)
+              );
+              if (!exists) {
+                lines.push({ from: selectedNodeForWire.id, to: clickedNode.id });
+              }
             }
             selectedNodeForWire = null;
           }
@@ -215,7 +248,9 @@
             type: currentTool,
             x: x,
             y: y,
-            powered: false
+            powered: false,
+            load: 0,
+            overloaded: false
           });
         }
       }
@@ -224,10 +259,26 @@
       updateStats();
     });
 
-    // Алгоритм поиска питаемых домов (BFS)
     function calculatePower() {
-      // Сбрасываем статус питания
-      nodes.forEach(n => n.powered = (n.type === 'plant'));
+      nodes.forEach(n => {
+        n.powered = (n.type === 'plant');
+        n.load = 0;
+        n.overloaded = false;
+      });
+
+      nodes.filter(n => n.type === 'substation').forEach(sub => {
+        const connectedHouses = lines.filter(l => {
+          const otherId = l.from === sub.id ? l.to : (l.to === sub.id ? l.from : null);
+          if (!otherId) return false;
+          const otherNode = nodes.find(n => n.id === otherId);
+          return otherNode && otherNode.type === 'house';
+        });
+
+        sub.load = connectedHouses.length;
+        if (sub.load > MAX_HOUSES_PER_SUBSTATION) {
+          sub.overloaded = true;
+        }
+      });
 
       let queue = nodes.filter(n => n.type === 'plant').map(n => n.id);
       let visited = new Set(queue);
@@ -235,30 +286,37 @@
       while (queue.length > 0) {
         let currentId = queue.shift();
 
-        // Ищем все соседние узлы
         lines.forEach(line => {
           let neighborId = null;
           if (line.from === currentId) neighborId = line.to;
           if (line.to === currentId) neighborId = line.from;
 
           if (neighborId && !visited.has(neighborId)) {
-            visited.add(neighborId);
-            queue.push(neighborId);
-            let node = nodes.find(n => n.id === neighborId);
-            if (node) node.powered = true;
+            let neighborNode = nodes.find(n => n.id === neighborId);
+
+            if (neighborNode) {
+              if (neighborNode.type === 'substation' && neighborNode.overloaded) {
+                return; 
+              }
+
+              neighborNode.powered = true;
+              visited.add(neighborId);
+              queue.push(neighborId);
+            }
           }
         });
       }
     }
 
     function updateStats() {
-      document.getElementById('nodesCount').innerText = nodes.length;
       const houses = nodes.filter(n => n.type === 'house');
       const powered = houses.filter(n => n.powered);
+      const overloaded = nodes.filter(n => n.type === 'substation' && n.overloaded);
+
       document.getElementById('poweredHouses').innerText = `${powered.length} / ${houses.length}`;
+      document.getElementById('overloadedCount').innerText = overloaded.length;
     }
 
-    // Отрисовка
     function drawGrid() {
       ctx.strokeStyle = '#161b22';
       ctx.lineWidth = 1;
@@ -301,9 +359,19 @@
 
     function drawNodes() {
       nodes.forEach(node => {
+        if (node.type === 'substation' && (hoveredSubstation?.id === node.id || selectedNodeForWire?.id === node.id)) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, SUBSTATION_RADIUS, 0, Math.PI * 2);
+          ctx.fillStyle = node.overloaded ? 'rgba(218, 54, 51, 0.1)' : 'rgba(31, 111, 235, 0.1)';
+          ctx.fill();
+          ctx.strokeStyle = node.overloaded ? '#da3633' : '#1f6feb';
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
         ctx.beginPath();
 
-        // Подсветка выбранного узла при протяжке провода
         if (selectedNodeForWire && selectedNodeForWire.id === node.id) {
           ctx.arc(node.x, node.y, 25, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(88, 166, 255, 0.3)';
@@ -318,20 +386,41 @@
           ctx.strokeRect(node.x - 20, node.y - 20, 40, 40);
         } 
         else if (node.type === 'substation') {
-          ctx.fillStyle = node.powered ? '#1f6feb' : '#30363d';
+          ctx.fillStyle = node.overloaded ? '#da3633' : (node.powered ? '#1f6feb' : '#30363d');
           ctx.beginPath();
           ctx.moveTo(node.x, node.y - 16); ctx.lineTo(node.x + 16, node.y);
           ctx.lineTo(node.x, node.y + 16); ctx.lineTo(node.x - 16, node.y);
           ctx.closePath();
           ctx.fill();
-          ctx.strokeStyle = node.powered ? '#58a6ff' : '#8b949e';
+          ctx.strokeStyle = node.overloaded ? '#f85149' : (node.powered ? '#58a6ff' : '#8b949e');
           ctx.lineWidth = 2;
           ctx.stroke();
+
+          ctx.fillStyle = '#c9d1d9';
+          ctx.font = '10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${node.load}/${MAX_HOUSES_PER_SUBSTATION}`, node.x, node.y + 28);
         } 
         else if (node.type === 'house') {
-          ctx.arc(node.x, node.y, 14, 0, Math.PI * 2);
-          ctx.fillStyle = node.powered ? '#a371f7' : '#da3633';
-          ctx.fill();
+          // Прямоугольный дом
+          const w = 32;
+          const h = 24;
+          const x = node.x - w / 2;
+          const y = node.y - h / 2;
+
+          // Корпус дома
+          ctx.fillStyle = node.powered ? '#8957e5' : '#da3633';
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeStyle = node.powered ? '#d2a8ff' : '#f85149';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, y, w, h);
+
+          // Окна (светятся желтым, если дом запитан)
+          ctx.fillStyle = node.powered ? '#ffe866' : '#21262d';
+          ctx.fillRect(x + 5, y + 5, 8, 6);
+          ctx.fillRect(x + 19, y + 5, 8, 6);
+          ctx.fillRect(x + 5, y + 13, 8, 6);
+          ctx.fillRect(x + 19, y + 13, 8, 6);
         }
       });
     }
