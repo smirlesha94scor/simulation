@@ -3,32 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шаг 4: Вид с поверхности Земли</title>
+    <title>Симуляция: Микро-камера на Земле</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #info {
             position: absolute; top: 10px; left: 10px; color: #fff;
             background: rgba(0, 0, 0, 0.75); padding: 12px 18px; border-radius: 8px;
-            max-width: 320px; font-size: 14px; line-height: 1.4; z-index: 10;
+            max-width: 350px; font-size: 14px; line-height: 1.4; z-index: 10;
         }
         #controls-panel {
             position: absolute; bottom: 20px; left: 10px; z-index: 10;
             background: rgba(0, 0, 0, 0.75); padding: 10px; border-radius: 8px;
         }
         button {
-            background: #28a745; color: white; border: none; padding: 8px 14px;
+            background: #007bff; color: white; border: none; padding: 8px 14px;
             font-size: 14px; border-radius: 4px; cursor: pointer; transition: 0.2s;
         }
-        button:hover { background: #218838; }
+        button:hover { background: #0056b3; }
         .highlight { color: #4da6ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="info">
-    <b>Шаг 4: Вид от 1-го лица</b><br>
+    <b>Микро-камера на Земле</b><br>
     Текущий режим: <span id="mode-text" class="highlight">Космос</span><br>
-    <small>В режиме «С Земли» вы увидите восходы и закаты Солнца и Луны из-за горизонта.</small>
+    <small id="hint">Зажмите ЛКМ для обзора мышью.</small>
 </div>
 
 <div id="controls-panel">
@@ -42,13 +42,12 @@
     // 1. Сцена
     const scene = new THREE.Scene();
 
-    // 2. Две камеры
-    // Камера для космоса
-    const spaceCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    spaceCamera.position.set(0, 20, 35);
+    // 2. Камеры
+    const spaceCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    spaceCamera.position.set(0, 80, 150); 
 
-    // Камера с поверхности Земли (уменьшенный near plane для детального вида вблизи)
-    const surfaceCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+    // Человеческая камера с микроскопическим near plane (0.0001), чтобы видеть поверхность впритык
+    const surfaceCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.0001, 2000);
 
     let activeCamera = spaceCamera;
     let isSurfaceView = false;
@@ -58,87 +57,79 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    const orbitControls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
-    orbitControls.enableDamping = true;
+    // Управление
+    const spaceControls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
+    spaceControls.enableDamping = true;
+
+    const surfaceControls = new THREE.OrbitControls(surfaceCamera, renderer.domElement);
+    surfaceControls.enableDamping = true;
+    surfaceControls.enableZoom = false;
+    surfaceControls.enabled = false;
 
     // Свет
-    const ambientLight = new THREE.AmbientLight(0x151525);
+    const ambientLight = new THREE.AmbientLight(0x333344);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.PointLight(0xffffff, 2, 300);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 1024;
-    sunLight.shadow.mapSize.height = 1024;
     scene.add(sunLight);
 
-    // 3. Солнце
-    const sunGeometry = new THREE.SphereGeometry(3, 32, 32);
-    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+    // 3. СОЛНЦЕ
+    const sunGeometry = new THREE.SphereGeometry(6, 32, 32);
+    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xfff5ea });
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.position.set(0, 0, -400);
     scene.add(sun);
 
-    // --- ИЕРАРХИЯ ОБЪЕКТОВ С ПОВЕРХНОСТЬЮ И КАМЕРОЙ НА ЗЕМЛЕ ---
+    sunLight.position.copy(sun.position);
 
+    // --- ЗЕМЛЯ (ОДНОТОННАЯ) ---
     const earthOrbitGroup = new THREE.Group();
     scene.add(earthOrbitGroup);
 
-    const earthPositionGroup = new THREE.Group();
-    earthPositionGroup.position.set(18, 0, 0);
-    earthOrbitGroup.add(earthPositionGroup);
-
     const earthAxialTiltGroup = new THREE.Group();
     earthAxialTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.5);
-    earthPositionGroup.add(earthAxialTiltGroup);
+    earthOrbitGroup.add(earthAxialTiltGroup);
 
-    // Группа вращения Земли вокруг своей оси
     const earthRotationGroup = new THREE.Group();
     earthAxialTiltGroup.add(earthRotationGroup);
 
-    // Меш Земли
-    const earthRadius = 1.2;
-    const earthGeometry = new THREE.SphereGeometry(earthRadius, 32, 32);
-    const earthMaterial = new THREE.MeshStandardMaterial({ color: 0x2255ff, roughness: 0.6 });
+    const earthRadius = 2.0;
+    // Детализация сферы 128x128, чтобы изгиб планеты вблизи выглядел гладко
+    const earthGeometry = new THREE.SphereGeometry(earthRadius, 128, 128);
+    const earthMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x1d55bb, 
+        roughness: 0.6 
+    });
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     earth.castShadow = true;
     earth.receiveShadow = true;
     earthRotationGroup.add(earth);
 
-    // Точка привязки камеры ("Человек" на экваторе Земли)
-    const humanHeight = 0.05; // В масштабе симуляции
+    // Точка привязки камеры ("Человек" — минимальный отступ от сферы)
     const surfaceAnchor = new THREE.Group();
-    // Ставим человека на верхнюю точку сферы Земли (на экваторе)
-    surfaceAnchor.position.set(0, earthRadius + humanHeight, 0);
-    // Поворачиваем человека лицом к горизонту
-    surfaceAnchor.rotation.x = Math.PI / 2; 
+    // Ставим точку ровно на поверхность (рост человека = +0.001)
+    surfaceAnchor.position.set(0, earthRadius + 0.001, 0); 
     earthRotationGroup.add(surfaceAnchor);
 
-    // Закрепляем камеру поверхности за человеком
+    // Прикрепляем камеру к поверхности
     surfaceAnchor.add(surfaceCamera);
 
-    // Небольшая площадка прямо под ногами человека (горизонт)
-    const groundGeometry = new THREE.PlaneGeometry(1, 1);
-    const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x114411, side: THREE.DoubleSide });
-    const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
-    groundPlane.rotation.x = Math.PI / 2;
-    groundPlane.position.y = -0.01;
-    surfaceAnchor.add(groundPlane);
-
-    // Луна
+    // ЛУНА
     const moonOrbitGroup = new THREE.Group();
     earthAxialTiltGroup.add(moonOrbitGroup);
 
-    const moonGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+    const moonGeometry = new THREE.SphereGeometry(0.5, 16, 16);
     const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.9 });
     const moon = new THREE.Mesh(moonGeometry, moonMaterial);
-    moon.position.set(4, 0, 0);
+    moon.position.set(12, 0, 0);
     moon.castShadow = true;
     moon.receiveShadow = true;
     moonOrbitGroup.add(moon);
 
-    // Переключение камер
+    // Переключение режимов
     const btn = document.getElementById('toggle-cam-btn');
     const modeText = document.getElementById('mode-text');
 
@@ -147,11 +138,16 @@
         if (isSurfaceView) {
             activeCamera = surfaceCamera;
             modeText.innerText = "Поверхность Земли";
-            orbitControls.enabled = false;
+            spaceControls.enabled = false;
+            
+            surfaceControls.enabled = true;
+            // Смотрим прямо вдоль горизонта сферы
+            surfaceControls.target.set(0, earthRadius + 0.001, -1);
         } else {
             activeCamera = spaceCamera;
             modeText.innerText = "Космос";
-            orbitControls.enabled = true;
+            surfaceControls.enabled = false;
+            spaceControls.enabled = true;
         }
     });
 
@@ -163,16 +159,13 @@
 
         const delta = clock.getDelta();
 
-        // Скорости движения
-        earthOrbitGroup.rotation.y += 0.1 * delta;      // Год
-        earthRotationGroup.rotation.y += 0.8 * delta;   // День/Ночь (вращает Землю и человека на ней)
-        moonOrbitGroup.rotation.y += 0.3 * delta;       // Лунный месяц
+        earthRotationGroup.rotation.y += 0.2 * delta;   
+        moonOrbitGroup.rotation.y += 0.05 * delta;     
 
-        if (!isSurfaceView) {
-            orbitControls.update();
+        if (isSurfaceView) {
+            surfaceControls.update();
         } else {
-            // В режиме от 1-го лица направляем взгляд в сторону Солнца/горизонта
-            surfaceCamera.lookAt(sun.getWorldPosition(new THREE.Vector3()));
+            spaceControls.update();
         }
 
         renderer.render(scene, activeCamera);
