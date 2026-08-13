@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция: Ограничение камеры у земли</title>
+    <title>Симуляция: Настоящий вид с поверхности</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #info {
@@ -26,9 +26,9 @@
 <body>
 
 <div id="info">
-    <b>Микро-камера на Земле</b><br>
+    <b>Камера строго на поверхности</b><br>
     Текущий режим: <span id="mode-text" class="highlight">Космос</span><br>
-    <small id="hint">В режиме «С Земли» зажмите ЛКМ. Камера больше не проваливается под землю!</small>
+    <small id="hint">В режиме «С Земли» зажмите ЛКМ и двигайте мышью для обзора.</small>
 </div>
 
 <div id="controls-panel">
@@ -46,7 +46,7 @@
     const spaceCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
     spaceCamera.position.set(0, 80, 150); 
 
-    const surfaceCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.0001, 2000);
+    const surfaceCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.001, 2000);
 
     let activeCamera = spaceCamera;
     let isSurfaceView = false;
@@ -61,16 +61,6 @@
     // Управление для космоса
     const spaceControls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
     spaceControls.enableDamping = true;
-
-    // Управление для поверхности Земли
-    const surfaceControls = new THREE.OrbitControls(surfaceCamera, renderer.domElement);
-    surfaceControls.enableDamping = true;
-    surfaceControls.enableZoom = false; // Отключаем приближение/отдаление
-    surfaceControls.enabled = false;
-
-    // --- ОГРАНИЧЕНИЕ НАКЛОНА (Чтобы не проваливаться под землю) ---
-    surfaceControls.minPolarAngle = 0.01;            // Максимально вверх (в зенит)
-    surfaceControls.maxPolarAngle = Math.PI / 2 - 0.02; // Максимально вниз (чуть выше горизонта)
 
     // Свет
     const ambientLight = new THREE.AmbientLight(0x333344);
@@ -111,14 +101,48 @@
     earth.receiveShadow = true;
     earthRotationGroup.add(earth);
 
-    // Точка привязки камеры ("Человек" на поверхности)
+    // Точка человека ровно на «полюсе» сферы
     const surfaceAnchor = new THREE.Group();
-    // Приподнимаем человека чуть выше радиуса сферы
-    surfaceAnchor.position.set(0, earthRadius + 0.005, 0); 
+    surfaceAnchor.position.set(0, earthRadius + 0.001, 0); 
     earthRotationGroup.add(surfaceAnchor);
 
-    // Прикрепляем камеру к поверхности
-    surfaceAnchor.add(surfaceCamera);
+    // Контейнер головы для вращения мышью
+    const headGroup = new THREE.Group();
+    surfaceAnchor.add(headGroup);
+    headGroup.add(surfaceCamera);
+
+    // Вращение головой мышкой
+    let isMouseDown = false;
+    let mouseX = 0, mouseY = 0;
+    let lon = 0, lat = 0;
+
+    document.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isMouseDown = true;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+
+    document.addEventListener('mouseup', () => { isMouseDown = false; });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isMouseDown || !isSurfaceView) return;
+
+        const deltaX = e.clientX - mouseX;
+        const deltaY = e.clientY - mouseY;
+
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        lon -= deltaX * 0.2;
+        lat -= deltaY * 0.2;
+
+        // Ограничиваем взгляд: не даем опустить голову ниже горизонта
+        lat = Math.max(-2, Math.min(85, lat));
+
+        headGroup.rotation.y = THREE.MathUtils.degToRad(lon);
+        headGroup.rotation.x = THREE.MathUtils.degToRad(lat);
+    });
 
     // ЛУНА
     const moonOrbitGroup = new THREE.Group();
@@ -143,13 +167,13 @@
             modeText.innerText = "Поверхность Земли";
             spaceControls.enabled = false;
             
-            surfaceControls.enabled = true;
-            // Точка, куда изначально смотрит камера (на уровень горизонта)
-            surfaceControls.target.set(0, earthRadius + 0.005, -1);
+            // Сброс поворота головы при включении
+            lon = 0;
+            lat = 0;
+            headGroup.rotation.set(0, 0, 0);
         } else {
             activeCamera = spaceCamera;
             modeText.innerText = "Космос";
-            surfaceControls.enabled = false;
             spaceControls.enabled = true;
         }
     });
@@ -165,9 +189,7 @@
         earthRotationGroup.rotation.y += 0.2 * delta;   
         moonOrbitGroup.rotation.y += 0.05 * delta;     
 
-        if (isSurfaceView) {
-            surfaceControls.update();
-        } else {
+        if (!isSurfaceView) {
             spaceControls.update();
         }
 
