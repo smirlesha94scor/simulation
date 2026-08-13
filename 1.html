@@ -3,35 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Шаг 3: Наклон оси Земли и сезоны</title>
+    <title>Шаг 4: Вид с поверхности Земли</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #info {
             position: absolute; top: 10px; left: 10px; color: #fff;
-            background: rgba(0, 0, 0, 0.7); padding: 12px 18px; border-radius: 8px;
-            max-width: 320px; font-size: 14px; line-height: 1.4;
+            background: rgba(0, 0, 0, 0.75); padding: 12px 18px; border-radius: 8px;
+            max-width: 320px; font-size: 14px; line-height: 1.4; z-index: 10;
         }
+        #controls-panel {
+            position: absolute; bottom: 20px; left: 10px; z-index: 10;
+            background: rgba(0, 0, 0, 0.75); padding: 10px; border-radius: 8px;
+        }
+        button {
+            background: #28a745; color: white; border: none; padding: 8px 14px;
+            font-size: 14px; border-radius: 4px; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background: #218838; }
         .highlight { color: #4da6ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="info">
-    <b>Шаг 3: Наклон оси и физика суток</b><br>
-    • Белая линия: Ось Земли (наклон <span class="highlight">23.5°</span>).<br>
-    • Когда Северный полюс наклонен к Солнцу — в Северном полушарии <span class="highlight">Лето</span>.<br>
-    • Наблюдайте, как освещается планета при движении по орбите.
+    <b>Шаг 4: Вид от 1-го лица</b><br>
+    Текущий режим: <span id="mode-text" class="highlight">Космос</span><br>
+    <small>В режиме «С Земли» вы увидите восходы и закаты Солнца и Луны из-за горизонта.</small>
+</div>
+
+<div id="controls-panel">
+    <button id="toggle-cam-btn">Переключить вид (С Земли / Космос)</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
-    // 1. Сцена и Камера
+    // 1. Сцена
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 15, 35);
 
+    // 2. Две камеры
+    // Камера для космоса
+    const spaceCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    spaceCamera.position.set(0, 20, 35);
+
+    // Камера с поверхности Земли (уменьшенный near plane для детального вида вблизи)
+    const surfaceCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+
+    let activeCamera = spaceCamera;
+    let isSurfaceView = false;
+
+    // Рендерер
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -39,11 +61,11 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    const orbitControls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
+    orbitControls.enableDamping = true;
 
-    // 2. Свет
-    const ambientLight = new THREE.AmbientLight(0x151525); // Легкий темно-синий заполняющий свет
+    // Свет
+    const ambientLight = new THREE.AmbientLight(0x151525);
     scene.add(ambientLight);
 
     const sunLight = new THREE.PointLight(0xffffff, 2, 300);
@@ -58,70 +80,82 @@
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
     scene.add(sun);
 
-    // --- ИЕРАРХИЯ ОБЪЕКТОВ С НАКЛОНОМ ОСИ ---
+    // --- ИЕРАРХИЯ ОБЪЕКТОВ С ПОВЕРХНОСТЬЮ И КАМЕРОЙ НА ЗЕМЛЕ ---
 
-    // А) Группа орбиты Земли (вращается вокруг Солнца)
     const earthOrbitGroup = new THREE.Group();
     scene.add(earthOrbitGroup);
 
-    // Б) Группа позиции Земли (отнесена на расстояние 18 единиц)
     const earthPositionGroup = new THREE.Group();
     earthPositionGroup.position.set(18, 0, 0);
     earthOrbitGroup.add(earthPositionGroup);
 
-    // В) Группа НАКЛОНА ОСИ (зафиксирована под углом 23.5 градуса = 0.41 радиан)
     const earthAxialTiltGroup = new THREE.Group();
-    // Наклоняем ось Z (чтобы наклон сохранял направление в пространстве)
     earthAxialTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.5);
     earthPositionGroup.add(earthAxialTiltGroup);
 
-    // Г) Меш Земли (вращается вокруг собственной наклоненной оси Y)
-    const earthGeometry = new THREE.SphereGeometry(1.2, 32, 32);
-    const earthMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x2255ff, 
-        roughness: 0.6 
-    });
+    // Группа вращения Земли вокруг своей оси
+    const earthRotationGroup = new THREE.Group();
+    earthAxialTiltGroup.add(earthRotationGroup);
+
+    // Меш Земли
+    const earthRadius = 1.2;
+    const earthGeometry = new THREE.SphereGeometry(earthRadius, 32, 32);
+    const earthMaterial = new THREE.MeshStandardMaterial({ color: 0x2255ff, roughness: 0.6 });
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     earth.castShadow = true;
     earth.receiveShadow = true;
-    earthAxialTiltGroup.add(earth);
+    earthRotationGroup.add(earth);
 
-    // Д) Визуализация оси вращения (Белая линия)
-    const axisPoints = [
-        new THREE.Vector3(0, -2.2, 0),
-        new THREE.Vector3(0, 2.2, 0)
-    ];
-    const axisGeometry = new THREE.BufferGeometry().setFromPoints(axisPoints);
-    const axisMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 });
-    const axisLine = new THREE.Line(axisGeometry, axisMaterial);
-    earthAxialTiltGroup.add(axisLine); // Добавляем линию в группу наклона!
+    // Точка привязки камеры ("Человек" на экваторе Земли)
+    const humanHeight = 0.05; // В масштабе симуляции
+    const surfaceAnchor = new THREE.Group();
+    // Ставим человека на верхнюю точку сферы Земли (на экваторе)
+    surfaceAnchor.position.set(0, earthRadius + humanHeight, 0);
+    // Поворачиваем человека лицом к горизонту
+    surfaceAnchor.rotation.x = Math.PI / 2; 
+    earthRotationGroup.add(surfaceAnchor);
 
-    // Е) Группа и меш Луны (вращается в плоскости экватора Земли)
+    // Закрепляем камеру поверхности за человеком
+    surfaceAnchor.add(surfaceCamera);
+
+    // Небольшая площадка прямо под ногами человека (горизонт)
+    const groundGeometry = new THREE.PlaneGeometry(1, 1);
+    const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x114411, side: THREE.DoubleSide });
+    const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+    groundPlane.rotation.x = Math.PI / 2;
+    groundPlane.position.y = -0.01;
+    surfaceAnchor.add(groundPlane);
+
+    // Луна
     const moonOrbitGroup = new THREE.Group();
     earthAxialTiltGroup.add(moonOrbitGroup);
 
     const moonGeometry = new THREE.SphereGeometry(0.35, 16, 16);
     const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.9 });
     const moon = new THREE.Mesh(moonGeometry, moonMaterial);
-    moon.position.set(3, 0, 0);
+    moon.position.set(4, 0, 0);
     moon.castShadow = true;
     moon.receiveShadow = true;
     moonOrbitGroup.add(moon);
 
-    // 4. Отрисовка линии орбиты Земли
-    function createOrbitLine(radius) {
-        const points = [];
-        for (let i = 0; i <= 64; i++) {
-            const theta = (i / 64) * Math.PI * 2;
-            points.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
-        }
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
-        return new THREE.LineLoop(geometry, material);
-    }
-    scene.add(createOrbitLine(18));
+    // Переключение камер
+    const btn = document.getElementById('toggle-cam-btn');
+    const modeText = document.getElementById('mode-text');
 
-    // 5. Анимационный цикл
+    btn.addEventListener('click', () => {
+        isSurfaceView = !isSurfaceView;
+        if (isSurfaceView) {
+            activeCamera = surfaceCamera;
+            modeText.innerText = "Поверхность Земли";
+            orbitControls.enabled = false;
+        } else {
+            activeCamera = spaceCamera;
+            modeText.innerText = "Космос";
+            orbitControls.enabled = true;
+        }
+    });
+
+    // Анимация
     const clock = new THREE.Clock();
 
     function animate() {
@@ -129,22 +163,26 @@
 
         const delta = clock.getDelta();
 
-        // 1. Годовое вращение Земли вокруг Солнца
-        earthOrbitGroup.rotation.y += 0.2 * delta;
+        // Скорости движения
+        earthOrbitGroup.rotation.y += 0.1 * delta;      // Год
+        earthRotationGroup.rotation.y += 0.8 * delta;   // День/Ночь (вращает Землю и человека на ней)
+        moonOrbitGroup.rotation.y += 0.3 * delta;       // Лунный месяц
 
-        // 2. Суточное вращение Земли вокруг своей НАКЛОНЕННОЙ оси
-        earth.rotation.y += 2.5 * delta;
+        if (!isSurfaceView) {
+            orbitControls.update();
+        } else {
+            // В режиме от 1-го лица направляем взгляд в сторону Солнца/горизонта
+            surfaceCamera.lookAt(sun.getWorldPosition(new THREE.Vector3()));
+        }
 
-        // 3. Вращение Луны вокруг Земли
-        moonOrbitGroup.rotation.y += 1.2 * delta;
-
-        controls.update();
-        renderer.render(scene, camera);
+        renderer.render(scene, activeCamera);
     }
 
     window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
+        spaceCamera.aspect = window.innerWidth / window.innerHeight;
+        spaceCamera.updateProjectionMatrix();
+        surfaceCamera.aspect = window.innerWidth / window.innerHeight;
+        surfaceCamera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
