@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция: Микро-камера на Земле</title>
+    <title>Симуляция: Ограничение камеры у земли</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #info {
@@ -28,7 +28,7 @@
 <div id="info">
     <b>Микро-камера на Земле</b><br>
     Текущий режим: <span id="mode-text" class="highlight">Космос</span><br>
-    <small id="hint">Зажмите ЛКМ для обзора мышью.</small>
+    <small id="hint">В режиме «С Земли» зажмите ЛКМ. Камера больше не проваливается под землю!</small>
 </div>
 
 <div id="controls-panel">
@@ -46,7 +46,6 @@
     const spaceCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
     spaceCamera.position.set(0, 80, 150); 
 
-    // Человеческая камера с микроскопическим near plane (0.0001), чтобы видеть поверхность впритык
     const surfaceCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.0001, 2000);
 
     let activeCamera = spaceCamera;
@@ -59,14 +58,19 @@
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // Управление
+    // Управление для космоса
     const spaceControls = new THREE.OrbitControls(spaceCamera, renderer.domElement);
     spaceControls.enableDamping = true;
 
+    // Управление для поверхности Земли
     const surfaceControls = new THREE.OrbitControls(surfaceCamera, renderer.domElement);
     surfaceControls.enableDamping = true;
-    surfaceControls.enableZoom = false;
+    surfaceControls.enableZoom = false; // Отключаем приближение/отдаление
     surfaceControls.enabled = false;
+
+    // --- ОГРАНИЧЕНИЕ НАКЛОНА (Чтобы не проваливаться под землю) ---
+    surfaceControls.minPolarAngle = 0.01;            // Максимально вверх (в зенит)
+    surfaceControls.maxPolarAngle = Math.PI / 2 - 0.02; // Максимально вниз (чуть выше горизонта)
 
     // Свет
     const ambientLight = new THREE.AmbientLight(0x333344);
@@ -85,7 +89,7 @@
 
     sunLight.position.copy(sun.position);
 
-    // --- ЗЕМЛЯ (ОДНОТОННАЯ) ---
+    // --- ЗЕМЛЯ ---
     const earthOrbitGroup = new THREE.Group();
     scene.add(earthOrbitGroup);
 
@@ -97,7 +101,6 @@
     earthAxialTiltGroup.add(earthRotationGroup);
 
     const earthRadius = 2.0;
-    // Детализация сферы 128x128, чтобы изгиб планеты вблизи выглядел гладко
     const earthGeometry = new THREE.SphereGeometry(earthRadius, 128, 128);
     const earthMaterial = new THREE.MeshStandardMaterial({ 
         color: 0x1d55bb, 
@@ -108,10 +111,10 @@
     earth.receiveShadow = true;
     earthRotationGroup.add(earth);
 
-    // Точка привязки камеры ("Человек" — минимальный отступ от сферы)
+    // Точка привязки камеры ("Человек" на поверхности)
     const surfaceAnchor = new THREE.Group();
-    // Ставим точку ровно на поверхность (рост человека = +0.001)
-    surfaceAnchor.position.set(0, earthRadius + 0.001, 0); 
+    // Приподнимаем человека чуть выше радиуса сферы
+    surfaceAnchor.position.set(0, earthRadius + 0.005, 0); 
     earthRotationGroup.add(surfaceAnchor);
 
     // Прикрепляем камеру к поверхности
@@ -141,8 +144,8 @@
             spaceControls.enabled = false;
             
             surfaceControls.enabled = true;
-            // Смотрим прямо вдоль горизонта сферы
-            surfaceControls.target.set(0, earthRadius + 0.001, -1);
+            // Точка, куда изначально смотрит камера (на уровень горизонта)
+            surfaceControls.target.set(0, earthRadius + 0.005, -1);
         } else {
             activeCamera = spaceCamera;
             modeText.innerText = "Космос";
