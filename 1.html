@@ -3,36 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция: Настоящий вид с поверхности</title>
+    <title>Симуляция: Вид с Земли с географией и временем</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
-        #info {
+        
+        /* Панель управления и информации */
+        #ui-panel {
             position: absolute; top: 10px; left: 10px; color: #fff;
-            background: rgba(0, 0, 0, 0.75); padding: 12px 18px; border-radius: 8px;
-            max-width: 350px; font-size: 14px; line-height: 1.4; z-index: 10;
+            background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 8px;
+            max-width: 320px; font-size: 13px; line-height: 1.5; z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        #controls-panel {
-            position: absolute; bottom: 20px; left: 10px; z-index: 10;
-            background: rgba(0, 0, 0, 0.75); padding: 10px; border-radius: 8px;
+        #ui-panel h3 { margin: 0 0 10px 0; font-size: 16px; color: #4da6ff; }
+        
+        .control-group { margin-bottom: 12px; }
+        .control-group label { display: block; margin-bottom: 4px; font-weight: bold; color: #ccc; }
+        
+        select, input[type="datetime-local"], input[type="text"], input[type="range"] {
+            width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #444;
+            background: #222; color: #fff; box-sizing: border-box; font-size: 13px;
         }
-        button {
-            background: #007bff; color: white; border: none; padding: 8px 14px;
-            font-size: 14px; border-radius: 4px; cursor: pointer; transition: 0.2s;
+
+        .btn-main {
+            width: 100%; background: #007bff; color: white; border: none; padding: 10px;
+            font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s;
         }
-        button:hover { background: #0056b3; }
-        .highlight { color: #4da6ff; font-weight: bold; }
+        .btn-main:hover { background: #0056b3; }
+
+        #time-display {
+            font-family: monospace; font-size: 14px; color: #00ffcc; font-weight: bold;
+        }
+        .coords-info { font-size: 11px; color: #888; margin-top: 2px; }
     </style>
 </head>
 <body>
 
-<div id="info">
-    <b>Камера строго на поверхности</b><br>
-    Текущий режим: <span id="mode-text" class="highlight">Космос</span><br>
-    <small id="hint">В режиме «С Земли» зажмите ЛКМ и двигайте мышью для обзора.</small>
-</div>
+<div id="ui-panel">
+    <h3>Интерактивный Планетарий</h3>
 
-<div id="controls-panel">
-    <button id="toggle-cam-btn">Переключить вид (С Земли / Космос)</button>
+    <!-- Режим Камеры -->
+    <div class="control-group">
+        <button id="toggle-cam-btn" class="btn-main">Переключить на вид С Земли</button>
+    </div>
+
+    <!-- Время и Дата -->
+    <div class="control-group">
+        <label>Время симуляции:</label>
+        <div id="time-display">2026-08-13 12:00:00</div>
+        <input type="datetime-local" id="datetime-picker" style="margin-top: 5px;">
+    </div>
+
+    <!-- Скорость Времени -->
+    <div class="control-group">
+        <label>Скорость времени: <span id="speed-val">1x</span></label>
+        <input type="range" id="time-speed" min="0" max="3600" value="60" step="10">
+        <div class="coords-info">0 = пауза, 60 = 1 мин/сек, 3600 = 1 час/сек</div>
+    </div>
+
+    <!-- Локация / Город -->
+    <div class="control-group">
+        <label>Выберите город:</label>
+        <select id="city-select">
+            <option value="55.7558,37.6173">Москва (55.75°, 37.61°)</option>
+            <option value="59.9343,30.3351">Санкт-Петербург (59.93°, 30.33°)</option>
+            <option value="50.4501,30.5234">Киев (50.45°, 30.52°)</option>
+            <option value="43.2389,76.8897">Алматы (43.23°, 76.88°)</option>
+            <option value="53.9006,27.5590">Минск (53.90°, 27.55°)</option>
+            <option value="40.7128,-74.0060">Нью-Йорк (40.71°, -74.00°)</option>
+            <option value="35.6762,139.6503">Токио (35.67°, 139.65°)</option>
+            <option value="0,0">Экватор / Гринвич (0°, 0°)</option>
+            <option value="custom">-- Ввести координаты вручную --</option>
+        </select>
+    </div>
+
+    <div class="control-group" id="custom-coords-group" style="display: none;">
+        <label>Широта, Долгота (через запятую):</label>
+        <input type="text" id="custom-coords" placeholder="Например: 48.8566, 2.3522">
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -67,7 +114,6 @@
     scene.add(ambientLight);
 
     const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    sunLight.castShadow = true;
     scene.add(sunLight);
 
     // 3. СОЛНЦЕ
@@ -79,12 +125,12 @@
 
     sunLight.position.copy(sun.position);
 
-    // --- ЗЕМЛЯ ---
+    // --- ЗЕМЛЯ И ЛОКАЦИЯ ---
     const earthOrbitGroup = new THREE.Group();
     scene.add(earthOrbitGroup);
 
     const earthAxialTiltGroup = new THREE.Group();
-    earthAxialTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.5);
+    earthAxialTiltGroup.rotation.z = THREE.MathUtils.degToRad(23.5); // Наклон оси Земли
     earthOrbitGroup.add(earthAxialTiltGroup);
 
     const earthRotationGroup = new THREE.Group();
@@ -92,32 +138,99 @@
 
     const earthRadius = 2.0;
     const earthGeometry = new THREE.SphereGeometry(earthRadius, 128, 128);
-    const earthMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x1d55bb, 
-        roughness: 0.6 
-    });
+    const earthMaterial = new THREE.MeshStandardMaterial({ color: 0x1d55bb, roughness: 0.6 });
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-    earth.castShadow = true;
-    earth.receiveShadow = true;
     earthRotationGroup.add(earth);
 
-    // Точка человека ровно на «полюсе» сферы
+    // Точка привязки человека по широте и долготе
     const surfaceAnchor = new THREE.Group();
-    surfaceAnchor.position.set(0, earthRadius + 0.001, 0); 
     earthRotationGroup.add(surfaceAnchor);
 
-    // Контейнер головы для вращения мышью
     const headGroup = new THREE.Group();
     surfaceAnchor.add(headGroup);
     headGroup.add(surfaceCamera);
 
-    // Вращение головой мышкой
+    // Функция пересчета широты/долготы в 3D позицию на сфере
+    function setPlayerLocation(lat, lon) {
+        const phi = (90 - lat) * (Math.PI / 180);
+        const theta = (lon + 180) * (Math.PI / 180);
+
+        const r = earthRadius + 0.001; // На поверхности
+        surfaceAnchor.position.x = -(r * Math.sin(phi) * Math.cos(theta));
+        surfaceAnchor.position.z = (r * Math.sin(phi) * Math.sin(theta));
+        surfaceAnchor.position.y = (r * Math.cos(phi));
+
+        // Орентация нормали человека наружу сферы
+        const normal = surfaceAnchor.position.clone().normalize();
+        surfaceAnchor.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    }
+
+    // Стандартное положение — Москва
+    setPlayerLocation(55.7558, 37.6173);
+
+    // ЛУНА
+    const moonOrbitGroup = new THREE.Group();
+    earthAxialTiltGroup.add(moonOrbitGroup);
+
+    const moonGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.9 });
+    const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+    moon.position.set(12, 0, 0);
+    moonOrbitGroup.add(moon);
+
+    // --- УПРАВЛЕНИЕ ВРЕМЕНЕМ И ДАТАМИ ---
+    let simDate = new Date(); // Текущее время симуляции
+    let timeSpeedMultiplier = 60; // По умолчанию 1 сек = 1 минута
+
+    const timeDisplay = document.getElementById('time-display');
+    const datetimePicker = document.getElementById('datetime-picker');
+    const speedSlider = document.getElementById('time-speed');
+    const speedVal = document.getElementById('speed-val');
+
+    // Установка начального значения в input
+    const nowISO = new Date(simDate.getTime() - (simDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    datetimePicker.value = nowISO;
+
+    datetimePicker.addEventListener('change', (e) => {
+        if (e.target.value) {
+            simDate = new Date(e.target.value);
+        }
+    });
+
+    speedSlider.addEventListener('input', (e) => {
+        timeSpeedMultiplier = parseFloat(e.target.value);
+        speedVal.innerText = timeSpeedMultiplier + 'x';
+    });
+
+    // --- УПРАВЛЕНИЕ ЛОКАЦИЕЙ ---
+    const citySelect = document.getElementById('city-select');
+    const customCoordsGroup = document.getElementById('custom-coords-group');
+    const customCoordsInput = document.getElementById('custom-coords');
+
+    citySelect.addEventListener('change', (e) => {
+        if (e.target.value === 'custom') {
+            customCoordsGroup.style.display = 'block';
+        } else {
+            customCoordsGroup.style.display = 'none';
+            const [lat, lon] = e.target.value.split(',').map(Number);
+            setPlayerLocation(lat, lon);
+        }
+    });
+
+    customCoordsInput.addEventListener('change', (e) => {
+        const parts = e.target.value.split(',').map(n => parseFloat(n.trim()));
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            setPlayerLocation(parts[0], parts[1]);
+        }
+    });
+
+    // --- ОБЗОР МЫШЬЮ ---
     let isMouseDown = false;
     let mouseX = 0, mouseY = 0;
     let lon = 0, lat = 0;
 
     document.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
+        if (e.target.closest('#ui-panel')) return; // Игнорируем клики по меню
         isMouseDown = true;
         mouseX = e.clientX;
         mouseY = e.clientY;
@@ -137,48 +250,31 @@
         lon -= deltaX * 0.2;
         lat -= deltaY * 0.2;
 
-        // Ограничиваем взгляд: не даем опустить голову ниже горизонта
-        lat = Math.max(-2, Math.min(85, lat));
+        lat = Math.max(-2, Math.min(85, lat)); // Не опускать голову под землю
 
         headGroup.rotation.y = THREE.MathUtils.degToRad(lon);
         headGroup.rotation.x = THREE.MathUtils.degToRad(lat);
     });
 
-    // ЛУНА
-    const moonOrbitGroup = new THREE.Group();
-    earthAxialTiltGroup.add(moonOrbitGroup);
-
-    const moonGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-    const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.9 });
-    const moon = new THREE.Mesh(moonGeometry, moonMaterial);
-    moon.position.set(12, 0, 0);
-    moon.castShadow = true;
-    moon.receiveShadow = true;
-    moonOrbitGroup.add(moon);
-
-    // Переключение режимов
+    // --- ПЕРЕКЛЮЧЕНИЕ КАМЕРЫ ---
     const btn = document.getElementById('toggle-cam-btn');
-    const modeText = document.getElementById('mode-text');
 
     btn.addEventListener('click', () => {
         isSurfaceView = !isSurfaceView;
         if (isSurfaceView) {
             activeCamera = surfaceCamera;
-            modeText.innerText = "Поверхность Земли";
+            btn.innerText = "Переключить на Космос";
             spaceControls.enabled = false;
-            
-            // Сброс поворота головы при включении
-            lon = 0;
-            lat = 0;
+            lon = 0; lat = 0;
             headGroup.rotation.set(0, 0, 0);
         } else {
             activeCamera = spaceCamera;
-            modeText.innerText = "Космос";
+            btn.innerText = "Переключить на вид С Земли";
             spaceControls.enabled = true;
         }
     });
 
-    // Анимация
+    // --- АНИМАЦИОННЫЙ ЦИКЛ ---
     const clock = new THREE.Clock();
 
     function animate() {
@@ -186,8 +282,20 @@
 
         const delta = clock.getDelta();
 
-        earthRotationGroup.rotation.y += 0.2 * delta;   
-        moonOrbitGroup.rotation.y += 0.05 * delta;     
+        // Обновляем виртуальное время
+        simDate = new Date(simDate.getTime() + delta * 1000 * timeSpeedMultiplier);
+
+        // Форматирование даты на экране
+        timeDisplay.innerText = simDate.toISOString().replace('T', ' ').slice(0, 19);
+
+        // Расчет поворота Земли на основе времени суток (1 оборот = 24 часа = 86400 секунд)
+        const secondsInDay = (simDate.getUTCHours() * 3600) + (simDate.getUTCMinutes() * 60) + simDate.getUTCSeconds() + (simDate.getUTCMilliseconds() / 1000);
+        const dayFraction = secondsInDay / 86400;
+        earthRotationGroup.rotation.y = dayFraction * Math.PI * 2;
+
+        // Вращение Луны (1 оборот за ~27.3 дня)
+        const dayOfYear = (simDate - new Date(simDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24);
+        moonOrbitGroup.rotation.y = (dayOfYear / 27.3) * Math.PI * 2;
 
         if (!isSurfaceView) {
             spaceControls.update();
