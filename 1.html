@@ -75,8 +75,8 @@
     </div>
 
     <div>
-        <label>Скорость времени: <span id="speed-val">1x</span></label>
-        <input type="range" id="time-speed" min="0" max="1000" value="1" step="1">
+        <label>Скорость времени: <span id="speed-val">0x</span></label>
+        <input type="range" id="time-speed" min="0" max="1000" value="0" step="1">
     </div>
 
     <div>
@@ -128,9 +128,9 @@
     const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); // 19:38 CEST
     const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z'); // 20:33 CEST
 
-    let lat = 39.47, lon = -0.37; // По умолчанию Валенсия
+    let lat = 39.47, lon = -0.37;
     let simDate = new Date(UTC_VALENCIA_PEAK.getTime());
-    let speed = 1;
+    let speed = 0;
     let viewAzimuth = 270; 
     let fov = 90; 
     let displayTzOffset = 2; // CEST UTC+2
@@ -150,9 +150,9 @@
         const localDisplayDate = new Date(simDate.getTime() + displayTzOffset * 3600000);
         datetimePicker.value = localDisplayDate.toISOString().slice(0, 16);
     }
-    updatePickerFromSimDate();
 
     tzSelect.value = "2";
+    updatePickerFromSimDate();
 
     tzSelect.addEventListener('change', e => {
         displayTzOffset = parseFloat(e.target.value);
@@ -160,9 +160,13 @@
     });
 
     datetimePicker.addEventListener('change', e => { 
-        if(e.target.value) {
-            const chosen = new Date(e.target.value);
-            simDate = new Date(chosen.getTime() - displayTzOffset * 3600000);
+        if (e.target.value) {
+            const [datePart, timePart] = e.target.value.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hours, minutes] = timePart.split(':').map(Number);
+            
+            const utcTimestamp = Date.UTC(year, month - 1, day, hours - displayTzOffset, minutes);
+            simDate = new Date(utcTimestamp);
         }
     });
 
@@ -299,7 +303,6 @@
         const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60);
         const hours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600 + (lon/15);
         
-        // Исправленный астрономический расчет высоты Солнца над горизонтом
         const declination = 14.8 * Math.PI / 180; 
         const latRad = lat * Math.PI / 180;
         const hourAngle = (hours - 12) * 15 * Math.PI / 180;
@@ -418,7 +421,10 @@
         const dt = (now - lastTime) / 1000;
         lastTime = now;
 
-        simDate = new Date(simDate.getTime() + dt * 1000 * speed);
+        if (speed > 0) {
+            simDate = new Date(simDate.getTime() + dt * 1000 * speed);
+            updatePickerFromSimDate();
+        }
 
         const displayDate = new Date(simDate.getTime() + displayTzOffset * 3600000);
         let tzName = displayTzOffset === 3 ? 'EEST' : (displayTzOffset === 2 ? 'CEST' : 'UTC');
