@@ -95,7 +95,7 @@
 
 <div id="canvas-container">
     <div class="canvas-box">
-        <div class="canvas-label">1. Космос (Вид с Северного Полюса)</div>
+        <div class="canvas-label">1. Космос (Вид с Северного Полюса: Вращение против часовой)</div>
         <canvas id="spaceCanvas"></canvas>
     </div>
     <div class="canvas-box">
@@ -120,18 +120,18 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // Точные UTC даты ключевых моментов
+    // UTC тайминги ключевых моментов
     const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); 
     const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z');
-    const UTC_LOCAL_MAX      = new Date('2026-08-12T18:03:00Z'); // 21:03 EEST
+    const UTC_LOCAL_MAX      = new Date('2026-08-12T18:03:00Z');
 
-    // Параметры по умолчанию (Краматорск / UTC+3)
+    // Настройки по умолчанию (Украина, Краматорск / UTC+3)
     let lat = 48.73, lon = 37.56; 
     let simDate = new Date(UTC_LOCAL_MAX.getTime());
     let speed = 1;
     let viewAzimuth = 285; 
     let fov = 50; 
-    let displayTzOffset = 3; // EEST
+    let displayTzOffset = 3;
 
     const timeDisplay = document.getElementById('time-display');
     const datetimePicker = document.getElementById('datetime-picker');
@@ -166,34 +166,28 @@
     azimuthSlider.addEventListener('input', e => { viewAzimuth = parseFloat(e.target.value); updateAzimuthLabel(); });
     fovSlider.addEventListener('input', e => { fov = parseFloat(e.target.value); fovVal.innerText = fov + '°'; });
 
-    // Кнопка: Начало в Валенсии
     document.getElementById('valencia-start-btn').addEventListener('click', () => {
-        lat = 39.47; lon = -0.37; // Координаты Валенсии
+        lat = 39.47; lon = -0.37;
         simDate = new Date(UTC_VALENCIA_START.getTime());
-        speed = 60;
-        speedSlider.value = 60; speedVal.innerText = '60x';
+        speed = 60; speedSlider.value = 60; speedVal.innerText = '60x';
         viewAzimuth = 270; azimuthSlider.value = 270;
         updateAzimuthLabel();
         updatePickerFromSimDate();
     });
 
-    // Кнопка: Пик в Валенсии
     document.getElementById('valencia-peak-btn').addEventListener('click', () => {
         lat = 39.47; lon = -0.37;
         simDate = new Date(UTC_VALENCIA_PEAK.getTime());
-        speed = 1;
-        speedSlider.value = 1; speedVal.innerText = '1x';
+        speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
         viewAzimuth = 280; azimuthSlider.value = 280;
         updateAzimuthLabel();
         updatePickerFromSimDate();
     });
 
-    // Кнопка: Максимум в вашем регионе
     document.getElementById('local-max-btn').addEventListener('click', () => {
-        lat = 48.73; lon = 37.56; // Ваша текущая геопозиция
+        lat = 48.73; lon = 37.56;
         simDate = new Date(UTC_LOCAL_MAX.getTime());
-        speed = 1;
-        speedSlider.value = 1; speedVal.innerText = '1x';
+        speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
         viewAzimuth = 285; azimuthSlider.value = 285;
         updateAzimuthLabel();
         updatePickerFromSimDate();
@@ -205,7 +199,6 @@
         azimuthVal.innerText = `${Math.round(viewAzimuth)}° (${dirs[idx]})`;
     }
 
-    // Перетаскивание камеры мышью
     let isDragging = false, lastMouseX = 0;
     skyCanvas.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; });
     window.addEventListener('mousemove', e => {
@@ -219,86 +212,81 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // 1. Отрисовка космической модели
-   function drawSpace() {
-    const w = spaceCanvas.width, h = spaceCanvas.height;
-    spaceCtx.clearRect(0, 0, w, h);
-    const centerX = w / 2, centerY = h / 2;
+    // 1. Отрисовка схемы в космосе
+    function drawSpace() {
+        const w = spaceCanvas.width, h = spaceCanvas.height;
+        spaceCtx.clearRect(0, 0, w, h);
+        const centerX = w / 2, centerY = h / 2;
 
-    // 1. Солнце (Слева)
-    const sunX = centerX - 180, sunY = centerY;
-    spaceCtx.beginPath();
-    spaceCtx.arc(sunX, sunY, 14, 0, Math.PI * 2);
-    spaceCtx.fillStyle = '#ffcc00';
-    spaceCtx.shadowColor = '#ffcc00';
-    spaceCtx.shadowBlur = 15;
-    spaceCtx.fill();
-    spaceCtx.shadowBlur = 0;
+        // Солнце (Слева)
+        const sunX = centerX - 180, sunY = centerY;
+        spaceCtx.beginPath();
+        spaceCtx.arc(sunX, sunY, 14, 0, Math.PI * 2);
+        spaceCtx.fillStyle = '#ffcc00';
+        spaceCtx.shadowColor = '#ffcc00';
+        spaceCtx.shadowBlur = 15;
+        spaceCtx.fill();
+        spaceCtx.shadowBlur = 0;
 
-    // 2. Земля
-    const earthX = centerX + 60, earthY = centerY, earthR = 18;
-    
-    // Дневная / Ночная сторона Земли
-    spaceCtx.beginPath();
-    spaceCtx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
-    spaceCtx.fillStyle = '#1d55bb';
-    spaceCtx.fill();
+        // Земля
+        const earthX = centerX + 60, earthY = centerY, earthR = 18;
+        
+        // Дневная сторона
+        spaceCtx.beginPath();
+        spaceCtx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+        spaceCtx.fillStyle = '#1d55bb';
+        spaceCtx.fill();
 
-    // Тень на Земле (ночная сторона справа)
-    spaceCtx.beginPath();
-    spaceCtx.arc(earthX, earthY, earthR, -Math.PI / 2, Math.PI / 2);
-    spaceCtx.fillStyle = 'rgba(0,0,0,0.5)';
-    spaceCtx.fill();
+        // Ночная сторона (Тень справа от Солнца)
+        spaceCtx.beginPath();
+        spaceCtx.arc(earthX, earthY, earthR, -Math.PI / 2, Math.PI / 2);
+        spaceCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        spaceCtx.fill();
 
-    // 3. Красная точка (Наблюдатель) - вращение ПРОТИВ часовой
-    const utcHours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600;
-    // Угол поворота Земли со смещением к Солнцу
-    const dayAngle = ((utcHours / 24) * Math.PI * 2) + (lon * Math.PI / 180);
-    
-    const cityX = earthX - Math.cos(dayAngle) * earthR;
-    const cityY = earthY - Math.sin(dayAngle) * earthR;
+        // Положение наблюдателя (ПРОТИВ ЧАСОВОЙ СТРЕЛКИ: -Math.sin)
+        const utcHours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600;
+        const dayAngle = ((utcHours / 24) * Math.PI * 2) + (lon * Math.PI / 180);
+        
+        const cityX = earthX - Math.cos(dayAngle) * earthR;
+        const cityY = earthY - Math.sin(dayAngle) * earthR; 
 
-    spaceCtx.beginPath();
-    spaceCtx.arc(cityX, cityY, 3.5, 0, Math.PI * 2);
-    spaceCtx.fillStyle = '#ff0055';
-    spaceCtx.fill();
+        spaceCtx.beginPath();
+        spaceCtx.arc(cityX, cityY, 3.5, 0, Math.PI * 2);
+        spaceCtx.fillStyle = '#ff0055';
+        spaceCtx.fill();
 
-    // 4. Орбита и Луна - вращение ПРОТИВ часовой стрелки
-    const moonOrbitR = 55;
-    // Минуты от пика затмения
-    const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60); 
-    
-    // Вращение против часовой: при увеличении времени угол растет
-    const moonAngle = Math.PI + (minDiff * 0.0012); 
+        // Вращение Луны (ПРОТИВ ЧАСОВОЙ СТРЕЛКИ: -Math.sin)
+        const moonOrbitR = 55;
+        const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60); 
 
-    const moonX = earthX + Math.cos(moonAngle) * moonOrbitR;
-    const moonY = earthY + Math.sin(moonAngle) * moonOrbitR;
+        const moonAngle = Math.PI + (minDiff * 0.0012); 
 
-    // Линия орбиты
-    spaceCtx.beginPath();
-    spaceCtx.arc(earthX, earthY, moonOrbitR, 0, Math.PI * 2);
-    spaceCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    spaceCtx.stroke();
+        const moonX = earthX + Math.cos(moonAngle) * moonOrbitR;
+        const moonY = earthY - Math.sin(moonAngle) * moonOrbitR; 
 
-    // Луна
-    spaceCtx.beginPath();
-    spaceCtx.arc(moonX, moonY, 5, 0, Math.PI * 2);
-    spaceCtx.fillStyle = '#cccccc';
-    spaceCtx.fill();
-    
-    // Текст
-    spaceCtx.fillStyle = '#aaa';
-    spaceCtx.font = '11px sans-serif';
-    spaceCtx.fillText('Земля (↺)', earthX - 20, earthY + 32);
-    spaceCtx.fillText('Солнце', sunX - 18, sunY + 30);
-}
+        // Орбита
+        spaceCtx.beginPath();
+        spaceCtx.arc(earthX, earthY, moonOrbitR, 0, Math.PI * 2);
+        spaceCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        spaceCtx.stroke();
+
+        // Луна
+        spaceCtx.beginPath();
+        spaceCtx.arc(moonX, moonY, 5, 0, Math.PI * 2);
+        spaceCtx.fillStyle = '#cccccc';
+        spaceCtx.fill();
+        
+        spaceCtx.fillStyle = '#aaa';
+        spaceCtx.font = '11px sans-serif';
+        spaceCtx.fillText('Земля (↺)', earthX - 20, earthY + 32);
+        spaceCtx.fillText('Солнце', sunX - 18, sunY + 30);
+    }
 
     // 2. Отрисовка вида с Земли
     function drawSky() {
         const w = skyCanvas.width, h = skyCanvas.height;
         const horizonY = h * 0.75;
 
-        // Коррекция смещения точки наблюдения относительно Валенсии
         const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60);
         const hours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600 + (lon/15);
         const sunAltDeg = Math.sin((hours - 6) / 24 * Math.PI * 2) * (90 - Math.abs(lat - 23.44));
@@ -306,7 +294,6 @@
         let sunAzimuth = (hours / 24) * 360; 
         if (sunAzimuth >= 360) sunAzimuth -= 360;
 
-        // Расчет позиции Луны с учетом ширины (смещение тени для локальных координат)
         const latOffset = (lat - 39.47) * 0.012; 
         const moonAltDeg = sunAltDeg - (minDiff * 0.003) - latOffset;
         const moonAzimuth = sunAzimuth - (minDiff * 0.009);
@@ -320,7 +307,6 @@
 
         infoText.innerText = `Место: ${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E\nСтатус: ${phaseStatus}\nПерекрытие: ${coveragePct}%\nВысота: ${sunAltDeg.toFixed(1)}°\nАзимут: ${sunAzimuth.toFixed(1)}°`;
 
-        // Небо
         let skyGrad = skyCtx.createLinearGradient(0, 0, 0, h);
         if (coveragePct >= 98) {
             skyGrad.addColorStop(0, '#02050e'); skyGrad.addColorStop(1, '#070b14');
@@ -350,7 +336,6 @@
         const sunRadius = (0.53 / fov) * w;
         const moonRadius = sunRadius * 1.02;
 
-        // Корона только при полном перекрытии
         if (coveragePct >= 98 && sunScreen.visible) {
             let corona = skyCtx.createRadialGradient(sunScreen.x, sunScreen.y, sunRadius, sunScreen.x, sunScreen.y, sunRadius * 4.5);
             corona.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
@@ -362,7 +347,6 @@
             skyCtx.fill();
         }
 
-        // Солнце
         if (sunScreen.visible) {
             skyCtx.beginPath();
             skyCtx.arc(sunScreen.x, sunScreen.y, Math.max(2, sunRadius), 0, Math.PI * 2);
@@ -373,7 +357,6 @@
             skyCtx.shadowBlur = 0;
         }
 
-        // Луна
         if (moonScreen.visible) {
             skyCtx.beginPath();
             skyCtx.arc(moonScreen.x, moonScreen.y, Math.max(2, moonRadius), 0, Math.PI * 2);
@@ -381,7 +364,6 @@
             skyCtx.fill();
         }
 
-        // Горизонт
         skyCtx.fillStyle = coveragePct >= 98 ? '#030502' : '#0a1207';
         skyCtx.fillRect(0, horizonY, w, h - horizonY);
         skyCtx.strokeStyle = '#1e3818';
@@ -391,7 +373,6 @@
         skyCtx.lineTo(w, horizonY);
         skyCtx.stroke();
 
-        // Компас
         const compassPoints = [
             { az: 0, label: 'N' }, { az: 45, label: 'NE' },
             { az: 90, label: 'E' }, { az: 135, label: 'SE' },
