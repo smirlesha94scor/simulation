@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2D Планетарий: Затмение 12 августа 2026</title>
     <style>
+        * { box-sizing: border-box; }
         body { margin: 0; background: #0a0d14; color: #fff; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
         #ui { 
             width: 350px; background: #131722; padding: 15px; box-sizing: border-box; 
             display: flex; flex-direction: column; gap: 10px; font-size: 13px; z-index: 10; 
-            border-right: 1px solid #232936; overflow-y: auto;
+            border-right: 1px solid #232936; overflow-y: auto; flex-shrink: 0;
         }
         h3 { margin: 0; color: #4da6ff; font-size: 16px; }
         label { font-weight: bold; color: #aaa; margin-bottom: 3px; display: block; }
@@ -27,11 +28,11 @@
         .btn-valencia { background: #e67e22; }
         .btn-valencia:hover { background: #d35400; }
         
-        #canvas-container { flex: 1; display: flex; flex-direction: column; height: 100%; }
-        .canvas-box { flex: 1; position: relative; border-bottom: 1px solid #232936; }
+        #canvas-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+        .canvas-box { flex: 1; position: relative; border-bottom: 1px solid #232936; overflow: hidden; }
         .canvas-label { 
             position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); 
-            padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #00ffcc; font-size: 12px; pointer-events: none;
+            padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #00ffcc; font-size: 12px; pointer-events: none; z-index: 5;
         }
         canvas { width: 100%; height: 100%; display: block; cursor: grab; }
         canvas:active { cursor: grabbing; }
@@ -69,7 +70,7 @@
 
     <div>
         <label>Дата и время симуляции:</label>
-        <div id="time-display" class="time-readout">2026-08-12 21:03:00 (EEST)</div>
+        <div id="time-display" class="time-readout">2026-08-12 20:33:00 (CEST)</div>
         <input type="datetime-local" id="datetime-picker">
     </div>
 
@@ -79,13 +80,13 @@
     </div>
 
     <div>
-        <label>Направление взгляда (Азимут): <span id="azimuth-val">285° (Северо-Запад)</span></label>
-        <input type="range" id="azimuth-slider" min="0" max="360" value="285" step="1">
+        <label>Направление взгляда (Азимут): <span id="azimuth-val">270° (Зап)</span></label>
+        <input type="range" id="azimuth-slider" min="0" max="360" value="270" step="1">
     </div>
 
     <div>
-        <label>Угол обзора глаза (FOV): <span id="fov-val">50°</span></label>
-        <input type="range" id="fov-slider" min="10" max="120" value="50" step="1">
+        <label>Угол обзора глаза (FOV): <span id="fov-val">90°</span></label>
+        <input type="range" id="fov-slider" min="10" max="120" value="90" step="1">
     </div>
 
     <div style="margin-top: auto; background: #0d111a; padding: 10px; border-radius: 4px; line-height: 1.4;">
@@ -127,13 +128,12 @@
     const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); // 19:38 CEST
     const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z'); // 20:33 CEST
 
-    // По умолчанию выбран ваш регион (UTC+3)
-    let lat = 48.73, lon = 37.56; 
-    let simDate = new Date(UTC_LOCAL_MAX.getTime());
+    let lat = 39.47, lon = -0.37; // По умолчанию Валенсия
+    let simDate = new Date(UTC_VALENCIA_PEAK.getTime());
     let speed = 1;
-    let viewAzimuth = 285; 
-    let fov = 50; 
-    let displayTzOffset = 3;
+    let viewAzimuth = 270; 
+    let fov = 90; 
+    let displayTzOffset = 2; // CEST UTC+2
 
     const timeDisplay = document.getElementById('time-display');
     const datetimePicker = document.getElementById('datetime-picker');
@@ -152,6 +152,8 @@
     }
     updatePickerFromSimDate();
 
+    tzSelect.value = "2";
+
     tzSelect.addEventListener('change', e => {
         displayTzOffset = parseFloat(e.target.value);
         updatePickerFromSimDate();
@@ -168,12 +170,12 @@
     azimuthSlider.addEventListener('input', e => { viewAzimuth = parseFloat(e.target.value); updateAzimuthLabel(); });
     fovSlider.addEventListener('input', e => { fov = parseFloat(e.target.value); fovVal.innerText = fov + '°'; });
 
-    // Пресеты для Вашего местоположения
+    // Пресеты
     document.getElementById('local-start-btn').addEventListener('click', () => {
         lat = 48.73; lon = 37.56;
         displayTzOffset = 3; tzSelect.value = "3";
         simDate = new Date(UTC_LOCAL_START.getTime());
-        speed = 30; speedSlider.value = 30; speedVal.innerText = '30x';
+        speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
         viewAzimuth = 280; azimuthSlider.value = 280;
         updateAzimuthLabel();
         updatePickerFromSimDate();
@@ -189,12 +191,11 @@
         updatePickerFromSimDate();
     });
 
-    // Пресеты для Валенсии
     document.getElementById('valencia-start-btn').addEventListener('click', () => {
         lat = 39.47; lon = -0.37;
         displayTzOffset = 2; tzSelect.value = "2";
         simDate = new Date(UTC_VALENCIA_START.getTime());
-        speed = 60; speedSlider.value = 60; speedVal.innerText = '60x';
+        speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
         viewAzimuth = 270; azimuthSlider.value = 270;
         updateAzimuthLabel();
         updatePickerFromSimDate();
@@ -205,7 +206,7 @@
         displayTzOffset = 2; tzSelect.value = "2";
         simDate = new Date(UTC_VALENCIA_PEAK.getTime());
         speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
-        viewAzimuth = 280; azimuthSlider.value = 280;
+        viewAzimuth = 270; azimuthSlider.value = 270;
         updateAzimuthLabel();
         updatePickerFromSimDate();
     });
@@ -229,13 +230,12 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // 1. Космос (Вид с Северного Полюса)
+    // 1. Космос
     function drawSpace() {
         const w = spaceCanvas.width, h = spaceCanvas.height;
         spaceCtx.clearRect(0, 0, w, h);
         const centerX = w / 2, centerY = h / 2;
 
-        // Солнце (Слева)
         const sunX = centerX - 180, sunY = centerY;
         spaceCtx.beginPath();
         spaceCtx.arc(sunX, sunY, 14, 0, Math.PI * 2);
@@ -245,26 +245,21 @@
         spaceCtx.fill();
         spaceCtx.shadowBlur = 0;
 
-        // Земля
         const earthX = centerX + 60, earthY = centerY, earthR = 18;
         
-        // Дневная сторона
         spaceCtx.beginPath();
         spaceCtx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
         spaceCtx.fillStyle = '#1d55bb';
         spaceCtx.fill();
 
-        // Ночная сторона (справа)
         spaceCtx.beginPath();
         spaceCtx.arc(earthX, earthY, earthR, -Math.PI / 2, Math.PI / 2);
         spaceCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         spaceCtx.fill();
 
-        // Угол суточного вращения Земли
         const utcHours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600;
         const dayAngle = ((utcHours / 24) * Math.PI * 2) + (lon * Math.PI / 180);
         
-        // Вращение ПРОТИВ ЧАСОВОЙ СТРЕЛКИ (+ Math.cos и - Math.sin)
         const cityX = earthX + Math.cos(dayAngle) * earthR;
         const cityY = earthY - Math.sin(dayAngle) * earthR; 
 
@@ -273,22 +268,18 @@
         spaceCtx.fillStyle = '#ff0055';
         spaceCtx.fill();
 
-        // Орбита и движение Луны (Вращение ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
         const moonOrbitR = 55;
         const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60); 
-
         const moonAngle = Math.PI + (minDiff * 0.0012); 
 
         const moonX = earthX + Math.cos(moonAngle) * moonOrbitR;
         const moonY = earthY - Math.sin(moonAngle) * moonOrbitR; 
 
-        // Траектория орбиты
         spaceCtx.beginPath();
         spaceCtx.arc(earthX, earthY, moonOrbitR, 0, Math.PI * 2);
         spaceCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         spaceCtx.stroke();
 
-        // Луна
         spaceCtx.beginPath();
         spaceCtx.arc(moonX, moonY, 5, 0, Math.PI * 2);
         spaceCtx.fillStyle = '#cccccc';
@@ -307,9 +298,15 @@
 
         const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60);
         const hours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600 + (lon/15);
-        const sunAltDeg = Math.sin((hours - 6) / 24 * Math.PI * 2) * (90 - Math.abs(lat - 23.44));
         
-        let sunAzimuth = (hours / 24) * 360; 
+        // Исправленный астрономический расчет высоты Солнца над горизонтом
+        const declination = 14.8 * Math.PI / 180; 
+        const latRad = lat * Math.PI / 180;
+        const hourAngle = (hours - 12) * 15 * Math.PI / 180;
+        const sinAlt = Math.sin(latRad) * Math.sin(declination) + Math.cos(latRad) * Math.cos(declination) * Math.cos(hourAngle);
+        const sunAltDeg = Math.asin(sinAlt) * (180 / Math.PI);
+        
+        let sunAzimuth = 270 + (hours - 18) * 15;
         if (sunAzimuth >= 360) sunAzimuth -= 360;
 
         const latOffset = (lat - 39.47) * 0.012; 
