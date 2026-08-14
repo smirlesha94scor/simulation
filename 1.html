@@ -220,61 +220,78 @@
     window.addEventListener('mouseup', () => { isDragging = false; });
 
     // 1. Отрисовка космической модели
-    function drawSpace() {
-        const w = spaceCanvas.width, h = spaceCanvas.height;
-        spaceCtx.clearRect(0, 0, w, h);
-        const centerX = w / 2, centerY = h / 2;
+   function drawSpace() {
+    const w = spaceCanvas.width, h = spaceCanvas.height;
+    spaceCtx.clearRect(0, 0, w, h);
+    const centerX = w / 2, centerY = h / 2;
 
-        // Солнце
-        spaceCtx.beginPath();
-        spaceCtx.arc(centerX - 180, centerY, 14, 0, Math.PI * 2);
-        spaceCtx.fillStyle = '#ffcc00';
-        spaceCtx.shadowColor = '#ffcc00';
-        spaceCtx.shadowBlur = 15;
-        spaceCtx.fill();
-        spaceCtx.shadowBlur = 0;
+    // 1. Солнце (Слева)
+    const sunX = centerX - 180, sunY = centerY;
+    spaceCtx.beginPath();
+    spaceCtx.arc(sunX, sunY, 14, 0, Math.PI * 2);
+    spaceCtx.fillStyle = '#ffcc00';
+    spaceCtx.shadowColor = '#ffcc00';
+    spaceCtx.shadowBlur = 15;
+    spaceCtx.fill();
+    spaceCtx.shadowBlur = 0;
 
-        // Земля
-        const earthX = centerX + 40, earthY = centerY, earthR = 18;
-        spaceCtx.beginPath();
-        spaceCtx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
-        spaceCtx.fillStyle = '#1d55bb';
-        spaceCtx.fill();
+    // 2. Земля
+    const earthX = centerX + 60, earthY = centerY, earthR = 18;
+    
+    // Дневная / Ночная сторона Земли
+    spaceCtx.beginPath();
+    spaceCtx.arc(earthX, earthY, earthR, 0, Math.PI * 2);
+    spaceCtx.fillStyle = '#1d55bb';
+    spaceCtx.fill();
 
-        // Позиция наблюдателя
-        const secondsInDay = (simDate.getUTCHours() * 3600) + (simDate.getUTCMinutes() * 60) + simDate.getUTCSeconds();
-        const dayAngle = (secondsInDay / 86400) * Math.PI * 2;
-        const cityAngle = -dayAngle - (lon * Math.PI / 180);
-        const cityX = earthX + Math.sin(cityAngle) * earthR;
-        const cityY = earthY - Math.cos(cityAngle) * earthR;
+    // Тень на Земле (ночная сторона справа)
+    spaceCtx.beginPath();
+    spaceCtx.arc(earthX, earthY, earthR, -Math.PI / 2, Math.PI / 2);
+    spaceCtx.fillStyle = 'rgba(0,0,0,0.5)';
+    spaceCtx.fill();
 
-        spaceCtx.beginPath();
-        spaceCtx.arc(cityX, cityY, 3, 0, Math.PI * 2);
-        spaceCtx.fillStyle = '#ff0055';
-        spaceCtx.fill();
+    // 3. Красная точка (Наблюдатель) - вращение ПРОТИВ часовой
+    const utcHours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600;
+    // Угол поворота Земли со смещением к Солнцу
+    const dayAngle = ((utcHours / 24) * Math.PI * 2) + (lon * Math.PI / 180);
+    
+    const cityX = earthX - Math.cos(dayAngle) * earthR;
+    const cityY = earthY - Math.sin(dayAngle) * earthR;
 
-        // Луна
-        const moonOrbitR = 55;
-        const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60);
-        const moonAngle = Math.PI - (minDiff * 0.0005); 
+    spaceCtx.beginPath();
+    spaceCtx.arc(cityX, cityY, 3.5, 0, Math.PI * 2);
+    spaceCtx.fillStyle = '#ff0055';
+    spaceCtx.fill();
 
-        const moonX = earthX + Math.cos(moonAngle) * moonOrbitR;
-        const moonY = earthY - Math.sin(moonAngle) * moonOrbitR;
+    // 4. Орбита и Луна - вращение ПРОТИВ часовой стрелки
+    const moonOrbitR = 55;
+    // Минуты от пика затмения
+    const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60); 
+    
+    // Вращение против часовой: при увеличении времени угол растет
+    const moonAngle = Math.PI + (minDiff * 0.0012); 
 
-        spaceCtx.beginPath();
-        spaceCtx.arc(earthX, earthY, moonOrbitR, 0, Math.PI * 2);
-        spaceCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        spaceCtx.stroke();
+    const moonX = earthX + Math.cos(moonAngle) * moonOrbitR;
+    const moonY = earthY + Math.sin(moonAngle) * moonOrbitR;
 
-        spaceCtx.beginPath();
-        spaceCtx.arc(moonX, moonY, 5, 0, Math.PI * 2);
-        spaceCtx.fillStyle = '#cccccc';
-        spaceCtx.fill();
-        
-        spaceCtx.fillStyle = '#aaa';
-        spaceCtx.font = '11px sans-serif';
-        spaceCtx.fillText('Земля', earthX - 15, earthY + 34);
-    }
+    // Линия орбиты
+    spaceCtx.beginPath();
+    spaceCtx.arc(earthX, earthY, moonOrbitR, 0, Math.PI * 2);
+    spaceCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    spaceCtx.stroke();
+
+    // Луна
+    spaceCtx.beginPath();
+    spaceCtx.arc(moonX, moonY, 5, 0, Math.PI * 2);
+    spaceCtx.fillStyle = '#cccccc';
+    spaceCtx.fill();
+    
+    // Текст
+    spaceCtx.fillStyle = '#aaa';
+    spaceCtx.font = '11px sans-serif';
+    spaceCtx.fillText('Земля (↺)', earthX - 20, earthY + 32);
+    spaceCtx.fillText('Солнце', sunX - 18, sunY + 30);
+}
 
     // 2. Отрисовка вида с Земли
     function drawSky() {
