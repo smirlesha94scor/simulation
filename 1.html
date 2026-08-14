@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2D Планетарий: Затмение 12 августа 2026</title>
+    <!-- Leaflet CSS для интерактивной карты -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; background: #0a0d14; color: #fff; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
         #ui { 
-            width: 350px; background: #131722; padding: 15px; box-sizing: border-box; 
+            width: 360px; background: #131722; padding: 15px; box-sizing: border-box; 
             display: flex; flex-direction: column; gap: 10px; font-size: 13px; z-index: 10; 
             border-right: 1px solid #232936; overflow-y: auto; flex-shrink: 0;
         }
@@ -27,7 +29,18 @@
         .btn-local:hover { background: #008855; }
         .btn-valencia { background: #e67e22; }
         .btn-valencia:hover { background: #d35400; }
-        
+
+        /* Стиль для блока карты */
+        #map-container {
+            width: 100%;
+            height: 180px;
+            border-radius: 6px;
+            border: 1px solid #323b4e;
+            overflow: hidden;
+            position: relative;
+        }
+        #map { width: 100%; height: 100%; }
+
         #canvas-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
         .canvas-box { flex: 1; position: relative; border-bottom: 1px solid #232936; overflow: hidden; }
         .canvas-label { 
@@ -42,9 +55,16 @@
 
 <div id="ui">
     <h3>2D Астрономический симулятор</h3>
+
+    <div>
+        <label>Выбор точки наблюдения на карте:</label>
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
     
     <div>
-        <label>1. Ваше местоположение (Частное):</label>
+        <label>1. Украина / Восток (Частное):</label>
         <div class="btn-group">
             <button class="btn-preset btn-local" id="local-start-btn">▶ Старт фазы (20:39 EEST)</button>
             <button class="btn-preset btn-local" id="local-max-btn">✹ Максимум на закате (21:03 EEST)</button>
@@ -106,6 +126,9 @@
     </div>
 </div>
 
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
     const spaceCanvas = document.getElementById('spaceCanvas');
     const spaceCtx = spaceCanvas.getContext('2d');
@@ -128,13 +151,43 @@
     const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); // 19:38 CEST
     const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z'); // 20:33 CEST
 
-    let lat = 39.47, lon = -0.37;
+    let lat = 39.47, lon = -0.37; // По умолчанию: Валенсия
     let simDate = new Date(UTC_VALENCIA_PEAK.getTime());
     let speed = 0;
     let viewAzimuth = 270; 
     let fov = 90; 
     let displayTzOffset = 2; // CEST UTC+2
 
+    // --- ИНИЦИАЛИЗА КАРТЫ LEAFLET ---
+    const map = L.map('map').setView([lat, lon], 4);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    const observerMarker = L.marker([lat, lon], { draggable: true }).addTo(map);
+
+    function updateLocation(newLat, newLon, updateMapBounds = false) {
+        lat = newLat;
+        lon = newLon;
+        observerMarker.setLatLng([lat, lon]);
+        if (updateMapBounds) {
+            map.panTo([lat, lon]);
+        }
+    }
+
+    map.on('click', (e) => {
+        updateLocation(e.latlng.lat, e.latlng.lng);
+    });
+
+    observerMarker.on('dragend', (e) => {
+        const position = observerMarker.getLatLng();
+        updateLocation(position.lat, position.lng);
+    });
+
+    // Элементы интерфейса
     const timeDisplay = document.getElementById('time-display');
     const datetimePicker = document.getElementById('datetime-picker');
     const tzSelect = document.getElementById('tz-select');
@@ -176,7 +229,7 @@
 
     // Пресеты
     document.getElementById('local-start-btn').addEventListener('click', () => {
-        lat = 48.73; lon = 37.56;
+        updateLocation(48.73, 37.56, true);
         displayTzOffset = 3; tzSelect.value = "3";
         simDate = new Date(UTC_LOCAL_START.getTime());
         speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
@@ -186,7 +239,7 @@
     });
 
     document.getElementById('local-max-btn').addEventListener('click', () => {
-        lat = 48.73; lon = 37.56;
+        updateLocation(48.73, 37.56, true);
         displayTzOffset = 3; tzSelect.value = "3";
         simDate = new Date(UTC_LOCAL_MAX.getTime());
         speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
@@ -196,7 +249,7 @@
     });
 
     document.getElementById('valencia-start-btn').addEventListener('click', () => {
-        lat = 39.47; lon = -0.37;
+        updateLocation(39.47, -0.37, true);
         displayTzOffset = 2; tzSelect.value = "2";
         simDate = new Date(UTC_VALENCIA_START.getTime());
         speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
@@ -206,7 +259,7 @@
     });
 
     document.getElementById('valencia-peak-btn').addEventListener('click', () => {
-        lat = 39.47; lon = -0.37;
+        updateLocation(39.47, -0.37, true);
         displayTzOffset = 2; tzSelect.value = "2";
         simDate = new Date(UTC_VALENCIA_PEAK.getTime());
         speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
@@ -234,7 +287,7 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // 1. Космос
+    // 1. Вид из космоса
     function drawSpace() {
         const w = spaceCanvas.width, h = spaceCanvas.height;
         spaceCtx.clearRect(0, 0, w, h);
