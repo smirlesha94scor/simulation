@@ -127,7 +127,7 @@
     const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); // 19:38 CEST
     const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z'); // 20:33 CEST
 
-    // Настройки местоположения по умолчанию (Ваше текущее местоположение, UTC+3)
+    // По умолчанию выбран ваш регион (UTC+3)
     let lat = 48.73, lon = 37.56; 
     let simDate = new Date(UTC_LOCAL_MAX.getTime());
     let speed = 1;
@@ -168,7 +168,7 @@
     azimuthSlider.addEventListener('input', e => { viewAzimuth = parseFloat(e.target.value); updateAzimuthLabel(); });
     fovSlider.addEventListener('input', e => { fov = parseFloat(e.target.value); fovVal.innerText = fov + '°'; });
 
-    // КНОПКИ ДЛЯ ВАШЕГО МЕСТОПОЛОЖЕНИЯ
+    // Пресеты для Вашего местоположения
     document.getElementById('local-start-btn').addEventListener('click', () => {
         lat = 48.73; lon = 37.56;
         displayTzOffset = 3; tzSelect.value = "3";
@@ -189,7 +189,7 @@
         updatePickerFromSimDate();
     });
 
-    // КНОПКИ ДЛЯ ВАЛЕНСИИ
+    // Пресеты для Валенсии
     document.getElementById('valencia-start-btn').addEventListener('click', () => {
         lat = 39.47; lon = -0.37;
         displayTzOffset = 2; tzSelect.value = "2";
@@ -260,11 +260,12 @@
         spaceCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         spaceCtx.fill();
 
-        // Положение наблюдателя (Земля вращается ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
+        // Угол суточного вращения Земли
         const utcHours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600;
         const dayAngle = ((utcHours / 24) * Math.PI * 2) + (lon * Math.PI / 180);
         
-        const cityX = earthX - Math.cos(dayAngle) * earthR;
+        // Вращение ПРОТИВ ЧАСОВОЙ СТРЕЛКИ (+ Math.cos и - Math.sin)
+        const cityX = earthX + Math.cos(dayAngle) * earthR;
         const cityY = earthY - Math.sin(dayAngle) * earthR; 
 
         spaceCtx.beginPath();
@@ -272,7 +273,7 @@
         spaceCtx.fillStyle = '#ff0055';
         spaceCtx.fill();
 
-        // Орбита и Луна (Вращение ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
+        // Орбита и движение Луны (Вращение ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
         const moonOrbitR = 55;
         const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60); 
 
