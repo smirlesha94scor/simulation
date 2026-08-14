@@ -21,11 +21,11 @@
         .time-readout { font-family: monospace; color: #00ffcc; font-size: 15px; font-weight: bold; margin-bottom: 5px; }
         
         .btn-group { display: flex; flex-direction: column; gap: 6px; }
-        .btn-preset { color: #000; font-weight: bold; border: none; padding: 8px; border-radius: 4px; cursor: pointer; text-align: left; font-size: 12px; }
-        .btn-valencia { background: #ff9800; }
-        .btn-valencia:hover { background: #e68a00; }
-        .btn-local { background: #00cc88; color: #fff; }
-        .btn-local:hover { background: #009966; }
+        .btn-preset { color: #fff; font-weight: bold; border: none; padding: 8px; border-radius: 4px; cursor: pointer; text-align: left; font-size: 12px; }
+        .btn-local { background: #00aa70; }
+        .btn-local:hover { background: #008855; }
+        .btn-valencia { background: #e67e22; }
+        .btn-valencia:hover { background: #d35400; }
         
         #canvas-container { flex: 1; display: flex; flex-direction: column; height: 100%; }
         .canvas-box { flex: 1; position: relative; border-bottom: 1px solid #232936; }
@@ -43,24 +43,25 @@
     <h3>2D Астрономический симулятор</h3>
     
     <div>
-        <label>1. Валенсия (Полное затмение):</label>
+        <label>1. Ваше местоположение (Частное):</label>
         <div class="btn-group">
-            <button class="btn-preset btn-valencia" id="valencia-start-btn">▶ Старт затмения (19:38 CEST)</button>
-            <button class="btn-preset btn-valencia" id="valencia-peak-btn">★ Пик полной фазы (20:33 CEST)</button>
+            <button class="btn-preset btn-local" id="local-start-btn">▶ Старт фазы (20:39 EEST)</button>
+            <button class="btn-preset btn-local" id="local-max-btn">✹ Максимум на закате (21:03 EEST)</button>
         </div>
     </div>
 
     <div>
-        <label>2. Ваше местоположение (Частное):</label>
+        <label>2. Валенсия (Полное затмение):</label>
         <div class="btn-group">
-            <button class="btn-preset btn-local" id="local-max-btn">✹ Максимум на закате (21:03 EEST)</button>
+            <button class="btn-preset btn-valencia" id="valencia-start-btn">▶ Старт фазы (19:38 CEST)</button>
+            <button class="btn-preset btn-valencia" id="valencia-peak-btn">★ Пик полной фазы (20:33 CEST)</button>
         </div>
     </div>
 
     <div>
         <label>Часовой пояс отображения:</label>
         <select id="tz-select">
-            <option value="3" selected>Ваше время (EEST UTC+3)</option>
+            <option value="3" selected>Местное время (EEST UTC+3)</option>
             <option value="2">Время в Испании (CEST UTC+2)</option>
             <option value="0">Всемирное время (UTC)</option>
         </select>
@@ -95,7 +96,7 @@
 
 <div id="canvas-container">
     <div class="canvas-box">
-        <div class="canvas-label">1. Космос (Вид с Северного Полюса: Вращение против часовой)</div>
+        <div class="canvas-label">1. Космос (Вид с Северного Полюса: Вращение ПРОТИВ часовой)</div>
         <canvas id="spaceCanvas"></canvas>
     </div>
     <div class="canvas-box">
@@ -120,12 +121,13 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // UTC тайминги ключевых моментов
-    const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); 
-    const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z');
-    const UTC_LOCAL_MAX      = new Date('2026-08-12T18:03:00Z');
+    // UTC тайминги
+    const UTC_LOCAL_START    = new Date('2026-08-12T17:39:00Z'); // 20:39 EEST
+    const UTC_LOCAL_MAX      = new Date('2026-08-12T18:03:00Z'); // 21:03 EEST
+    const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); // 19:38 CEST
+    const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z'); // 20:33 CEST
 
-    // Настройки по умолчанию (Украина, Краматорск / UTC+3)
+    // Настройки местоположения по умолчанию (Ваше текущее местоположение, UTC+3)
     let lat = 48.73, lon = 37.56; 
     let simDate = new Date(UTC_LOCAL_MAX.getTime());
     let speed = 1;
@@ -166,8 +168,31 @@
     azimuthSlider.addEventListener('input', e => { viewAzimuth = parseFloat(e.target.value); updateAzimuthLabel(); });
     fovSlider.addEventListener('input', e => { fov = parseFloat(e.target.value); fovVal.innerText = fov + '°'; });
 
+    // КНОПКИ ДЛЯ ВАШЕГО МЕСТОПОЛОЖЕНИЯ
+    document.getElementById('local-start-btn').addEventListener('click', () => {
+        lat = 48.73; lon = 37.56;
+        displayTzOffset = 3; tzSelect.value = "3";
+        simDate = new Date(UTC_LOCAL_START.getTime());
+        speed = 30; speedSlider.value = 30; speedVal.innerText = '30x';
+        viewAzimuth = 280; azimuthSlider.value = 280;
+        updateAzimuthLabel();
+        updatePickerFromSimDate();
+    });
+
+    document.getElementById('local-max-btn').addEventListener('click', () => {
+        lat = 48.73; lon = 37.56;
+        displayTzOffset = 3; tzSelect.value = "3";
+        simDate = new Date(UTC_LOCAL_MAX.getTime());
+        speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
+        viewAzimuth = 285; azimuthSlider.value = 285;
+        updateAzimuthLabel();
+        updatePickerFromSimDate();
+    });
+
+    // КНОПКИ ДЛЯ ВАЛЕНСИИ
     document.getElementById('valencia-start-btn').addEventListener('click', () => {
         lat = 39.47; lon = -0.37;
+        displayTzOffset = 2; tzSelect.value = "2";
         simDate = new Date(UTC_VALENCIA_START.getTime());
         speed = 60; speedSlider.value = 60; speedVal.innerText = '60x';
         viewAzimuth = 270; azimuthSlider.value = 270;
@@ -177,18 +202,10 @@
 
     document.getElementById('valencia-peak-btn').addEventListener('click', () => {
         lat = 39.47; lon = -0.37;
+        displayTzOffset = 2; tzSelect.value = "2";
         simDate = new Date(UTC_VALENCIA_PEAK.getTime());
         speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
         viewAzimuth = 280; azimuthSlider.value = 280;
-        updateAzimuthLabel();
-        updatePickerFromSimDate();
-    });
-
-    document.getElementById('local-max-btn').addEventListener('click', () => {
-        lat = 48.73; lon = 37.56;
-        simDate = new Date(UTC_LOCAL_MAX.getTime());
-        speed = 1; speedSlider.value = 1; speedVal.innerText = '1x';
-        viewAzimuth = 285; azimuthSlider.value = 285;
         updateAzimuthLabel();
         updatePickerFromSimDate();
     });
@@ -212,7 +229,7 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // 1. Отрисовка схемы в космосе
+    // 1. Космос (Вид с Северного Полюса)
     function drawSpace() {
         const w = spaceCanvas.width, h = spaceCanvas.height;
         spaceCtx.clearRect(0, 0, w, h);
@@ -237,13 +254,13 @@
         spaceCtx.fillStyle = '#1d55bb';
         spaceCtx.fill();
 
-        // Ночная сторона (Тень справа от Солнца)
+        // Ночная сторона (справа)
         spaceCtx.beginPath();
         spaceCtx.arc(earthX, earthY, earthR, -Math.PI / 2, Math.PI / 2);
         spaceCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         spaceCtx.fill();
 
-        // Положение наблюдателя (ПРОТИВ ЧАСОВОЙ СТРЕЛКИ: -Math.sin)
+        // Положение наблюдателя (Земля вращается ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
         const utcHours = simDate.getUTCHours() + simDate.getUTCMinutes()/60 + simDate.getUTCSeconds()/3600;
         const dayAngle = ((utcHours / 24) * Math.PI * 2) + (lon * Math.PI / 180);
         
@@ -255,7 +272,7 @@
         spaceCtx.fillStyle = '#ff0055';
         spaceCtx.fill();
 
-        // Вращение Луны (ПРОТИВ ЧАСОВОЙ СТРЕЛКИ: -Math.sin)
+        // Орбита и Луна (Вращение ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
         const moonOrbitR = 55;
         const minDiff = (simDate - UTC_VALENCIA_PEAK) / (1000 * 60); 
 
@@ -264,7 +281,7 @@
         const moonX = earthX + Math.cos(moonAngle) * moonOrbitR;
         const moonY = earthY - Math.sin(moonAngle) * moonOrbitR; 
 
-        // Орбита
+        // Траектория орбиты
         spaceCtx.beginPath();
         spaceCtx.arc(earthX, earthY, moonOrbitR, 0, Math.PI * 2);
         spaceCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -282,7 +299,7 @@
         spaceCtx.fillText('Солнце', sunX - 18, sunY + 30);
     }
 
-    // 2. Отрисовка вида с Земли
+    // 2. Вид с Земли
     function drawSky() {
         const w = skyCanvas.width, h = skyCanvas.height;
         const horizonY = h * 0.75;
