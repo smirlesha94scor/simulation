@@ -30,7 +30,7 @@
         .btn-valencia { background: #e67e22; }
         .btn-valencia:hover { background: #d35400; }
 
-        /* Стиль для увеличенного блока карты */
+        /* Блок увеличенной карты */
         #map-container {
             width: 100%;
             height: 320px;
@@ -69,7 +69,7 @@
         }
         .map-btn-fullscreen:hover { background: #1c2230; }
 
-        /* Кастомная легенда для карты */
+        /* Легенда карты */
         .map-legend {
             background: rgba(15, 19, 28, 0.85);
             padding: 8px 10px;
@@ -193,7 +193,7 @@
     const UTC_VALENCIA_START = new Date('2026-08-12T17:38:25Z'); // 19:38 CEST
     const UTC_VALENCIA_PEAK  = new Date('2026-08-12T18:33:00Z'); // 20:33 CEST
 
-    let lat = 39.47, lon = -0.37; // По умолчанию: Валенсия
+    let lat = 39.47, lon = -0.37; // Валенсия
     let simDate = new Date(UTC_VALENCIA_PEAK.getTime());
     let speed = 0;
     let viewAzimuth = 270; 
@@ -202,7 +202,7 @@
 
     // --- ИНИЦИАЛИЗА КАРТЫ LEAFLET ---
     const map = L.map('map', {
-        center: [52.0, 5.0],
+        center: [50.0, -10.0],
         zoom: 3,
         minZoom: 2,
         maxZoom: 10
@@ -214,32 +214,43 @@
         maxZoom: 19
     }).addTo(map);
 
-    // Маркер точки наблюдения
     const observerMarker = L.marker([lat, lon], { draggable: true }).addTo(map);
 
-    // 1. Полоса ПОЛНОГО затмения (Точная траектория полны затмения 12 августа 2026)
+    // Сглаженная полоса ПОЛНОГО затмения (Высокая плотность точек для ровной дуги)
     const totalPathCoords = [
-        [83.0, -10.0], [79.0, -20.0], [74.0, -26.0], [68.0, -27.0],
-        [65.5, -24.0], [64.1, -21.9], [62.0, -18.0], [56.0, -12.0],
-        [50.0, -8.0],  [45.0, -5.0],  [43.5, -6.0],  [41.6, -4.8],
-        [40.4, -3.7],  [39.5, -0.4],  [38.7, 1.5],   [38.0, 2.5]
+        [83.0, -10.0], [82.0, -13.5], [81.0, -16.5], [80.0, -18.8], 
+        [79.0, -20.8], [78.0, -22.4], [77.0, -23.8], [76.0, -24.8], 
+        [75.0, -25.6], [74.0, -26.1], [73.0, -26.5], [72.0, -26.7], 
+        [71.0, -26.7], [70.0, -26.5], [69.0, -26.1], [68.0, -25.5], 
+        [67.0, -24.7], [66.0, -23.7], [65.0, -22.5], [64.0, -21.1], 
+        [63.0, -19.6], [62.0, -18.0], [61.0, -16.3], [60.0, -14.6], 
+        [59.0, -13.0], [58.0, -11.5], [57.0, -10.2], [56.0, -9.0],  
+        [55.0, -8.0],  [54.0, -7.1],  [53.0, -6.3],  [52.0, -5.6],  
+        [51.0, -5.0],  [50.0, -4.5],  [49.0, -4.1],  [48.0, -3.8],  
+        [47.0, -3.5],  [46.0, -3.3],  [45.0, -3.1],  [44.0, -3.0],  
+        [43.5, -2.8],  [43.0, -2.5],  [42.5, -2.0],  [42.0, -1.4],  
+        [41.5, -0.7],  [41.0, 0.1],   [40.5, 0.9],   [40.0, 1.6],   
+        [39.5, 2.3],   [39.0, 2.9],   [38.5, 3.4],   [38.0, 3.8]
     ];
 
     const totalEclipsePolyline = L.polyline(totalPathCoords, {
         color: '#ff2255',
-        weight: 18,
+        weight: 16,
         opacity: 0.55,
-        lineCap: 'round'
+        lineCap: 'round',
+        lineJoin: 'round'
     }).addTo(map);
 
     const totalCenterLine = L.polyline(totalPathCoords, {
         color: '#ffffff',
         weight: 2,
         opacity: 0.9,
-        dashArray: '4, 4'
+        dashArray: '4, 4',
+        lineCap: 'round',
+        lineJoin: 'round'
     }).addTo(map);
 
-    // 2. Зоны ЧАСТИЧНОГО затмения (80%, 60%, 40%, 20%)
+    // Зоны ЧАСТИЧНОГО затмения
     const partial80 = L.polygon([
         [88, -60], [80, 20], [60, 20], [40, 10], [30, -10], [45, -45], [70, -65]
     ], { color: '#e67e22', weight: 1, fillColor: '#e67e22', fillOpacity: 0.15 }).addTo(map);
@@ -248,7 +259,7 @@
         [88, -100], [80, 60], [50, 45], [25, 20], [20, -20], [35, -75], [75, -110]
     ], { color: '#f1c40f', weight: 1, fillColor: '#f1c40f', fillOpacity: 0.08 }).addTo(map);
 
-    // Легенда для карты
+    // Легенда
     const legend = L.control({ position: 'bottomleft' });
     legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'map-legend');
@@ -279,7 +290,7 @@
         updateLocation(position.lat, position.lng);
     });
 
-    // Переключение полноэкранного режима карты
+    // Полноэкранный режим карты
     const mapContainer = document.getElementById('map-container');
     const mapFsBtn = document.getElementById('map-fs-btn');
     let isFs = false;
@@ -296,7 +307,7 @@
         setTimeout(() => map.invalidateSize(), 300);
     });
 
-    // Элементы интерфейса
+    // Элементы управления
     const timeDisplay = document.getElementById('time-display');
     const datetimePicker = document.getElementById('datetime-picker');
     const tzSelect = document.getElementById('tz-select');
@@ -396,7 +407,7 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // 1. Вид из космоса
+    // 1. Отрисовка вида из космоса
     function drawSpace() {
         const w = spaceCanvas.width, h = spaceCanvas.height;
         spaceCtx.clearRect(0, 0, w, h);
@@ -457,7 +468,7 @@
         spaceCtx.fillText('Солнце', sunX - 18, sunY + 30);
     }
 
-    // 2. Вид с Земли
+    // 2. Отрисовка вида с Земли
     function drawSky() {
         const w = skyCanvas.width, h = skyCanvas.height;
         const horizonY = h * 0.75;
