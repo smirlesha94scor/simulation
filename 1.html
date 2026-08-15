@@ -11,7 +11,7 @@
         body { margin: 0; background: #0a0d14; color: #fff; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
         #ui { 
-            width: 360px; background: #131722; padding: 15px; box-sizing: border-box; 
+            width: 380px; background: #131722; padding: 15px; box-sizing: border-box; 
             display: flex; flex-direction: column; gap: 10px; font-size: 13px; z-index: 10; 
             border-right: 1px solid #232936; overflow-y: auto; flex-shrink: 0;
         }
@@ -30,16 +30,57 @@
         .btn-valencia { background: #e67e22; }
         .btn-valencia:hover { background: #d35400; }
 
-        /* Стиль для блока карты */
+        /* Стиль для увеличенного блока карты */
         #map-container {
             width: 100%;
-            height: 180px;
+            height: 320px;
             border-radius: 6px;
             border: 1px solid #323b4e;
             overflow: hidden;
             position: relative;
+            transition: all 0.3s ease;
         }
-        #map { width: 100%; height: 100%; }
+        #map-container.fullscreen {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            width: calc(100vw - 20px);
+            height: calc(100vh - 20px);
+            z-index: 9999;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        #map { width: 100%; height: 100%; background: #0b101d; }
+
+        .map-btn-fullscreen {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(19, 23, 34, 0.9);
+            color: #00ffcc;
+            border: 1px solid #323b4e;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .map-btn-fullscreen:hover { background: #1c2230; }
+
+        /* Кастомная легенда для карты */
+        .map-legend {
+            background: rgba(15, 19, 28, 0.85);
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #ccc;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-box { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
 
         #canvas-container { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
         .canvas-box { flex: 1; position: relative; border-bottom: 1px solid #232936; overflow: hidden; }
@@ -57,14 +98,15 @@
     <h3>2D Астрономический симулятор</h3>
 
     <div>
-        <label>Выбор точки наблюдения на карте:</label>
+        <label>Карта затмения 12.08.2026:</label>
         <div id="map-container">
+            <button class="map-btn-fullscreen" id="map-fs-btn">⛶ Развернуть</button>
             <div id="map"></div>
         </div>
     </div>
     
     <div>
-        <label>1. Украина / Восток (Частное):</label>
+        <label>1. Украина / Восток (Частное ~35-40%):</label>
         <div class="btn-group">
             <button class="btn-preset btn-local" id="local-start-btn">▶ Старт фазы (20:39 EEST)</button>
             <button class="btn-preset btn-local" id="local-max-btn">✹ Максимум на закате (21:03 EEST)</button>
@@ -72,7 +114,7 @@
     </div>
 
     <div>
-        <label>2. Валенсия (Полное затмение):</label>
+        <label>2. Валенсия (Полное затмение 100%):</label>
         <div class="btn-group">
             <button class="btn-preset btn-valencia" id="valencia-start-btn">▶ Старт фазы (19:38 CEST)</button>
             <button class="btn-preset btn-valencia" id="valencia-peak-btn">★ Пик полной фазы (20:33 CEST)</button>
@@ -159,7 +201,12 @@
     let displayTzOffset = 2; // CEST UTC+2
 
     // --- ИНИЦИАЛИЗА КАРТЫ LEAFLET ---
-    const map = L.map('map').setView([lat, lon], 4);
+    const map = L.map('map', {
+        center: [52.0, 5.0],
+        zoom: 3,
+        minZoom: 2,
+        maxZoom: 10
+    });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
@@ -167,7 +214,52 @@
         maxZoom: 19
     }).addTo(map);
 
+    // Маркер точки наблюдения
     const observerMarker = L.marker([lat, lon], { draggable: true }).addTo(map);
+
+    // 1. Полоса ПОЛНОГО затмения (Точная траектория полны затмения 12 августа 2026)
+    const totalPathCoords = [
+        [83.0, -10.0], [79.0, -20.0], [74.0, -26.0], [68.0, -27.0],
+        [65.5, -24.0], [64.1, -21.9], [62.0, -18.0], [56.0, -12.0],
+        [50.0, -8.0],  [45.0, -5.0],  [43.5, -6.0],  [41.6, -4.8],
+        [40.4, -3.7],  [39.5, -0.4],  [38.7, 1.5],   [38.0, 2.5]
+    ];
+
+    const totalEclipsePolyline = L.polyline(totalPathCoords, {
+        color: '#ff2255',
+        weight: 18,
+        opacity: 0.55,
+        lineCap: 'round'
+    }).addTo(map);
+
+    const totalCenterLine = L.polyline(totalPathCoords, {
+        color: '#ffffff',
+        weight: 2,
+        opacity: 0.9,
+        dashArray: '4, 4'
+    }).addTo(map);
+
+    // 2. Зоны ЧАСТИЧНОГО затмения (80%, 60%, 40%, 20%)
+    const partial80 = L.polygon([
+        [88, -60], [80, 20], [60, 20], [40, 10], [30, -10], [45, -45], [70, -65]
+    ], { color: '#e67e22', weight: 1, fillColor: '#e67e22', fillOpacity: 0.15 }).addTo(map);
+
+    const partial40 = L.polygon([
+        [88, -100], [80, 60], [50, 45], [25, 20], [20, -20], [35, -75], [75, -110]
+    ], { color: '#f1c40f', weight: 1, fillColor: '#f1c40f', fillOpacity: 0.08 }).addTo(map);
+
+    // Легенда для карты
+    const legend = L.control({ position: 'bottomleft' });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'map-legend');
+        div.innerHTML = `
+            <div class="legend-item"><span class="legend-box" style="background:#ff2255;"></span> <b>100% Полное затмение</b></div>
+            <div class="legend-item"><span class="legend-box" style="background:#e67e22;"></span> Зона > 80% фазы</div>
+            <div class="legend-item"><span class="legend-box" style="background:#f1c40f;"></span> Зона > 40% фазы</div>
+        `;
+        return div;
+    };
+    legend.addTo(map);
 
     function updateLocation(newLat, newLon, updateMapBounds = false) {
         lat = newLat;
@@ -185,6 +277,23 @@
     observerMarker.on('dragend', (e) => {
         const position = observerMarker.getLatLng();
         updateLocation(position.lat, position.lng);
+    });
+
+    // Переключение полноэкранного режима карты
+    const mapContainer = document.getElementById('map-container');
+    const mapFsBtn = document.getElementById('map-fs-btn');
+    let isFs = false;
+
+    mapFsBtn.addEventListener('click', () => {
+        isFs = !isFs;
+        if (isFs) {
+            mapContainer.classList.add('fullscreen');
+            mapFsBtn.innerText = '✕ Свернуть';
+        } else {
+            mapContainer.classList.remove('fullscreen');
+            mapFsBtn.innerText = '⛶ Развернуть';
+        }
+        setTimeout(() => map.invalidateSize(), 300);
     });
 
     // Элементы интерфейса
