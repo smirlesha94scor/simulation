@@ -9,68 +9,7 @@
     
 </head>
 <body>
-<style>
-  /* Внешний контейнер с возможностью тянуть за угол */
-  #widgetWrapper {
-    width: 450px;
-    height: 400px;
-    min-width: 450px; /* Ограничение снизу */
-    min-height: 300px;
-    resize: both;
-    overflow: hidden;
-    border: 1px dashed #ccc;
-    box-sizing: border-box;
-    position: relative;
-  }
-
-  /* Внутренний холст с высоким разрешением */
-  #widgetInner {
-    width: 800px;
-    height: 600px;
-    transform-origin: top left;
-  }
-
-  /* iframe растягивается строго внутри холста */
-  #widgetInner iframe {
-    width: 100% !important;
-    height: 100% !important;
-    border: none !important;
-    display: block;
-  }
-</style>
-
-<div id="widgetWrapper">
-  <div id="widgetInner">
-    <a href="https://allcalc.ru/node/1900" data-weight="800px" data-height="600px">Сколько дней осталось до 1 сентября - allcalc</a>
-    <script src="https://allcalc.ru/widgets/script.js"></script>
-  </div>
-</div>
-
-<script>
-  const wrapper = document.getElementById('widgetWrapper');
-  const inner = document.getElementById('widgetInner');
-
-  // Базовое высокое разрешение для идеальной чёткости текста
-  const baseWidth = 800;
-  const baseHeight = 600;
-
-  const resizeObserver = new ResizeObserver(entries => {
-    for (let entry of entries) {
-      const currentWidth = entry.contentRect.width;
-      const currentHeight = entry.contentRect.height;
-
-      // Считаем масштаб по меньшей стороне
-      const scaleX = currentWidth / baseWidth;
-      const scaleY = currentHeight / baseHeight;
-      const scale = Math.min(scaleX, scaleY);
-
-      // Масштабируем без перезагрузки скрипта
-      inner.style.transform = `scale(${scale})`;
-    }
-  });
-
-  resizeObserver.observe(wrapper);
-</script>
+<iframe width="300" height="154" src="https://w2.countingdownto.com/7322644" frameborder="0"></iframe>
 
 
 </body>
