@@ -13,13 +13,14 @@
   #widgetWrapper {
     width: 450px;
     height: 400px;
+    min-width: 350px; /* Минимальная ширина 350px */
+    min-height: 250px; /* Минимальная высота (по желанию) */
     resize: both;
     overflow: hidden;
     border: 1px dashed #ccc;
     box-sizing: border-box;
   }
 
-  /* iframe всегда занимает 100% без применения scale */
   #widgetWrapper iframe {
     width: 100% !important;
     height: 100% !important;
@@ -40,7 +41,6 @@
   const container = document.getElementById('widgetContainer');
   let timeoutId = null;
 
-  // Перезагрузка скрипта для рендеринга виджета в высоком разрешении
   function reloadWidget(width, height) {
     container.innerHTML = `
       <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="${width}px" data-height="${height}px">Сколько дней осталось до 1 сентября - allcalc</a>
@@ -52,17 +52,16 @@
 
   const resizeObserver = new ResizeObserver(entries => {
     for (let entry of entries) {
-      const w = Math.round(entry.contentRect.width);
+      // Ограничиваем значение ширины в скрипте не менее 350px
+      const w = Math.max(350, Math.round(entry.contentRect.width));
       const h = Math.round(entry.contentRect.height);
 
-      // Обновляем iframe на лету
       const iframe = container.querySelector('iframe');
       if (iframe) {
         iframe.style.width = '100%';
         iframe.style.height = '100%';
       }
 
-      // Ждем завершения изменения размера пользователем перед полной перериковкой шрифтов
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         reloadWidget(w, h);
