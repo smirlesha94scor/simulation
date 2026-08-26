@@ -10,7 +10,6 @@
 </head>
 <body>
 <style>
-  /* Контейнер с изменением размера */
   #widgetWrapper {
     width: 450px;
     height: 400px;
@@ -18,51 +17,56 @@
     overflow: hidden;
     border: 1px dashed #ccc;
     box-sizing: border-box;
-    position: relative;
   }
 
-  /* Внутренний контейнер фиксированного размера для корректного zoom */
-  #widgetInner {
-    width: 450px;
-    height: 400px;
-    transform-origin: 0 0;
-  }
-
-  /* Убираем скроллбары и растягиваем iframe */
-  #widgetInner iframe {
-    width: 450px !important;
-    height: 400px !important;
+  /* iframe всегда занимает 100% без применения scale */
+  #widgetWrapper iframe {
+    width: 100% !important;
+    height: 100% !important;
     border: none !important;
     display: block;
   }
 </style>
 
 <div id="widgetWrapper">
-  <div id="widgetInner">
+  <div id="widgetContainer">
     <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="450px" data-height="400px">Сколько дней осталось до 1 сентября - allcalc</a>
-    <script src="https://allcalc.ru/widgets/script.js"></script>
+    <script id="widgetScript" src="https://allcalc.ru/widgets/script.js"></script>
   </div>
 </div>
 
 <script>
   const wrapper = document.getElementById('widgetWrapper');
-  const inner = document.getElementById('widgetInner');
-  const baseWidth = 450;
-  const baseHeight = 400;
+  const container = document.getElementById('widgetContainer');
+  let timeoutId = null;
 
-  // Масштабируем содержимое под реальный размер контейнера
+  // Перезагрузка скрипта для рендеринга виджета в высоком разрешении
+  function reloadWidget(width, height) {
+    container.innerHTML = `
+      <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="${width}px" data-height="${height}px">Сколько дней осталось до 1 сентября - allcalc</a>
+    `;
+    const newScript = document.createElement('script');
+    newScript.src = 'https://allcalc.ru/widgets/script.js';
+    container.appendChild(newScript);
+  }
+
   const resizeObserver = new ResizeObserver(entries => {
     for (let entry of entries) {
-      const currentWidth = entry.contentRect.width;
-      const currentHeight = entry.contentRect.height;
+      const w = Math.round(entry.contentRect.width);
+      const h = Math.round(entry.contentRect.height);
 
-      // Вычисляем масштаб по меньшей стороне
-      const scaleX = currentWidth / baseWidth;
-      const scaleY = currentHeight / baseHeight;
-      const scale = Math.min(scaleX, scaleY);
+      // Обновляем iframe на лету
+      const iframe = container.querySelector('iframe');
+      if (iframe) {
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+      }
 
-      // Применяем масштабирование
-      inner.style.transform = `scale(${scale})`;
+      // Ждем завершения изменения размера пользователем перед полной перериковкой шрифтов
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        reloadWidget(w, h);
+      }, 300);
     }
   });
 
