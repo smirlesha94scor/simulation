@@ -9,7 +9,58 @@
     
 </head>
 <body>
-<iframe width="300" height="154" src="https://w2.countingdownto.com/7322644" frameborder="0"></iframe>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>До 1 сентября</title>
+    <style>
+        .timer-box {
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            padding: 20px;
+            border: 2px solid #333;
+            display: inline-block;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="timer-box" id="timer">Загрузка...</div>
+
+    <script>
+        function updateTimer() {
+            const now = new Date();
+            let targetYear = now.getFullYear();
+            
+            // Если 1 сентября этого года уже прошло, считаем до следующего года
+            let targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
+            if (now > targetDate) {
+                targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
+            }
+
+            const diff = targetDate - now;
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((diff / 1000 / 60) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
+
+            document.getElementById('timer').innerText = 
+                `До 1 сентября: ${days}д ${hours}ч ${minutes}м ${seconds}с`;
+        }
+
+        setInterval(updateTimer, 1000);
+        updateTimer();
+    </script>
+
+</body>
+</html>
 
 
 </body>
