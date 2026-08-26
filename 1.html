@@ -10,42 +10,63 @@
 </head>
 <body>
 <style>
-  #widgetContainer {
-    width: 450px; 
-    height: 400px; 
-    resize: both; 
-    overflow: hidden; 
-    border: 1px dashed #ccc; 
-    padding: 2px;
+  /* Контейнер с изменением размера */
+  #widgetWrapper {
+    width: 450px;
+    height: 400px;
+    resize: both;
+    overflow: hidden;
+    border: 1px dashed #ccc;
     box-sizing: border-box;
     position: relative;
   }
 
-  /* Убираем скроллбар и растягиваем iframe */
-  #widgetContainer iframe {
-    width: 100% !important;
-    height: 100% !important;
+  /* Внутренний контейнер фиксированного размера для корректного zoom */
+  #widgetInner {
+    width: 450px;
+    height: 400px;
+    transform-origin: 0 0;
+  }
+
+  /* Убираем скроллбары и растягиваем iframe */
+  #widgetInner iframe {
+    width: 450px !important;
+    height: 400px !important;
     border: none !important;
-    overflow: hidden !important;
+    display: block;
   }
 </style>
 
-<!-- Контейнер -->
-<div id="widgetContainer">
-  <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="100%" data-height="100%">Сколько дней осталось до 1 сентября - allcalc</a>
-  <script src="https://allcalc.ru/widgets/script.js"></script>
+<div id="widgetWrapper">
+  <div id="widgetInner">
+    <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="450px" data-height="400px">Сколько дней осталось до 1 сентября - allcalc</a>
+    <script src="https://allcalc.ru/widgets/script.js"></script>
+  </div>
 </div>
 
 <script>
-  // Убираем прокрутку у генерируемого iframe
-  const observer = new MutationObserver(() => {
-    const iframe = document.querySelector('#widgetContainer iframe');
-    if (iframe) {
-      iframe.scrolling = "no"; // Отключает скроллбар внутри iframe
+  const wrapper = document.getElementById('widgetWrapper');
+  const inner = document.getElementById('widgetInner');
+  const baseWidth = 450;
+  const baseHeight = 400;
+
+  // Масштабируем содержимое под реальный размер контейнера
+  const resizeObserver = new ResizeObserver(entries => {
+    for (let entry of entries) {
+      const currentWidth = entry.contentRect.width;
+      const currentHeight = entry.contentRect.height;
+
+      // Вычисляем масштаб по меньшей стороне
+      const scaleX = currentWidth / baseWidth;
+      const scaleY = currentHeight / baseHeight;
+      const scale = Math.min(scaleX, scaleY);
+
+      // Применяем масштабирование
+      inner.style.transform = `scale(${scale})`;
     }
   });
 
-  observer.observe(document.getElementById('widgetContainer'), { childList: true, subtree: true });
+  resizeObserver.observe(wrapper);
 </script>
 
 
