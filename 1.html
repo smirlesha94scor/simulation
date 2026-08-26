@@ -9,40 +9,43 @@
     
 </head>
 <body>
-<!-- Контейнер с возможностью растягивания за уголок -->
-<div id="widgetContainer" style="
-  width: 450px; 
-  height: 400px; 
-  resize: both; 
-  overflow: hidden; 
-  border: 1px dashed #ccc; 
-  padding: 2px;
-  box-sizing: border-box;
-">
+<style>
+  #widgetContainer {
+    width: 450px; 
+    height: 400px; 
+    resize: both; 
+    overflow: hidden; 
+    border: 1px dashed #ccc; 
+    padding: 2px;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  /* Убираем скроллбар и растягиваем iframe */
+  #widgetContainer iframe {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    overflow: hidden !important;
+  }
+</style>
+
+<!-- Контейнер -->
+<div id="widgetContainer">
   <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="100%" data-height="100%">Сколько дней осталось до 1 сентября - allcalc</a>
   <script src="https://allcalc.ru/widgets/script.js"></script>
 </div>
 
 <script>
-  const container = document.getElementById('widgetContainer');
-
-  // Отслеживаем изменение размеров блока пользователем
-  const resizeObserver = new ResizeObserver(entries => {
-    for (let entry of entries) {
-      const width = entry.contentRect.width + 'px';
-      const height = entry.contentRect.height + 'px';
-      
-      const iframe = container.querySelector('iframe');
-      if (iframe) {
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        iframe.width = entry.contentRect.width;
-        iframe.height = entry.contentRect.height;
-      }
+  // Убираем прокрутку у генерируемого iframe
+  const observer = new MutationObserver(() => {
+    const iframe = document.querySelector('#widgetContainer iframe');
+    if (iframe) {
+      iframe.scrolling = "no"; // Отключает скроллбар внутри iframe
     }
   });
 
-  resizeObserver.observe(container);
+  observer.observe(document.getElementById('widgetContainer'), { childList: true, subtree: true });
 </script>
 
 
