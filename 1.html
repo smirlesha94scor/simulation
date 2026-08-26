@@ -53,6 +53,7 @@
             border-radius: 12px;
             min-width: 75px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
         .number {
@@ -60,6 +61,13 @@
             font-weight: 700;
             display: block;
             line-height: 1;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        /* Класс анимации обновления цифры */
+        .number.changing {
+            opacity: 0.2;
+            transform: translateY(-8px) scale(0.9);
         }
 
         .label {
@@ -112,6 +120,17 @@
     </div>
 
     <script>
+        function setAnimatedValue(id, newValue) {
+            const el = document.getElementById(id);
+            if (el.innerText !== newValue) {
+                el.classList.add('changing');
+                setTimeout(() => {
+                    el.innerText = newValue;
+                    el.classList.remove('changing');
+                }, 150);
+            }
+        }
+
         function updateTimer() {
             const now = new Date();
             let targetYear = now.getFullYear();
@@ -123,15 +142,15 @@
 
             const diff = targetDate - now;
 
-            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            const m = Math.floor((diff / 1000 / 60) % 60);
-            const s = Math.floor((diff / 1000) % 60);
+            const d = String(Math.floor(diff / (1000 * 60 * 60 * 24))).padStart(2, '0');
+            const h = String(Math.floor((diff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
+            const m = String(Math.floor((diff / 1000 / 60) % 60)).padStart(2, '0');
+            const s = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
 
-            document.getElementById('days').innerText = String(d).padStart(2, '0');
-            document.getElementById('hours').innerText = String(h).padStart(2, '0');
-            document.getElementById('minutes').innerText = String(m).padStart(2, '0');
-            document.getElementById('seconds').innerText = String(s).padStart(2, '0');
+            setAnimatedValue('days', d);
+            setAnimatedValue('hours', h);
+            setAnimatedValue('minutes', m);
+            setAnimatedValue('seconds', s);
         }
 
         setInterval(updateTimer, 1000);
