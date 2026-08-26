@@ -10,18 +10,28 @@
 </head>
 <body>
 <style>
+  /* Внешний контейнер с возможностью тянуть за угол */
   #widgetWrapper {
     width: 450px;
     height: 400px;
-    min-width: 350px; /* Минимальная ширина 350px */
-    min-height: 250px; /* Минимальная высота (по желанию) */
+    min-width: 350px; /* Ограничение снизу */
+    min-height: 250px;
     resize: both;
     overflow: hidden;
     border: 1px dashed #ccc;
     box-sizing: border-box;
+    position: relative;
   }
 
-  #widgetWrapper iframe {
+  /* Внутренний холст с высоким разрешением */
+  #widgetInner {
+    width: 800px;
+    height: 600px;
+    transform-origin: top left;
+  }
+
+  /* iframe растягивается строго внутри холста */
+  #widgetInner iframe {
     width: 100% !important;
     height: 100% !important;
     border: none !important;
@@ -30,42 +40,32 @@
 </style>
 
 <div id="widgetWrapper">
-  <div id="widgetContainer">
-    <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="450px" data-height="400px">Сколько дней осталось до 1 сентября - allcalc</a>
-    <script id="widgetScript" src="https://allcalc.ru/widgets/script.js"></script>
+  <div id="widgetInner">
+    <a href="https://allcalc.ru/node/1900" data-weight="800px" data-height="600px">Сколько дней осталось до 1 сентября - allcalc</a>
+    <script src="https://allcalc.ru/widgets/script.js"></script>
   </div>
 </div>
 
 <script>
   const wrapper = document.getElementById('widgetWrapper');
-  const container = document.getElementById('widgetContainer');
-  let timeoutId = null;
+  const inner = document.getElementById('widgetInner');
 
-  function reloadWidget(width, height) {
-    container.innerHTML = `
-      <a href="https://allcalc.ru/node/1900" id="calcLink" data-weight="${width}px" data-height="${height}px">Сколько дней осталось до 1 сентября - allcalc</a>
-    `;
-    const newScript = document.createElement('script');
-    newScript.src = 'https://allcalc.ru/widgets/script.js';
-    container.appendChild(newScript);
-  }
+  // Базовое высокое разрешение для идеальной чёткости текста
+  const baseWidth = 800;
+  const baseHeight = 600;
 
   const resizeObserver = new ResizeObserver(entries => {
     for (let entry of entries) {
-      // Ограничиваем значение ширины в скрипте не менее 350px
-      const w = Math.max(350, Math.round(entry.contentRect.width));
-      const h = Math.round(entry.contentRect.height);
+      const currentWidth = entry.contentRect.width;
+      const currentHeight = entry.contentRect.height;
 
-      const iframe = container.querySelector('iframe');
-      if (iframe) {
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-      }
+      // Считаем масштаб по меньшей стороне
+      const scaleX = currentWidth / baseWidth;
+      const scaleY = currentHeight / baseHeight;
+      const scale = Math.min(scaleX, scaleY);
 
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        reloadWidget(w, h);
-      }, 300);
+      // Масштабируем без перезагрузки скрипта
+      inner.style.transform = `scale(${scale})`;
     }
   });
 
