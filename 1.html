@@ -1,272 +1,41 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>До 1 сентября</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+function transitionOpacity(element, newValue) {
+    const wrapper = element.parentElement;
+    
+    // Получаем настройки из инпутов (по умолчанию 10% и 100 мс)
+    const stepPercent = parseFloat(document.getElementById('stepPercent').value) || 10;
+    const stepInterval = parseInt(document.getElementById('stepInterval').value) || 100;
+    const stepRatio = stepPercent / 100;
+
+    // Создаем элемент для набегающей цифры
+    const newDigit = document.createElement('span');
+    newDigit.className = 'number';
+    newDigit.innerText = newValue;
+
+    // Начальные состояния прозрачности:
+    // Старая цифра уходит с 100% (1.0), новая появляется с 0% (0.0)
+    element.style.opacity = '1';
+    newDigit.style.opacity = '0';
+
+    wrapper.appendChild(newDigit);
+
+    let progress = 0;
+
+    const interval = setInterval(() => {
+        progress += stepRatio;
+        if (progress > 1) progress = 1;
+
+        // Старая цифра гаснет (1.0 -> 0.0)
+        element.style.opacity = (1 - progress).toFixed(2);
+        
+        // Новая цифра проявляется (0.0 -> 1.0)
+        newDigit.style.opacity = progress.toFixed(2);
+
+        // Завершение анимации через 1000 мс (при 10 шагах по 100 мс)
+        if (progress >= 1) {
+            clearInterval(interval);
+            element.innerText = newValue;
+            element.style.opacity = '1';
+            newDigit.remove();
         }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            gap: 25px;
-            padding: 20px;
-        }
-
-        /* Панель настроек */
-        .settings-panel {
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            max-width: 500px;
-            width: 100%;
-        }
-
-        .setting-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .setting-group label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.9;
-        }
-
-        .setting-group input {
-            width: 80px;
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: none;
-            outline: none;
-            text-align: center;
-            font-weight: bold;
-            font-size: 1rem;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-        }
-
-        .countdown-container {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 40px 30px;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
-        }
-
-        h1 {
-            font-size: 1.8rem;
-            margin-bottom: 25px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .timer {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-        }
-
-        .time-box {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 15px 10px;
-            border-radius: 12px;
-            min-width: 75px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .number-wrapper {
-            position: relative;
-            height: 2.2rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .number {
-            font-size: 2.2rem;
-            font-weight: 700;
-            line-height: 1;
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            left: 0;
-            top: 0;
-        }
-
-        .label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 8px;
-            opacity: 0.85;
-        }
-
-        @media (max-width: 480px) {
-            .timer { gap: 8px; }
-            .time-box { min-width: 60px; padding: 10px 5px; }
-            .number { font-size: 1.6rem; }
-            .number-wrapper { height: 1.6rem; }
-            .label { font-size: 0.65rem; }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Панель управления настройками анимации -->
-    <div class="settings-panel">
-        <div class="setting-group">
-            <label for="stepPercent">Шаг (%)</label>
-            <input type="number" id="stepPercent" value="10" min="1" max="50">
-        </div>
-        <div class="setting-group">
-            <label for="stepInterval">Интервал (мс)</label>
-            <input type="number" id="stepInterval" value="100" min="10" max="500">
-        </div>
-    </div>
-
-    <div class="countdown-container">
-        <h1>До 1 сентября осталось</h1>
-        <div class="timer">
-            <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="days">00</span>
-                </div>
-                <span class="label">Дней</span>
-            </div>
-            <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="hours">00</span>
-                </div>
-                <span class="label">Часов</span>
-            </div>
-            <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="minutes">00</span>
-                </div>
-                <span class="label">Минут</span>
-            </div>
-            <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="seconds">00</span>
-                </div>
-                <span class="label">Секунд</span>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function transitionOpacity(element, newValue) {
-            const wrapper = element.parentElement;
-            
-            const stepPercent = parseFloat(document.getElementById('stepPercent').value) || 10;
-            const stepInterval = parseInt(document.getElementById('stepInterval').value) || 100;
-            const stepRatio = stepPercent / 100;
-
-            const newNum = parseInt(newValue);
-            const isNewEven = newNum % 2 === 0;
-
-            const newDigit = document.createElement('span');
-            newDigit.className = 'number';
-            newDigit.innerText = newValue;
-
-            // Логика при уменьшении:
-            // При переходе к ЧЁТНОЙ (например, 3 -> 2): новая (2) стартует с 0%, старая (3) гаснет с 100%
-            // При переходе к НЕЧЁТНОЙ (например, 2 -> 1): старая чётная (2) затухает до 0%, а новая (1) встаёт на 100%
-            if (isNewEven) {
-                element.style.opacity = '1';
-                newDigit.style.opacity = '0';
-            } else {
-                element.style.opacity = '1';
-                newDigit.style.opacity = '1';
-            }
-
-            wrapper.appendChild(newDigit);
-
-            let currentProgress = 0;
-
-            const interval = setInterval(() => {
-                currentProgress += stepRatio;
-                if (currentProgress > 1) currentProgress = 1;
-
-                if (isNewEven) {
-                    // Переход на чётное число (уменьшение): старое угасает (1 -> 0), новое растёт (0 -> 1)
-                    element.style.opacity = 1 - currentProgress;
-                    newDigit.style.opacity = currentProgress;
-                } else {
-                    // Переход на нечётное число: старая чётная цифра снижается до 0%, новая стоит на 100%
-                    element.style.opacity = 1 - currentProgress;
-                    newDigit.style.opacity = 1;
-                }
-
-                if (currentProgress >= 1) {
-                    clearInterval(interval);
-                    element.innerText = newValue;
-                    element.style.opacity = '1';
-                    newDigit.remove();
-                }
-            }, stepInterval);
-        }
-
-        function updateElement(id, newValue) {
-            const el = document.getElementById(id);
-            if (el.innerText !== newValue) {
-                transitionOpacity(el, newValue);
-            }
-        }
-
-        function updateTimer() {
-            const now = new Date();
-            let targetYear = now.getFullYear();
-            
-            let targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
-            if (now > targetDate) {
-                targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
-            }
-
-            const diff = targetDate - now;
-
-            const d = String(Math.floor(diff / (1000 * 60 * 60 * 24))).padStart(2, '0');
-            const h = String(Math.floor((diff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
-            const m = String(Math.floor((diff / 1000 / 60) % 60)).padStart(2, '0');
-            const s = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
-
-            updateElement('days', d);
-            updateElement('hours', h);
-            updateElement('minutes', m);
-            updateElement('seconds', s);
-        }
-
-        setInterval(updateTimer, 1000);
-        updateTimer();
-    </script>
-
-</body>
-</html>
+    }, stepInterval);
+}
