@@ -140,7 +140,7 @@
 </head>
 <body>
 
-    <!-- Панель управления шагом и интервалом -->
+    <!-- Панель управления настройками анимации -->
     <div class="settings-panel">
         <div class="setting-group">
             <label for="stepPercent">Шаг (%)</label>
@@ -190,19 +190,23 @@
             const stepInterval = parseInt(document.getElementById('stepInterval').value) || 100;
             const stepRatio = stepPercent / 100;
 
-            const isNewEven = parseInt(newValue) % 2 === 0;
+            const newNum = parseInt(newValue);
+            const isNewEven = newNum % 2 === 0;
 
             const newDigit = document.createElement('span');
             newDigit.className = 'number';
             newDigit.innerText = newValue;
 
-            // Если новая цифра чётная (напр. 2): старая гаснет с 100%, новая проявляется с 0%
-            // Если новая цифра нечётная (напр. 1): когда чётная прошлась до 0%, новая встаёт в 100%
-            let initialOldOpacity = isNewEven ? 1 : 0;
-            let initialNewOpacity = isNewEven ? 0 : 1;
-
-            element.style.opacity = initialOldOpacity;
-            newDigit.style.opacity = initialNewOpacity;
+            // Логика при уменьшении:
+            // При переходе к ЧЁТНОЙ (например, 3 -> 2): новая (2) стартует с 0%, старая (3) гаснет с 100%
+            // При переходе к НЕЧЁТНОЙ (например, 2 -> 1): старая чётная (2) затухает до 0%, а новая (1) встаёт на 100%
+            if (isNewEven) {
+                element.style.opacity = '1';
+                newDigit.style.opacity = '0';
+            } else {
+                element.style.opacity = '1';
+                newDigit.style.opacity = '1';
+            }
 
             wrapper.appendChild(newDigit);
 
@@ -213,11 +217,13 @@
                 if (currentProgress > 1) currentProgress = 1;
 
                 if (isNewEven) {
-                    element.style.opacity = 1 - currentProgress; // 1.0 -> 0.0
-                    newDigit.style.opacity = currentProgress;     // 0.0 -> 1.0
+                    // Переход на чётное число (уменьшение): старое угасает (1 -> 0), новое растёт (0 -> 1)
+                    element.style.opacity = 1 - currentProgress;
+                    newDigit.style.opacity = currentProgress;
                 } else {
-                    element.style.opacity = currentProgress;     // 0.0 -> 1.0 (для предыдущей чётной)
-                    newDigit.style.opacity = 1 - currentProgress; // 1.0 -> 0.0 (для нечётной)
+                    // Переход на нечётное число: старая чётная цифра снижается до 0%, новая стоит на 100%
+                    element.style.opacity = 1 - currentProgress;
+                    newDigit.style.opacity = 1;
                 }
 
                 if (currentProgress >= 1) {
