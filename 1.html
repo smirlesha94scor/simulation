@@ -24,7 +24,7 @@
             padding: 20px;
         }
 
-        /* Панель настроек прозрачности */
+        /* Панель настроек */
         .settings-panel {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
@@ -119,7 +119,6 @@
             text-align: center;
             left: 0;
             top: 0;
-            transition: opacity 0.05s linear;
         }
 
         .label {
@@ -141,19 +140,15 @@
 </head>
 <body>
 
-    <!-- Панель управления прозрачностью -->
+    <!-- Панель управления шагом и интервалом -->
     <div class="settings-panel">
-        <div class="setting-group">
-            <label for="startOpacity">Старт (%)</label>
-            <input type="number" id="startOpacity" value="0" min="0" max="100">
-        </div>
-        <div class="setting-group">
-            <label for="endOpacity">Финиш (%)</label>
-            <input type="number" id="endOpacity" value="100" min="0" max="100">
-        </div>
         <div class="setting-group">
             <label for="stepPercent">Шаг (%)</label>
             <input type="number" id="stepPercent" value="10" min="1" max="50">
+        </div>
+        <div class="setting-group">
+            <label for="stepInterval">Интервал (мс)</label>
+            <input type="number" id="stepInterval" value="100" min="10" max="500">
         </div>
     </div>
 
@@ -191,52 +186,47 @@
         function transitionOpacity(element, newValue) {
             const wrapper = element.parentElement;
             
-            // Считываем значения прозрачности (в диапазоне от 0.0 до 1.0)
-            const startO = (parseFloat(document.getElementById('startOpacity').value) || 0) / 100;
-            const endO = (parseFloat(document.getElementById('endOpacity').value) || 100) / 100;
-            const stepO = (parseFloat(document.getElementById('stepPercent').value) || 10) / 100;
+            const stepPercent = parseFloat(document.getElementById('stepPercent').value) || 10;
+            const stepInterval = parseInt(document.getElementById('stepInterval').value) || 100;
+            const stepRatio = stepPercent / 100;
 
             const isNewEven = parseInt(newValue) % 2 === 0;
 
-            // Временный элемент для новой цифры
             const newDigit = document.createElement('span');
             newDigit.className = 'number';
             newDigit.innerText = newValue;
 
-            const totalDiff = endO - startO;
-            const totalSteps = Math.max(1, Math.floor(Math.abs(totalDiff) / stepO));
-            const intervalTime = Math.max(10, Math.floor(1000 / totalSteps));
+            // Если новая цифра чётная (напр. 2): старая гаснет с 100%, новая проявляется с 0%
+            // Если новая цифра нечётная (напр. 1): когда чётная прошлась до 0%, новая встаёт в 100%
+            let initialOldOpacity = isNewEven ? 1 : 0;
+            let initialNewOpacity = isNewEven ? 0 : 1;
+
+            element.style.opacity = initialOldOpacity;
+            newDigit.style.opacity = initialNewOpacity;
 
             wrapper.appendChild(newDigit);
 
-            let currentStep = 0;
+            let currentProgress = 0;
 
             const interval = setInterval(() => {
-                currentStep++;
-                const progress = currentStep / totalSteps;
-
-                let oldOpacity, newOpacity;
+                currentProgress += stepRatio;
+                if (currentProgress > 1) currentProgress = 1;
 
                 if (isNewEven) {
-                    // Четная цифра: старая угасает (от end к start), новая появляется (от start к end)
-                    oldOpacity = endO - (totalDiff * progress);
-                    newOpacity = startO + (totalDiff * progress);
+                    element.style.opacity = 1 - currentProgress; // 1.0 -> 0.0
+                    newDigit.style.opacity = currentProgress;     // 0.0 -> 1.0
                 } else {
-                    // Нечетная цифра: наоборот
-                    oldOpacity = startO + (totalDiff * progress);
-                    newOpacity = endO - (totalDiff * progress);
+                    element.style.opacity = currentProgress;     // 0.0 -> 1.0 (для предыдущей чётной)
+                    newDigit.style.opacity = 1 - currentProgress; // 1.0 -> 0.0 (для нечётной)
                 }
 
-                element.style.opacity = oldOpacity;
-                newDigit.style.opacity = newOpacity;
-
-                if (currentStep >= totalSteps) {
+                if (currentProgress >= 1) {
                     clearInterval(interval);
                     element.innerText = newValue;
                     element.style.opacity = '1';
                     newDigit.remove();
                 }
-            }, intervalTime);
+            }, stepInterval);
         }
 
         function updateElement(id, newValue) {
