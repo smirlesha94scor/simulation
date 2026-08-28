@@ -24,7 +24,7 @@
             padding: 20px;
         }
 
-        /* Панель настроек */
+        /* Панель настроек прозрачности */
         .settings-panel {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
@@ -119,7 +119,7 @@
             text-align: center;
             left: 0;
             top: 0;
-            transition: filter 0.05s linear, opacity 0.05s linear;
+            transition: opacity 0.05s linear;
         }
 
         .label {
@@ -141,15 +141,15 @@
 </head>
 <body>
 
-    <!-- Панель управления яркостью -->
+    <!-- Панель управления прозрачностью -->
     <div class="settings-panel">
         <div class="setting-group">
-            <label for="startBrightness">Старт (%)</label>
-            <input type="number" id="startBrightness" value="0" min="0" max="200">
+            <label for="startOpacity">Старт (%)</label>
+            <input type="number" id="startOpacity" value="0" min="0" max="100">
         </div>
         <div class="setting-group">
-            <label for="endBrightness">Финиш (%)</label>
-            <input type="number" id="endBrightness" value="100" min="0" max="200">
+            <label for="endOpacity">Финиш (%)</label>
+            <input type="number" id="endOpacity" value="100" min="0" max="100">
         </div>
         <div class="setting-group">
             <label for="stepPercent">Шаг (%)</label>
@@ -188,25 +188,24 @@
     </div>
 
     <script>
-        function transitionBrightness(element, newValue) {
+        function transitionOpacity(element, newValue) {
             const wrapper = element.parentElement;
             
-            // Считываем текущие настройки из полей ввода
-            const startB = parseFloat(document.getElementById('startBrightness').value) || 0;
-            const endB = parseFloat(document.getElementById('endBrightness').value) || 100;
-            const stepB = parseFloat(document.getElementById('stepPercent').value) || 10;
+            // Считываем значения прозрачности (в диапазоне от 0.0 до 1.0)
+            const startO = (parseFloat(document.getElementById('startOpacity').value) || 0) / 100;
+            const endO = (parseFloat(document.getElementById('endOpacity').value) || 100) / 100;
+            const stepO = (parseFloat(document.getElementById('stepPercent').value) || 10) / 100;
 
             const isNewEven = parseInt(newValue) % 2 === 0;
 
-            // Создаем элемент для новой цифры
+            // Временный элемент для новой цифры
             const newDigit = document.createElement('span');
             newDigit.className = 'number';
             newDigit.innerText = newValue;
 
-            // Расчет диапазона изменения
-            const totalDiff = endB - startB;
-            const totalSteps = Math.max(1, Math.floor(Math.abs(totalDiff) / stepB));
-            const intervalTime = Math.max(10, Math.floor(1000 / totalSteps)); // Равномерно распределяем на 1 секунду
+            const totalDiff = endO - startO;
+            const totalSteps = Math.max(1, Math.floor(Math.abs(totalDiff) / stepO));
+            const intervalTime = Math.max(10, Math.floor(1000 / totalSteps));
 
             wrapper.appendChild(newDigit);
 
@@ -216,30 +215,25 @@
                 currentStep++;
                 const progress = currentStep / totalSteps;
 
-                let oldBrightness, newBrightness;
+                let oldOpacity, newOpacity;
 
                 if (isNewEven) {
-                    // При переходе к четной: старая гаснет (end -> start), новая разгорается (start -> end)
-                    oldBrightness = endB - (totalDiff * progress);
-                    newBrightness = startB + (totalDiff * progress);
+                    // Четная цифра: старая угасает (от end к start), новая появляется (от start к end)
+                    oldOpacity = endO - (totalDiff * progress);
+                    newOpacity = startO + (totalDiff * progress);
                 } else {
-                    // При переходе к нечетной: наоборот
-                    oldBrightness = startB + (totalDiff * progress);
-                    newBrightness = endB - (totalDiff * progress);
+                    // Нечетная цифра: наоборот
+                    oldOpacity = startO + (totalDiff * progress);
+                    newOpacity = endO - (totalDiff * progress);
                 }
 
-                // Применяем значения яркости и прозрачности
-                element.style.filter = `brightness(${oldBrightness}%)`;
-                element.style.opacity = oldBrightness / 100;
-
-                newDigit.style.filter = `brightness(${newBrightness}%)`;
-                newDigit.style.opacity = newBrightness / 100;
+                element.style.opacity = oldOpacity;
+                newDigit.style.opacity = newOpacity;
 
                 if (currentStep >= totalSteps) {
                     clearInterval(interval);
                     element.innerText = newValue;
                     element.style.opacity = '1';
-                    element.style.filter = 'brightness(100%)';
                     newDigit.remove();
                 }
             }, intervalTime);
@@ -248,7 +242,7 @@
         function updateElement(id, newValue) {
             const el = document.getElementById(id);
             if (el.innerText !== newValue) {
-                transitionBrightness(el, newValue);
+                transitionOpacity(el, newValue);
             }
         }
 
