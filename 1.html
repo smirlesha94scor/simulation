@@ -53,21 +53,26 @@
             border-radius: 12px;
             min-width: 75px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+        }
+
+        .number-wrapper {
+            position: relative;
+            height: 2.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .number {
             font-size: 2.2rem;
             font-weight: 700;
-            display: block;
             line-height: 1;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-
-        /* Класс анимации обновления цифры */
-        .number.changing {
-            opacity: 0.2;
-            transform: translateY(-8px) scale(0.9);
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            left: 0;
+            top: 0;
+            transition: filter 0.1s linear;
         }
 
         .label {
@@ -89,6 +94,9 @@
             .number {
                 font-size: 1.6rem;
             }
+            .number-wrapper {
+                height: 1.6rem;
+            }
             .label {
                 font-size: 0.65rem;
             }
@@ -101,33 +109,74 @@
         <h1>До 1 сентября осталось</h1>
         <div class="timer">
             <div class="time-box">
-                <span class="number" id="days">00</span>
+                <div class="number-wrapper">
+                    <span class="number" id="days">00</span>
+                </div>
                 <span class="label">Дней</span>
             </div>
             <div class="time-box">
-                <span class="number" id="hours">00</span>
+                <div class="number-wrapper">
+                    <span class="number" id="hours">00</span>
+                </div>
                 <span class="label">Часов</span>
             </div>
             <div class="time-box">
-                <span class="number" id="minutes">00</span>
+                <div class="number-wrapper">
+                    <span class="number" id="minutes">00</span>
+                </div>
                 <span class="label">Минут</span>
             </div>
             <div class="time-box">
-                <span class="number" id="seconds">00</span>
+                <div class="number-wrapper">
+                    <span class="number" id="seconds">00</span>
+                </div>
                 <span class="label">Секунд</span>
             </div>
         </div>
     </div>
 
     <script>
-        function setAnimatedValue(id, newValue) {
+        function transitionCrossfade(element, newValue) {
+            const wrapper = element.parentElement;
+            
+            // Создаем временный элемент для новой цифры
+            const newDigit = document.createElement('span');
+            newDigit.className = 'number';
+            newDigit.innerText = newValue;
+            newDigit.style.opacity = '0';
+            newDigit.style.filter = 'brightness(0%)';
+            
+            wrapper.appendChild(newDigit);
+
+            let step = 0;
+            const interval = setInterval(() => {
+                step++;
+                const opacityOut = (10 - step) / 10; // 1.0 -> 0.0
+                const opacityIn = step / 10;        // 0.0 -> 1.0
+
+                // Старая цифра угасает по яркости и прозрачности
+                element.style.opacity = opacityOut;
+                element.style.filter = `brightness(${opacityOut * 100}%)`;
+
+                // Новая цифра параллельно нарастает
+                newDigit.style.opacity = opacityIn;
+                newDigit.style.filter = `brightness(${opacityIn * 100}%)`;
+
+                if (step >= 10) {
+                    clearInterval(interval);
+                    // Фиксируем новое значение в основном элементе и удаляем временный
+                    element.innerText = newValue;
+                    element.style.opacity = '1';
+                    element.style.filter = 'brightness(100%)';
+                    newDigit.remove();
+                }
+            }, 100);
+        }
+
+        function updateElement(id, newValue) {
             const el = document.getElementById(id);
             if (el.innerText !== newValue) {
-                el.classList.add('changing');
-                setTimeout(() => {
-                    el.innerText = newValue;
-                    el.classList.remove('changing');
-                }, 150);
+                transitionCrossfade(el, newValue);
             }
         }
 
@@ -147,10 +196,10 @@
             const m = String(Math.floor((diff / 1000 / 60) % 60)).padStart(2, '0');
             const s = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
 
-            setAnimatedValue('days', d);
-            setAnimatedValue('hours', h);
-            setAnimatedValue('minutes', m);
-            setAnimatedValue('seconds', s);
+            updateElement('days', d);
+            updateElement('hours', h);
+            updateElement('minutes', m);
+            updateElement('seconds', s);
         }
 
         setInterval(updateTimer, 1000);
