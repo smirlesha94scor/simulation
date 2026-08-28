@@ -72,7 +72,7 @@
             text-align: center;
             left: 0;
             top: 0;
-            transition: filter 0.1s linear;
+            transition: filter 0.1s linear, opacity 0.1s linear;
         }
 
         .label {
@@ -136,35 +136,53 @@
     </div>
 
     <script>
-        function transitionCrossfade(element, newValue) {
+        function transitionBrightness(element, newValue) {
             const wrapper = element.parentElement;
-            
-            // Создаем временный элемент для новой цифры
+            const newNum = parseInt(newValue);
+            const isNewEven = newNum % 2 === 0;
+
+            // Создаем элемент для новой (уменьшенной) цифры
             const newDigit = document.createElement('span');
             newDigit.className = 'number';
             newDigit.innerText = newValue;
-            newDigit.style.opacity = '0';
-            newDigit.style.filter = 'brightness(0%)';
+
+            // Если новая цифра четная: старая (нечетная) угасает 100% -> 0%, новая разгорается 0% -> 100%
+            // Если новая цифра нечетная: наоборот
+            let initialNewOpacity = isNewEven ? 0 : 1;
+            let initialOldOpacity = isNewEven ? 1 : 0;
+
+            newDigit.style.opacity = initialNewOpacity;
+            newDigit.style.filter = `brightness(${initialNewOpacity * 100}%)`;
             
             wrapper.appendChild(newDigit);
 
             let step = 0;
             const interval = setInterval(() => {
                 step++;
-                const opacityOut = (10 - step) / 10; // 1.0 -> 0.0
-                const opacityIn = step / 10;        // 0.0 -> 1.0
+                const progress = step / 10; // 0.1 -> 1.0
 
-                // Старая цифра угасает по яркости и прозрачности
-                element.style.opacity = opacityOut;
-                element.style.filter = `brightness(${opacityOut * 100}%)`;
+                let oldOpacity, newOpacity;
 
-                // Новая цифра параллельно нарастает
-                newDigit.style.opacity = opacityIn;
-                newDigit.style.filter = `brightness(${opacityIn * 100}%)`;
+                if (isNewEven) {
+                    // Переход к ЧЁТНОЙ цифре (например, с 3 на 2): 
+                    // 3 затухает (100% -> 0%), 2 проявляется (0% -> 100%)
+                    oldOpacity = 1 - progress;
+                    newOpacity = progress;
+                } else {
+                    // Переход к НЕЧЁТНОЙ цифре (например, с 2 на 1): 
+                    // 2 угасает (0% -> 100% инверсивно), 1 проявляется (100% -> 0% инверсивно)
+                    oldOpacity = progress;
+                    newOpacity = 1 - progress;
+                }
+
+                element.style.opacity = oldOpacity;
+                element.style.filter = `brightness(${oldOpacity * 100}%)`;
+
+                newDigit.style.opacity = newOpacity;
+                newDigit.style.filter = `brightness(${newOpacity * 100}%)`;
 
                 if (step >= 10) {
                     clearInterval(interval);
-                    // Фиксируем новое значение в основном элементе и удаляем временный
                     element.innerText = newValue;
                     element.style.opacity = '1';
                     element.style.filter = 'brightness(100%)';
@@ -176,7 +194,7 @@
         function updateElement(id, newValue) {
             const el = document.getElementById(id);
             if (el.innerText !== newValue) {
-                transitionCrossfade(el, newValue);
+                transitionBrightness(el, newValue);
             }
         }
 
