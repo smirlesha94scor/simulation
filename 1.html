@@ -141,11 +141,11 @@
 
     <div class="settings-panel">
         <div class="setting-group">
-            <label for="speedSelect">Длительность 1 сек</label>
+            <label for="speedSelect">Режим работы</label>
             <select id="speedSelect" onchange="changeTimerSpeed()">
-                <option value="1000" selected>1 сек (Реальное время - 1000 мс)</option>
-                <option value="5000">5 сек (Замедленно)</option>
-                <option value="60000">60 сек (1 сек = 1 мин)</option>
+                <option value="1000" selected>1 секунда (Шаг 10 мс)</option>
+                <option value="5000">5 секунд (Замедленно)</option>
+                <option value="60000">60 секунд (1 сек = 1 мин)</option>
             </select>
         </div>
     </div>
@@ -208,31 +208,24 @@
 
             wrapper.appendChild(newDigit);
 
-            // Анимация перехода длится ровно 1000 мс
-            const duration = 1000;
-            let startTime = null;
+            let stepCount = 0;
+            const totalSteps = 100; // 100 шагов по 10 мс = 1000 мс (1 секунда)
 
-            function animate(timestamp) {
-                if (!startTime) startTime = timestamp;
-                const elapsed = timestamp - startTime;
-                
-                // Рассчитываем прогресс (обновляется каждые ~10 мс браузером)
-                let progress = elapsed / duration;
-                if (progress > 1) progress = 1;
+            const interval = setInterval(() => {
+                stepCount++;
+                const progress = stepCount / totalSteps;
 
-                element.style.opacity = (1 - progress).toFixed(3);
-                newDigit.style.opacity = progress.toFixed(3);
+                // Изменение прозрачности строго каждые 10 мс
+                element.style.opacity = (1 - progress).toFixed(2);
+                newDigit.style.opacity = progress.toFixed(2);
 
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
+                if (stepCount >= totalSteps) {
+                    clearInterval(interval);
                     element.innerText = newValue;
                     element.style.opacity = '1';
                     newDigit.remove();
                 }
-            }
-
-            requestAnimationFrame(animate);
+            }, 10); // Интервал срабатывания строго 10 мс
         }
 
         function updateElement(id, newValue) {
