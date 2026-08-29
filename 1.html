@@ -75,7 +75,7 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
         }
 
@@ -90,14 +90,14 @@
         .timer {
             display: flex;
             justify-content: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .time-box {
             background: rgba(255, 255, 255, 0.2);
-            padding: 15px 10px;
+            padding: 15px 8px;
             border-radius: 12px;
-            min-width: 75px;
+            min-width: 65px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
@@ -110,7 +110,7 @@
         }
 
         .number {
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: 700;
             line-height: 1;
             position: absolute;
@@ -121,19 +121,20 @@
         }
 
         .label {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-top: 8px;
             opacity: 0.85;
+            display: block;
         }
 
-        @media (max-width: 480px) {
-            .timer { gap: 8px; }
-            .time-box { min-width: 60px; padding: 10px 5px; }
-            .number { font-size: 1.6rem; }
-            .number-wrapper { height: 1.6rem; }
-            .label { font-size: 0.65rem; }
+        @media (max-width: 520px) {
+            .timer { gap: 6px; }
+            .time-box { min-width: 55px; padding: 10px 4px; }
+            .number { font-size: 1.4rem; }
+            .number-wrapper { height: 1.4rem; }
+            .label { font-size: 0.55rem; }
         }
     </style>
 </head>
@@ -143,9 +144,8 @@
         <div class="setting-group">
             <label for="speedSelect">Режим работы</label>
             <select id="speedSelect" onchange="changeTimerSpeed()">
-                <option value="1000" selected>1 секунда (Шаг 10 мс)</option>
-                <option value="5000">5 секунд (Замедленно)</option>
-                <option value="60000">60 секунд (1 сек = 1 мин)</option>
+                <option value="1000" selected>Замедленный (10 мс таймера за 1 сек)</option>
+                <option value="10">Нормальный (1 сек = 1000 мс)</option>
             </select>
         </div>
     </div>
@@ -177,14 +177,20 @@
                 </div>
                 <span class="label">Секунд</span>
             </div>
+            <div class="time-box">
+                <div class="number-wrapper">
+                    <span class="number" id="ms">00</span>
+                </div>
+                <span class="label">МС</span>
+            </div>
         </div>
     </div>
 
     <script>
         let mainTimerInterval = null;
-        let totalRemainingSeconds = 0;
+        let totalRemainingMs = 0;
 
-        function initTargetSeconds() {
+        function initTargetMs() {
             const now = new Date();
             let targetYear = now.getFullYear();
             let targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
@@ -193,10 +199,10 @@
                 targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
             }
             
-            totalRemainingSeconds = Math.floor((targetDate - now) / 1000);
+            totalRemainingMs = targetDate - now;
         }
 
-        function transitionOpacity(element, newValue) {
+        function transitionOpacity(element, newValue, durationMs) {
             const wrapper = element.parentElement;
 
             const newDigit = document.createElement('span');
@@ -208,53 +214,64 @@
 
             wrapper.appendChild(newDigit);
 
-            let stepCount = 0;
-            const totalSteps = 100; // 100 шагов по 10 мс = 1000 мс (1 секунда)
+            let startTime = null;
 
-            const interval = setInterval(() => {
-                stepCount++;
-                const progress = stepCount / totalSteps;
+            function animate(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                let progress = elapsed / durationMs;
+                if (progress > 1) progress = 1;
 
-                // Изменение прозрачности строго каждые 10 мс
                 element.style.opacity = (1 - progress).toFixed(2);
                 newDigit.style.opacity = progress.toFixed(2);
 
-                if (stepCount >= totalSteps) {
-                    clearInterval(interval);
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
                     element.innerText = newValue;
                     element.style.opacity = '1';
                     newDigit.remove();
                 }
-            }, 10); // Интервал срабатывания строго 10 мс
+            }
+
+            requestAnimationFrame(animate);
         }
 
-        function updateElement(id, newValue) {
+        function updateElement(id, newValue, speedMs) {
             const el = document.getElementById(id);
             if (el.innerText !== newValue) {
-                transitionOpacity(el, newValue);
+                transitionOpacity(el, newValue, speedMs);
             }
         }
 
-        function renderTimer() {
-            if (totalRemainingSeconds <= 0) {
-                totalRemainingSeconds = 0;
+        function renderTimer(speedMs) {
+            if (totalRemainingMs <= 0) {
+                totalRemainingMs = 0;
             }
 
-            const d = String(Math.floor(totalRemainingSeconds / (60 * 60 * 24))).padStart(2, '0');
-            const h = String(Math.floor((totalRemainingSeconds / (60 * 60)) % 24)).padStart(2, '0');
-            const m = String(Math.floor((totalRemainingSeconds / 60) % 60)).padStart(2, '0');
-            const s = String(totalRemainingSeconds % 60).padStart(2, '0');
+            const totalSeconds = Math.floor(totalRemainingMs / 1000);
+            
+            const d = String(Math.floor(totalSeconds / (60 * 60 * 24))).padStart(2, '0');
+            const h = String(Math.floor((totalSeconds / (60 * 60)) % 24)).padStart(2, '0');
+            const m = String(Math.floor((totalSeconds / 60) % 60)).padStart(2, '0');
+            const s = String(totalSeconds % 60).padStart(2, '0');
+            
+            // Вычисляем сотые доли секунды (шаг по 10 мс = 0-99)
+            const ms = String(Math.floor((totalRemainingMs % 1000) / 10)).padStart(2, '0');
 
-            updateElement('days', d);
-            updateElement('hours', h);
-            updateElement('minutes', m);
-            updateElement('seconds', s);
+            updateElement('days', d, speedMs);
+            updateElement('hours', h, speedMs);
+            updateElement('minutes', m, speedMs);
+            updateElement('seconds', s, speedMs);
+            updateElement('ms', ms, speedMs);
         }
 
         function tick() {
-            renderTimer();
-            if (totalRemainingSeconds > 0) {
-                totalRemainingSeconds--;
+            const speed = parseInt(document.getElementById('speedSelect').value) || 1000;
+            renderTimer(speed);
+            
+            if (totalRemainingMs > 0) {
+                totalRemainingMs -= 10; // Вычитаем строго по 10 мс таймера за каждый шаг
             }
         }
 
@@ -262,15 +279,12 @@
             if (mainTimerInterval) clearInterval(mainTimerInterval);
             const speed = parseInt(document.getElementById('speedSelect').value) || 1000;
             
-            if (speed === 1000) {
-                initTargetSeconds();
-            }
-
+            initTargetMs();
             tick();
             mainTimerInterval = setInterval(tick, speed);
         }
 
-        initTargetSeconds();
+        initTargetMs();
         changeTimerSpeed();
     </script>
 
