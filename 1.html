@@ -32,7 +32,7 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 400px;
+            max-width: 420px;
             width: 100%;
         }
 
@@ -86,12 +86,36 @@
             display: block;
         }
 
+        /* Панель индикатора прозрачности */
+        .opacity-info {
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .opacity-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .opacity-item span {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
         @media (max-width: 480px) {
             .timer { gap: 10px; }
             .time-box { min-width: 75px; padding: 10px 5px; }
             .number { font-size: 1.8rem; }
             .number-wrapper { height: 1.8rem; }
             .label { font-size: 0.65rem; }
+            .opacity-info { font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -109,10 +133,21 @@
                 <span class="label">Секунд</span>
             </div>
         </div>
+
+        <!-- Индикатор текущей прозрачности -->
+        <div class="opacity-info">
+            <div class="opacity-item">
+                Текущая цифра:
+                <span id="curr-opacity-val">100%</span>
+            </div>
+            <div class="opacity-item">
+                Следующая цифра:
+                <span id="next-opacity-val">0%</span>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Старт с 10 минут (10 * 60 * 1000 = 600 000 мс) без привязки к Date
         let totalRemainingMs = 10 * 60 * 1000;
 
         function renderUnit(wrapperId, currentVal, nextVal, currentOpacity) {
@@ -120,13 +155,11 @@
             const nextOpacity = (1 - currentOpacity).toFixed(2);
             const currOpacityFixed = currentOpacity.toFixed(2);
 
-            // Если значение цифры не изменилось, выводим без наложения
             if (currentVal === nextVal) {
                 wrapper.innerHTML = `<span class="number" style="opacity: 1">${currentVal}</span>`;
                 return;
             }
 
-            // Наложение текущей (уменьшение opacity) и следующей цифры (увеличение opacity)
             wrapper.innerHTML = `
                 <span class="number" style="opacity: ${currOpacityFixed}">${currentVal}</span>
                 <span class="number" style="opacity: ${nextOpacity}">${nextVal}</span>
@@ -141,8 +174,12 @@
             const currentTotalSec = Math.floor(totalRemainingMs / 1000);
             const nextTotalSec = Math.max(0, currentTotalSec - 1);
 
-            // Шаг 100 мс из 1000 мс дает изменение прозрачности ровно на 10% (0.9, 0.8 ... 0.0)
             const currentOpacity = (totalRemainingMs % 1000) / 1000;
+            const nextOpacity = 1 - currentOpacity;
+
+            // Обновляем текстовый индикатор процентов
+            document.getElementById('curr-opacity-val').innerText = Math.round(currentOpacity * 100) + '%';
+            document.getElementById('next-opacity-val').innerText = Math.round(nextOpacity * 100) + '%';
 
             const formatTime = (totalSec) => ({
                 m: String(Math.floor(totalSec / 60)).padStart(2, '0'),
@@ -159,12 +196,11 @@
         function tick() {
             updateTimer();
             if (totalRemainingMs > 0) {
-                totalRemainingMs -= 100; // Отнимаем ровно 100 мс
+                totalRemainingMs -= 100;
             }
         }
 
         updateTimer();
-        // Запуск интервала: 1 шаг в 1000 мс (1 секунда реального времени)
         setInterval(tick, 1000);
     </script>
 
