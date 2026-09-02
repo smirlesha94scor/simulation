@@ -208,11 +208,11 @@
         <div class="opacity-info">
             <div class="opacity-item">
                 Текущая цифра:
-                <span id="curr-opacity-val">1.000 (100%)</span>
+                <span id="curr-opacity-val">100%</span>
             </div>
             <div class="opacity-item">
                 Следующая цифра:
-                <span id="next-opacity-val">0.000 (0%)</span>
+                <span id="next-opacity-val">0%</span>
             </div>
         </div>
     </div>
@@ -237,8 +237,8 @@
             const currElem = document.getElementById('curr-opacity-val');
             const nextElem = document.getElementById('next-opacity-val');
             
-            currElem.innerText = `${currOpacity.toFixed(3)} (${Math.round(currOpacity * 100)}%)`;
-            nextElem.innerText = `${nextOpacity.toFixed(3)} (${Math.round(nextOpacity * 100)}%)`;
+            currElem.innerText = `${Math.round(currOpacity * 100)}%`;
+            nextElem.innerText = `${Math.round(nextOpacity * 100)}%`;
         }
 
         function transitionOpacity(element, newValue) {
@@ -253,41 +253,34 @@
 
             wrapper.appendChild(newDigit);
 
-            const duration = 1000;
-            let startTime = null;
+            let step = 0; // Все 10 шагов от 0 до 10 (по 100 мс = 1000 мс суммарно)
 
-            function animate(timestamp) {
-                if (!startTime) startTime = timestamp;
-                const elapsed = timestamp - startTime;
+            const stepInterval = setInterval(() => {
+                step++;
                 
-                let progress = elapsed / duration;
-                if (progress > 1) progress = 1;
+                // Прозрачность текущей цифры падает от 1.0 до 0.0 (100% -> 0%)
+                const currOpacity = Math.max(0, (10 - step) / 10);
+                // Прозрачность следующей цифры растет от 0.0 до 1.0 (0% -> 100%)
+                const nextOpacity = Math.min(1, step / 10);
 
-                const currOpacity = 1 - progress;
-                const nextOpacity = progress;
+                element.style.opacity = currOpacity.toFixed(1);
+                newDigit.style.opacity = nextOpacity.toFixed(1);
 
-                element.style.opacity = currOpacity.toFixed(3);
-                newDigit.style.opacity = nextOpacity.toFixed(3);
-
-                // Если меняется секунда, транслируем ее Opacity в блок информации
                 if (element.id === 'seconds') {
                     updateOpacityDisplay(currOpacity, nextOpacity);
                 }
 
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
+                if (step >= 10) {
+                    clearInterval(stepInterval);
                     element.innerText = newValue;
                     element.style.opacity = '1';
                     newDigit.remove();
-                    
+
                     if (element.id === 'seconds') {
                         updateOpacityDisplay(1, 0);
                     }
                 }
-            }
-
-            requestAnimationFrame(animate);
+            }, 100);
         }
 
         function updateElement(id, newValue) {
