@@ -32,7 +32,7 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 580px;
+            max-width: 650px;
             width: 100%;
         }
 
@@ -87,12 +87,13 @@
             display: block;
         }
 
-        /* Таблица прозрачности */
+        /* Таблица с прокруткой для новых строк */
         .opacity-table-container {
             background: rgba(0, 0, 0, 0.25);
             border-radius: 12px;
             padding: 15px;
-            overflow-x: auto;
+            max-height: 250px;
+            overflow-y: auto;
         }
 
         .opacity-table {
@@ -114,10 +115,13 @@
             letter-spacing: 0.5px;
             opacity: 0.8;
             border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            position: sticky;
+            top: 0;
+            background: rgba(40, 30, 60, 0.95);
         }
 
-        .opacity-table tr:last-child td {
-            border-bottom: none;
+        .val-sec {
+            opacity: 0.7;
         }
 
         .val-curr {
@@ -164,18 +168,18 @@
             </div>
         </div>
 
-        <!-- Таблица показателей Opacity -->
-        <div class="opacity-table-container">
+        <div class="opacity-table-container" id="table-container">
             <table class="opacity-table">
                 <thead>
                     <tr>
-                        <th>Блок</th>
-                        <th>Текущая (Opacity)</th>
-                        <th>Следующая (Opacity)</th>
+                        <th>№</th>
+                        <th>Текущая цифра</th>
+                        <th>Opacity</th>
+                        <th>Следующая цифра</th>
+                        <th>Opacity</th>
                     </tr>
                 </thead>
                 <tbody id="opacity-table-body">
-                    <!-- Заполняется динамически -->
                 </tbody>
             </table>
         </div>
@@ -183,6 +187,7 @@
 
     <script>
         let targetDate = null;
+        let secondsPassed = 0;
 
         function initTargetDate() {
             const now = new Date();
@@ -210,35 +215,45 @@
             `;
         }
 
-        function updateOpacityTable(unitsData) {
+        function appendRowToTable(stepNumber, currVal, currOp, nextVal, nextOp) {
             const tbody = document.getElementById('opacity-table-body');
-            tbody.innerHTML = unitsData.map(item => {
-                const currPct = Math.round(item.currOp * 100);
-                const nextPct = Math.round((1 - item.currOp) * 100);
-                
-                return `
-                    <tr>
-                        <td><strong>${item.name}</strong></td>
-                        <td class="val-curr">${item.currVal} (${currPct}%)</td>
-                        <td class="val-next">${item.isChanging ? `${item.nextVal} (${nextPct}%)` : '—'}</td>
-                    </tr>
-                `;
-            }).join('');
+            const row = document.createElement('tr');
+
+            row.innerHTML = `
+                <td class="val-sec">${stepNumber} с</td>
+                <td class="val-curr">${currVal}</td>
+                <td class="val-curr">${Math.round(currOp * 100)}%</td>
+                <td class="val-next">${nextVal}</td>
+                <td class="val-next">${Math.round(nextOp * 100)}%</td>
+            `;
+
+            tbody.appendChild(row);
+
+            // Автоматическая прокрутка вниз к последней добавленной строке
+            const container = document.getElementById('table-container');
+            container.scrollTop = container.scrollHeight;
         }
 
-        function updateTimer() {
-            const now = new Date();
-            let diffMs = targetDate - now;
+        function tick() {
+            secondsPassed++;
 
-            if (diffMs <= 0) {
-                diffMs = 0;
+            const now = Date.now();
+            let realDiffMs = targetDate - now;
+
+            if (realDiffMs <= 0) {
+                realDiffMs = 0;
             }
 
-            const currentTotalSec = Math.floor(diffMs / 1000);
-            const nextTotalSec = Math.max(0, currentTotalSec - 1);
+            // Каждую реальную секунду отнимается дополнительно 10 мс
+            const extraMsDeducted = secondsPassed * 10;
+            const adjustedDiffMs = Math.max(0, realDiffMs - extraMsDeducted);
 
-            // Прозрачность вычисляется каждые 10 мс
-            const currentOpacity = (diffMs % 1000) / 1000;
+            // Каждую реальную секунду вычитается 1% (0.01) прозрачности
+            const currentOpacity = Math.max(0, 1 - (secondsPassed * 0.01));
+            const nextOpacity = 1 - currentOpacity;
+
+            const currentTotalSec = Math.floor(adjustedDiffMs / 1000);
+            const nextTotalSec = Math.max(0, currentTotalSec - 1);
 
             const formatUnits = (totalSec) => ({
                 d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
@@ -250,26 +265,20 @@
             const curr = formatUnits(currentTotalSec);
             const next = formatUnits(nextTotalSec);
 
+            // Обновление таймера
             renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
             renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
             renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
             renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
 
-            // Данные для таблицы
-            const unitsData = [
-                { name: 'Дни', currVal: curr.d, nextVal: next.d, currOp: curr.d !== next.d ? currentOpacity : 1, isChanging: curr.d !== next.d },
-                { name: 'Часы', currVal: curr.h, nextVal: next.h, currOp: curr.h !== next.h ? currentOpacity : 1, isChanging: curr.h !== next.h },
-                { name: 'Минуты', currVal: curr.m, nextVal: next.m, currOp: curr.m !== next.m ? currentOpacity : 1, isChanging: curr.m !== next.m },
-                { name: 'Секунды', currVal: curr.s, nextVal: next.s, currOp: curr.s !== next.s ? currentOpacity : 1, isChanging: curr.s !== next.s }
-            ];
-
-            updateOpacityTable(unitsData);
+            // Добавление новой строки в таблицу
+            appendRowToTable(secondsPassed, curr.s, currentOpacity, next.s, nextOpacity);
         }
 
         initTargetDate();
-        updateTimer();
-        // Таймер обновляется каждые 10 миллисекунд
-        setInterval(updateTimer, 10);
+        tick();
+        // Запуск каждые 1000 мс (1 реальную секунду)
+        setInterval(tick, 1000);
     </script>
 
 </body>
