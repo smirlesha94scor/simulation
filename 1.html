@@ -24,49 +24,6 @@
             padding: 20px;
         }
 
-        .settings-panel {
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            max-width: 600px;
-            width: 100%;
-        }
-
-        .setting-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .setting-group label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.9;
-        }
-
-        .setting-group select {
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: none;
-            outline: none;
-            text-align: center;
-            font-weight: bold;
-            font-size: 0.9rem;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            cursor: pointer;
-        }
-
         .countdown-container {
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
@@ -129,7 +86,6 @@
             display: block;
         }
 
-        /* Индикатор значений opacity */
         .opacity-info {
             margin-top: 25px;
             background: rgba(0, 0, 0, 0.2);
@@ -164,47 +120,27 @@
 </head>
 <body>
 
-    <div class="settings-panel">
-        <div class="setting-group">
-            <label for="speedSelect">Длительность 1 сек</label>
-            <select id="speedSelect" onchange="changeTimerSpeed()">
-                <option value="1000" selected>1 сек (Реальное время - 1000 мс)</option>
-                <option value="5000">5 сек (Замедленно)</option>
-                <option value="60000">60 сек (1 сек = 1 мин)</option>
-            </select>
-        </div>
-    </div>
-
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
         <div class="timer">
             <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="days">00</span>
-                </div>
+                <div class="number-wrapper" id="days-wrapper"></div>
                 <span class="label">Дней</span>
             </div>
             <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="hours">00</span>
-                </div>
+                <div class="number-wrapper" id="hours-wrapper"></div>
                 <span class="label">Часов</span>
             </div>
             <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="minutes">00</span>
-                </div>
+                <div class="number-wrapper" id="minutes-wrapper"></div>
                 <span class="label">Минут</span>
             </div>
             <div class="time-box">
-                <div class="number-wrapper">
-                    <span class="number" id="seconds">00</span>
-                </div>
+                <div class="number-wrapper" id="seconds-wrapper"></div>
                 <span class="label">Секунд</span>
             </div>
         </div>
 
-        <!-- Вывод параметров прозрачности -->
         <div class="opacity-info">
             <div class="opacity-item">
                 Текущая цифра:
@@ -218,115 +154,71 @@
     </div>
 
     <script>
-        let mainTimerInterval = null;
-        let totalRemainingSeconds = 0;
+        let targetDate = null;
 
-        function initTargetSeconds() {
+        function initTargetDate() {
             const now = new Date();
             let targetYear = now.getFullYear();
-            let targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
+            targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
             
             if (now > targetDate) {
                 targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
             }
-            
-            totalRemainingSeconds = Math.floor((targetDate - now) / 1000);
         }
 
-        function updateOpacityDisplay(currOpacity, nextOpacity) {
-            const currElem = document.getElementById('curr-opacity-val');
-            const nextElem = document.getElementById('next-opacity-val');
-            
-            currElem.innerText = `${Math.round(currOpacity * 100)}%`;
-            nextElem.innerText = `${Math.round(nextOpacity * 100)}%`;
-        }
+        function renderUnit(wrapperId, currentVal, nextVal, currentOpacity) {
+            const wrapper = document.getElementById(wrapperId);
+            const nextOpacity = (1 - currentOpacity).toFixed(1);
+            const currOpacityFixed = currentOpacity.toFixed(1);
 
-        function transitionOpacity(element, newValue) {
-            const wrapper = element.parentElement;
-
-            const newDigit = document.createElement('span');
-            newDigit.className = 'number';
-            newDigit.innerText = newValue;
-
-            element.style.opacity = '1';
-            newDigit.style.opacity = '0';
-
-            wrapper.appendChild(newDigit);
-
-            let step = 0; // Все 10 шагов от 0 до 10 (по 100 мс = 1000 мс суммарно)
-
-            const stepInterval = setInterval(() => {
-                step++;
-                
-                // Прозрачность текущей цифры падает от 1.0 до 0.0 (100% -> 0%)
-                const currOpacity = Math.max(0, (10 - step) / 10);
-                // Прозрачность следующей цифры растет от 0.0 до 1.0 (0% -> 100%)
-                const nextOpacity = Math.min(1, step / 10);
-
-                element.style.opacity = currOpacity.toFixed(1);
-                newDigit.style.opacity = nextOpacity.toFixed(1);
-
-                if (element.id === 'seconds') {
-                    updateOpacityDisplay(currOpacity, nextOpacity);
-                }
-
-                if (step >= 10) {
-                    clearInterval(stepInterval);
-                    element.innerText = newValue;
-                    element.style.opacity = '1';
-                    newDigit.remove();
-
-                    if (element.id === 'seconds') {
-                        updateOpacityDisplay(1, 0);
-                    }
-                }
-            }, 100);
-        }
-
-        function updateElement(id, newValue) {
-            const el = document.getElementById(id);
-            if (el.innerText !== newValue) {
-                transitionOpacity(el, newValue);
-            }
-        }
-
-        function renderTimer() {
-            if (totalRemainingSeconds <= 0) {
-                totalRemainingSeconds = 0;
+            if (currentVal === nextVal) {
+                wrapper.innerHTML = `<span class="number" style="opacity: 1">${currentVal}</span>`;
+                return;
             }
 
-            const d = String(Math.floor(totalRemainingSeconds / (60 * 60 * 24))).padStart(2, '0');
-            const h = String(Math.floor((totalRemainingSeconds / (60 * 60)) % 24)).padStart(2, '0');
-            const m = String(Math.floor((totalRemainingSeconds / 60) % 60)).padStart(2, '0');
-            const s = String(totalRemainingSeconds % 60).padStart(2, '0');
-
-            updateElement('days', d);
-            updateElement('hours', h);
-            updateElement('minutes', m);
-            updateElement('seconds', s);
+            wrapper.innerHTML = `
+                <span class="number" style="opacity: ${currOpacityFixed}">${currentVal}</span>
+                <span class="number" style="opacity: ${nextOpacity}">${nextVal}</span>
+            `;
         }
 
-        function tick() {
-            renderTimer();
-            if (totalRemainingSeconds > 0) {
-                totalRemainingSeconds--;
-            }
-        }
+        function updateTimer() {
+            const now = new Date();
+            let diffMs = targetDate - now;
 
-        function changeTimerSpeed() {
-            if (mainTimerInterval) clearInterval(mainTimerInterval);
-            const speed = parseInt(document.getElementById('speedSelect').value) || 1000;
-            
-            if (speed === 1000) {
-                initTargetSeconds();
+            if (diffMs <= 0) {
+                diffMs = 0;
             }
 
-            tick();
-            mainTimerInterval = setInterval(tick, speed);
+            const currentTotalSec = Math.floor(diffMs / 1000);
+            const nextTotalSec = Math.max(0, currentTotalSec - 1);
+
+            // Прозрачность рассчитывается из остатка миллисекунд
+            const currentOpacity = (diffMs % 1000) / 1000;
+            const nextOpacity = 1 - currentOpacity;
+
+            document.getElementById('curr-opacity-val').innerText = Math.round(currentOpacity * 100) + '%';
+            document.getElementById('next-opacity-val').innerText = Math.round(nextOpacity * 100) + '%';
+
+            const formatUnits = (totalSec) => ({
+                d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
+                h: String(Math.floor((totalSec / (60 * 60)) % 24)).padStart(2, '0'),
+                m: String(Math.floor((totalSec / 60) % 60)).padStart(2, '0'),
+                s: String(totalSec % 60).padStart(2, '0')
+            });
+
+            const curr = formatUnits(currentTotalSec);
+            const next = formatUnits(nextTotalSec);
+
+            renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
+            renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
+            renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
+            renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
         }
 
-        initTargetSeconds();
-        changeTimerSpeed();
+        initTargetDate();
+        updateTimer();
+        setInterval(updateTimer, 100);
     </script>
 
 </body>
