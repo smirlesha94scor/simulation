@@ -20,7 +20,7 @@
             align-items: center;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
-            gap: 25px;
+            gap: 20px;
             padding: 20px;
         }
 
@@ -28,11 +28,11 @@
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 40px 30px;
+            padding: 30px;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 500px;
+            max-width: 580px;
             width: 100%;
         }
 
@@ -48,13 +48,14 @@
             display: flex;
             justify-content: center;
             gap: 15px;
+            margin-bottom: 25px;
         }
 
         .time-box {
             background: rgba(255, 255, 255, 0.2);
             padding: 15px 10px;
             border-radius: 12px;
-            min-width: 75px;
+            min-width: 85px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
@@ -86,35 +87,56 @@
             display: block;
         }
 
-        .opacity-info {
-            margin-top: 25px;
-            background: rgba(0, 0, 0, 0.2);
+        /* Таблица прозрачности */
+        .opacity-table-container {
+            background: rgba(0, 0, 0, 0.25);
             border-radius: 12px;
-            padding: 12px 15px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+
+        .opacity-table {
+            width: 100%;
+            border-collapse: collapse;
             font-size: 0.85rem;
-            display: flex;
-            justify-content: space-around;
-            gap: 10px;
+            text-align: center;
         }
 
-        .opacity-item {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+        .opacity-table th, 
+        .opacity-table td {
+            padding: 8px 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .opacity-item span {
-            font-weight: 700;
-            font-size: 1.1rem;
+        .opacity-table th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.8;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .opacity-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .val-curr {
+            color: #a8ffb2;
+            font-weight: bold;
+        }
+
+        .val-next {
+            color: #ffd1a8;
+            font-weight: bold;
         }
 
         @media (max-width: 480px) {
             .timer { gap: 8px; }
-            .time-box { min-width: 60px; padding: 10px 5px; }
+            .time-box { min-width: 65px; padding: 10px 5px; }
             .number { font-size: 1.6rem; }
             .number-wrapper { height: 1.6rem; }
             .label { font-size: 0.65rem; }
-            .opacity-info { font-size: 0.75rem; }
+            .opacity-table { font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -122,6 +144,7 @@
 
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
+        
         <div class="timer">
             <div class="time-box">
                 <div class="number-wrapper" id="days-wrapper"></div>
@@ -141,15 +164,20 @@
             </div>
         </div>
 
-        <div class="opacity-info">
-            <div class="opacity-item">
-                Текущая цифра:
-                <span id="curr-opacity-val">100%</span>
-            </div>
-            <div class="opacity-item">
-                Следующая цифра:
-                <span id="next-opacity-val">0%</span>
-            </div>
+        <!-- Таблица показателей Opacity -->
+        <div class="opacity-table-container">
+            <table class="opacity-table">
+                <thead>
+                    <tr>
+                        <th>Блок</th>
+                        <th>Текущая (Opacity)</th>
+                        <th>Следующая (Opacity)</th>
+                    </tr>
+                </thead>
+                <tbody id="opacity-table-body">
+                    <!-- Заполняется динамически -->
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -168,8 +196,8 @@
 
         function renderUnit(wrapperId, currentVal, nextVal, currentOpacity) {
             const wrapper = document.getElementById(wrapperId);
-            const nextOpacity = (1 - currentOpacity).toFixed(1);
-            const currOpacityFixed = currentOpacity.toFixed(1);
+            const nextOpacity = (1 - currentOpacity).toFixed(2);
+            const currOpacityFixed = currentOpacity.toFixed(2);
 
             if (currentVal === nextVal) {
                 wrapper.innerHTML = `<span class="number" style="opacity: 1">${currentVal}</span>`;
@@ -180,6 +208,22 @@
                 <span class="number" style="opacity: ${currOpacityFixed}">${currentVal}</span>
                 <span class="number" style="opacity: ${nextOpacity}">${nextVal}</span>
             `;
+        }
+
+        function updateOpacityTable(unitsData) {
+            const tbody = document.getElementById('opacity-table-body');
+            tbody.innerHTML = unitsData.map(item => {
+                const currPct = Math.round(item.currOp * 100);
+                const nextPct = Math.round((1 - item.currOp) * 100);
+                
+                return `
+                    <tr>
+                        <td><strong>${item.name}</strong></td>
+                        <td class="val-curr">${item.currVal} (${currPct}%)</td>
+                        <td class="val-next">${item.isChanging ? `${item.nextVal} (${nextPct}%)` : '—'}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function updateTimer() {
@@ -193,12 +237,8 @@
             const currentTotalSec = Math.floor(diffMs / 1000);
             const nextTotalSec = Math.max(0, currentTotalSec - 1);
 
-            // Прозрачность рассчитывается из остатка миллисекунд
+            // Прозрачность вычисляется каждые 10 мс
             const currentOpacity = (diffMs % 1000) / 1000;
-            const nextOpacity = 1 - currentOpacity;
-
-            document.getElementById('curr-opacity-val').innerText = Math.round(currentOpacity * 100) + '%';
-            document.getElementById('next-opacity-val').innerText = Math.round(nextOpacity * 100) + '%';
 
             const formatUnits = (totalSec) => ({
                 d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
@@ -214,11 +254,22 @@
             renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
             renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
             renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
+
+            // Данные для таблицы
+            const unitsData = [
+                { name: 'Дни', currVal: curr.d, nextVal: next.d, currOp: curr.d !== next.d ? currentOpacity : 1, isChanging: curr.d !== next.d },
+                { name: 'Часы', currVal: curr.h, nextVal: next.h, currOp: curr.h !== next.h ? currentOpacity : 1, isChanging: curr.h !== next.h },
+                { name: 'Минуты', currVal: curr.m, nextVal: next.m, currOp: curr.m !== next.m ? currentOpacity : 1, isChanging: curr.m !== next.m },
+                { name: 'Секунды', currVal: curr.s, nextVal: next.s, currOp: curr.s !== next.s ? currentOpacity : 1, isChanging: curr.s !== next.s }
+            ];
+
+            updateOpacityTable(unitsData);
         }
 
         initTargetDate();
         updateTimer();
-        setInterval(updateTimer, 100);
+        // Таймер обновляется каждые 10 миллисекунд
+        setInterval(updateTimer, 10);
     </script>
 
 </body>
