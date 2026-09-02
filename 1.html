@@ -126,6 +126,30 @@
             letter-spacing: 1px;
             margin-top: 8px;
             opacity: 0.85;
+            display: block;
+        }
+
+        /* Индикатор значений opacity */
+        .opacity-info {
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 12px 15px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .opacity-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .opacity-item span {
+            font-weight: 700;
+            font-size: 1.1rem;
         }
 
         @media (max-width: 480px) {
@@ -134,6 +158,7 @@
             .number { font-size: 1.6rem; }
             .number-wrapper { height: 1.6rem; }
             .label { font-size: 0.65rem; }
+            .opacity-info { font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -178,6 +203,18 @@
                 <span class="label">Секунд</span>
             </div>
         </div>
+
+        <!-- Вывод параметров прозрачности -->
+        <div class="opacity-info">
+            <div class="opacity-item">
+                Текущая цифра:
+                <span id="curr-opacity-val">1.000 (100%)</span>
+            </div>
+            <div class="opacity-item">
+                Следующая цифра:
+                <span id="next-opacity-val">0.000 (0%)</span>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -196,6 +233,14 @@
             totalRemainingSeconds = Math.floor((targetDate - now) / 1000);
         }
 
+        function updateOpacityDisplay(currOpacity, nextOpacity) {
+            const currElem = document.getElementById('curr-opacity-val');
+            const nextElem = document.getElementById('next-opacity-val');
+            
+            currElem.innerText = `${currOpacity.toFixed(3)} (${Math.round(currOpacity * 100)}%)`;
+            nextElem.innerText = `${nextOpacity.toFixed(3)} (${Math.round(nextOpacity * 100)}%)`;
+        }
+
         function transitionOpacity(element, newValue) {
             const wrapper = element.parentElement;
 
@@ -208,7 +253,6 @@
 
             wrapper.appendChild(newDigit);
 
-            // Анимация перехода длится ровно 1000 мс
             const duration = 1000;
             let startTime = null;
 
@@ -216,12 +260,19 @@
                 if (!startTime) startTime = timestamp;
                 const elapsed = timestamp - startTime;
                 
-                // Рассчитываем прогресс (обновляется каждые ~10 мс браузером)
                 let progress = elapsed / duration;
                 if (progress > 1) progress = 1;
 
-                element.style.opacity = (1 - progress).toFixed(3);
-                newDigit.style.opacity = progress.toFixed(3);
+                const currOpacity = 1 - progress;
+                const nextOpacity = progress;
+
+                element.style.opacity = currOpacity.toFixed(3);
+                newDigit.style.opacity = nextOpacity.toFixed(3);
+
+                // Если меняется секунда, транслируем ее Opacity в блок информации
+                if (element.id === 'seconds') {
+                    updateOpacityDisplay(currOpacity, nextOpacity);
+                }
 
                 if (progress < 1) {
                     requestAnimationFrame(animate);
@@ -229,6 +280,10 @@
                     element.innerText = newValue;
                     element.style.opacity = '1';
                     newDigit.remove();
+                    
+                    if (element.id === 'seconds') {
+                        updateOpacityDisplay(1, 0);
+                    }
                 }
             }
 
