@@ -87,7 +87,6 @@
             display: block;
         }
 
-        /* Таблица с прокруткой для новых строк */
         .opacity-table-container {
             background: rgba(0, 0, 0, 0.25);
             border-radius: 12px;
@@ -172,7 +171,7 @@
             <table class="opacity-table">
                 <thead>
                     <tr>
-                        <th>№</th>
+                        <th>Время</th>
                         <th>Текущая цифра</th>
                         <th>Opacity</th>
                         <th>Следующая цифра</th>
@@ -229,7 +228,6 @@
 
             tbody.appendChild(row);
 
-            // Автоматическая прокрутка вниз к последней добавленной строке
             const container = document.getElementById('table-container');
             container.scrollTop = container.scrollHeight;
         }
@@ -244,12 +242,13 @@
                 realDiffMs = 0;
             }
 
-            // Каждую реальную секунду отнимается дополнительно 10 мс
+            // За каждую реальную секунду вычитаем 10 мс времени таймера
             const extraMsDeducted = secondsPassed * 10;
             const adjustedDiffMs = Math.max(0, realDiffMs - extraMsDeducted);
 
-            // Каждую реальную секунду вычитается 1% (0.01) прозрачности
-            const currentOpacity = Math.max(0, 1 - (secondsPassed * 0.01));
+            // За 100 реальных секунд прозрачность спускается со 100% до 0% (по 1% в секунду)
+            const cycleStep = secondsPassed % 100;
+            const currentOpacity = (100 - cycleStep) / 100;
             const nextOpacity = 1 - currentOpacity;
 
             const currentTotalSec = Math.floor(adjustedDiffMs / 1000);
@@ -265,19 +264,16 @@
             const curr = formatUnits(currentTotalSec);
             const next = formatUnits(nextTotalSec);
 
-            // Обновление таймера
             renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
             renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
             renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
             renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
 
-            // Добавление новой строки в таблицу
             appendRowToTable(secondsPassed, curr.s, currentOpacity, next.s, nextOpacity);
         }
 
         initTargetDate();
         tick();
-        // Запуск каждые 1000 мс (1 реальную секунду)
         setInterval(tick, 1000);
     </script>
 
