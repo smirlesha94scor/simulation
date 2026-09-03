@@ -187,6 +187,7 @@
 
     <script>
         let targetDate = null;
+        let initialDiffMs = null;
         let secondsPassed = 0;
 
         function initTargetDate() {
@@ -229,32 +230,27 @@
 
             tbody.appendChild(row);
 
-            // Автоскролл к последней добавленной строке
             const container = document.getElementById('table-container');
             container.scrollTop = container.scrollHeight;
         }
 
         function tick() {
-            secondsPassed++;
-
-            const now = Date.now();
-            let realDiffMs = targetDate - now;
-
-            if (realDiffMs <= 0) {
-                realDiffMs = 0;
+            // Фиксируем исходную разницу при первом запуске
+            if (initialDiffMs === null) {
+                initialDiffMs = targetDate - Date.now();
             }
 
-            // Каждую реальную секунду отнимаем ровно 10 мс
-            const extraMsDeducted = secondsPassed * 10;
-            const adjustedDiffMs = Math.max(0, realDiffMs - extraMsDeducted);
+            // Каждую реальную секунду отнимаем ровно 10 мс от зафиксированного старта
+            const adjustedDiffMs = Math.max(0, initialDiffMs - (secondsPassed * 10));
 
-            // Шаг прозрачности: каждые 100 секунд цикл повторяется (от 100% до 0%)
-            const opacityStep = (secondsPassed % 100);
-            const currentOpacity = (100 - opacityStep) / 100;
-            const nextOpacity = 1 - currentOpacity;
-
+            // Текущее и следующее значение в секундах
             const currentTotalSec = Math.floor(adjustedDiffMs / 1000);
             const nextTotalSec = Math.max(0, currentTotalSec - 1);
+
+            // Определение прозрачности (плавный уход на 1% за каждый шаг в 10 мс)
+            const msRemainder = adjustedDiffMs % 1000;
+            const currentOpacity = msRemainder / 1000;
+            const nextOpacity = 1 - currentOpacity;
 
             const formatUnits = (totalSec) => ({
                 d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
@@ -266,19 +262,20 @@
             const curr = formatUnits(currentTotalSec);
             const next = formatUnits(nextTotalSec);
 
-            // Обновление цифр на карточках
+            // Отображение на карточках
             renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
             renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
             renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
             renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
 
-            // Добавление одной строки в таблицу
+            // Запись текущего состояния в таблицу
             appendRowToTable(secondsPassed, curr.s, currentOpacity, next.s, nextOpacity);
+
+            secondsPassed++;
         }
 
         initTargetDate();
         tick();
-        // Запуск ровно раз в 1 реальную секунду (1000 мс)
         setInterval(tick, 1000);
     </script>
 
