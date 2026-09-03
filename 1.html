@@ -20,7 +20,6 @@
             align-items: center;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
-            gap: 20px;
             padding: 20px;
         }
 
@@ -28,17 +27,17 @@
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 30px;
+            padding: 40px 30px;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 650px;
+            max-width: 520px;
             width: 100%;
         }
 
         h1 {
             font-size: 1.8rem;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
             font-weight: 600;
             letter-spacing: 1px;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -48,27 +47,26 @@
             display: flex;
             justify-content: center;
             gap: 15px;
-            margin-bottom: 25px;
         }
 
         .time-box {
             background: rgba(255, 255, 255, 0.2);
-            padding: 15px 10px;
+            padding: 20px 10px;
             border-radius: 12px;
-            min-width: 85px;
+            min-width: 90px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
         .number-wrapper {
             position: relative;
-            height: 2.2rem;
+            height: 2.5rem;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
         .number {
-            font-size: 2.2rem;
+            font-size: 2.5rem;
             font-weight: 700;
             line-height: 1;
             position: absolute;
@@ -82,65 +80,17 @@
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-top: 8px;
+            margin-top: 10px;
             opacity: 0.85;
             display: block;
         }
 
-        .opacity-table-container {
-            background: rgba(0, 0, 0, 0.25);
-            border-radius: 12px;
-            padding: 15px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .opacity-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-            text-align: center;
-        }
-
-        .opacity-table th, 
-        .opacity-table td {
-            padding: 8px 6px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .opacity-table th {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.8;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-            position: sticky;
-            top: 0;
-            background: rgba(40, 30, 60, 0.95);
-            z-index: 2;
-        }
-
-        .val-sec {
-            opacity: 0.7;
-        }
-
-        .val-curr {
-            color: #a8ffb2;
-            font-weight: bold;
-        }
-
-        .val-next {
-            color: #ffd1a8;
-            font-weight: bold;
-        }
-
         @media (max-width: 480px) {
             .timer { gap: 8px; }
-            .time-box { min-width: 65px; padding: 10px 5px; }
-            .number { font-size: 1.6rem; }
-            .number-wrapper { height: 1.6rem; }
+            .time-box { min-width: 70px; padding: 15px 5px; }
+            .number { font-size: 1.8rem; }
+            .number-wrapper { height: 1.8rem; }
             .label { font-size: 0.65rem; }
-            .opacity-table { font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -167,35 +117,17 @@
                 <span class="label">Секунд</span>
             </div>
         </div>
-
-        <div class="opacity-table-container" id="table-container">
-            <table class="opacity-table">
-                <thead>
-                    <tr>
-                        <th>Время</th>
-                        <th>Текущая цифра</th>
-                        <th>Opacity</th>
-                        <th>Следующая цифра</th>
-                        <th>Opacity</th>
-                    </tr>
-                </thead>
-                <tbody id="opacity-table-body">
-                </tbody>
-            </table>
-        </div>
     </div>
 
     <script>
         let targetDate = null;
-        let initialDiffMs = null;
-        let secondsPassed = 0;
 
         function initTargetDate() {
             const now = new Date();
             let targetYear = now.getFullYear();
             targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
             
-            if (now > targetDate) {
+            if (now >= targetDate) {
                 targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
             }
         }
@@ -216,41 +148,20 @@
             `;
         }
 
-        function appendRowToTable(stepNumber, currVal, currOp, nextVal, nextOp) {
-            const tbody = document.getElementById('opacity-table-body');
-            const row = document.createElement('tr');
+        function updateTimer() {
+            const now = Date.now();
+            let diffMs = targetDate - now;
 
-            row.innerHTML = `
-                <td class="val-sec">${stepNumber} с</td>
-                <td class="val-curr">${currVal}</td>
-                <td class="val-curr">${Math.round(currOp * 100)}%</td>
-                <td class="val-next">${nextVal}</td>
-                <td class="val-next">${Math.round(nextOp * 100)}%</td>
-            `;
-
-            tbody.appendChild(row);
-
-            const container = document.getElementById('table-container');
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function tick() {
-            // Фиксируем исходную разницу при первом запуске
-            if (initialDiffMs === null) {
-                initialDiffMs = targetDate - Date.now();
+            if (diffMs <= 0) {
+                diffMs = 0;
             }
 
-            // Каждую реальную секунду отнимаем ровно 10 мс от зафиксированного старта
-            const adjustedDiffMs = Math.max(0, initialDiffMs - (secondsPassed * 10));
-
-            // Текущее и следующее значение в секундах
-            const currentTotalSec = Math.floor(adjustedDiffMs / 1000);
+            const currentTotalSec = Math.floor(diffMs / 1000);
             const nextTotalSec = Math.max(0, currentTotalSec - 1);
 
-            // Определение прозрачности (плавный уход на 1% за каждый шаг в 10 мс)
-            const msRemainder = adjustedDiffMs % 1000;
+            // Определение доли миллисекунд для плавной смены прозрачности
+            const msRemainder = diffMs % 1000;
             const currentOpacity = msRemainder / 1000;
-            const nextOpacity = 1 - currentOpacity;
 
             const formatUnits = (totalSec) => ({
                 d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
@@ -262,21 +173,16 @@
             const curr = formatUnits(currentTotalSec);
             const next = formatUnits(nextTotalSec);
 
-            // Отображение на карточках
             renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
             renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
             renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
             renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
-
-            // Запись текущего состояния в таблицу
-            appendRowToTable(secondsPassed, curr.s, currentOpacity, next.s, nextOpacity);
-
-            secondsPassed++;
         }
 
         initTargetDate();
-        tick();
-        setInterval(tick, 1000);
+        updateTimer();
+        // Обновление раз в 10 мс для идеальной плавности
+        setInterval(updateTimer, 10);
     </script>
 
 </body>
