@@ -65,7 +65,6 @@
             align-items: center;
         }
 
-        /* CSS анимация плавной смены прозрачности ровно за 1 секунду */
         .number {
             font-size: 2.5rem;
             font-weight: 700;
@@ -75,7 +74,6 @@
             text-align: center;
             left: 0;
             top: 0;
-            transition: opacity 1s linear;
         }
 
         .label {
@@ -134,29 +132,20 @@
             }
         }
 
-        function renderUnit(wrapperId, currentVal, nextVal) {
+        function renderUnit(wrapperId, currentVal, nextVal, currentOpacity) {
             const wrapper = document.getElementById(wrapperId);
+            const nextOpacity = 1 - currentOpacity;
 
             if (currentVal === nextVal) {
                 wrapper.innerHTML = `<span class="number" style="opacity: 1">${currentVal}</span>`;
                 return;
             }
 
-            // Создаем текущую и следующую цифру
+            // Рендерим текущую и следующую цифру с явной установкой opacity
             wrapper.innerHTML = `
-                <span class="number curr" style="opacity: 1">${currentVal}</span>
-                <span class="number next" style="opacity: 0">${nextVal}</span>
+                <span class="number" style="opacity: ${currentOpacity}">${currentVal}</span>
+                <span class="number" style="opacity: ${nextOpacity}">${nextVal}</span>
             `;
-
-            // Запускаем плавный переходы прозрачности ровно на 1 секунду
-            requestAnimationFrame(() => {
-                const currEl = wrapper.querySelector('.curr');
-                const nextEl = wrapper.querySelector('.next');
-                if (currEl && nextEl) {
-                    currEl.style.opacity = '0';
-                    nextEl.style.opacity = '1';
-                }
-            });
         }
 
         function updateTimer() {
@@ -170,6 +159,10 @@
             const currentTotalSec = Math.floor(diffMs / 1000);
             const nextTotalSec = Math.max(0, currentTotalSec - 1);
 
+            // Значение opacity от 1.0 до 0.0 на основе миллисекунд секунды
+            const msRemainder = diffMs % 1000;
+            const currentOpacity = msRemainder / 1000;
+
             const formatUnits = (totalSec) => ({
                 d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
                 h: String(Math.floor((totalSec / (60 * 60)) % 24)).padStart(2, '0'),
@@ -180,16 +173,17 @@
             const curr = formatUnits(currentTotalSec);
             const next = formatUnits(nextTotalSec);
 
-            renderUnit('days-wrapper', curr.d, next.d);
-            renderUnit('hours-wrapper', curr.h, next.h);
-            renderUnit('minutes-wrapper', curr.m, next.m);
-            renderUnit('seconds-wrapper', curr.s, next.s);
+            renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
+            renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
+            renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
+            renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
+
+            // Непрерывный запуск через requestAnimationFrame для идеальной плавности
+            requestAnimationFrame(updateTimer);
         }
 
         initTargetDate();
-        updateTimer();
-        // Запуск раз в 1 реальную секунду
-        setInterval(updateTimer, 1000);
+        requestAnimationFrame(updateTimer);
     </script>
 
 </body>
