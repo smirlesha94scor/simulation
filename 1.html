@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>До 1 сентября</title>
     <style>
+        :root {
+            /* Переменные для динамической настройки размеров */
+            --digit-width: 38px;
+            --digit-height: 68px;
+            --seg-thickness: 6px;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -27,20 +34,50 @@
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 40px 30px;
+            padding: 30px;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
             text-align: center;
-            max-width: 680px;
+            max-width: 800px;
             width: 100%;
         }
 
         h1 {
             font-size: 1.8rem;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-weight: 600;
             letter-spacing: 1px;
             text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Панель настроек размеров */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .control-group input[type="range"] {
+            accent-color: #ff2a5f;
+            cursor: pointer;
         }
 
         .timer {
@@ -66,10 +103,10 @@
             gap: 8px;
         }
 
-        /* 7-Сегментная цифра */
+        /* 7-Сегментная цифра на CSS-переменных */
         .segment-digit {
-            width: 38px;
-            height: 68px;
+            width: var(--digit-width);
+            height: var(--digit-height);
             position: relative;
         }
 
@@ -77,24 +114,58 @@
             position: absolute;
             background: #ff2a5f;
             border-radius: 3px;
-            opacity: 0.06; /* Неактивный сегмент слегка виден */
+            opacity: 0.06;
             transition: opacity 0.2s ease, box-shadow 0.2s ease;
         }
 
-        /* Подсветка активных сегментов */
         .seg.on {
             opacity: 1;
             box-shadow: 0 0 8px #ff2a5f, 0 0 15px #ff2a5f;
         }
 
-        /* Позиционирование сегментов (a, b, c, d, e, f, g) */
-        .seg-a { top: 0; left: 5px; width: 28px; height: 6px; }
-        .seg-b { top: 5px; right: 0; width: 6px; height: 28px; }
-        .seg-c { bottom: 5px; right: 0; width: 6px; height: 28px; }
-        .seg-d { bottom: 0; left: 5px; width: 28px; height: 6px; }
-        .seg-e { bottom: 5px; left: 0; width: 6px; height: 28px; }
-        .seg-f { top: 5px; left: 0; width: 6px; height: 28px; }
-        .seg-g { top: 31px; left: 5px; width: 28px; height: 6px; }
+        /* Расчет геометрии сегментов (a, b, c, d, e, f, g) */
+        .seg-a {
+            top: 0;
+            left: var(--seg-thickness);
+            width: calc(var(--digit-width) - (var(--seg-thickness) * 2));
+            height: var(--seg-thickness);
+        }
+        .seg-b {
+            top: var(--seg-thickness);
+            right: 0;
+            width: var(--seg-thickness);
+            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
+        }
+        .seg-c {
+            bottom: var(--seg-thickness);
+            right: 0;
+            width: var(--seg-thickness);
+            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
+        }
+        .seg-d {
+            bottom: 0;
+            left: var(--seg-thickness);
+            width: calc(var(--digit-width) - (var(--seg-thickness) * 2));
+            height: var(--seg-thickness);
+        }
+        .seg-e {
+            bottom: var(--seg-thickness);
+            left: 0;
+            width: var(--seg-thickness);
+            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
+        }
+        .seg-f {
+            top: var(--seg-thickness);
+            left: 0;
+            width: var(--seg-thickness);
+            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
+        }
+        .seg-g {
+            top: calc((var(--digit-height) / 2) - (var(--seg-thickness) / 2));
+            left: var(--seg-thickness);
+            width: calc(var(--digit-width) - (var(--seg-thickness) * 2));
+            height: var(--seg-thickness);
+        }
 
         .label {
             font-size: 0.75rem;
@@ -104,28 +175,29 @@
             opacity: 0.7;
             display: block;
         }
-
-        @media (max-width: 520px) {
-            .timer { gap: 8px; }
-            .time-box { padding: 15px 8px; }
-            .segment-digit { width: 26px; height: 48px; }
-            .seg-a, .seg-d, .seg-g { width: 18px; height: 4px; left: 4px; }
-            .seg-b, .seg-c, .seg-e, .seg-f { width: 4px; height: 20px; }
-            .seg-b, .seg-c { right: 0; }
-            .seg-b { top: 4px; }
-            .seg-c { bottom: 4px; }
-            .seg-e { bottom: 4px; }
-            .seg-f { top: 4px; }
-            .seg-g { top: 22px; }
-            .label { font-size: 0.65rem; }
-        }
     </style>
 </head>
 <body>
 
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
-        
+
+        <!-- Панель ползунков настроек -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="width-range">Ширина: <span id="width-val">38px</span></label>
+                <input type="range" id="width-range" min="20" max="80" value="38">
+            </div>
+            <div class="control-group">
+                <label for="height-range">Высота: <span id="height-val">68px</span></label>
+                <input type="range" id="height-range" min="40" max="140" value="68">
+            </div>
+            <div class="control-group">
+                <label for="thickness-range">Толщина: <span id="thickness-val">6px</span></label>
+                <input type="range" id="thickness-range" min="2" max="14" value="6">
+            </div>
+        </div>
+
         <div class="timer">
             <div class="time-box">
                 <div class="digits-wrapper" id="days-wrapper"></div>
@@ -147,7 +219,6 @@
     </div>
 
     <script>
-        // Маска включения сегментов [a, b, c, d, e, f, g] для цифр 0-9
         const digitMap = {
             '0': [1, 1, 1, 1, 1, 1, 0],
             '1': [0, 1, 1, 0, 0, 0, 0],
@@ -173,7 +244,6 @@
             }
         }
 
-        // Создает HTML-структуру одной 7-сегментной цифры
         function createDigitElement() {
             const digitEl = document.createElement('div');
             digitEl.className = 'segment-digit';
@@ -188,7 +258,6 @@
             return digitEl;
         }
 
-        // Обновляет подсветку сегментов для конкретного символа
         function updateDigit(digitEl, charValue) {
             const mask = digitMap[charValue] || [0, 0, 0, 0, 0, 0, 0];
             const segments = digitEl.querySelectorAll('.seg');
@@ -202,11 +271,9 @@
             });
         }
 
-        // Рендерит всю группу цифр (например, "05")
         function renderValue(wrapperId, valString) {
             const wrapper = document.getElementById(wrapperId);
             
-            // Подготавливаем необходимое количество индикаторов
             while (wrapper.children.length < valString.length) {
                 wrapper.appendChild(createDigitElement());
             }
@@ -214,7 +281,6 @@
                 wrapper.removeChild(wrapper.lastChild);
             }
 
-            // Обновляем каждую цифру
             for (let i = 0; i < valString.length; i++) {
                 updateDigit(wrapper.children[i], valString[i]);
             }
@@ -240,6 +306,26 @@
             renderValue('minutes-wrapper', minutes);
             renderValue('seconds-wrapper', seconds);
         }
+
+        // Привязка ползунков к CSS переменным
+        const widthRange = document.getElementById('width-range');
+        const heightRange = document.getElementById('height-range');
+        const thicknessRange = document.getElementById('thickness-range');
+
+        widthRange.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--digit-width', `${e.target.value}px`);
+            document.getElementById('width-val').textContent = `${e.target.value}px`;
+        });
+
+        heightRange.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--digit-height', `${e.target.value}px`);
+            document.getElementById('height-val').textContent = `${e.target.value}px`;
+        });
+
+        thicknessRange.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--seg-thickness', `${e.target.value}px`);
+            document.getElementById('thickness-val').textContent = `${e.target.value}px`;
+        });
 
         initTargetDate();
         updateTimer();
