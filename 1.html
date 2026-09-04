@@ -6,10 +6,9 @@
     <title>До 1 сентября</title>
     <style>
         :root {
-            /* Переменные для динамической настройки размеров */
-            --digit-width: 38px;
-            --digit-height: 68px;
-            --seg-thickness: 6px;
+            --digit-width: 60px;
+            --digit-height: 100px;
+            --seg-thick: 12px;
         }
 
         * {
@@ -25,42 +24,41 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: #0f0c1b;
+            background: #09080e;
             color: #fff;
             padding: 20px;
         }
 
         .countdown-container {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 30px;
+            background: #12101a;
+            border: 1px solid #252136;
+            padding: 35px 25px;
             border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
             text-align: center;
-            max-width: 800px;
+            max-width: 820px;
             width: 100%;
         }
 
         h1 {
             font-size: 1.8rem;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             font-weight: 600;
             letter-spacing: 1px;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            color: #e2e2e2;
         }
 
-        /* Панель настроек размеров */
+        /* Настройки ползунков */
         .controls {
             display: flex;
             justify-content: center;
             gap: 20px;
             flex-wrap: wrap;
             margin-bottom: 30px;
-            background: rgba(0, 0, 0, 0.3);
+            background: #1a1726;
             padding: 15px;
             border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid #2a253d;
         }
 
         .control-group {
@@ -72,11 +70,11 @@
 
         .control-group label {
             font-size: 0.8rem;
-            opacity: 0.8;
+            color: #aaa;
         }
 
         .control-group input[type="range"] {
-            accent-color: #ff2a5f;
+            accent-color: #ff1133;
             cursor: pointer;
         }
 
@@ -87,84 +85,51 @@
             flex-wrap: wrap;
         }
 
+        /* Корпус модуля (как на фото) */
         .time-box {
-            background: rgba(0, 0, 0, 0.4);
-            padding: 20px 15px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: #050507;
+            padding: 22px 16px;
+            border-radius: 8px;
+            border: 2px solid #1c1a24;
             display: flex;
             flex-direction: column;
             align-items: center;
-            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
         }
 
         .digits-wrapper {
             display: flex;
-            gap: 8px;
+            gap: 12px;
         }
 
-        /* 7-Сегментная цифра на CSS-переменных */
+        /* 7-Сегментный индикатор Arduino-стиля с наклоном */
         .segment-digit {
             width: var(--digit-width);
             height: var(--digit-height);
             position: relative;
+            transform: skewX(-4deg); /* Наклон цифры */
         }
 
-        .seg {
+        /* Абсолютное позиционирование для полных путей SVG */
+        .segment-digit svg {
             position: absolute;
-            background: #ff2a5f;
-            border-radius: 3px;
-            opacity: 0.06;
-            transition: opacity 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .seg.on {
-            opacity: 1;
-            box-shadow: 0 0 8px #ff2a5f, 0 0 15px #ff2a5f;
-        }
-
-        /* Расчет геометрии сегментов (a, b, c, d, e, f, g) */
-        .seg-a {
             top: 0;
-            left: var(--seg-thickness);
-            width: calc(var(--digit-width) - (var(--seg-thickness) * 2));
-            height: var(--seg-thickness);
-        }
-        .seg-b {
-            top: var(--seg-thickness);
-            right: 0;
-            width: var(--seg-thickness);
-            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
-        }
-        .seg-c {
-            bottom: var(--seg-thickness);
-            right: 0;
-            width: var(--seg-thickness);
-            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
-        }
-        .seg-d {
-            bottom: 0;
-            left: var(--seg-thickness);
-            width: calc(var(--digit-width) - (var(--seg-thickness) * 2));
-            height: var(--seg-thickness);
-        }
-        .seg-e {
-            bottom: var(--seg-thickness);
             left: 0;
-            width: var(--seg-thickness);
-            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
+            width: 100%;
+            height: 100%;
+            overflow: visible;
         }
-        .seg-f {
-            top: var(--seg-thickness);
-            left: 0;
-            width: var(--seg-thickness);
-            height: calc((var(--digit-height) / 2) - var(--seg-thickness));
+
+        /* Скошенные полигоны для сегментов */
+        .seg {
+            fill: #260a10; /* Цвет выключенного сегмента */
+            transition: fill 0.15s ease, filter 0.15s ease;
         }
-        .seg-g {
-            top: calc((var(--digit-height) / 2) - (var(--seg-thickness) / 2));
-            left: var(--seg-thickness);
-            width: calc(var(--digit-width) - (var(--seg-thickness) * 2));
-            height: var(--seg-thickness);
+
+        /* Яркое красное свечение включенного сегмента */
+        .seg.on {
+            fill: #ff0d35;
+            filter: drop-shadow(0 0 4px #ff0d35) drop-shadow(0 0 12px #ff0022);
         }
 
         .label {
@@ -172,7 +137,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-top: 15px;
-            opacity: 0.7;
+            color: #888;
             display: block;
         }
     </style>
@@ -182,19 +147,18 @@
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
 
-        <!-- Панель ползунков настроек -->
         <div class="controls">
             <div class="control-group">
-                <label for="width-range">Ширина: <span id="width-val">38px</span></label>
-                <input type="range" id="width-range" min="20" max="80" value="38">
+                <label for="width-range">Ширина: <span id="width-val">60px</span></label>
+                <input type="range" id="width-range" min="30" max="100" value="60">
             </div>
             <div class="control-group">
-                <label for="height-range">Высота: <span id="height-val">68px</span></label>
-                <input type="range" id="height-range" min="40" max="140" value="68">
+                <label for="height-range">Высота: <span id="height-val">100px</span></label>
+                <input type="range" id="height-range" min="50" max="160" value="100">
             </div>
             <div class="control-group">
-                <label for="thickness-range">Толщина: <span id="thickness-val">6px</span></label>
-                <input type="range" id="thickness-range" min="2" max="14" value="6">
+                <label for="thickness-range">Толщина: <span id="thickness-val">12px</span></label>
+                <input type="range" id="thickness-range" min="6" max="20" value="12">
             </div>
         </div>
 
@@ -244,46 +208,90 @@
             }
         }
 
+        // Динамическая генерация геометрии скошенных сегментов в SVG
+        function buildSvgDigitPaths(w, h, t) {
+            const halfH = h / 2;
+            const g = t * 0.15; // Зазор между сегментами
+
+            return [
+                // a (Верх)
+                `${t+g},0 ${w-t-g},0 ${w-t/2-g},${t} ${t/2+g},${t}`,
+                // b (Верхний правый)
+                `${w-t},${t/2+g} ${w},${g} ${w},${halfH-g} ${w-t},${halfH-t/2-g}`,
+                // c (Нижний правый)
+                `${w-t},${halfH+t/2+g} ${w},${halfH+g} ${w},${h-g} ${w-t},${h-t/2-g}`,
+                // d (Низ)
+                `${t/2+g},${h-t} ${w-t/2-g},${h-t} ${w-t-g},${h} ${t+g},${h}`,
+                // e (Нижний левый)
+                `0,${halfH+g} ${t},${halfH+t/2+g} ${t},${h-t/2-g} 0,${h-g}`,
+                // f (Верхний левый)
+                `0,${g} ${t},${t/2+g} ${t},${halfH-t/2-g} 0,${halfH-g}`,
+                // g (Центр)
+                `${t+g},${halfH-t/2} ${w-t-g},${halfH-t/2} ${w-t/2-g},${halfH+t/2} ${t/2+g},${halfH+t/2}`
+            ];
+        }
+
         function createDigitElement() {
             const digitEl = document.createElement('div');
             digitEl.className = 'segment-digit';
-            const segClasses = ['seg-a', 'seg-b', 'seg-c', 'seg-d', 'seg-e', 'seg-f', 'seg-g'];
-            
-            segClasses.forEach(cls => {
-                const seg = document.createElement('div');
-                seg.className = `seg ${cls}`;
-                digitEl.appendChild(seg);
-            });
 
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            
+            for (let i = 0; i < 7; i++) {
+                const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                polygon.setAttribute('class', `seg seg-${i}`);
+                svg.appendChild(polygon);
+            }
+
+            digitEl.appendChild(svg);
             return digitEl;
         }
 
-        function updateDigit(digitEl, charValue) {
-            const mask = digitMap[charValue] || [0, 0, 0, 0, 0, 0, 0];
-            const segments = digitEl.querySelectorAll('.seg');
+        function updateDigitGeometry(digitEl) {
+            const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-width'));
+            const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-height'));
+            const t = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--seg-thick'));
 
-            segments.forEach((seg, index) => {
+            const paths = buildSvgDigitPaths(w, h, t);
+            const polygons = digitEl.querySelectorAll('.seg');
+
+            polygons.forEach((p, idx) => {
+                p.setAttribute('points', paths[idx]);
+            });
+        }
+
+        function updateDigitValue(digitEl, charValue) {
+            const mask = digitMap[charValue] || [0, 0, 0, 0, 0, 0, 0];
+            const polygons = digitEl.querySelectorAll('.seg');
+
+            polygons.forEach((p, index) => {
                 if (mask[index] === 1) {
-                    seg.classList.add('on');
+                    p.classList.add('on');
                 } else {
-                    seg.classList.remove('on');
+                    p.classList.remove('on');
                 }
             });
         }
 
         function renderValue(wrapperId, valString) {
             const wrapper = document.getElementById(wrapperId);
-            
+
             while (wrapper.children.length < valString.length) {
-                wrapper.appendChild(createDigitElement());
+                const newDigit = createDigitElement();
+                wrapper.appendChild(newDigit);
+                updateDigitGeometry(newDigit);
             }
             while (wrapper.children.length > valString.length) {
                 wrapper.removeChild(wrapper.lastChild);
             }
 
             for (let i = 0; i < valString.length; i++) {
-                updateDigit(wrapper.children[i], valString[i]);
+                updateDigitValue(wrapper.children[i], valString[i]);
             }
+        }
+
+        function updateAllGeometries() {
+            document.querySelectorAll('.segment-digit').forEach(updateDigitGeometry);
         }
 
         function updateTimer() {
@@ -307,7 +315,7 @@
             renderValue('seconds-wrapper', seconds);
         }
 
-        // Привязка ползунков к CSS переменным
+        // Привязка управления размерами
         const widthRange = document.getElementById('width-range');
         const heightRange = document.getElementById('height-range');
         const thicknessRange = document.getElementById('thickness-range');
@@ -315,16 +323,19 @@
         widthRange.addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--digit-width', `${e.target.value}px`);
             document.getElementById('width-val').textContent = `${e.target.value}px`;
+            updateAllGeometries();
         });
 
         heightRange.addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--digit-height', `${e.target.value}px`);
             document.getElementById('height-val').textContent = `${e.target.value}px`;
+            updateAllGeometries();
         });
 
         thicknessRange.addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--seg-thickness', `${e.target.value}px`);
+            document.documentElement.style.setProperty('--seg-thick', `${e.target.value}px`);
             document.getElementById('thickness-val').textContent = `${e.target.value}px`;
+            updateAllGeometries();
         });
 
         initTargetDate();
