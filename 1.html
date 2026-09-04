@@ -9,6 +9,8 @@
             --digit-width: 60px;
             --digit-height: 110px;
             --seg-thick: 11px;
+            --bevel-angle: 45; /* Угол скоса торцев в градусах */
+            --digit-skew: -8deg;
         }
 
         * {
@@ -36,7 +38,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
             text-align: center;
-            max-width: 820px;
+            max-width: 900px;
             width: 100%;
         }
 
@@ -104,7 +106,7 @@
             width: var(--digit-width);
             height: var(--digit-height);
             position: relative;
-            transform: skewX(-4deg);
+            transform: skewX(var(--digit-skew));
         }
 
         .segment-digit svg {
@@ -154,6 +156,14 @@
                 <label for="thickness-range">Толщина: <span id="thickness-val">11px</span></label>
                 <input type="range" id="thickness-range" min="6" max="20" value="11">
             </div>
+            <div class="control-group">
+                <label for="bevel-range">Срез углов: <span id="bevel-val">45°</span></label>
+                <input type="range" id="bevel-range" min="20" max="70" value="45">
+            </div>
+            <div class="control-group">
+                <label for="skew-range">Наклон цифры: <span id="skew-val">-8°</span></label>
+                <input type="range" id="skew-range" min="-20" max="20" value="-8">
+            </div>
         </div>
 
         <div class="timer">
@@ -202,33 +212,34 @@
             }
         }
 
-        // Точная геометрия классического 7-сегментного индикатора
-        function buildSvgDigitPaths(w, h, t) {
-            const gap = 1.5; // Микро-зазор между сегментами
+        // Вычисление геометрии скосов под заданным углом
+        function buildSvgDigitPaths(w, h, t, bevelDeg) {
+            const gap = 1;
             const halfH = h / 2;
-            const halfT = t / 2;
+            const rad = (bevelDeg * Math.PI) / 180;
+            const bevelOffset = t / Math.tan(rad);
 
             return [
-                // a (Верхняя трапеция)
-                `${t + gap},0 ${w - t - gap},0 ${w - t - gap - t/2},${t} ${t + gap + t/2},${t}`,
+                // a (Верхний скошенный)
+                `${t/2 + gap},0 ${w - t/2 - gap},0 ${w - t/2 - gap - bevelOffset},${t} ${t/2 + gap + bevelOffset},${t}`,
                 
-                // b (Верхняя правая трапеция со срезом под 45°)
-                `${w - t},${t + gap} ${w},${t + gap + t/2} ${w},${halfH - gap - halfT} ${w - t},${halfH - gap - halfT}`,
+                // b (Верхний правый)
+                `${w - t},${t/2 + gap + bevelOffset} ${w},${t/2 + gap} ${w},${halfH - gap - bevelOffset/2} ${w - t},${halfH - gap - bevelOffset}`,
                 
-                // c (Нижняя правая трапеция)
-                `${w - t},${halfH + gap + halfT} ${w},${halfH + gap + halfT} ${w},${h - t - gap - t/2} ${w - t},${h - t - gap}`,
+                // c (Нижний правый)
+                `${w - t},${halfH + gap + bevelOffset} ${w},${halfH + gap + bevelOffset/2} ${w},${h - t/2 - gap} ${w - t},${h - t/2 - gap - bevelOffset}`,
                 
-                // d (Нижняя трапеция)
-                `${t + gap + t/2},${h - t} ${w - t - gap - t/2},${h - t} ${w - t - gap},${h} ${t + gap},${h}`,
+                // d (Нижний)
+                `${t/2 + gap + bevelOffset},${h - t} ${w - t/2 - gap - bevelOffset},${h - t} ${w - t/2 - gap},${h} ${t/2 + gap},${h}`,
                 
-                // e (Нижняя левая трапеция)
-                `0,${halfH + gap + halfT} ${t},${halfH + gap + halfT} ${t},${h - t - gap} 0,${h - t - gap - t/2}`,
+                // e (Нижний левый)
+                `0,${halfH + gap + bevelOffset/2} ${t},${halfH + gap + bevelOffset} ${t},${h - t/2 - gap - bevelOffset} 0,${h - t/2 - gap}`,
                 
-                // f (Верхняя левая трапеция)
-                `0,${t + gap + t/2} ${t},${t + gap} ${t},${halfH - gap - halfT} 0,${halfH - gap - halfT}`,
+                // f (Верхний левый)
+                `0,${t/2 + gap} ${t},${t/2 + gap + bevelOffset} ${t},${halfH - gap - bevelOffset} 0,${halfH - gap - bevelOffset/2}`,
                 
-                // g (Центральный шестиугольник / шеврон)
-                `${t + gap + halfT},${halfH - halfT} ${w - t - gap - halfT},${halfH - halfT} ${w - t - gap},${halfH} ${w - t - gap - halfT},${halfH + halfT} ${t + gap + halfT},${halfH + halfT} ${t + gap},${halfH}`
+                // g (Центральный острый шеврон)
+                `${t + gap + bevelOffset/2},${halfH - t/2} ${w - t - gap - bevelOffset/2},${halfH - t/2} ${w - gap - t/2},${halfH} ${w - t - gap - bevelOffset/2},${halfH + t/2} ${t + gap + bevelOffset/2},${halfH + t/2} ${t/2 + gap},${halfH}`
             ];
         }
 
@@ -252,8 +263,9 @@
             const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-width'));
             const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-height'));
             const t = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--seg-thick'));
+            const bevel = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bevel-angle'));
 
-            const paths = buildSvgDigitPaths(w, h, t);
+            const paths = buildSvgDigitPaths(w, h, t, bevel);
             const polygons = digitEl.querySelectorAll('.seg');
 
             polygons.forEach((p, idx) => {
@@ -319,6 +331,8 @@
         const widthRange = document.getElementById('width-range');
         const heightRange = document.getElementById('height-range');
         const thicknessRange = document.getElementById('thickness-range');
+        const bevelRange = document.getElementById('bevel-range');
+        const skewRange = document.getElementById('skew-range');
 
         widthRange.addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--digit-width', `${e.target.value}px`);
@@ -336,6 +350,17 @@
             document.documentElement.style.setProperty('--seg-thick', `${e.target.value}px`);
             document.getElementById('thickness-val').textContent = `${e.target.value}px`;
             updateAllGeometries();
+        });
+
+        bevelRange.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--bevel-angle', `${e.target.value}`);
+            document.getElementById('bevel-val').textContent = `${e.target.value}°`;
+            updateAllGeometries();
+        });
+
+        skewRange.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--digit-skew', `${e.target.value}deg`);
+            document.getElementById('skew-val').textContent = `${e.target.value}°`;
         });
 
         initTargetDate();
