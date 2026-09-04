@@ -31,16 +31,47 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 520px;
+            max-width: 550px;
             width: 100%;
         }
 
         h1 {
             font-size: 1.8rem;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             font-weight: 600;
             letter-spacing: 1px;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Панель выбора эффекта */
+        .controls {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .controls label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        .controls select {
+            background: rgba(0, 0, 0, 0.25);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 6px 12px;
+            border-radius: 8px;
+            outline: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .controls select option {
+            background: #4a3b69;
+            color: #fff;
         }
 
         .timer {
@@ -63,6 +94,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow: hidden; /* Скрывает выходящие за пределы цифры */
         }
 
         .number {
@@ -74,6 +106,7 @@
             text-align: center;
             left: 0;
             top: 0;
+            will-change: transform, opacity;
         }
 
         .label {
@@ -99,6 +132,16 @@
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
         
+        <div class="controls">
+            <label for="anim-select">Эффект смены:</label>
+            <select id="anim-select">
+                <option value="fade">Прозрачность (Fade)</option>
+                <option value="slide-down">Сдвиг вниз (Slide Down)</option>
+                <option value="slide-up">Сдвиг вверх (Slide Up)</option>
+                <option value="zoom">Масштабирование (Zoom)</option>
+            </select>
+        </div>
+
         <div class="timer">
             <div class="time-box">
                 <div class="number-wrapper" id="days-wrapper"></div>
@@ -132,19 +175,50 @@
             }
         }
 
-        function renderUnit(wrapperId, currentVal, nextVal, currentOpacity) {
+        function renderUnit(wrapperId, currentVal, nextVal, progress, animType) {
             const wrapper = document.getElementById(wrapperId);
-            const nextOpacity = 1 - currentOpacity;
 
             if (currentVal === nextVal) {
-                wrapper.innerHTML = `<span class="number" style="opacity: 1">${currentVal}</span>`;
+                wrapper.innerHTML = `<span class="number" style="opacity: 1; transform: none;">${currentVal}</span>`;
                 return;
             }
 
-            // Рендерим текущую и следующую цифру с явной установкой opacity
+            const currOp = progress;
+            const nextOp = 1 - progress;
+
+            let currTransform = '';
+            let nextTransform = '';
+
+            // Вычисление стилей под выбранный эффект
+            switch (animType) {
+                case 'slide-down':
+                    // Текущая цифра сдвигается вниз (0px -> 30px), следующая заходит сверху (-30px -> 0px)
+                    currTransform = `translateY(${(1 - progress) * 30}px)`;
+                    nextTransform = `translateY(${-progress * 30}px)`;
+                    break;
+
+                case 'slide-up':
+                    // Текущая цифра уходит вверх (0px -> -30px), следующая идет снизу (30px -> 0px)
+                    currTransform = `translateY(${-(1 - progress) * 30}px)`;
+                    nextTransform = `translateY(${progress * 30}px)`;
+                    break;
+
+                case 'zoom':
+                    // Текущая уменьшается (1.0 -> 0.5), новая увеличивается (0.5 -> 1.0)
+                    currTransform = `scale(${0.5 + progress * 0.5})`;
+                    nextTransform = `scale(${1 - progress * 0.5})`;
+                    break;
+
+                case 'fade':
+                default:
+                    currTransform = 'none';
+                    nextTransform = 'none';
+                    break;
+            }
+
             wrapper.innerHTML = `
-                <span class="number" style="opacity: ${currentOpacity}">${currentVal}</span>
-                <span class="number" style="opacity: ${nextOpacity}">${nextVal}</span>
+                <span class="number" style="opacity: ${currOp}; transform: ${currTransform};">${currentVal}</span>
+                <span class="number" style="opacity: ${nextOp}; transform: ${nextTransform};">${nextVal}</span>
             `;
         }
 
@@ -159,9 +233,9 @@
             const currentTotalSec = Math.floor(diffMs / 1000);
             const nextTotalSec = Math.max(0, currentTotalSec - 1);
 
-            // Значение opacity от 1.0 до 0.0 на основе миллисекунд секунды
+            // Значение прогресса от 1.0 до 0.0 за период одной секунды
             const msRemainder = diffMs % 1000;
-            const currentOpacity = msRemainder / 1000;
+            const progress = msRemainder / 1000;
 
             const formatUnits = (totalSec) => ({
                 d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
@@ -173,12 +247,13 @@
             const curr = formatUnits(currentTotalSec);
             const next = formatUnits(nextTotalSec);
 
-            renderUnit('days-wrapper', curr.d, next.d, currentOpacity);
-            renderUnit('hours-wrapper', curr.h, next.h, currentOpacity);
-            renderUnit('minutes-wrapper', curr.m, next.m, currentOpacity);
-            renderUnit('seconds-wrapper', curr.s, next.s, currentOpacity);
+            const animType = document.getElementById('anim-select').value;
 
-            // Непрерывный запуск через requestAnimationFrame для идеальной плавности
+            renderUnit('days-wrapper', curr.d, next.d, progress, animType);
+            renderUnit('hours-wrapper', curr.h, next.h, progress, animType);
+            renderUnit('minutes-wrapper', curr.m, next.m, progress, animType);
+            renderUnit('seconds-wrapper', curr.s, next.s, progress, animType);
+
             requestAnimationFrame(updateTimer);
         }
 
