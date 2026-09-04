@@ -7,8 +7,8 @@
     <style>
         :root {
             --digit-width: 60px;
-            --digit-height: 100px;
-            --seg-thick: 12px;
+            --digit-height: 110px;
+            --seg-thick: 11px;
         }
 
         * {
@@ -48,7 +48,6 @@
             color: #e2e2e2;
         }
 
-        /* Настройки ползунков */
         .controls {
             display: flex;
             justify-content: center;
@@ -85,7 +84,6 @@
             flex-wrap: wrap;
         }
 
-        /* Корпус модуля (как на фото) */
         .time-box {
             background: #050507;
             padding: 22px 16px;
@@ -102,15 +100,13 @@
             gap: 12px;
         }
 
-        /* 7-Сегментный индикатор Arduino-стиля с наклоном */
         .segment-digit {
             width: var(--digit-width);
             height: var(--digit-height);
             position: relative;
-            transform: skewX(-4deg); /* Наклон цифры */
+            transform: skewX(-4deg);
         }
 
-        /* Абсолютное позиционирование для полных путей SVG */
         .segment-digit svg {
             position: absolute;
             top: 0;
@@ -120,13 +116,11 @@
             overflow: visible;
         }
 
-        /* Скошенные полигоны для сегментов */
         .seg {
-            fill: #260a10; /* Цвет выключенного сегмента */
+            fill: #260a10;
             transition: fill 0.15s ease, filter 0.15s ease;
         }
 
-        /* Яркое красное свечение включенного сегмента */
         .seg.on {
             fill: #ff0d35;
             filter: drop-shadow(0 0 4px #ff0d35) drop-shadow(0 0 12px #ff0022);
@@ -153,12 +147,12 @@
                 <input type="range" id="width-range" min="30" max="100" value="60">
             </div>
             <div class="control-group">
-                <label for="height-range">Высота: <span id="height-val">100px</span></label>
-                <input type="range" id="height-range" min="50" max="160" value="100">
+                <label for="height-range">Высота: <span id="height-val">110px</span></label>
+                <input type="range" id="height-range" min="50" max="160" value="110">
             </div>
             <div class="control-group">
-                <label for="thickness-range">Толщина: <span id="thickness-val">12px</span></label>
-                <input type="range" id="thickness-range" min="6" max="20" value="12">
+                <label for="thickness-range">Толщина: <span id="thickness-val">11px</span></label>
+                <input type="range" id="thickness-range" min="6" max="20" value="11">
             </div>
         </div>
 
@@ -208,26 +202,33 @@
             }
         }
 
-        // Динамическая генерация геометрии скошенных сегментов в SVG
+        // Точная геометрия классического 7-сегментного индикатора
         function buildSvgDigitPaths(w, h, t) {
+            const gap = 1.5; // Микро-зазор между сегментами
             const halfH = h / 2;
-            const g = t * 0.15; // Зазор между сегментами
+            const halfT = t / 2;
 
             return [
-                // a (Верх)
-                `${t+g},0 ${w-t-g},0 ${w-t/2-g},${t} ${t/2+g},${t}`,
-                // b (Верхний правый)
-                `${w-t},${t/2+g} ${w},${g} ${w},${halfH-g} ${w-t},${halfH-t/2-g}`,
-                // c (Нижний правый)
-                `${w-t},${halfH+t/2+g} ${w},${halfH+g} ${w},${h-g} ${w-t},${h-t/2-g}`,
-                // d (Низ)
-                `${t/2+g},${h-t} ${w-t/2-g},${h-t} ${w-t-g},${h} ${t+g},${h}`,
-                // e (Нижний левый)
-                `0,${halfH+g} ${t},${halfH+t/2+g} ${t},${h-t/2-g} 0,${h-g}`,
-                // f (Верхний левый)
-                `0,${g} ${t},${t/2+g} ${t},${halfH-t/2-g} 0,${halfH-g}`,
-                // g (Центр)
-                `${t+g},${halfH-t/2} ${w-t-g},${halfH-t/2} ${w-t/2-g},${halfH+t/2} ${t/2+g},${halfH+t/2}`
+                // a (Верхняя трапеция)
+                `${t + gap},0 ${w - t - gap},0 ${w - t - gap - t/2},${t} ${t + gap + t/2},${t}`,
+                
+                // b (Верхняя правая трапеция со срезом под 45°)
+                `${w - t},${t + gap} ${w},${t + gap + t/2} ${w},${halfH - gap - halfT} ${w - t},${halfH - gap - halfT}`,
+                
+                // c (Нижняя правая трапеция)
+                `${w - t},${halfH + gap + halfT} ${w},${halfH + gap + halfT} ${w},${h - t - gap - t/2} ${w - t},${h - t - gap}`,
+                
+                // d (Нижняя трапеция)
+                `${t + gap + t/2},${h - t} ${w - t - gap - t/2},${h - t} ${w - t - gap},${h} ${t + gap},${h}`,
+                
+                // e (Нижняя левая трапеция)
+                `0,${halfH + gap + halfT} ${t},${halfH + gap + halfT} ${t},${h - t - gap} 0,${h - t - gap - t/2}`,
+                
+                // f (Верхняя левая трапеция)
+                `0,${t + gap + t/2} ${t},${t + gap} ${t},${halfH - gap - halfT} 0,${halfH - gap - halfT}`,
+                
+                // g (Центральный шестиугольник / шеврон)
+                `${t + gap + halfT},${halfH - halfT} ${w - t - gap - halfT},${halfH - halfT} ${w - t - gap},${halfH} ${w - t - gap - halfT},${halfH + halfT} ${t + gap + halfT},${halfH + halfT} ${t + gap},${halfH}`
             ];
         }
 
@@ -315,7 +316,6 @@
             renderValue('seconds-wrapper', seconds);
         }
 
-        // Привязка управления размерами
         const widthRange = document.getElementById('width-range');
         const heightRange = document.getElementById('height-range');
         const thicknessRange = document.getElementById('thickness-range');
