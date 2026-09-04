@@ -18,111 +18,105 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0f0c1b;
             color: #fff;
             padding: 20px;
         }
 
         .countdown-container {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 40px 30px;
             border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
             text-align: center;
-            max-width: 550px;
+            max-width: 680px;
             width: 100%;
         }
 
         h1 {
             font-size: 1.8rem;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             font-weight: 600;
             letter-spacing: 1px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Панель выбора эффекта */
-        .controls {
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .controls label {
-            font-size: 0.85rem;
-            opacity: 0.9;
-        }
-
-        .controls select {
-            background: rgba(0, 0, 0, 0.25);
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 6px 12px;
-            border-radius: 8px;
-            outline: none;
-            cursor: pointer;
-            font-size: 0.85rem;
-        }
-
-        .controls select option {
-            background: #4a3b69;
-            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
         }
 
         .timer {
             display: flex;
             justify-content: center;
             gap: 15px;
+            flex-wrap: wrap;
         }
 
         .time-box {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 20px 10px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px 15px;
             border-radius: 12px;
-            min-width: 90px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .number-wrapper {
-            position: relative;
-            height: 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            overflow: hidden; /* Скрывает выходящие за пределы цифры */
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8);
         }
 
-        .number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            line-height: 1;
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            left: 0;
-            top: 0;
-            will-change: transform, opacity;
+        .digits-wrapper {
+            display: flex;
+            gap: 8px;
         }
+
+        /* 7-Сегментная цифра */
+        .segment-digit {
+            width: 38px;
+            height: 68px;
+            position: relative;
+        }
+
+        .seg {
+            position: absolute;
+            background: #ff2a5f;
+            border-radius: 3px;
+            opacity: 0.06; /* Неактивный сегмент слегка виден */
+            transition: opacity 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        /* Подсветка активных сегментов */
+        .seg.on {
+            opacity: 1;
+            box-shadow: 0 0 8px #ff2a5f, 0 0 15px #ff2a5f;
+        }
+
+        /* Позиционирование сегментов (a, b, c, d, e, f, g) */
+        .seg-a { top: 0; left: 5px; width: 28px; height: 6px; }
+        .seg-b { top: 5px; right: 0; width: 6px; height: 28px; }
+        .seg-c { bottom: 5px; right: 0; width: 6px; height: 28px; }
+        .seg-d { bottom: 0; left: 5px; width: 28px; height: 6px; }
+        .seg-e { bottom: 5px; left: 0; width: 6px; height: 28px; }
+        .seg-f { top: 5px; left: 0; width: 6px; height: 28px; }
+        .seg-g { top: 31px; left: 5px; width: 28px; height: 6px; }
 
         .label {
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-top: 10px;
-            opacity: 0.85;
+            margin-top: 15px;
+            opacity: 0.7;
             display: block;
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 520px) {
             .timer { gap: 8px; }
-            .time-box { min-width: 70px; padding: 15px 5px; }
-            .number { font-size: 1.8rem; }
-            .number-wrapper { height: 1.8rem; }
+            .time-box { padding: 15px 8px; }
+            .segment-digit { width: 26px; height: 48px; }
+            .seg-a, .seg-d, .seg-g { width: 18px; height: 4px; left: 4px; }
+            .seg-b, .seg-c, .seg-e, .seg-f { width: 4px; height: 20px; }
+            .seg-b, .seg-c { right: 0; }
+            .seg-b { top: 4px; }
+            .seg-c { bottom: 4px; }
+            .seg-e { bottom: 4px; }
+            .seg-f { top: 4px; }
+            .seg-g { top: 22px; }
             .label { font-size: 0.65rem; }
         }
     </style>
@@ -132,37 +126,41 @@
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
         
-        <div class="controls">
-            <label for="anim-select">Эффект смены:</label>
-            <select id="anim-select">
-                <option value="fade">Прозрачность (Fade)</option>
-                <option value="slide-down">Сдвиг вниз (Slide Down)</option>
-                <option value="slide-up">Сдвиг вверх (Slide Up)</option>
-                <option value="zoom">Масштабирование (Zoom)</option>
-            </select>
-        </div>
-
         <div class="timer">
             <div class="time-box">
-                <div class="number-wrapper" id="days-wrapper"></div>
+                <div class="digits-wrapper" id="days-wrapper"></div>
                 <span class="label">Дней</span>
             </div>
             <div class="time-box">
-                <div class="number-wrapper" id="hours-wrapper"></div>
+                <div class="digits-wrapper" id="hours-wrapper"></div>
                 <span class="label">Часов</span>
             </div>
             <div class="time-box">
-                <div class="number-wrapper" id="minutes-wrapper"></div>
+                <div class="digits-wrapper" id="minutes-wrapper"></div>
                 <span class="label">Минут</span>
             </div>
             <div class="time-box">
-                <div class="number-wrapper" id="seconds-wrapper"></div>
+                <div class="digits-wrapper" id="seconds-wrapper"></div>
                 <span class="label">Секунд</span>
             </div>
         </div>
     </div>
 
     <script>
+        // Маска включения сегментов [a, b, c, d, e, f, g] для цифр 0-9
+        const digitMap = {
+            '0': [1, 1, 1, 1, 1, 1, 0],
+            '1': [0, 1, 1, 0, 0, 0, 0],
+            '2': [1, 1, 0, 1, 1, 0, 1],
+            '3': [1, 1, 1, 1, 0, 0, 1],
+            '4': [0, 1, 1, 0, 0, 1, 1],
+            '5': [1, 0, 1, 1, 0, 1, 1],
+            '6': [1, 0, 1, 1, 1, 1, 1],
+            '7': [1, 1, 1, 0, 0, 0, 0],
+            '8': [1, 1, 1, 1, 1, 1, 1],
+            '9': [1, 1, 1, 1, 0, 1, 1]
+        };
+
         let targetDate = null;
 
         function initTargetDate() {
@@ -175,51 +173,51 @@
             }
         }
 
-        function renderUnit(wrapperId, currentVal, nextVal, progress, animType) {
+        // Создает HTML-структуру одной 7-сегментной цифры
+        function createDigitElement() {
+            const digitEl = document.createElement('div');
+            digitEl.className = 'segment-digit';
+            const segClasses = ['seg-a', 'seg-b', 'seg-c', 'seg-d', 'seg-e', 'seg-f', 'seg-g'];
+            
+            segClasses.forEach(cls => {
+                const seg = document.createElement('div');
+                seg.className = `seg ${cls}`;
+                digitEl.appendChild(seg);
+            });
+
+            return digitEl;
+        }
+
+        // Обновляет подсветку сегментов для конкретного символа
+        function updateDigit(digitEl, charValue) {
+            const mask = digitMap[charValue] || [0, 0, 0, 0, 0, 0, 0];
+            const segments = digitEl.querySelectorAll('.seg');
+
+            segments.forEach((seg, index) => {
+                if (mask[index] === 1) {
+                    seg.classList.add('on');
+                } else {
+                    seg.classList.remove('on');
+                }
+            });
+        }
+
+        // Рендерит всю группу цифр (например, "05")
+        function renderValue(wrapperId, valString) {
             const wrapper = document.getElementById(wrapperId);
-
-            if (currentVal === nextVal) {
-                wrapper.innerHTML = `<span class="number" style="opacity: 1; transform: none;">${currentVal}</span>`;
-                return;
+            
+            // Подготавливаем необходимое количество индикаторов
+            while (wrapper.children.length < valString.length) {
+                wrapper.appendChild(createDigitElement());
+            }
+            while (wrapper.children.length > valString.length) {
+                wrapper.removeChild(wrapper.lastChild);
             }
 
-            const currOp = progress;
-            const nextOp = 1 - progress;
-
-            let currTransform = '';
-            let nextTransform = '';
-
-            // Вычисление стилей под выбранный эффект
-            switch (animType) {
-                case 'slide-down':
-                    // Текущая цифра сдвигается вниз (0px -> 30px), следующая заходит сверху (-30px -> 0px)
-                    currTransform = `translateY(${(1 - progress) * 30}px)`;
-                    nextTransform = `translateY(${-progress * 30}px)`;
-                    break;
-
-                case 'slide-up':
-                    // Текущая цифра уходит вверх (0px -> -30px), следующая идет снизу (30px -> 0px)
-                    currTransform = `translateY(${-(1 - progress) * 30}px)`;
-                    nextTransform = `translateY(${progress * 30}px)`;
-                    break;
-
-                case 'zoom':
-                    // Текущая уменьшается (1.0 -> 0.5), новая увеличивается (0.5 -> 1.0)
-                    currTransform = `scale(${0.5 + progress * 0.5})`;
-                    nextTransform = `scale(${1 - progress * 0.5})`;
-                    break;
-
-                case 'fade':
-                default:
-                    currTransform = 'none';
-                    nextTransform = 'none';
-                    break;
+            // Обновляем каждую цифру
+            for (let i = 0; i < valString.length; i++) {
+                updateDigit(wrapper.children[i], valString[i]);
             }
-
-            wrapper.innerHTML = `
-                <span class="number" style="opacity: ${currOp}; transform: ${currTransform};">${currentVal}</span>
-                <span class="number" style="opacity: ${nextOp}; transform: ${nextTransform};">${nextVal}</span>
-            `;
         }
 
         function updateTimer() {
@@ -230,35 +228,22 @@
                 diffMs = 0;
             }
 
-            const currentTotalSec = Math.floor(diffMs / 1000);
-            const nextTotalSec = Math.max(0, currentTotalSec - 1);
+            const totalSec = Math.floor(diffMs / 1000);
 
-            // Значение прогресса от 1.0 до 0.0 за период одной секунды
-            const msRemainder = diffMs % 1000;
-            const progress = msRemainder / 1000;
+            const days = String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0');
+            const hours = String(Math.floor((totalSec / (60 * 60)) % 24)).padStart(2, '0');
+            const minutes = String(Math.floor((totalSec / 60) % 60)).padStart(2, '0');
+            const seconds = String(totalSec % 60).padStart(2, '0');
 
-            const formatUnits = (totalSec) => ({
-                d: String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0'),
-                h: String(Math.floor((totalSec / (60 * 60)) % 24)).padStart(2, '0'),
-                m: String(Math.floor((totalSec / 60) % 60)).padStart(2, '0'),
-                s: String(totalSec % 60).padStart(2, '0')
-            });
-
-            const curr = formatUnits(currentTotalSec);
-            const next = formatUnits(nextTotalSec);
-
-            const animType = document.getElementById('anim-select').value;
-
-            renderUnit('days-wrapper', curr.d, next.d, progress, animType);
-            renderUnit('hours-wrapper', curr.h, next.h, progress, animType);
-            renderUnit('minutes-wrapper', curr.m, next.m, progress, animType);
-            renderUnit('seconds-wrapper', curr.s, next.s, progress, animType);
-
-            requestAnimationFrame(updateTimer);
+            renderValue('days-wrapper', days);
+            renderValue('hours-wrapper', hours);
+            renderValue('minutes-wrapper', minutes);
+            renderValue('seconds-wrapper', seconds);
         }
 
         initTargetDate();
-        requestAnimationFrame(updateTimer);
+        updateTimer();
+        setInterval(updateTimer, 1000);
     </script>
 
 </body>
