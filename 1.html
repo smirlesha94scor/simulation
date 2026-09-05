@@ -1,1 +1,474 @@
-Уиткофф и Кушнер
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>До 1 сентября</title>
+    <style>
+        :root {
+            --digit-width: 60px;
+            --digit-height: 110px;
+            --seg-thick: 11px;
+            --digit-skew: -8deg;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #09080e;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .countdown-container {
+            background: #12101a;
+            border: 1px solid #252136;
+            padding: 35px 25px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            max-width: 980px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            font-weight: 600;
+            color: #e2e2e2;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: #1a1726;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #2a253d;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .control-group label {
+            font-size: 0.75rem;
+            color: #aaa;
+        }
+
+        .control-group input[type="range"] {
+            accent-color: #ff1133;
+            cursor: pointer;
+        }
+
+        details {
+            background: #151221;
+            border: 1px solid #2a253d;
+            border-radius: 12px;
+            padding: 10px 15px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #ff2a5f;
+            outline: none;
+            user-select: none;
+        }
+
+        .segments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .seg-card {
+            background: #0d0b14;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #221e33;
+        }
+
+        .seg-card h4 {
+            font-size: 0.8rem;
+            color: #ddd;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .timer {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .time-box {
+            background: #050507;
+            padding: 22px 16px;
+            border-radius: 8px;
+            border: 2px solid #1c1a24;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+        }
+
+        .digits-wrapper {
+            display: flex;
+            gap: 12px;
+        }
+
+        .segment-digit {
+            width: var(--digit-width);
+            height: var(--digit-height);
+            position: relative;
+            transform: skewX(var(--digit-skew));
+        }
+
+        .segment-digit svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .seg {
+            fill: #260a10;
+            transition: fill 0.15s ease, filter 0.15s ease;
+        }
+
+        .seg.on {
+            fill: #ff0d35;
+            filter: drop-shadow(0 0 4px #ff0d35) drop-shadow(0 0 12px #ff0022);
+        }
+
+        .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 15px;
+            color: #888;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="countdown-container">
+        <h1>До 1 сентября осталось</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="width-range">Ширина: <span id="width-val">60px</span></label>
+                <input type="range" id="width-range" min="30" max="100" value="60">
+            </div>
+            <div class="control-group">
+                <label for="height-range">Высота: <span id="height-val">110px</span></label>
+                <input type="range" id="height-range" min="50" max="160" value="110">
+            </div>
+            <div class="control-group">
+                <label for="thickness-range">Толщина: <span id="thickness-val">11px</span></label>
+                <input type="range" id="thickness-range" min="6" max="20" value="11">
+            </div>
+            <div class="control-group">
+                <label for="skew-range">Наклон цифры: <span id="skew-val">-8°</span></label>
+                <input type="range" id="skew-range" min="-20" max="20" value="-8">
+            </div>
+        </div>
+
+        <details>
+            <summary>⚙️ Индивидуальная настройка каждого сегмента (A-G)</summary>
+            <div class="segments-grid" id="segments-controls-container"></div>
+        </details>
+
+        <div class="timer">
+            <div class="time-box">
+                <div class="digits-wrapper" id="days-wrapper"></div>
+                <span class="label">Дней</span>
+            </div>
+            <div class="time-box">
+                <div class="digits-wrapper" id="hours-wrapper"></div>
+                <span class="label">Часов</span>
+            </div>
+            <div class="time-box">
+                <div class="digits-wrapper" id="minutes-wrapper"></div>
+                <span class="label">Минут</span>
+            </div>
+            <div class="time-box">
+                <div class="digits-wrapper" id="seconds-wrapper"></div>
+                <span class="label">Секунд</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const digitMap = {
+            '0': [1, 1, 1, 1, 1, 1, 0],
+            '1': [0, 1, 1, 0, 0, 0, 0],
+            '2': [1, 1, 0, 1, 1, 0, 1],
+            '3': [1, 1, 1, 1, 0, 0, 1],
+            '4': [0, 1, 1, 0, 0, 1, 1],
+            '5': [1, 0, 1, 1, 0, 1, 1],
+            '6': [1, 0, 1, 1, 1, 1, 1],
+            '7': [1, 1, 1, 0, 0, 0, 0],
+            '8': [1, 1, 1, 1, 1, 1, 1],
+            '9': [1, 1, 1, 1, 0, 1, 1]
+        };
+
+        const segNames = ['A (верх)', 'B (верх-право)', 'C (низ-право)', 'D (низ)', 'E (низ-лево)', 'F (верх-лево)', 'G (центр)'];
+
+        const segParams = Array.from({ length: 7 }, () => ({ length: 100, bevel: 45 }));
+
+        let targetDate = null;
+
+        function initTargetDate() {
+            const now = new Date();
+            let targetYear = now.getFullYear();
+            targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
+            
+            if (now >= targetDate) {
+                targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
+            }
+        }
+
+        function buildSvgDigitPaths(w, h, t) {
+            const gap = 1;
+            const halfH = h / 2;
+
+            function getBevelOffset(deg) {
+                const rad = (deg * Math.PI) / 180;
+                return t / Math.tan(rad);
+            }
+
+            // A (Верхний горизонтальный)
+            const bA = getBevelOffset(segParams[0].bevel);
+            const lenA = (w - t - gap * 2) * (segParams[0].length / 100);
+            const offA = ((w - t - gap * 2) - lenA) / 2;
+            const pA = `${t/2 + gap + offA},0 ${w - t/2 - gap - offA},0 ${w - t/2 - gap - offA - bA},${t} ${t/2 + gap + offA + bA},${t}`;
+
+            // B (Верхний правый vertical, +15% к длине)
+            const bB = getBevelOffset(segParams[1].bevel);
+            const maxLenB = halfH - t/2 - gap * 1.5;
+            const lenB = maxLenB * (segParams[1].length / 100) * 1.15;
+            const offB = (maxLenB - lenB) / 2;
+            const yTopB = t/2 + gap + offB;
+            const yBotB = halfH - gap/2 - offB;
+            const pB = `${w},${yTopB} ${w},${yBotB} ${w - t},${yBotB - bB} ${w - t},${yTopB + bB}`;
+
+            // C (Нижний правый vertical, +15% к длине)
+            const bC = getBevelOffset(segParams[2].bevel);
+            const maxLenC = halfH - t/2 - gap * 1.5;
+            const lenC = maxLenC * (segParams[2].length / 100) * 1.15;
+            const offC = (maxLenC - lenC) / 2;
+            const yTopC = halfH + gap/2 + offC;
+            const yBotC = h - t/2 - gap - offC;
+            const pC = `${w},${yTopC} ${w},${yBotC} ${w - t},${yBotC - bC} ${w - t},${yTopC + bC}`;
+
+            // D (Нижний горизонтальный)
+            const bD = getBevelOffset(segParams[3].bevel);
+            const lenD = (w - t - gap * 2) * (segParams[3].length / 100);
+            const offD = ((w - t - gap * 2) - lenD) / 2;
+            const pD = `${t/2 + gap + offD + bD},${h - t} ${w - t/2 - gap - offD - bD},${h - t} ${w - t/2 - gap - offD},${h} ${t/2 + gap + offD},${h}`;
+
+            // E (Нижний левый vertical, +15% к длине)
+            const bE = getBevelOffset(segParams[4].bevel);
+            const maxLenE = halfH - t/2 - gap * 1.5;
+            const lenE = maxLenE * (segParams[4].length / 100) * 1.15;
+            const offE = (maxLenE - lenE) / 2;
+            const yTopE = halfH + gap/2 + offE;
+            const yBotE = h - t/2 - gap - offE;
+            const pE = `0,${yTopE} 0,${yBotE} ${t},${yBotE - bE} ${t},${yTopE + bE}`;
+
+            // F (Верхний левый vertical, +15% к длине)
+            const bF = getBevelOffset(segParams[5].bevel);
+            const maxLenF = halfH - t/2 - gap * 1.5;
+            const lenF = maxLenF * (segParams[5].length / 100) * 1.15;
+            const offF = (maxLenF - lenF) / 2;
+            const yTopF = t/2 + gap + offF;
+            const yBotF = halfH - gap/2 - offF;
+            const pF = `0,${yTopF} 0,${yBotF} ${t},${yBotF - bF} ${t},${yTopF + bF}`;
+
+            // G (Центральный горизонтальный)
+            const bG = getBevelOffset(segParams[6].bevel);
+            const lenG = (w - t - gap * 2) * (segParams[6].length / 100);
+            const offG = ((w - t - gap * 2) - lenG) / 2;
+            const pG = `${t + gap + bG/2 + offG},${halfH - t/2} ${w - t - gap - bG/2 - offG},${halfH - t/2} ${w - gap - t/2 - offG},${halfH} ${w - t - gap - bG/2 - offG},${halfH + t/2} ${t + gap + bG/2 + offG},${halfH + t/2} ${t/2 + gap + offG},${halfH}`;
+
+            return [pA, pB, pC, pD, pE, pF, pG];
+        }
+
+        function createDigitElement() {
+            const digitEl = document.createElement('div');
+            digitEl.className = 'segment-digit';
+
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            
+            for (let i = 0; i < 7; i++) {
+                const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                polygon.setAttribute('class', `seg seg-${i}`);
+                svg.appendChild(polygon);
+            }
+
+            digitEl.appendChild(svg);
+            return digitEl;
+        }
+
+        function updateDigitGeometry(digitEl) {
+            const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-width'));
+            const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-height'));
+            const t = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--seg-thick'));
+
+            const paths = buildSvgDigitPaths(w, h, t);
+            const polygons = digitEl.querySelectorAll('.seg');
+
+            polygons.forEach((p, idx) => {
+                p.setAttribute('points', paths[idx]);
+            });
+        }
+
+        function updateDigitValue(digitEl, charValue) {
+            const mask = digitMap[charValue] || [0, 0, 0, 0, 0, 0, 0];
+            const polygons = digitEl.querySelectorAll('.seg');
+
+            polygons.forEach((p, index) => {
+                if (mask[index] === 1) {
+                    p.classList.add('on');
+                } else {
+                    p.classList.remove('on');
+                }
+            });
+        }
+
+        function renderValue(wrapperId, valString) {
+            const wrapper = document.getElementById(wrapperId);
+
+            while (wrapper.children.length < valString.length) {
+                const newDigit = createDigitElement();
+                wrapper.appendChild(newDigit);
+                updateDigitGeometry(newDigit);
+            }
+            while (wrapper.children.length > valString.length) {
+                wrapper.removeChild(wrapper.lastChild);
+            }
+
+            for (let i = 0; i < valString.length; i++) {
+                updateDigitValue(wrapper.children[i], valString[i]);
+            }
+        }
+
+        function updateAllGeometries() {
+            document.querySelectorAll('.segment-digit').forEach(updateDigitGeometry);
+        }
+
+        function initSegmentControls() {
+            const container = document.getElementById('segments-controls-container');
+            
+            segNames.forEach((name, idx) => {
+                const card = document.createElement('div');
+                card.className = 'seg-card';
+                card.innerHTML = `
+                    <h4>Сегмент ${name}</h4>
+                    <div class="control-group">
+                        <label>Длина: <span id="seg-len-val-${idx}">100%</span></label>
+                        <input type="range" min="30" max="120" value="100" data-idx="${idx}" data-type="length">
+                    </div>
+                    <div class="control-group" style="margin-top:6px;">
+                        <label>Скос: <span id="seg-bev-val-${idx}">45°</span></label>
+                        <input type="range" min="15" max="75" value="45" data-idx="${idx}" data-type="bevel">
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            container.addEventListener('input', (e) => {
+                if (!e.target.dataset.idx) return;
+                const idx = e.target.dataset.idx;
+                const type = e.target.dataset.type;
+                const val = parseFloat(e.target.value);
+
+                if (type === 'length') {
+                    segParams[idx].length = val;
+                    document.getElementById(`seg-len-val-${idx}`).textContent = `${val}%`;
+                } else if (type === 'bevel') {
+                    segParams[idx].bevel = val;
+                    document.getElementById(`seg-bev-val-${idx}`).textContent = `${val}°`;
+                }
+                updateAllGeometries();
+            });
+        }
+
+        function updateTimer() {
+            const now = Date.now();
+            let diffMs = targetDate - now;
+
+            if (diffMs <= 0) {
+                diffMs = 0;
+            }
+
+            const totalSec = Math.floor(diffMs / 1000);
+
+            const days = String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0');
+            const hours = String(Math.floor((totalSec / (60 * 60)) % 24)).padStart(2, '0');
+            const minutes = String(Math.floor((totalSec / 60) % 60)).padStart(2, '0');
+            const seconds = String(totalSec % 60).padStart(2, '0');
+
+            renderValue('days-wrapper', days);
+            renderValue('hours-wrapper', hours);
+            renderValue('minutes-wrapper', minutes);
+            renderValue('seconds-wrapper', seconds);
+        }
+
+        document.getElementById('width-range').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--digit-width', `${e.target.value}px`);
+            document.getElementById('width-val').textContent = `${e.target.value}px`;
+            updateAllGeometries();
+        });
+
+        document.getElementById('height-range').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--digit-height', `${e.target.value}px`);
+            document.getElementById('height-val').textContent = `${e.target.value}px`;
+            updateAllGeometries();
+        });
+
+        document.getElementById('thickness-range').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--seg-thick', `${e.target.value}px`);
+            document.getElementById('thickness-val').textContent = `${e.target.value}px`;
+            updateAllGeometries();
+        });
+
+        document.getElementById('skew-range').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--digit-skew', `${e.target.value}deg`);
+            document.getElementById('skew-val').textContent = `${e.target.value}°`;
+        });
+
+        initSegmentControls();
+        initTargetDate();
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    </script>
+
+</body>
+</html>
