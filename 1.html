@@ -77,7 +77,6 @@
             cursor: pointer;
         }
 
-        /* Аккордеон тонкой настройки отдельных сегментов */
         details {
             background: #151221;
             border: 1px solid #2a253d;
@@ -181,7 +180,6 @@
     <div class="countdown-container">
         <h1>До 1 сентября осталось</h1>
 
-        <!-- Общие настройки -->
         <div class="controls">
             <div class="control-group">
                 <label for="width-range">Ширина: <span id="width-val">60px</span></label>
@@ -201,7 +199,6 @@
             </div>
         </div>
 
-        <!-- Индивидуальные настройки сегментов -->
         <details>
             <summary>⚙️ Индивидуальная настройка каждого сегмента (A-G)</summary>
             <div class="segments-grid" id="segments-controls-container"></div>
@@ -243,7 +240,6 @@
 
         const segNames = ['A (верх)', 'B (верх-право)', 'C (низ-право)', 'D (низ)', 'E (низ-лево)', 'F (верх-лево)', 'G (центр)'];
 
-        // Параметры каждого сегмента: [длина в %, угол скоса в град.]
         const segParams = Array.from({ length: 7 }, () => ({ length: 100, bevel: 45 }));
 
         let targetDate = null;
@@ -258,7 +254,6 @@
             }
         }
 
-        // Динамический расчет с индивидуальной длиной и скосами каждого сегмента
         function buildSvgDigitPaths(w, h, t) {
             const gap = 1;
             const halfH = h / 2;
@@ -268,43 +263,43 @@
                 return t / Math.tan(rad);
             }
 
-            // A
+            // A (без изменений)
             const bA = getBevelOffset(segParams[0].bevel);
             const lenA = (w - t - gap * 2) * (segParams[0].length / 100);
             const offA = ((w - t - gap * 2) - lenA) / 2;
             const pA = `${t/2 + gap + offA},0 ${w - t/2 - gap - offA},0 ${w - t/2 - gap - offA - bA},${t} ${t/2 + gap + offA + bA},${t}`;
 
-            // B
+            // B (отраженный нижний скос)
             const bB = getBevelOffset(segParams[1].bevel);
             const lenB = (halfH - t - gap) * (segParams[1].length / 100);
             const offB = ((halfH - t - gap) - lenB) / 2;
-            const pB = `${w - t},${t/2 + gap + offB + bB} ${w},${t/2 + gap + offB} ${w},${halfH - offB - bB/2} ${w - t},${halfH - offB}`;
+            const pB = `${w - t},${t/2 + gap + offB + bB} ${w},${t/2 + gap + offB} ${w - t},${halfH - offB - bB/2} ${w},${halfH - offB}`;
 
-            // C
+            // C (отраженный верхний скос)
             const bC = getBevelOffset(segParams[2].bevel);
             const lenC = (halfH - t - gap) * (segParams[2].length / 100);
             const offC = ((halfH - t - gap) - lenC) / 2;
-            const pC = `${w - t},${halfH + offC} ${w},${halfH + offC + bC/2} ${w},${h - t/2 - gap - offC} ${w - t},${h - t/2 - gap - offC - bC}`;
+            const pC = `${w},${halfH + offC + bC/2} ${w - t},${halfH + offC} ${w},${h - t/2 - gap - offC} ${w - t},${h - t/2 - gap - offC - bC}`;
 
-            // D
+            // D (без изменений)
             const bD = getBevelOffset(segParams[3].bevel);
             const lenD = (w - t - gap * 2) * (segParams[3].length / 100);
             const offD = ((w - t - gap * 2) - lenD) / 2;
             const pD = `${t/2 + gap + offD + bD},${h - t} ${w - t/2 - gap - offD - bD},${h - t} ${w - t/2 - gap - offD},${h} ${t/2 + gap + offD},${h}`;
 
-            // E
+            // E (отраженный верхний скос)
             const bE = getBevelOffset(segParams[4].bevel);
             const lenE = (halfH - t - gap) * (segParams[4].length / 100);
             const offE = ((halfH - t - gap) - lenE) / 2;
-            const pE = `0,${halfH + offE + bE/2} ${t},${halfH + offE} ${t},${h - t/2 - gap - offE - bE} 0,${h - t/2 - gap - offE}`;
+            const pE = `0,${halfH + offE} ${t},${halfH + offE + bE/2} ${t},${h - t/2 - gap - offE - bE} 0,${h - t/2 - gap - offE}`;
 
-            // F
+            // F (отраженный нижний скос)
             const bF = getBevelOffset(segParams[5].bevel);
             const lenF = (halfH - t - gap) * (segParams[5].length / 100);
             const offF = ((halfH - t - gap) - lenF) / 2;
-            const pF = `0,${t/2 + gap + offF} ${t},${t/2 + gap + offF + bF} ${t},${halfH - offF} 0,${halfH - offF - bF/2}`;
+            const pF = `0,${t/2 + gap + offF} ${t},${t/2 + gap + offF + bF} ${0},${halfH - offF} ${t},${halfH - offF - bF/2}`;
 
-            // G
+            // G (без изменений)
             const bG = getBevelOffset(segParams[6].bevel);
             const lenG = (w - t - gap * 2) * (segParams[6].length / 100);
             const offG = ((w - t - gap * 2) - lenG) / 2;
@@ -434,7 +429,6 @@
             renderValue('seconds-wrapper', seconds);
         }
 
-        // Общие элементы управления
         document.getElementById('width-range').addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--digit-width', `${e.target.value}px`);
             document.getElementById('width-val').textContent = `${e.target.value}px`;
