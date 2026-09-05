@@ -132,9 +132,9 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 25px; /* Расстояние между точками */
+            gap: 25px; 
             height: var(--digit-height);
-            margin-top: 22px; /* Выравнивание по высоте с цифрами (учитывая padding .time-box) */
+            margin-top: 22px; 
             transform: skewX(var(--digit-skew));
         }
 
@@ -143,13 +143,20 @@
             height: var(--seg-thick);
             background: #ff0d35;
             box-shadow: 0 0 4px #ff0d35, 0 0 12px #ff0022;
-            transition: background 0.1s ease, box-shadow 0.1s ease;
+            /* Анимация длительностью ровно 1 секунду, бесконечно */
+            animation: dotBlink 1s infinite;
         }
 
-        /* Состояние выключенной точки */
-        .dot.off {
-            background: #260a10;
-            box-shadow: none;
+        /* Ключевые кадры анимации: половину времени горит, половину - выключена */
+        @keyframes dotBlink {
+            0%, 49% {
+                background: #ff0d35;
+                box-shadow: 0 0 4px #ff0d35, 0 0 12px #ff0022;
+            }
+            50%, 100% {
+                background: #260a10;
+                box-shadow: none;
+            }
         }
 
         .label {
@@ -340,14 +347,6 @@
             renderValue('hours-wrapper', hours);
             renderValue('minutes-wrapper', minutes);
             renderValue('seconds-wrapper', seconds);
-
-            // Управление мигающими точками (вкл. четные секунды, выкл. нечетные)
-            const dots = document.querySelectorAll('.dot');
-            if (totalSec % 2 === 0) {
-                dots.forEach(d => d.classList.remove('off'));
-            } else {
-                dots.forEach(d => d.classList.add('off'));
-            }
         }
 
         document.getElementById('width-range').addEventListener('input', (e) => {
