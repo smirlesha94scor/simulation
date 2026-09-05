@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Идеальный таймер</title>
+    <title>Идеальный таймер с точками</title>
     <style>
         :root {
             --digit-width: 60px;
@@ -37,7 +37,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
             text-align: center;
-            max-width: 980px;
+            max-width: 1050px;
             width: 100%;
         }
 
@@ -80,7 +80,7 @@
         .timer {
             display: flex;
             justify-content: center;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
@@ -126,6 +126,32 @@
             filter: drop-shadow(0 0 4px #ff0d35) drop-shadow(0 0 12px #ff0022);
         }
 
+        /* --- Стили для разделителей (точек) --- */
+        .separator {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 25px; /* Расстояние между точками */
+            height: var(--digit-height);
+            margin-top: 22px; /* Выравнивание по высоте с цифрами (учитывая padding .time-box) */
+            transform: skewX(var(--digit-skew));
+        }
+
+        .dot {
+            width: var(--seg-thick);
+            height: var(--seg-thick);
+            background: #ff0d35;
+            box-shadow: 0 0 4px #ff0d35, 0 0 12px #ff0022;
+            transition: background 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        /* Состояние выключенной точки */
+        .dot.off {
+            background: #260a10;
+            box-shadow: none;
+        }
+
         .label {
             font-size: 0.75rem;
             text-transform: uppercase;
@@ -165,14 +191,32 @@
                 <div class="digits-wrapper" id="days-wrapper"></div>
                 <span class="label">Дней</span>
             </div>
+            
+            <div class="separator">
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
             <div class="time-box">
                 <div class="digits-wrapper" id="hours-wrapper"></div>
                 <span class="label">Часов</span>
             </div>
+
+            <div class="separator">
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
             <div class="time-box">
                 <div class="digits-wrapper" id="minutes-wrapper"></div>
                 <span class="label">Минут</span>
             </div>
+
+            <div class="separator">
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
             <div class="time-box">
                 <div class="digits-wrapper" id="seconds-wrapper"></div>
                 <span class="label">Секунд</span>
@@ -205,22 +249,15 @@
             }
         }
 
-        // Идеальная геометрия (45 градусов)
         function buildSvgDigitPaths(w, h, t) {
-            const gap = 1.2; // Универсальный зазор
+            const gap = 1.2; 
             
             const pA = `${t/2 + gap},${t/2} ${t + gap},0 ${w - t - gap},0 ${w - t/2 - gap},${t/2} ${w - t - gap},${t} ${t + gap},${t}`;
-            
             const pB = `${w},${t + gap} ${w},${h/2 - t/2 - gap} ${w - t/2},${h/2 - gap} ${w - t},${h/2 - t/2 - gap} ${w - t},${t + gap} ${w - t/2},${t/2 + gap}`;
-            
             const pC = `${w},${h/2 + t/2 + gap} ${w},${h - t - gap} ${w - t/2},${h - t/2 - gap} ${w - t},${h - t - gap} ${w - t},${h/2 + t/2 + gap} ${w - t/2},${h/2 + gap}`;
-            
             const pD = `${t/2 + gap},${h - t/2} ${t + gap},${h - t} ${w - t - gap},${h - t} ${w - t/2 - gap},${h - t/2} ${w - t - gap},${h} ${t + gap},${h}`;
-            
             const pE = `${0},${h/2 + t/2 + gap} ${0},${h - t - gap} ${t/2},${h - t/2 - gap} ${t},${h - t - gap} ${t},${h/2 + t/2 + gap} ${t/2},${h/2 + gap}`;
-            
             const pF = `${0},${t + gap} ${0},${h/2 - t/2 - gap} ${t/2},${h/2 - gap} ${t},${h/2 - t/2 - gap} ${t},${t + gap} ${t/2},${t/2 + gap}`;
-            
             const pG = `${t/2 + gap},${h/2} ${t + gap},${h/2 - t/2} ${w - t - gap},${h/2 - t/2} ${w - t/2 - gap},${h/2} ${w - t - gap},${h/2 + t/2} ${t + gap},${h/2 + t/2}`;
 
             return [pA, pB, pC, pD, pE, pF, pG];
@@ -229,7 +266,6 @@
         function createDigitElement() {
             const digitEl = document.createElement('div');
             digitEl.className = 'segment-digit';
-
             const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             
             for (let i = 0; i < 7; i++) {
@@ -237,7 +273,6 @@
                 polygon.setAttribute('class', `seg seg-${i}`);
                 svg.appendChild(polygon);
             }
-
             digitEl.appendChild(svg);
             return digitEl;
         }
@@ -305,6 +340,14 @@
             renderValue('hours-wrapper', hours);
             renderValue('minutes-wrapper', minutes);
             renderValue('seconds-wrapper', seconds);
+
+            // Управление мигающими точками (вкл. четные секунды, выкл. нечетные)
+            const dots = document.querySelectorAll('.dot');
+            if (totalSec % 2 === 0) {
+                dots.forEach(d => d.classList.remove('off'));
+            } else {
+                dots.forEach(d => d.classList.add('off'));
+            }
         }
 
         document.getElementById('width-range').addEventListener('input', (e) => {
