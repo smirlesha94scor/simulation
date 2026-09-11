@@ -3,379 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Идеальный таймер с точками</title>
+    <title>Парадокс огурцов</title>
     <style>
-        :root {
-            --digit-width: 60px;
-            --digit-height: 110px;
-            --seg-thick: 12px;
-            --digit-skew: -8deg;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: #09080e;
-            color: #fff;
-            padding: 20px;
+            margin: 0;
         }
-
-        .countdown-container {
-            background: #12101a;
-            border: 1px solid #252136;
-            padding: 35px 25px;
-            border-radius: 20px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-            text-align: center;
-            max-width: 1050px;
-            width: 100%;
-        }
-
-        h1 {
-            font-size: 1.8rem;
-            margin-bottom: 25px;
-            font-weight: 600;
-            color: #e2e2e2;
-        }
-
-        .controls {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-bottom: 30px;
-            background: #1a1726;
-            padding: 15px;
+        .container {
+            background: white;
+            padding: 30px;
             border-radius: 12px;
-            border: 1px solid #2a253d;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .control-group label {
-            font-size: 0.75rem;
-            color: #aaa;
-        }
-
-        .control-group input[type="range"] {
-            accent-color: #ff1133;
-            cursor: pointer;
-        }
-
-        .timer {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .time-box {
-            background: #050507;
-            padding: 22px 16px;
-            border-radius: 8px;
-            border: 2px solid #1c1a24;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
-        }
-
-        .digits-wrapper {
-            display: flex;
-            gap: 12px;
-        }
-
-        .segment-digit {
-            width: var(--digit-width);
-            height: var(--digit-height);
-            position: relative;
-            transform: skewX(var(--digit-skew));
-        }
-
-        .segment-digit svg {
-            position: absolute;
-            top: 0;
-            left: 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 450px;
             width: 100%;
-            height: 100%;
-            overflow: visible;
         }
-
-        .seg {
-            fill: #260a10;
-            transition: fill 0.1s ease, filter 0.1s ease;
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
         }
-
-        .seg.on {
-            fill: #ff0d35;
-            filter: drop-shadow(0 0 4px #ff0d35) drop-shadow(0 0 12px #ff0022);
+        .task-text {
+            font-style: italic;
+            background: #eef2f3;
+            padding: 15px;
+            border-left: 5px solid #27ae60;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
         }
-
-        /* --- Стили для разделителей (точек) --- */
-        .separator {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 25px; 
-            height: var(--digit-height);
-            margin-top: 22px; 
-            transform: skewX(var(--digit-skew));
+        .input-group {
+            margin-bottom: 15px;
         }
-
-        .dot {
-            width: var(--seg-thick);
-            height: var(--seg-thick);
-            background: #ff0d35;
-            box-shadow: 0 0 4px #ff0d35, 0 0 12px #ff0022;
-            /* Анимация длительностью ровно 1 секунду, бесконечно */
-            animation: dotBlink 1s infinite;
-        }
-
-        /* Ключевые кадры анимации: половину времени горит, половину - выключена */
-        @keyframes dotBlink {
-            0%, 49% {
-                background: #ff0d35;
-                box-shadow: 0 0 4px #ff0d35, 0 0 12px #ff0022;
-            }
-            50%, 100% {
-                background: #260a10;
-                box-shadow: none;
-            }
-        }
-
-        .label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 15px;
-            color: #888;
+        label {
             display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #219653;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f8f5;
+            border: 1px solid #a3e4d7;
+            border-radius: 6px;
+            display: none;
+        }
+        .result h3 {
+            margin-top: 0;
+            color: #16a085;
+        }
+        .explanation {
+            font-size: 13px;
+            color: #555;
+            margin-top: 10px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <div class="countdown-container">
-        <h1>До 1 сентября осталось</h1>
-
-        <div class="controls">
-            <div class="control-group">
-                <label for="width-range">Ширина: <span id="width-val">60px</span></label>
-                <input type="range" id="width-range" min="30" max="100" value="60">
-            </div>
-            <div class="control-group">
-                <label for="height-range">Высота: <span id="height-val">110px</span></label>
-                <input type="range" id="height-range" min="50" max="160" value="110">
-            </div>
-            <div class="control-group">
-                <label for="thickness-range">Толщина: <span id="thickness-val">12px</span></label>
-                <input type="range" id="thickness-range" min="6" max="25" value="12">
-            </div>
-            <div class="control-group">
-                <label for="skew-range">Наклон: <span id="skew-val">-8°</span></label>
-                <input type="range" id="skew-range" min="-20" max="20" value="-8">
-            </div>
-        </div>
-
-        <div class="timer">
-            <div class="time-box">
-                <div class="digits-wrapper" id="days-wrapper"></div>
-                <span class="label">Дней</span>
-            </div>
-            
-            <div class="separator">
-                <div class="dot"></div>
-                <div class="dot"></div>
-            </div>
-
-            <div class="time-box">
-                <div class="digits-wrapper" id="hours-wrapper"></div>
-                <span class="label">Часов</span>
-            </div>
-
-            <div class="separator">
-                <div class="dot"></div>
-                <div class="dot"></div>
-            </div>
-
-            <div class="time-box">
-                <div class="digits-wrapper" id="minutes-wrapper"></div>
-                <span class="label">Минут</span>
-            </div>
-
-            <div class="separator">
-                <div class="dot"></div>
-                <div class="dot"></div>
-            </div>
-
-            <div class="time-box">
-                <div class="digits-wrapper" id="seconds-wrapper"></div>
-                <span class="label">Секунд</span>
-            </div>
-        </div>
+<div class="container">
+    <h1>Калькулятор «Парадокса огурцов»</h1>
+    
+    <div class="task-text">
+        <strong>Классическое условие:</strong> Было 100 кг огурцов, которые содержали 99% воды. После усыхания содержание воды снизилось до 98%. Сколько теперь весят огурцы?
     </div>
 
-    <script>
-        const digitMap = {
-            '0': [1, 1, 1, 1, 1, 1, 0],
-            '1': [0, 1, 1, 0, 0, 0, 0],
-            '2': [1, 1, 0, 1, 1, 0, 1],
-            '3': [1, 1, 1, 1, 0, 0, 1],
-            '4': [0, 1, 1, 0, 0, 1, 1],
-            '5': [1, 0, 1, 1, 0, 1, 1],
-            '6': [1, 0, 1, 1, 1, 1, 1],
-            '7': [1, 1, 1, 0, 0, 0, 0],
-            '8': [1, 1, 1, 1, 1, 1, 1],
-            '9': [1, 1, 1, 1, 0, 1, 1]
-        };
+    <div class="input-group">
+        <label for="initialWeight">Начальный вес огурцов (кг):</label>
+        <input type="number" id="initialWeight" value="100" min="0.1" step="any">
+    </div>
 
-        let targetDate = null;
+    <div class="input-group">
+        <label for="initialWater">Начальная влажность (%):</label>
+        <input type="number" id="initialWater" value="99" min="1" max="99.9" step="any">
+    </div>
 
-        function initTargetDate() {
-            const now = new Date();
-            let targetYear = now.getFullYear();
-            targetDate = new Date(`September 1, ${targetYear} 00:00:00`);
-            if (now >= targetDate) {
-                targetDate = new Date(`September 1, ${targetYear + 1} 00:00:00`);
-            }
+    <div class="input-group">
+        <label for="finalWater">Конечная влажность (%):</label>
+        <input type="number" id="finalWater" value="98" min="1" max="99.9" step="any">
+    </div>
+
+    <button id="myButton">Рассчитать вес</button>
+
+    <div class="result" id="resultBlock">
+        <h3>Результат:</h3>
+        <p>Новый вес огурцов: <strong id="finalWeight">0</strong> кг.</p>
+        <div class="explanation" id="explanationText"></div>
+    </div>
+</div>
+
+<script>
+    function calculateCucumbers() {
+        const m1 = parseFloat(document.getElementById('initialWeight').value);
+        const w1 = parseFloat(document.getElementById('initialWater').value);
+        const w2 = parseFloat(document.getElementById('finalWater').value);
+
+        if (isNaN(m1) || isNaN(w1) || isNaN(w2) || m1 <= 0 || w1 >= 100 || w2 >= 100 || w2 >= w1) {
+            alert("Пожалуйста, введите корректные данные. Конечная влажность должна быть меньше начальной.");
+            return;
         }
 
-        function buildSvgDigitPaths(w, h, t) {
-            const gap = 1.2; 
-            
-            const pA = `${t/2 + gap},${t/2} ${t + gap},0 ${w - t - gap},0 ${w - t/2 - gap},${t/2} ${w - t - gap},${t} ${t + gap},${t}`;
-            const pB = `${w},${t + gap} ${w},${h/2 - t/2 - gap} ${w - t/2},${h/2 - gap} ${w - t},${h/2 - t/2 - gap} ${w - t},${t + gap} ${w - t/2},${t/2 + gap}`;
-            const pC = `${w},${h/2 + t/2 + gap} ${w},${h - t - gap} ${w - t/2},${h - t/2 - gap} ${w - t},${h - t - gap} ${w - t},${h/2 + t/2 + gap} ${w - t/2},${h/2 + gap}`;
-            const pD = `${t/2 + gap},${h - t/2} ${t + gap},${h - t} ${w - t - gap},${h - t} ${w - t/2 - gap},${h - t/2} ${w - t - gap},${h} ${t + gap},${h}`;
-            const pE = `${0},${h/2 + t/2 + gap} ${0},${h - t - gap} ${t/2},${h - t/2 - gap} ${t},${h - t - gap} ${t},${h/2 + t/2 + gap} ${t/2},${h/2 + gap}`;
-            const pF = `${0},${t + gap} ${0},${h/2 - t/2 - gap} ${t/2},${h/2 - gap} ${t},${h/2 - t/2 - gap} ${t},${t + gap} ${t/2},${t/2 + gap}`;
-            const pG = `${t/2 + gap},${h/2} ${t + gap},${h/2 - t/2} ${w - t - gap},${h/2 - t/2} ${w - t/2 - gap},${h/2} ${w - t - gap},${h/2 + t/2} ${t + gap},${h/2 + t/2}`;
+        const dryPercent1 = 100 - w1;
+        const dryPercent2 = 100 - w2;
+        const dryMass = (m1 * dryPercent1) / 100;
+        const m2 = (dryMass / dryPercent2) * 100;
 
-            return [pA, pB, pC, pD, pE, pF, pG];
-        }
+        document.getElementById('finalWeight').innerText = m2.toFixed(2);
+        
+        document.getElementById('explanationText').innerHTML = `
+            <strong>Как это получилось?</strong><br>
+            1. Сначала сухого вещества было ${dryPercent1}% от ${m1} кг, то есть <b>${dryMass.toFixed(2)} кг</b>.<br>
+            2. После усыхания влажность стала ${w2}%, значит сухое вещество теперь составляет <b>${dryPercent2}%</b> от новой массы.<br>
+            3. Так как абсолютная масса сухого вещества не изменилась (${dryMass.toFixed(2)} кг), мы находим полную новую массу: ${dryMass.toFixed(2)} / ${dryPercent2}% * 100% = <b>${m2.toFixed(2)} кг</b>.
+        `;
 
-        function createDigitElement() {
-            const digitEl = document.createElement('div');
-            digitEl.className = 'segment-digit';
-            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            
-            for (let i = 0; i < 7; i++) {
-                const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                polygon.setAttribute('class', `seg seg-${i}`);
-                svg.appendChild(polygon);
-            }
-            digitEl.appendChild(svg);
-            return digitEl;
-        }
+        document.getElementById('resultBlock').style.display = 'block';
+    }
 
-        function updateDigitGeometry(digitEl) {
-            const w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-width'));
-            const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--digit-height'));
-            const t = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--seg-thick'));
-
-            const paths = buildSvgDigitPaths(w, h, t);
-            const polygons = digitEl.querySelectorAll('.seg');
-
-            polygons.forEach((p, idx) => {
-                p.setAttribute('points', paths[idx]);
-            });
-        }
-
-        function updateDigitValue(digitEl, charValue) {
-            const mask = digitMap[charValue] || [0, 0, 0, 0, 0, 0, 0];
-            const polygons = digitEl.querySelectorAll('.seg');
-
-            polygons.forEach((p, index) => {
-                if (mask[index] === 1) {
-                    p.classList.add('on');
-                } else {
-                    p.classList.remove('on');
-                }
-            });
-        }
-
-        function renderValue(wrapperId, valString) {
-            const wrapper = document.getElementById(wrapperId);
-
-            while (wrapper.children.length < valString.length) {
-                const newDigit = createDigitElement();
-                wrapper.appendChild(newDigit);
-                updateDigitGeometry(newDigit);
-            }
-            while (wrapper.children.length > valString.length) {
-                wrapper.removeChild(wrapper.lastChild);
-            }
-
-            for (let i = 0; i < valString.length; i++) {
-                updateDigitValue(wrapper.children[i], valString[i]);
-            }
-        }
-
-        function updateAllGeometries() {
-            document.querySelectorAll('.segment-digit').forEach(updateDigitGeometry);
-        }
-
-        function updateTimer() {
-            const now = Date.now();
-            let diffMs = targetDate - now;
-
-            if (diffMs <= 0) diffMs = 0;
-
-            const totalSec = Math.floor(diffMs / 1000);
-            const days = String(Math.floor(totalSec / (60 * 60 * 24))).padStart(2, '0');
-            const hours = String(Math.floor((totalSec / (60 * 60)) % 24)).padStart(2, '0');
-            const minutes = String(Math.floor((totalSec / 60) % 60)).padStart(2, '0');
-            const seconds = String(totalSec % 60).padStart(2, '0');
-
-            renderValue('days-wrapper', days);
-            renderValue('hours-wrapper', hours);
-            renderValue('minutes-wrapper', minutes);
-            renderValue('seconds-wrapper', seconds);
-        }
-
-        document.getElementById('width-range').addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--digit-width', `${e.target.value}px`);
-            document.getElementById('width-val').textContent = `${e.target.value}px`;
-            updateAllGeometries();
-        });
-
-        document.getElementById('height-range').addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--digit-height', `${e.target.value}px`);
-            document.getElementById('height-val').textContent = `${e.target.value}px`;
-            updateAllGeometries();
-        });
-
-        document.getElementById('thickness-range').addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--seg-thick', `${e.target.value}px`);
-            document.getElementById('thickness-val').textContent = `${e.target.value}px`;
-            updateAllGeometries();
-        });
-
-        document.getElementById('skew-range').addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--digit-skew', `${e.target.value}deg`);
-            document.getElementById('skew-val').textContent = `${e.target.value}°`;
-        });
-
-        initTargetDate();
-        updateTimer();
-        setInterval(updateTimer, 1000);
-    </script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('myButton').addEventListener('click', calculateCucumbers);
+    });
+</script>
 
 </body>
 </html>
