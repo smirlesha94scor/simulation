@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Парадокс огурцов</title>
-    <!-- Подключаем библиотеку для графиков -->
+    <!-- Библиотека для графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -121,7 +121,7 @@
 
     <div class="input-group">
         <label for="finalWater">Конечная влажность (%):</label>
-        <input type="number" id="finalWater" value="98" min="1" max="99.9" step="any">
+        <input type="number" id="finalWater" value="98" min="1" max="99" step="any">
     </div>
 
     <button id="myButton">Рассчитать вес</button>
@@ -140,13 +140,41 @@
 <script>
     let humidityChartInstance = null;
 
+    // Синхронизация динамических границ инпутов
+    function updateInputLimits() {
+        const initialWater = document.getElementById('initialWater');
+        const finalWater = document.getElementById('finalWater');
+
+        // Конечная влажность не должна быть больше начальной
+        finalWater.max = initialWater.value;
+        // Начальная влажность не должна быть меньше конечной
+        initialWater.min = finalWater.value;
+    }
+
     function calculateCucumbers() {
         const m1 = parseFloat(document.getElementById('initialWeight').value);
         const w1 = parseFloat(document.getElementById('initialWater').value);
         const w2 = parseFloat(document.getElementById('finalWater').value);
 
-        if (isNaN(m1) || isNaN(w1) || isNaN(w2) || m1 <= 0 || w1 >= 100 || w2 >= 100 || w2 >= w1) {
-            alert("Пожалуйста, введите корректные данные. Конечная влажность должна быть меньше начальной.");
+        // Строгая валидация ввода
+        if (isNaN(m1) || isNaN(w1) || isNaN(w2)) {
+            alert("Пожалуйста, заполните все поля корректными числами.");
+            return;
+        }
+
+        if (m1 <= 0) {
+            alert("Начальный вес должен быть больше 0.");
+            return;
+        }
+
+        if (w1 >= 100 || w1 <= 0 || w2 >= 100 || w2 <= 0) {
+            alert("Влажность должна быть в диапазоне от 0% до 100%.");
+            return;
+        }
+
+        // Главное ограничение: начальная влажность >= конечной (конечная <= начальной)
+        if (w1 < w2) {
+            alert("Начальная влажность не может быть меньше конечной (огурцы могут только усыхать, а не набирать влагу).");
             return;
         }
 
@@ -159,14 +187,13 @@
         
         document.getElementById('explanationText').innerHTML = `
             <strong>Как это получилось?</strong><br>
-            1. Сначала сухого вещества было ${dryPercent1}% от ${m1} кг, то есть <b>${dryMass.toFixed(2)} кг</b>.<br>
-            2. После усыхания влажность стала ${w2}%, значит сухое вещество теперь составляет <b>${dryPercent2}%</b> от новой массы.<br>
-            3. Так как абсолютная масса сухого вещества не изменилась (${dryMass.toFixed(2)} кг), мы находим полную новую массу: ${dryMass.toFixed(2)} / ${dryPercent2}% * 100% = <b>${m2.toFixed(2)} кг</b>.
+            1. Сначала сухого вещества было ${dryPercent1.toFixed(2)}% от ${m1} кг, то есть <b>${dryMass.toFixed(2)} кг</b>.<br>
+            2. После усыхания влажность стала ${w2}%, значит сухое вещество теперь составляет <b>${dryPercent2.toFixed(2)}%</b> от новой массы.<br>
+            3. Так как абсолютная масса сухого вещества не изменилась (${dryMass.toFixed(2)} кг), находим полную новую массу: <b>${m2.toFixed(2)} кг</b>.
         `;
 
         document.getElementById('resultBlock').style.display = 'block';
 
-        // Генерируем данные для графика
         renderChart(m1, w1, w2, dryMass);
     }
 
@@ -174,7 +201,7 @@
         const labels = [];
         const data = [];
 
-        // Строим точки от 0% до начальной влажности w1
+        // Расчет точек для графика от 0% до w1
         const step = Math.max(1, Math.floor(w1 / 20));
         for (let w = 0; w < w1; w += step) {
             labels.push(`${w}%`);
@@ -182,7 +209,6 @@
             data.push(weight.toFixed(2));
         }
 
-        // Обязательно добавляем точки w2 и w1
         if (!labels.includes(`${selectedW2}%`)) {
             labels.push(`${selectedW2}%`);
             data.push(((dryMass / (100 - selectedW2)) * 100).toFixed(2));
@@ -191,7 +217,6 @@
         labels.push(`${w1}%`);
         data.push(m1.toFixed(2));
 
-        // Сортируем значения по возрастанию влажности
         const combined = labels.map((label, i) => ({
             x: parseFloat(label),
             label: label,
@@ -201,7 +226,6 @@
         const sortedLabels = combined.map(item => item.label);
         const sortedData = combined.map(item => item.y);
 
-        // Пересоздаем график при каждом расчете
         const ctx = document.getElementById('humidityChart').getContext('2d');
         if (humidityChartInstance) {
             humidityChartInstance.destroy();
@@ -234,6 +258,15 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        const initialWater = document.getElementById('initialWater');
+        const finalWater = document.getElementById('finalWater');
+
+        // Вешаем слушатели изменения полей для автоматической корректировки границ
+        initialWater.addEventListener('input', updateInputLimits);
+        finalWater.addEventListener('input', updateInputLimits);
+
+        updateInputLimits(); // Начальная инициализация рамок
+
         document.getElementById('myButton').addEventListener('click', calculateCucumbers);
     });
 </script>
