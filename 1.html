@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Парадокс огурцов</title>
+    <!-- Подключаем библиотеку для графиков -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,13 +16,15 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
         }
         .container {
             background: white;
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            max-width: 450px;
+            max-width: 550px;
             width: 100%;
         }
         h1 {
@@ -89,6 +93,11 @@
             margin-top: 10px;
             line-height: 1.4;
         }
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -121,10 +130,16 @@
         <h3>Результат:</h3>
         <p>Новый вес огурцов: <strong id="finalWeight">0</strong> кг.</p>
         <div class="explanation" id="explanationText"></div>
+
+        <div class="chart-container">
+            <canvas id="humidityChart"></canvas>
+        </div>
     </div>
 </div>
 
 <script>
+    let humidityChartInstance = null;
+
     function calculateCucumbers() {
         const m1 = parseFloat(document.getElementById('initialWeight').value);
         const w1 = parseFloat(document.getElementById('initialWater').value);
@@ -150,6 +165,72 @@
         `;
 
         document.getElementById('resultBlock').style.display = 'block';
+
+        // Генерируем данные для графика
+        renderChart(m1, w1, w2, dryMass);
+    }
+
+    function renderChart(m1, w1, selectedW2, dryMass) {
+        const labels = [];
+        const data = [];
+
+        // Строим точки от 0% до начальной влажности w1
+        const step = Math.max(1, Math.floor(w1 / 20));
+        for (let w = 0; w < w1; w += step) {
+            labels.push(`${w}%`);
+            const weight = (dryMass / (100 - w)) * 100;
+            data.push(weight.toFixed(2));
+        }
+
+        // Обязательно добавляем точки w2 и w1
+        if (!labels.includes(`${selectedW2}%`)) {
+            labels.push(`${selectedW2}%`);
+            data.push(((dryMass / (100 - selectedW2)) * 100).toFixed(2));
+        }
+
+        labels.push(`${w1}%`);
+        data.push(m1.toFixed(2));
+
+        // Сортируем значения по возрастанию влажности
+        const combined = labels.map((label, i) => ({
+            x: parseFloat(label),
+            label: label,
+            y: parseFloat(data[i])
+        })).sort((a, b) => a.x - b.x);
+
+        const sortedLabels = combined.map(item => item.label);
+        const sortedData = combined.map(item => item.y);
+
+        // Пересоздаем график при каждом расчете
+        const ctx = document.getElementById('humidityChart').getContext('2d');
+        if (humidityChartInstance) {
+            humidityChartInstance.destroy();
+        }
+
+        humidityChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: sortedLabels,
+                datasets: [{
+                    label: 'Зависимость массы (кг) от влажности (%)',
+                    data: sortedData,
+                    borderColor: '#27ae60',
+                    backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: sortedLabels.map(l => l === `${selectedW2}%` ? '#e74c3c' : '#27ae60'),
+                    pointRadius: sortedLabels.map(l => l === `${selectedW2}%` ? 6 : 3)
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Влажность (%)' } },
+                    y: { title: { display: true, text: 'Масса (кг)' }, beginAtZero: true }
+                }
+            }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
