@@ -121,7 +121,7 @@
 
     <div class="input-group">
         <label for="finalWater">Конечная влажность (%):</label>
-        <input type="number" id="finalWater" value="98" min="1" max="99" step="any">
+        <input type="number" id="finalWater" value="98" min="1" max="98.9" step="any">
     </div>
 
     <button id="myButton">Рассчитать вес</button>
@@ -140,15 +140,14 @@
 <script>
     let humidityChartInstance = null;
 
-    // Синхронизация динамических границ инпутов
     function updateInputLimits() {
         const initialWater = document.getElementById('initialWater');
         const finalWater = document.getElementById('finalWater');
 
-        // Конечная влажность не должна быть больше начальной
-        finalWater.max = initialWater.value;
-        // Начальная влажность не должна быть меньше конечной
-        initialWater.min = finalWater.value;
+        // Конечная влажность строго меньше начальной (например, max = initialWater - 0.1)
+        if (parseFloat(initialWater.value) > 0) {
+            finalWater.max = (parseFloat(initialWater.value) - 0.1).toFixed(1);
+        }
     }
 
     function calculateCucumbers() {
@@ -156,9 +155,8 @@
         const w1 = parseFloat(document.getElementById('initialWater').value);
         const w2 = parseFloat(document.getElementById('finalWater').value);
 
-        // Строгая валидация ввода
         if (isNaN(m1) || isNaN(w1) || isNaN(w2)) {
-            alert("Пожалуйста, заполните все поля корректными числами.");
+            alert("Пожалуйста, заполните все поля числовыми значениями.");
             return;
         }
 
@@ -172,9 +170,9 @@
             return;
         }
 
-        // Главное ограничение: начальная влажность >= конечной (конечная <= начальной)
-        if (w1 < w2) {
-            alert("Начальная влажность не может быть меньше конечной (огурцы могут только усыхать, а не набирать влагу).");
+        // ПРОВЕРКА: Конечная влажность строго меньше начальной (не равна и не больше)
+        if (w2 >= w1) {
+            alert("Конечная влажность должна быть СТРОГО МЕНЬШЕ начальной (в процессе усыхания процент влаги обязательно снижается).");
             return;
         }
 
@@ -201,7 +199,6 @@
         const labels = [];
         const data = [];
 
-        // Расчет точек для графика от 0% до w1
         const step = Math.max(1, Math.floor(w1 / 20));
         for (let w = 0; w < w1; w += step) {
             labels.push(`${w}%`);
@@ -261,11 +258,8 @@
         const initialWater = document.getElementById('initialWater');
         const finalWater = document.getElementById('finalWater');
 
-        // Вешаем слушатели изменения полей для автоматической корректировки границ
         initialWater.addEventListener('input', updateInputLimits);
-        finalWater.addEventListener('input', updateInputLimits);
-
-        updateInputLimits(); // Начальная инициализация рамок
+        updateInputLimits();
 
         document.getElementById('myButton').addEventListener('click', calculateCucumbers);
     });
