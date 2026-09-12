@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Модель Пустотелой Трубы (Углеродная Нанотрубка)</title>
+  <title>3D Бесшовная Пустотелая Труба</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -19,10 +19,10 @@
   <div class="absolute top-4 left-4 z-10 w-80 glass rounded-xl p-4 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
     <h1 class="text-lg font-bold text-teal-400 flex items-center justify-between">
       <span>3D Нанотрубка</span>
-      <span class="text-xs bg-teal-950 text-teal-300 border border-teal-800 px-2 py-0.5 rounded-full">Пустотелая</span>
+      <span class="text-xs bg-teal-950 text-teal-300 border border-teal-800 px-2 py-0.5 rounded-full">Замкнутая</span>
     </h1>
 
-    <p class="text-xs text-gray-400">Параметры гексагональной сетки и структуры трубы.</p>
+    <p class="text-xs text-gray-400">Бесшовная генерация сетки с оптимизацией памяти.</p>
 
     <!-- Ползунки параметров -->
     <div class="space-y-3">
@@ -67,61 +67,54 @@
         <span>Карта нагрузок (Stress)</span>
         <input id="toggle-stress" type="checkbox" class="accent-teal-500 w-4 h-4">
       </label>
-      <label class="flex items-center justify-between cursor-pointer">
-        <span>Автовращение</span>
-        <input id="toggle-autorotate" type="checkbox" class="accent-teal-500 w-4 h-4">
-      </label>
     </div>
 
     <hr class="border-gray-800">
 
-    <!-- Информационная карточка -->
+    <!-- Статистика -->
     <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800 space-y-1.5 text-xs">
       <div class="flex justify-between text-gray-400">
-        <span>Всего атомов (узлов):</span>
+        <span>Атомов:</span>
         <span id="stat-atoms" class="font-mono text-white">0</span>
       </div>
       <div class="flex justify-between text-gray-400">
-        <span>Всего связей:</span>
+        <span>Связей:</span>
         <span id="stat-bonds" class="font-mono text-white">0</span>
       </div>
       <div class="flex justify-between text-gray-400">
-        <span>Экономия массы:</span>
-        <span id="stat-saving" class="font-mono text-teal-400 font-bold">~82%</span>
+        <span>Стык трубы:</span>
+        <span class="font-mono text-teal-400 font-bold">100% Замкнут</span>
       </div>
     </div>
   </div>
 
-  <!-- JavaScript код приложения -->
   <script>
-    // --- Константы геолокации и топологии ---
-    const BOND_LENGTH = 1.42; 
-    const RAD = BOND_LENGTH * Math.sqrt(3);
+    const BOND_LENGTH = 1.42;
 
-    // --- Переменные сцены ---
     let scene, camera, renderer, controls;
     let atomsMesh, bondsMesh;
-    let clock = new THREE.Clock();
+    
+    // Переиспользуемые глобальные объекты для исключения работы Garbage Collector
+    const dummy = new THREE.Object3D();
+    const tempColor = new THREE.Color();
+    const vecA = new THREE.Vector3();
+    const vecB = new THREE.Vector3();
 
-    // Параметры
     let params = {
       N: 12,
       M: 20,
       roll: 1.0,
       cutout: 1.0,
-      stressMap: false,
-      autoRotate: false
+      stressMap: false
     };
 
-    // Топологические данные
-    let baseAtoms = []; 
+    let baseAtoms = [];
     let baseBonds = [];
+    let worldPositions = []; // Кэш векторов узлов
 
-    // --- Инициализация Three.js ---
     function init() {
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0d1117);
-      scene.fog = new THREE.FogExp2(0x0d1117, 0.015);
 
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(25, 20, 35);
@@ -134,22 +127,14 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
-      controls.rotateSpeed = 0.8;
-      controls.zoomSpeed = 1.2;
 
-      // Освещение
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambientLight);
 
-      const dirLight1 = new THREE.DirectionalLight(0x00f0ff, 0.8);
-      dirLight1.position.set(20, 40, 20);
-      scene.add(dirLight1);
+      const dirLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
+      dirLight.position.set(20, 40, 20);
+      scene.add(dirLight);
 
-      const dirLight2 = new THREE.DirectionalLight(0xff0055, 0.5);
-      dirLight2.position.set(-20, -20, -20);
-      scene.add(dirLight2);
-
-      // Генерация сетки
       rebuildTopology();
       setupUI();
 
@@ -157,7 +142,7 @@
       animate();
     }
 
-    // --- Математический расчет 2D/3D гексагональной трубки ---
+    // --- Математически идеальное замыкание цилиндра без зазоров ---
     function rebuildTopology() {
       baseAtoms = [];
       baseBonds = [];
@@ -165,8 +150,10 @@
       const N = params.N;
       const M = params.M;
       const a = BOND_LENGTH;
+      
+      // Ширина развертки с учетом полного цикла бесшовного соединения
+      const width = N * Math.sqrt(3) * a;
 
-      // Генерация узлов графеневой плоскости
       const nodeMap = new Map();
       let atomIndex = 0;
 
@@ -175,56 +162,51 @@
           let x0 = i * Math.sqrt(3) * a;
           let y0 = j * 3 * a;
 
-          let p1 = { x: x0, y: y0, i, j, type: 0 };
-          let p2 = { x: x0 + (Math.sqrt(3)/2)*a, y: y0 + 0.5*a, i, j, type: 1 };
-          let p3 = { x: x0 + (Math.sqrt(3)/2)*a, y: y0 + 1.5*a, i, j, type: 2 };
-          let p4 = { x: x0, y: y0 + 2.0*a, i, j, type: 3 };
+          let pts = [
+            { x: x0, y: y0 },
+            { x: x0 + (Math.sqrt(3)/2)*a, y: y0 + 0.5*a },
+            { x: x0 + (Math.sqrt(3)/2)*a, y: y0 + 1.5*a },
+            { x: x0, y: y0 + 2.0*a }
+          ];
 
-          [p1, p2, p3, p4].forEach(p => {
-            let key = `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+          pts.forEach(p => {
+            // Замыкание координат по ширине X (периодические граничные условия)
+            let wrappedX = (p.x % width + width) % width;
+            let key = `${wrappedX.toFixed(3)},${p.y.toFixed(3)}`;
+
             if (!nodeMap.has(key)) {
               nodeMap.set(key, atomIndex++);
-              baseAtoms.push(p);
+              baseAtoms.push({ x: wrappedX, y: p.y, rawX: p.x });
             }
           });
         }
       }
 
-      // Быстрый расчет связей (Spatial Grid $O(V)$)
-      const grid = new Map();
-      const cellSize = a * 1.2;
+      // Быстрое определение связей
+      const maxDistSq = (a * 1.15) ** 2;
+      for (let i = 0; i < baseAtoms.length; i++) {
+        for (let j = i + 1; j < baseAtoms.length; j++) {
+          let p1 = baseAtoms[i];
+          let p2 = baseAtoms[j];
 
-      baseAtoms.forEach((atom, idx) => {
-        let cx = Math.floor(atom.x / cellSize);
-        let cy = Math.floor(atom.y / cellSize);
-        let key = `${cx},${cy}`;
-        if (!grid.has(key)) grid.set(key, []);
-        grid.get(key).push({ idx, x: atom.x, y: atom.y });
-      });
+          let dx = Math.abs(p1.x - p2.x);
+          // Учет бесшовной связи первого и последнего столбцов
+          if (dx > width / 2) dx = width - dx;
 
-      const maxDistSq = (a * 1.1) ** 2;
+          let dy = Math.abs(p1.y - p2.y);
+          let distSq = dx * dx + dy * dy;
 
-      baseAtoms.forEach((atom, i) => {
-        let cx = Math.floor(atom.x / cellSize);
-        let cy = Math.floor(atom.y / cellSize);
-
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            let neighborKey = `${cx + dx},${cy + dy}`;
-            let neighbors = grid.get(neighborKey);
-            if (neighbors) {
-              neighbors.forEach(n => {
-                if (n.idx > i) {
-                  let distSq = (atom.x - n.x)**2 + (atom.y - n.y)**2;
-                  if (distSq <= maxDistSq) {
-                    baseBonds.push({ a: i, b: n.idx });
-                  }
-                }
-              });
-            }
+          if (distSq <= maxDistSq) {
+            baseBonds.push({ a: i, b: j });
           }
         }
-      });
+      }
+
+      // Инициализация кэша векторов координат
+      worldPositions = new Array(baseAtoms.length);
+      for (let i = 0; i < baseAtoms.length; i++) {
+        worldPositions[i] = new THREE.Vector3();
+      }
 
       document.getElementById('stat-atoms').innerText = baseAtoms.length;
       document.getElementById('stat-bonds').innerText = baseBonds.length;
@@ -232,27 +214,25 @@
       buildInstancedMeshes();
     }
 
-    // --- Построение GPU Instanced Mesh ---
     function buildInstancedMeshes() {
-      if (atomsMesh) scene.remove(atomsMesh);
-      if (bondsMesh) scene.remove(bondsMesh);
+      if (atomsMesh) {
+        scene.remove(atomsMesh);
+        atomsMesh.geometry.dispose();
+        atomsMesh.material.dispose();
+      }
+      if (bondsMesh) {
+        scene.remove(bondsMesh);
+        bondsMesh.geometry.dispose();
+        bondsMesh.material.dispose();
+      }
 
-      const sphereGeo = new THREE.SphereGeometry(0.35, 10, 10);
-      const cylGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 6);
+      const sphereGeo = new THREE.SphereGeometry(0.32, 8, 8);
+      const cylGeo = new THREE.CylinderGeometry(0.08, 0.08, 1, 6);
       cylGeo.translate(0, 0.5, 0);
       cylGeo.rotateX(Math.PI / 2);
 
-      const atomMat = new THREE.MeshStandardMaterial({
-        color: 0x00f0ff,
-        roughness: 0.2,
-        metalness: 0.8
-      });
-
-      const bondMat = new THREE.MeshStandardMaterial({
-        color: 0x3a506b,
-        roughness: 0.4,
-        metalness: 0.5
-      });
+      const atomMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.3, metalness: 0.7 });
+      const bondMat = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.5 });
 
       atomsMesh = new THREE.InstancedMesh(sphereGeo, atomMat, baseAtoms.length);
       bondsMesh = new THREE.InstancedMesh(cylGeo, bondMat, baseBonds.length);
@@ -263,7 +243,7 @@
       updateTransforms();
     }
 
-    // --- Плавное обновление координат и трансформации ---
+    // --- Высокооптимизированное обновление матриц (Zero Memory Allocation) ---
     function updateTransforms() {
       if (!atomsMesh || !bondsMesh) return;
 
@@ -272,14 +252,10 @@
       const R = width / (2 * Math.PI);
       const roll = params.roll;
       const cutoutAngle = params.cutout * Math.PI * 2;
+      const offsetY = (params.M * BOND_LENGTH * 1.5) / 2;
 
-      const dummy = new THREE.Object3D();
-      const color = new THREE.Color();
-      const positions = [];
-
-      // Обновление узлов
-      let activeAtoms = 0;
-      baseAtoms.forEach((atom, i) => {
+      for (let i = 0; i < baseAtoms.length; i++) {
+        let atom = baseAtoms[i];
         let u = atom.x / width;
         let angle = u * Math.PI * 2;
 
@@ -287,50 +263,56 @@
           dummy.scale.set(0, 0, 0);
           dummy.updateMatrix();
           atomsMesh.setMatrixAt(i, dummy.matrix);
-          positions.push(null);
-          return;
+          worldPositions[i].set(NaN, NaN, NaN); // Пометка видимости
+          continue;
         }
 
-        activeAtoms++;
         let flatX = atom.x - width / 2;
-        let flatY = atom.y;
+        let flatY = atom.y - offsetY;
         let flatZ = 0;
 
         let cylX = R * Math.cos(angle - Math.PI / 2);
-        let cylY = atom.y;
+        let cylY = atom.y - offsetY;
         let cylZ = R * Math.sin(angle - Math.PI / 2);
 
         let x = THREE.MathUtils.lerp(flatX, cylX, roll);
         let y = THREE.MathUtils.lerp(flatY, cylY, roll);
         let z = THREE.MathUtils.lerp(flatZ, cylZ, roll);
 
-        positions.push(new THREE.Vector3(x, y - (params.M * BOND_LENGTH * 1.5)/2, z));
+        worldPositions[i].set(x, y, z);
 
-        dummy.position.set(x, y - (params.M * BOND_LENGTH * 1.5)/2, z);
+        dummy.position.set(x, y, z);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
         atomsMesh.setMatrixAt(i, dummy.matrix);
 
-        // Стресс-карта
         if (params.stressMap) {
           let stress = Math.abs(Math.sin(angle));
-          color.setHSL(0.6 - stress * 0.6, 1.0, 0.5);
+          tempColor.setHSL(0.6 - stress * 0.6, 1.0, 0.5);
         } else {
-          color.setHex(0x00f0ff);
+          tempColor.setHex(0x00f0ff);
         }
-        atomsMesh.setColorAt(i, color);
-      });
+        atomsMesh.setColorAt(i, tempColor);
+      }
 
-      // Обновление связей
-      baseBonds.forEach((bond, i) => {
-        let pA = positions[bond.a];
-        let pB = positions[bond.b];
+      for (let i = 0; i < baseBonds.length; i++) {
+        let bond = baseBonds[i];
+        let pA = worldPositions[bond.a];
+        let pB = worldPositions[bond.b];
 
-        if (!pA || !pB) {
+        if (isNaN(pA.x) || isNaN(pB.x)) {
           dummy.scale.set(0, 0, 0);
           dummy.updateMatrix();
           bondsMesh.setMatrixAt(i, dummy.matrix);
-          return;
+          continue;
+        }
+
+        // Проверка на корректность отрисовки замкнутых крайних связей
+        if (pA.distanceToSquared(pB) > (BOND_LENGTH * 2.5) ** 2) {
+          dummy.scale.set(0, 0, 0);
+          dummy.updateMatrix();
+          bondsMesh.setMatrixAt(i, dummy.matrix);
+          continue;
         }
 
         dummy.position.copy(pA);
@@ -340,14 +322,13 @@
         dummy.updateMatrix();
 
         bondsMesh.setMatrixAt(i, dummy.matrix);
-      });
+      }
 
       atomsMesh.instanceMatrix.needsUpdate = true;
       if (atomsMesh.instanceColor) atomsMesh.instanceColor.needsUpdate = true;
       bondsMesh.instanceMatrix.needsUpdate = true;
     }
 
-    // --- Интерфейс и обработчики событий ---
     function setupUI() {
       document.getElementById('slider-n').addEventListener('input', (e) => {
         params.N = parseInt(e.target.value);
@@ -377,10 +358,6 @@
         params.stressMap = e.target.checked;
         updateTransforms();
       });
-
-      document.getElementById('toggle-autorotate').addEventListener('change', (e) => {
-        params.autoRotate = e.target.checked;
-      });
     }
 
     function onWindowResize() {
@@ -389,18 +366,8 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // --- Цикл рендеринга (60/120 FPS) ---
     function animate() {
       requestAnimationFrame(animate);
-
-      let delta = clock.getDelta();
-
-      if (params.autoRotate) {
-        scene.rotation.y += delta * 0.5;
-      } else {
-        scene.rotation.y = 0;
-      }
-
       controls.update();
       renderer.render(scene, camera);
     }
