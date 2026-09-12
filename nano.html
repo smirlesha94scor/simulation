@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Модель Трубки из Шестиугольников (Углеродная нанотрубка)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #030712; font-family: ui-sans-serif, system-ui, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Custom scrollbar for control panels */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+    </style>
+</head>
+<body class="text-slate-100 select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay Layer -->
+    <div class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-between p-4 md:p-6">
+        
+        <!-- Top Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pointer-events-auto">
+            <div class="glass-panel px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                    <i data-lucide="hexagon" class="w-6 h-6 animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Гексагональная Труба</h1>
+                    <p class="text-xs text-slate-400">Пустотелая углеродная наноструктура ($sp^2$ решетка)</p>
+                </div>
+            </div>
+
+            <!-- Camera & View Quick Buttons -->
+            <div class="glass-panel px-3 py-2 rounded-2xl shadow-2xl flex items-center gap-2 flex-wrap">
+                <button onclick="setCameraView('side')" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-cyan-600/40 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="align-justify" class="w-3.5 h-3.5 text-cyan-400"></i> Вид сбоку
+                </button>
+                <button onclick="setCameraView('front')" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-cyan-600/40 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="disc" class="w-3.5 h-3.5 text-cyan-400"></i> Срез (Торцевой)
+                </button>
+                <button onclick="setCameraView('iso')" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-cyan-600/40 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="box" class="w-3.5 h-3.5 text-cyan-400"></i> Изометрия
+                </button>
+                <button onclick="toggleAutoRotate()" id="btn-autorotate" class="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-cyan-600/40 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="rotate-cw" class="w-3.5 h-3.5 text-cyan-400"></i> <span id="autorotate-text">Авто-вращение (Выкл)</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Controls Sidebar (Left) -->
+        <div class="flex items-start pointer-events-auto my-auto">
+            <div class="glass-panel w-80 md:w-96 rounded-2xl p-5 shadow-2xl flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+                
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 text-cyan-300">
+                        <i data-lucide="sliders" class="w-4 h-4"></i> Параметры геометрии
+                    </h2>
+                    <span id="stats-atoms" class="text-xs bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded-full text-cyan-300">Атомов: 0</span>
+                </div>
+
+                <!-- Roll / Unroll Slider (Morphing) -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300">Сворачивание в трубу:</span>
+                        <span id="val-roll" class="font-mono text-cyan-400">100%</span>
+                    </div>
+                    <input type="range" id="slider-roll" min="0" max="1" step="0.01" value="1" 
+                           class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Tube Radius (N hexagons around) -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300">Диаметр (число ячеек по кругу):</span>
+                        <span id="val-radius" class="font-mono text-cyan-400">12</span>
+                    </div>
+                    <input type="range" id="slider-radius" min="6" max="24" step="2" value="12" 
+                           class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Tube Length (M segments along Z) -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300">Длина трубки (сегменты):</span>
+                        <span id="val-length" class="font-mono text-cyan-400">16</span>
+                    </div>
+                    <input type="range" id="slider-length" min="4" max="32" step="2" value="16" 
+                           class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Hollow Cross-Section Slice Slider -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300">Срез оболочки (продольный вырез):</span>
+                        <span id="val-slice" class="font-mono text-cyan-400">360°</span>
+                    </div>
+                    <input type="range" id="slider-slice" min="90" max="360" step="10" value="360" 
+                           class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Style / Theme switcher -->
+                <div class="border-t border-slate-700/60 pt-3 flex flex-col gap-2">
+                    <span class="text-xs font-semibold text-cyan-300 flex items-center gap-2">
+                        <i data-lucide="palette" class="w-4 h-4"></i> Тема оформления
+                    </span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setTheme('teal')" class="px-3 py-2 rounded-xl bg-teal-950/60 hover:bg-teal-900/80 border border-teal-700/50 text-xs font-medium text-teal-300 transition text-left flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-teal-400"></span> Меты (Сине-зеленый)
+                        </button>
+                        <button onclick="setTheme('neon')" class="px-3 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-700/50 text-xs font-medium text-indigo-300 transition text-left flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-cyan-400"></span> Неоновый кибер
+                        </button>
+                        <button onclick="setTheme('graphite')" class="px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300 transition text-left flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-slate-400"></span> Чистый графит
+                        </button>
+                        <button onclick="setTheme('gold')" class="px-3 py-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/80 border border-amber-700/50 text-xs font-medium text-amber-300 transition text-left flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-amber-400"></span> Золотой каркас
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hollow Tube Physical Benefits Info Box -->
+                <div class="border-t border-slate-700/60 pt-3 flex flex-col gap-1.5 text-xs text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                    <div class="font-semibold text-cyan-400 flex items-center gap-1.5">
+                        <i data-lucide="info" class="w-4 h-4"></i> Пустотелая структура
+                    </div>
+                    <p class="text-slate-400 leading-relaxed">
+                        Удаление внутреннего ядра снижает массу на <span class="text-cyan-300 font-semibold">82%</span> при сохранении <span class="text-cyan-300 font-semibold">91%</span> жесткости на изгиб благодаря распределению материала по внешнему радиусу.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Bottom Info Bar -->
+        <footer class="flex justify-between items-center pointer-events-auto">
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs text-slate-400 flex items-center gap-3">
+                <span>🖱️ ЛКМ: Вращение</span>
+                <span>•</span>
+                <span>ПКМ: Сдвиг</span>
+                <span>•</span>
+                <span>Колесико: Масштаб</span>
+            </div>
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs text-cyan-400 font-mono">
+                FPS: <span id="fps-counter">60</span>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Scene, Camera, Renderer setup
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030712, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = false;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 1.2;
+        controls.zoomSpeed = 1.2;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0x00ffff, 1.2);
+        dirLight1.position.set(10, 20, 15);
+        scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 1.0);
+        dirLight2.position.set(-10, -20, -15);
+        scene.add(dirLight2);
+
+        // State parameters
+        let params = {
+            roll: 1.0,         // 0.0 = flat sheet, 1.0 = full tube
+            N: 12,             // number of hexagons around circumference
+            M: 16,             // number of axial rows
+            sliceAngle: 360,   // cut-off angle in degrees (for hollow cross section view)
+            autoRotate: false,
+            theme: 'teal'
+        };
+
+        // Theme definitions
+        const themes = {
+            teal: { atom: 0x2dd4bf, bond: 0x0ea5e9, bg: 0x030712, fog: 0x030712 },
+            neon: { atom: 0x00f0ff, bond: 0x7000ff, bg: 0x05050f, fog: 0x05050f },
+            graphite: { atom: 0x94a3b8, bond: 0x475569, bg: 0x090d16, fog: 0x090d16 },
+            gold: { atom: 0xfbbf24, bond: 0xd97706, bg: 0x0c0a09, fog: 0x0c0a09 }
+        };
+
+        // Reusable Geometries and Materials
+        let atomMeshGroup = new THREE.Group();
+        scene.add(atomMeshGroup);
+
+        let sphereGeo = new THREE.SphereGeometry(0.22, 12, 12);
+        let cylinderGeo = new THREE.CylinderGeometry(0.07, 0.07, 1, 8);
+        cylinderGeo.rotateX(Math.PI / 2); // Align along Z
+
+        let atomMaterial = new THREE.MeshStandardMaterial({ roughness: 0.2, metalness: 0.8 });
+        let bondMaterial = new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.5 });
+
+        function setTheme(themeName) {
+            params.theme = themeName;
+            const t = themes[themeName];
+            atomMaterial.color.setHex(t.atom);
+            bondMaterial.color.setHex(t.bond);
+            scene.background = new THREE.Color(t.bg);
+            scene.fog.color.setHex(t.fog);
+        }
+        setTheme('teal');
+
+        // Mathematical Nanotube / Honeycomb Lattice Generation
+        function rebuildNanotube() {
+            while (atomMeshGroup.children.length > 0) {
+                let obj = atomMeshGroup.children[0];
+                atomMeshGroup.remove(obj);
+                if (obj.geometry) obj.geometry.dispose();
+            }
+
+            const N = params.N; // columns around
+            const M = params.M; // rows along length
+            const roll = params.roll;
+            const maxAngle = (params.sliceAngle / 360) * Math.PI * 2;
+
+            const hexRadius = 0.8;
+            const tubeRadius = (N * hexRadius * 1.732) / (2 * Math.PI);
+            const lengthSpan = M * hexRadius * 1.5;
+
+            // Generate lattice nodes (atoms)
+            let atoms = [];
+            let atomMap = new Map();
+
+            let indexCounter = 0;
+            for (let j = 0; j <= M; j++) {
+                for (let i = 0; i < N; i++) {
+                    // Check if within slice angle
+                    let uFraction = i / N;
+                    let angle = uFraction * Math.PI * 2;
+                    if (angle > maxAngle && roll > 0.5) continue;
+
+                    let xFlat = (i - N / 2) * hexRadius * 1.732 + (j % 2) * (hexRadius * 0.866);
+                    let yFlat = (j - M / 2) * hexRadius * 1.5;
+
+                    atoms.push({
+                        id: indexCounter++,
+                        i: i,
+                        j: j,
+                        flat: new THREE.Vector3(xFlat, yFlat, 0),
+                        // Rolled position
+                        rolled: new THREE.Vector3(
+                            Math.cos(angle) * tubeRadius,
+                            yFlat,
+                            Math.sin(angle) * tubeRadius
+                        )
+                    });
+                    atomMap.set(`${i},${j}`, atoms[atoms.length - 1]);
+                }
+            }
+
+            // Generate Bonds (Edges between adjacent atoms in hexagonal lattice)
+            let bondsSet = new Set();
+            let bondData = [];
+
+            atoms.forEach(atom => {
+                let neighbors = [
+                    { i: atom.i + 1, j: atom.j },
+                    { i: atom.i - 1, j: atom.j },
+                    { i: atom.i, j: atom.j + 1 },
+                    { i: atom.i, j: atom.j - 1 },
+                    { i: atom.i + (atom.j % 2 === 0 ? -1 : 1), j: atom.j + 1 },
+                    { i: atom.i + (atom.j % 2 === 0 ? -1 : 1), j: atom.j - 1 }
+                ];
+
+                neighbors.forEach(n => {
+                    let nKey = `${n.i},${n.j}`;
+                    if (atomMap.has(nKey)) {
+                        let neighbor = atomMap.get(nKey);
+                        let bKey = atom.id < neighbor.id ? `${atom.id}-${neighbor.id}` : `${neighbor.id}-${atom.id}`;
+                        if (!bodsSet.has(bKey)) {
+                            bodsSet.add(bKey);
+                            bondData.push({ p1: atom, p2: neighbor });
+                        }
+                    }
+                });
+            });
+
+            // Create Instanced Meshes for high performance
+            const atomCount = atoms.length;
+            const bondCount = bondData.length;
+
+            document.getElementById('stats-atoms').innerText = `Атомов: ${atomCount}`;
+
+            if (atomCount === 0) return;
+
+            // Instanced Atoms (Spheres)
+            const instAtom = new THREE.InstancedMesh(sphereGeo, atomMaterial, atomCount);
+            const dummy = new THREE.Object3D();
+
+            atoms.forEach((atom, idx) => {
+                let pos = new THREE.Vector3().lerpVectors(atom.flat, atom.rolled, roll);
+                dummy.position.copy(pos);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                instAtom.setMatrixAt(idx, dummy.matrix);
+            });
+            instAtom.instanceMatrix.needsUpdate = true;
+            atomMeshGroup.add(instAtom);
+
+            // Instanced Bonds (Cylinders)
+            const instBond = new THREE.InstancedMesh(cylinderGeo, bondMaterial, bondCount);
+            
+            bondData.forEach((bond, idx) => {
+                let pos1 = new THREE.Vector3().lerpVectors(bond.p1.flat, bond.p1.rolled, roll);
+                let pos2 = new THREE.Vector3().lerpVectors(bond.p2.flat, bond.p2.rolled, roll);
+
+                let midpoint = new THREE.Vector3().addVectors(pos1, pos2).multiplyScalar(0.5);
+                let length = pos1.distanceTo(pos2);
+
+                dummy.position.copy(midpoint);
+                dummy.scale.set(1, 1, length);
+                dummy.lookAt(pos2);
+                dummy.updateMatrix();
+                instBond.setMatrixAt(idx, dummy.matrix);
+            });
+            instBond.instanceMatrix.needsUpdate = true;
+            atomMeshGroup.add(instBond);
+        }
+
+        // UI Event Listeners
+        document.getElementById('slider-roll').addEventListener('input', (e) => {
+            params.roll = parseFloat(e.target.value);
+            document.getElementById('val-roll').innerText = Math.round(params.roll * 100) + '%';
+            rebuildNanotube();
+        });
+
+        document.getElementById('slider-radius').addEventListener('input', (e) => {
+            params.N = parseInt(e.target.value);
+            document.getElementById('val-radius').innerText = params.N;
+            rebuildNanotube();
+        });
+
+        document.getElementById('slider-length').addEventListener('input', (e) => {
+            params.M = parseInt(e.target.value);
+            document.getElementById('val-length').innerText = params.M;
+            rebuildNanotube();
+        });
+
+        document.getElementById('slider-slice').addEventListener('input', (e) => {
+            params.sliceAngle = parseInt(e.target.value);
+            document.getElementById('val-slice').innerText = params.sliceAngle + '°';
+            rebuildNanotube();
+        });
+
+        function toggleAutoRotate() {
+            params.autoRotate = !params.autoRotate;
+            const btnText = document.getElementById('autorotate-text');
+            btnText.innerText = params.autoRotate ? 'Авто-вращение (Вкл)' : 'Авто-вращение (Выкл)';
+        }
+
+        function setCameraView(viewType) {
+            controls.target.set(0, 0, 0);
+            if (viewType === 'side') {
+                camera.position.set(0, 0, 25);
+            } else if (viewType === 'front') {
+                camera.position.set(0, 25, 0.1);
+            } else if (viewType === 'iso') {
+                camera.position.set(16, 14, 16);
+            }
+            controls.update();
+        }
+
+        // Initial build
+        rebuildNanotube();
+
+        // FPS tracking
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fpsDisplay = document.getElementById('fps-counter');
+
+        // Animation Loop
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            // FPS calculation
+            frameCount++;
+            if (currentTime - lastTime >= 1000) {
+                fpsDisplay.innerText = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            if (params.autoRotate) {
+                atomMeshGroup.rotation.y += 0.005;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        requestAnimationFrame(animate);
+
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
