@@ -3,36 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D/2D Перемещение Труб (Drag & Drop)</title>
+  <title>3D Структура Нанотрубок c Видом Сверху</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     body { margin: 0; overflow: hidden; background-color: #0d1117; color: #c9d1d9; font-family: sans-serif; }
-    canvas { display: block; width: 100vw; height: 100vh; cursor: default; }
+    canvas { display: block; width: 100vw; height: 100vh; }
     .glass { background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(48, 54, 61, 0.7); }
   </style>
 </head>
 <body class="relative select-none">
 
-  <!-- UI Панель управления -->
+  <!-- UI Панель -->
   <div class="absolute top-4 left-4 z-10 w-80 glass rounded-xl p-4 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
     <h1 class="text-lg font-bold text-teal-400 flex items-center justify-between">
-      <span>Интерактивные Трубы</span>
+      <span>Нанотрубки 3D</span>
       <span id="fps-counter" class="text-xs bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">60 FPS</span>
     </h1>
-
-    <div class="space-y-1">
-      <label class="text-xs text-gray-400">Схема размещения:</label>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="btn-mode-3d" class="py-1.5 px-3 rounded text-xs font-semibold bg-teal-600 text-white transition-all">3D Объем</button>
-        <button id="btn-mode-2d" class="py-1.5 px-3 rounded text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all">2D Плоскость</button>
-      </div>
-    </div>
-
-    <div id="drag-info" class="hidden text-xs bg-teal-950/60 border border-teal-800 text-teal-300 p-2 rounded">
-      💡 <b>2D Перемещение:</b> Зажмите ЛКМ на трубе, чтобы перетащить её.
-    </div>
 
     <div class="space-y-3">
       <div>
@@ -91,8 +79,8 @@
     </div>
   </div>
 
-  <!-- Мини-окно 2D Top-View -->
-  <div class="absolute bottom-4 right-4 z-10 w-60 h-52 glass rounded-xl overflow-hidden border border-teal-500/40 shadow-2xl pointer-events-none flex flex-col justify-between p-2">
+  <!-- Рамка Мини-окна 2D Вид Сверху -->
+  <div class="absolute bottom-4 right-4 z-10 w-64 h-56 glass rounded-xl overflow-hidden border border-teal-500/40 shadow-2xl pointer-events-none flex flex-col justify-between p-2">
     <div class="flex justify-between items-center text-[10px] font-bold text-teal-400 bg-gray-900/80 px-2 py-1 rounded border border-gray-800">
       <span>2D ВИД СВЕРХУ</span>
       <span class="text-gray-400 font-mono">TOP-VIEW</span>
@@ -110,7 +98,6 @@
     let lastFpsUpdate = 0;
 
     let params = {
-      layoutMode: '3D',
       tubeCount: 9,
       N: 10,
       M: 15,
@@ -120,57 +107,46 @@
 
     let singleTubeAtoms = [];
     let singleTubeBonds = [];
-    let tubeOffsets = []; // Координаты каждой трубы [{x, z}]
+    let tubeOffsets = [];
 
     let localAtomsX = new Float32Array(0);
     let localAtomsY = new Float32Array(0);
     let localAtomsZ = new Float32Array(0);
 
-    // --- Переменные для Drag & Drop ---
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // Плоскость Z в 2D
-    const planeIntersection = new THREE.Vector3();
-    let draggedTubeIndex = -1;
-    let dragStartOffset = new THREE.Vector3();
-
     function init() {
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0a0d12);
 
+      // 1. Главная 3D Камера
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(30, 40, 60);
 
-      const aspect = 240 / 208;
-      const frustumSize = 50;
-      topCamera = new THREE.OrthographicCamera(
-        -frustumSize * aspect / 2, frustumSize * aspect / 2,
-        frustumSize / 2, -frustumSize / 2,
-        0.1, 500
-      );
-      topCamera.position.set(0, 100, 0);
+      // 2. Ортографическая камера для Вида Сверху
+      const aspect = 256 / 224;
+      topCamera = new THREE.OrthographicCamera(-30 * aspect, 30 * aspect, 30, -30, 0.1, 1000);
+      topCamera.position.set(0, 150, 0);
       topCamera.lookAt(0, 0, 0);
       topCamera.up.set(0, 0, -1);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.autoClear = false; // Важно для использования нескольких viewport
       document.body.appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
 
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.0);
-      dirLight.position.set(30, 50, 30);
+      const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.2);
+      dirLight.position.set(30, 100, 30);
       scene.add(dirLight);
 
       rebuildGridAndTopology();
       setupUI();
-      setupDragAndDrop();
 
       window.addEventListener('resize', onWindowResize);
       animate();
@@ -185,19 +161,9 @@
       const spacing = R * 3.5 + 8;
 
       for (let t = 0; t < tubeCount; t++) {
-        if (params.layoutMode === '2D') {
-          tubeOffsets.push({
-            x: (t - (tubeCount - 1) / 2) * spacing,
-            z: 0
-          });
-        } else {
-          let gx = (t % gridSide) - (gridSide - 1) / 2;
-          let gz = Math.floor(t / gridSide) - (gridSide - 1) / 2;
-          tubeOffsets.push({
-            x: gx * spacing,
-            z: gz * spacing
-          });
-        }
+        let gx = (t % gridSide) - (gridSide - 1) / 2;
+        let gz = Math.floor(t / gridSide) - (gridSide - 1) / 2;
+        tubeOffsets.push({ x: gx * spacing, z: gz * spacing });
       }
     }
 
@@ -292,20 +258,14 @@
       const width = params.N * Math.sqrt(3) * BOND_LENGTH;
       const R = width / (2 * Math.PI);
       const spacing = R * 3.5 + 8;
-      
-      let extent = 50;
-      if (params.layoutMode === '2D') {
-        extent = params.tubeCount * spacing * 0.8 + 20;
-      } else {
-        const side = Math.ceil(Math.sqrt(params.tubeCount));
-        extent = side * spacing * 0.8 + 20;
-      }
+      const side = Math.ceil(Math.sqrt(params.tubeCount));
+      const extent = Math.max(side * spacing * 0.75 + 15, 25);
 
-      const aspect = 240 / 208;
-      topCamera.left = -extent * aspect / 2;
-      topCamera.right = extent * aspect / 2;
-      topCamera.top = extent / 2;
-      topCamera.bottom = -extent / 2;
+      const aspect = 256 / 224;
+      topCamera.left = -extent * aspect;
+      topCamera.right = extent * aspect;
+      topCamera.top = extent;
+      topCamera.bottom = -extent;
       topCamera.updateProjectionMatrix();
     }
 
@@ -316,13 +276,13 @@
       const totalAtoms = singleTubeAtoms.length * params.tubeCount;
       const totalBonds = singleTubeBonds.length * params.tubeCount;
 
-      const sphereGeo = new THREE.SphereGeometry(0.3, 6, 6);
-      const cylGeo = new THREE.CylinderGeometry(0.07, 0.07, 1, 5);
+      const sphereGeo = new THREE.SphereGeometry(0.35, 6, 6);
+      const cylGeo = new THREE.CylinderGeometry(0.08, 0.08, 1, 5);
       cylGeo.translate(0, 0.5, 0);
       cylGeo.rotateX(Math.PI / 2);
 
       const atomMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.3, metalness: 0.8 });
-      const bondMat = new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.5 });
+      const bondMat = new THREE.MeshStandardMaterial({ color: 0x2e3846, roughness: 0.5 });
 
       globalAtomsMesh = new THREE.InstancedMesh(sphereGeo, atomMat, totalAtoms);
       globalBondsMesh = new THREE.InstancedMesh(cylGeo, bondMat, totalBonds);
@@ -357,8 +317,8 @@
       const worldZ = new Float32Array(numAtoms);
 
       for (let t = 0; t < tubeCount; t++) {
-        let tubeOffsetX = tubeOffsets[t] ? tubeOffsets[t].x : 0;
-        let tubeOffsetZ = tubeOffsets[t] ? tubeOffsets[t].z : 0;
+        let tubeOffsetX = tubeOffsets[t].x;
+        let tubeOffsetZ = tubeOffsets[t].z;
 
         let waveRot = params.animateWave ? Math.sin(time * 1.5 + t * 0.4) * 0.5 : 0;
         let cosW = Math.cos(waveRot);
@@ -431,98 +391,11 @@
       globalBondsMesh.instanceMatrix.needsUpdate = true;
     }
 
-    // --- Обработка Drag & Drop труб в 2D ---
-    function setupDragAndDrop() {
-      const dom = renderer.domElement;
-
-      dom.addEventListener('pointerdown', (e) => {
-        if (params.layoutMode !== '2D') return;
-
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(globalAtomsMesh);
-
-        if (intersects.length > 0) {
-          const instanceId = intersects[0].instanceId;
-          const numAtoms = singleTubeAtoms.length;
-          draggedTubeIndex = Math.floor(instanceId / numAtoms);
-
-          // Отключаем управление вращением сцены во время перетаскивания
-          controls.enabled = false;
-
-          dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0));
-          raycaster.ray.intersectPlane(dragPlane, planeIntersection);
-
-          dragStartOffset.x = tubeOffsets[draggedTubeIndex].x - planeIntersection.x;
-          dragStartOffset.y = tubeOffsets[draggedTubeIndex].z - planeIntersection.y;
-
-          dom.style.cursor = 'grabbing';
-        }
-      });
-
-      dom.addEventListener('pointermove', (e) => {
-        if (draggedTubeIndex === -1 || params.layoutMode !== '2D') return;
-
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        if (raycaster.ray.intersectPlane(dragPlane, planeIntersection)) {
-          tubeOffsets[draggedTubeIndex].x = planeIntersection.x + dragStartOffset.x;
-          tubeOffsets[draggedTubeIndex].z = planeIntersection.y + dragStartOffset.y; // Z используется как Y в 2D
-          fastUpdateTransforms(clock.getElapsedTime());
-        }
-      });
-
-      const stopDrag = () => {
-        if (draggedTubeIndex !== -1) {
-          draggedTubeIndex = -1;
-          controls.enabled = true;
-          dom.style.cursor = 'default';
-        }
-      };
-
-      dom.addEventListener('pointerup', stopDrag);
-      dom.addEventListener('pointercancel', stopDrag);
-    }
-
     function setupUI() {
-      const btn3D = document.getElementById('btn-mode-3d');
-      const btn2D = document.getElementById('btn-mode-2d');
-      const dragInfo = document.getElementById('drag-info');
-
-      btn3D.addEventListener('click', () => {
-        params.layoutMode = '3D';
-        btn3D.className = "py-1.5 px-3 rounded text-xs font-semibold bg-teal-600 text-white transition-all";
-        btn2D.className = "py-1.5 px-3 rounded text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all";
-        dragInfo.classList.add('hidden');
-
-        camera.position.set(30, 40, 60);
-        controls.target.set(0, 0, 0);
-        initTubeOffsets();
-        updateTopCameraZoom();
-        fastUpdateTransforms(clock.getElapsedTime());
-      });
-
-      btn2D.addEventListener('click', () => {
-        params.layoutMode = '2D';
-        btn2D.className = "py-1.5 px-3 rounded text-xs font-semibold bg-teal-600 text-white transition-all";
-        btn3D.className = "py-1.5 px-3 rounded text-xs font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all";
-        dragInfo.classList.remove('hidden');
-
-        camera.position.set(0, 0, 80);
-        controls.target.set(0, 0, 0);
-        initTubeOffsets();
-        updateTopCameraZoom();
-        fastUpdateTransforms(clock.getElapsedTime());
-      });
-
       document.getElementById('slider-tubes').addEventListener('input', (e) => {
         params.tubeCount = parseInt(e.target.value);
         let side = Math.ceil(Math.sqrt(params.tubeCount));
-        document.getElementById('val-tubes').innerText = params.layoutMode === '2D' ? `${params.tubeCount} (В ряд)` : `${params.tubeCount} (${side}x${side})`;
+        document.getElementById('val-tubes').innerText = `${params.tubeCount} (${side}x${side})`;
         rebuildGridAndTopology();
       });
 
@@ -575,19 +448,21 @@
 
       controls.update();
 
-      // Рендер главного окна
+      // 1. Рендер основного 3D окна
       renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
       renderer.setScissorTest(false);
+      renderer.clear();
       renderer.render(scene, camera);
 
-      // Рендер Top-View окна
-      const miniWidth = 240;
-      const miniHeight = 208;
+      // 2. Рендер правого нижнего 2D Top-View окна
+      const miniWidth = 256;
+      const miniHeight = 224;
       const margin = 16;
-      
+
       renderer.setViewport(window.innerWidth - miniWidth - margin, margin, miniWidth, miniHeight);
       renderer.setScissor(window.innerWidth - miniWidth - margin, margin, miniWidth, miniHeight);
       renderer.setScissorTest(true);
+      renderer.clearDepth(); // Очистка буфера глубины для нормального отображения вида сверху
       renderer.render(scene, topCamera);
     }
 
