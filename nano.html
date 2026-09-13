@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Быстрый 3D Рендеринг на CPU (30+ FPS)</title>
+  <title>Нанотрубки 3D (Шары + Вид сверху)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -70,10 +70,15 @@
     </div>
   </div>
 
+  <!-- Лейбл для мини-карты Вид сверху -->
+  <div class="absolute top-4 right-4 z-10 glass px-3 py-1.5 rounded-lg text-xs font-bold text-teal-400 border border-teal-500/30 pointer-events-none">
+    Вид сверху
+  </div>
+
   <script>
     const BOND_LENGTH = 1.42;
 
-    let scene, camera, renderer, controls;
+    let scene, camera, topCamera, renderer, controls;
     let globalAtomsMesh, globalBondsMesh;
     const clock = new THREE.Clock();
 
@@ -99,8 +104,15 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0a0d12);
 
+      // Главная 3D камера
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(30, 40, 60);
+
+      // Ортографическая камера для вида сверху
+      const aspect = 1;
+      topCamera = new THREE.OrthographicCamera(-20 * aspect, 20 * aspect, 20, -20, 0.1, 1000);
+      topCamera.position.set(0, 100, 0);
+      topCamera.lookAt(0, 0, 0);
 
       renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "low-power" });
       renderer.setPixelRatio(1);
@@ -131,6 +143,15 @@
         let gz = Math.floor(t / gridSide) - (gridSide - 1) / 2;
         tubeOffsets.push({ x: gx * spacing, z: gz * spacing });
       }
+
+      // Авто-масштабирование камеры вида сверху
+      const totalWidth = gridSide * spacing;
+      const frustumSize = totalWidth * 0.8 + 15;
+      topCamera.left = -frustumSize / 2;
+      topCamera.right = frustumSize / 2;
+      topCamera.top = frustumSize / 2;
+      topCamera.bottom = -frustumSize / 2;
+      topCamera.updateProjectionMatrix();
     }
 
     function rebuildGridAndTopology() {
@@ -226,13 +247,12 @@
       const totalAtoms = singleTubeAtoms.length * params.tubeCount;
       const totalBonds = singleTubeBonds.length * params.tubeCount;
 
-      // Оптимизированные геометрии
-      const sphereGeo = new THREE.SphereGeometry(0.3, 3, 2);
-      const cylGeo = new THREE.CylinderGeometry(0.06, 0.06, 1, 3);
+      // Геометрия шара с хорошей детализацией (8x8)
+      const sphereGeo = new THREE.SphereGeometry(0.3, 8, 8);
+      const cylGeo = new THREE.CylinderGeometry(0.06, 0.06, 1, 4);
       cylGeo.translate(0, 0.5, 0);
       cylGeo.rotateX(Math.PI / 2);
 
-      // Без освещения (быстро рендерится процессором)
       const atomMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
       const bondMat = new THREE.MeshBasicMaterial({ color: 0x2e3846 });
 
@@ -380,7 +400,24 @@
       }
 
       controls.update();
+
+      // 1. Основной 3D вид (Весь экран)
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
       renderer.render(scene, camera);
+
+      // 2. Мини-карта "Вид сверху" (В правом верхнем углу)
+      const topWidth = 220;
+      const topHeight = 220;
+      const margin = 16;
+      const topX = window.innerWidth - topWidth - margin;
+      const topY = window.innerHeight - topHeight - margin;
+
+      renderer.setClearColor(0x11161f, 1);
+      renderer.setScissor(topX, topY, topWidth, topHeight);
+      renderer.setViewport(topX, topY, topWidth, topHeight);
+      renderer.setScissorTest(true);
+      renderer.render(scene, topCamera);
     }
 
     window.onload = init;
