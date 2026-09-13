@@ -24,7 +24,7 @@
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            max-width: 600px;
+            max-width: 650px;
             width: 100%;
         }
         h1 {
@@ -103,10 +103,6 @@
             position: relative;
             width: 100%;
         }
-        .doughnut-box {
-            max-width: 320px;
-            margin: 0 auto;
-        }
     </style>
 </head>
 <body>
@@ -141,11 +137,11 @@
         <div class="explanation" id="explanationText"></div>
 
         <div class="charts-wrapper">
-            <!-- График 1: Круговая диаграмма состава -->
-            <div class="chart-box doughnut-box">
-                <canvas id="compositionChart"></canvas>
+            <!-- График 1: Сравнение состава До и После -->
+            <div class="chart-box">
+                <canvas id="comparisonChart"></canvas>
             </div>
-            <!-- График 2: Зависимость массы от влажности -->
+            <!-- График 2: Зависимость общей массы от влажности -->
             <div class="chart-box">
                 <canvas id="humidityChart"></canvas>
             </div>
@@ -155,7 +151,7 @@
 
 <script>
     let humidityChartInstance = null;
-    let compositionChartInstance = null;
+    let comparisonChartInstance = null;
 
     function syncHumidityInputs(e) {
         const initialInput = document.getElementById('initialWater');
@@ -209,47 +205,67 @@
 
         const dryPercent1 = 100 - w1;
         const dryPercent2 = 100 - w2;
+        
+        // Масса сухого остатка (не меняется)
         const dryMass = (m1 * dryPercent1) / 100;
+        
+        // Масса воды до и после
+        const initialWaterMass = m1 - dryMass;
         const m2 = (dryMass / dryPercent2) * 100;
-        const waterMass = m2 - dryMass;
+        const finalWaterMass = m2 - dryMass;
 
         document.getElementById('finalWeight').innerText = m2.toFixed(2);
         
         document.getElementById('explanationText').innerHTML = `
-            <strong>Состав нового веса (${m2.toFixed(2)} кг):</strong><br>
-            • Сухое вещество: <b>${dryMass.toFixed(2)} кг</b> (${dryPercent2.toFixed(2)}%)<br>
-            • Вода: <b>${waterMass.toFixed(2)} кг</b> (${w2}%)
+            <strong>Изменение состава:</strong><br>
+            • <b>До усыхания (${m1.toFixed(2)} кг):</b> Сухое вещество: <b>${dryMass.toFixed(2)} кг</b> (${dryPercent1.toFixed(2)}%), Вода: <b>${initialWaterMass.toFixed(2)} кг</b> (${w1}%)<br>
+            • <b>После усыхания (${m2.toFixed(2)} кг):</b> Сухое вещество: <b>${dryMass.toFixed(2)} кг</b> (${dryPercent2.toFixed(2)}%), Вода: <b>${finalWaterMass.toFixed(2)} кг</b> (${w2}%)
         `;
 
         document.getElementById('resultBlock').style.display = 'block';
 
-        renderCompositionChart(dryMass, waterMass);
+        renderComparisonChart(dryMass, initialWaterMass, finalWaterMass);
         renderHumidityChart(m1, w1, w2, dryMass);
     }
 
-    // Круговая диаграмма масс
-    function renderCompositionChart(dryMass, waterMass) {
-        const ctx = document.getElementById('compositionChart').getContext('2d');
-        if (compositionChartInstance) {
-            compositionChartInstance.destroy();
+    // Стек-гистограмма сравнения До и После
+    function renderComparisonChart(dryMass, initialWaterMass, finalWaterMass) {
+        const ctx = document.getElementById('comparisonChart').getContext('2d');
+        if (comparisonChartInstance) {
+            comparisonChartInstance.destroy();
         }
 
-        compositionChartInstance = new Chart(ctx, {
-            type: 'doughnut',
+        comparisonChartInstance = new Chart(ctx, {
+            type: 'bar',
             data: {
-                labels: ['Сухое вещество (кг)', 'Масса воды (кг)'],
-                datasets: [{
-                    data: [dryMass.toFixed(2), waterMass.toFixed(2)],
-                    backgroundColor: ['#e67e22', '#3498db'],
-                    borderWidth: 2
-                }]
+                labels: ['До усыхания', 'После усыхания'],
+                datasets: [
+                    {
+                        label: 'Сухое вещество (кг)',
+                        data: [dryMass.toFixed(2), dryMass.toFixed(2)],
+                        backgroundColor: '#e67e22'
+                    },
+                    {
+                        label: 'Масса воды (кг)',
+                        data: [initialWaterMass.toFixed(2), finalWaterMass.toFixed(2)],
+                        backgroundColor: '#3498db'
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Соотношение массы воды и сухого остатка'
+                        text: 'Сравнение состава: Начальное vs Конечное состояние'
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: { 
+                        stacked: true, 
+                        title: { display: true, text: 'Масса (кг)' },
+                        beginAtZero: true 
                     }
                 }
             }
