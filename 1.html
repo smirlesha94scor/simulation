@@ -60,28 +60,12 @@
             box-sizing: border-box;
             font-size: 16px;
         }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #27ae60;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        button:hover {
-            background-color: #219653;
-        }
         .result {
             margin-top: 20px;
             padding: 15px;
             background-color: #e8f8f5;
             border: 1px solid #a3e4d7;
             border-radius: 6px;
-            display: none;
         }
         .result h3 {
             margin-top: 0;
@@ -128,8 +112,6 @@
         <label for="finalWater">Конечная влажность (%):</label>
         <input type="number" id="finalWater" value="98" min="0.1" max="98.9" step="any">
     </div>
-
-    <button id="myButton">Рассчитать вес</button>
 
     <div class="result" id="resultBlock">
         <h3>Результат:</h3>
@@ -183,30 +165,14 @@
         const w1 = parseFloat(document.getElementById('initialWater').value);
         const w2 = parseFloat(document.getElementById('finalWater').value);
 
-        if (isNaN(m1) || isNaN(w1) || isNaN(w2)) {
-            alert("Пожалуйста, заполните все поля корректными числами.");
-            return;
-        }
-
-        if (m1 <= 0) {
-            alert("Начальный вес должен быть больше 0.");
-            return;
-        }
-
-        if (w1 >= 100 || w1 <= 0 || w2 >= 100 || w2 <= 0) {
-            alert("Влажность должна быть в диапазоне от 0% до 100%.");
-            return;
-        }
-
-        if (w1 <= w2) {
-            alert("Начальная влажность не может быть меньше или равна конечной.");
-            return;
+        if (isNaN(m1) || isNaN(w1) || isNaN(w2) || m1 <= 0 || w1 >= 100 || w1 <= 0 || w2 >= 100 || w2 <= 0 || w1 <= w2) {
+            return; // Прерываем расчет, если данные некорректны
         }
 
         const dryPercent1 = 100 - w1;
         const dryPercent2 = 100 - w2;
         
-        // Масса сухого остатка (не меняется)
+        // Масса сухого остатка
         const dryMass = (m1 * dryPercent1) / 100;
         
         // Масса воды до и после
@@ -221,8 +187,6 @@
             • <b>До усыхания (${m1.toFixed(2)} кг):</b> Сухое вещество: <b>${dryMass.toFixed(2)} кг</b> (${dryPercent1.toFixed(2)}%), Вода: <b>${initialWaterMass.toFixed(2)} кг</b> (${w1}%)<br>
             • <b>После усыхания (${m2.toFixed(2)} кг):</b> Сухое вещество: <b>${dryMass.toFixed(2)} кг</b> (${dryPercent2.toFixed(2)}%), Вода: <b>${finalWaterMass.toFixed(2)} кг</b> (${w2}%)
         `;
-
-        document.getElementById('resultBlock').style.display = 'block';
 
         renderComparisonChart(dryMass, initialWaterMass, finalWaterMass);
         renderHumidityChart(m1, w1, w2, dryMass);
@@ -254,6 +218,7 @@
             },
             options: {
                 responsive: true,
+                animation: { duration: 200 }, // Плавная быстрая анимация при вводе
                 plugins: {
                     title: {
                         display: true,
@@ -324,6 +289,7 @@
             },
             options: {
                 responsive: true,
+                animation: { duration: 200 },
                 scales: {
                     x: { title: { display: true, text: 'Влажность (%)' } },
                     y: { title: { display: true, text: 'Масса (кг)' }, beginAtZero: true }
@@ -333,15 +299,23 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const initialInput = document.getElementById('initialWater');
-        const finalInput = document.getElementById('finalWater');
+        const initialWeight = document.getElementById('initialWeight');
+        const initialWater = document.getElementById('initialWater');
+        const finalWater = document.getElementById('finalWater');
 
-        initialInput.addEventListener('input', syncHumidityInputs);
-        finalInput.addEventListener('input', syncHumidityInputs);
+        // Обработчик реактивного обновления при изменении любого инпута
+        const handleInputChange = (e) => {
+            syncHumidityInputs(e);
+            calculateCucumbers();
+        };
 
+        initialWeight.addEventListener('input', handleInputChange);
+        initialWater.addEventListener('input', handleInputChange);
+        finalWater.addEventListener('input', handleInputChange);
+
+        // Первоначальный расчет при загрузке страницы
         syncHumidityInputs();
-
-        document.getElementById('myButton').addEventListener('click', calculateCucumbers);
+        calculateCucumbers();
     });
 </script>
 
