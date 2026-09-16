@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project P.I.T.T. Sandbox</title>
+    <title>Project P.I.T.T. Sandbox 2D</title>
     <style>
         * {
             box-sizing: border-box;
@@ -28,44 +28,44 @@
             display: flex;
             flex-direction: column;
             padding: 15px;
-            gap: 15px;
+            gap: 12px;
             z-index: 10;
             box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+            overflow-y: auto;
         }
 
         h1 {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             color: #88c0d0;
             text-align: center;
             text-transform: uppercase;
             letter-spacing: 2px;
             border-bottom: 2px solid #2e3440;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
         }
 
         .section-title {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             text-transform: uppercase;
             color: #4c566a;
             letter-spacing: 1px;
-            margin-bottom: 5px;
             font-weight: bold;
         }
 
         .tool-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn {
             background: #2e3440;
             color: #d8dee9;
             border: 1px solid #4c566a;
-            padding: 10px 8px;
+            padding: 8px 6px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -88,7 +88,7 @@
             background: #bf616a;
             color: #fff;
             border: none;
-            margin-top: auto;
+            margin-top: 10px;
         }
 
         .btn-clear:hover {
@@ -98,13 +98,17 @@
         #viewport-container {
             flex-grow: 1;
             position: relative;
-            background: radial-gradient(circle at center, #1b1c25 0%, #0a0a0e 100%);
+            background: #0a0a0e;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        #viewport-container:active {
+            cursor: grabbing;
         }
 
         canvas {
             display: block;
-            width: 100%;
-            height: 100%;
         }
 
         .stats-panel {
@@ -122,13 +126,44 @@
             pointer-events: none;
         }
 
-        .instructions {
-            font-size: 0.75rem;
+        .zoom-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(24, 25, 32, 0.9);
+            border: 1px solid #2e3440;
+            padding: 6px;
+            border-radius: 8px;
+            display: flex;
+            gap: 6px;
+            z-index: 5;
+        }
+
+        .zoom-btn {
+            background: #2e3440;
             color: #d8dee9;
-            opacity: 0.7;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background: #434c5e;
+        }
+
+        .instructions {
+            font-size: 0.72rem;
+            color: #d8dee9;
+            opacity: 0.75;
             line-height: 1.4;
             background: #2e3440;
-            padding: 10px;
+            padding: 8px;
             border-radius: 6px;
         }
     </style>
@@ -140,28 +175,29 @@
         
         <div class="section-title">Спавн объектов</div>
         <div class="tool-grid">
-            <button class="btn active" data-tool="duck_std">🦆 Обычная уточка</button>
-            <button class="btn" data-tool="duck_heavy">🦆 Тяжелая уточка</button>
+            <button class="btn active" data-tool="duck_std">🦆 Обычная утка</button>
+            <button class="btn" data-tool="duck_heavy">🦆 Тяжелая утка</button>
             <button class="btn" data-tool="spawner">🏭 Спавнер уток</button>
         </div>
 
-        <div class="section-title">Инструменты и элементы</div>
+        <div class="section-title">Инструменты цеха</div>
         <div class="tool-grid">
             <button class="btn" data-tool="fan">💨 Вентилятор</button>
             <button class="btn" data-tool="magnet">🧲 Магнит Бездны</button>
             <button class="btn" data-tool="bumper">💥 Батут / Отбойник</button>
-            <button class="btn" data-tool="ramp">📐 Направляющий желоб</button>
-            <button class="btn" data-tool="crusher">🔨 Измельчитель</button>
+            <button class="btn" data-tool="ramp">📐 Желoб (Рампа)</button>
+            <button class="btn" data-tool="crusher">🔨 Пресс</button>
             <button class="btn" data-tool="upgrader">⚡ Преобразователь</button>
-            <button class="btn" data-tool="portal_in">🌀 Вход портала</button>
-            <button class="btn" data-tool="portal_out">🌀 Выход портала</button>
+            <button class="btn" data-tool="portal_in">🌀 Портал (Вход)</button>
+            <button class="btn" data-tool="portal_out">🌀 Портал (Выход)</button>
         </div>
 
         <div class="section-title">Управление</div>
         <div class="instructions">
-            • <b>ЛКМ</b> — Поставить выбранный объект / перетащить утку<br>
-            • <b>ПКМ</b> — Удалить инструмент/объект<br>
-            • <b>Колесо мыши</b> — Повернуть размещаемый элемент (желоб, вентилятор)
+            • <b>ЛКМ</b> — Поставить / Перетащить<br>
+            • <b>Зажатый ПКМ / Перетаскивание</b> — Сдвиг камеры<br>
+            • <b>Колесо мыши</b> — Зум (масштаб) / Вращение объектов<br>
+            • <b>Shift + Клик</b> — Удалить объект
         </div>
 
         <button class="btn btn-clear" id="clear-btn">🗑️ Очистить всё</button>
@@ -170,8 +206,13 @@
     <div id="viewport-container">
         <canvas id="canvas"></canvas>
         <div class="stats-panel">
-            Очков поглощено: <span id="score-val">0</span><br>
+            Поглощено очков: <span id="score-val">0</span><br>
             Уточек в цеху: <span id="ducks-val">0</span>
+        </div>
+        <div class="zoom-panel">
+            <button class="zoom-btn" id="zoom-in">+</button>
+            <button class="zoom-btn" id="zoom-reset">1:1</button>
+            <button class="zoom-btn" id="zoom-out">-</button>
         </div>
     </div>
 
@@ -180,31 +221,44 @@
         const ctx = canvas.getContext('2d');
         const scoreVal = document.getElementById('score-val');
         const ducksVal = document.getElementById('ducks-val');
+        const container = document.getElementById('viewport-container');
 
         let width, height;
         let activeTool = 'duck_std';
         let placeAngle = 0;
         let score = 0;
 
-        // Физика и игровые структуры
+        // Настройки камеры и зума
+        let camera = {
+            x: 0,
+            y: 0,
+            zoom: 1.0
+        };
+
         const GRAVITY = 0.25;
         let objects = [];
         let tools = [];
         let portalIn = null;
         let portalOut = null;
         let draggedObject = null;
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
 
-        // Позиция ямы (Maw)
-        let maw = { x: 0, y: 0, radius: 65 };
+        // Центр Бездны (Maw)
+        let maw = { x: 0, y: 0, radius: 70 };
 
         function resize() {
-            width = canvas.width = document.getElementById('viewport-container').clientWidth;
-            height = canvas.height = document.getElementById('viewport-container').clientHeight;
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
             maw.x = width / 2;
-            maw.y = height - 40;
+            maw.y = height / 2 + 100;
         }
         window.addEventListener('resize', resize);
         resize();
+
+        // Центрирование камеры при первом запуске
+        camera.x = 0;
+        camera.y = 0;
 
         // Выбор инструмента
         document.querySelectorAll('.tool-grid .btn').forEach(btn => {
@@ -224,16 +278,49 @@
             scoreVal.innerText = score;
         });
 
-        window.addEventListener('wheel', (e) => {
-            placeAngle += Math.sign(e.deltaY) * 0.15;
-        });
+        // Управление зумом кнопками
+        document.getElementById('zoom-in').addEventListener('click', () => { camera.zoom = Math.min(2.5, camera.zoom + 0.15); });
+        document.getElementById('zoom-out').addEventListener('click', () => { camera.zoom = Math.max(0.4, camera.zoom - 0.15); });
+        document.getElementById('zoom-reset').addEventListener('click', () => { camera.zoom = 1.0; camera.x = 0; camera.y = 0; });
 
-        // Взаимодействие мышью
-        let mousePos = { x: 0, y: 0 };
-        canvas.addEventListener('mousemove', (e) => {
+        // Колесо мыши для зума и вращения элементов
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.altKey || e.ctrlKey) {
+                placeAngle += Math.sign(e.deltaY) * 0.15;
+            } else {
+                const zoomIntensity = 0.1;
+                if (e.deltaY < 0) {
+                    camera.zoom = Math.min(2.5, camera.zoom + zoomIntensity);
+                } else {
+                    camera.zoom = Math.max(0.4, camera.zoom - zoomIntensity);
+                }
+            }
+        }, { passive: false });
+
+        // Перевод экранных координат в мировые с учетом зума и панорамирования
+        function screenToWorld(screenX, screenY) {
             const rect = canvas.getBoundingClientRect();
-            mousePos.x = e.clientX - rect.left;
-            mousePos.y = e.clientY - rect.top;
+            const clientX = screenX - rect.left;
+            const clientY = screenY - rect.top;
+            
+            const worldX = (clientX - width / 2) / camera.zoom + width / 2 - camera.x;
+            const worldY = (clientY - height / 2) / camera.zoom + height / 2 - camera.y;
+            return { x: worldX, y: worldY };
+        }
+
+        let mousePos = { x: 0, y: 0 };
+
+        container.addEventListener('mousemove', (e) => {
+            const wPos = screenToWorld(e.clientX, e.clientY);
+            mousePos.x = wPos.x;
+            mousePos.y = wPos.y;
+
+            if (isPanning) {
+                camera.x += (e.clientX - panStart.x) / camera.zoom;
+                camera.y += (e.clientY - panStart.y) / camera.zoom;
+                panStart = { x: e.clientX, y: e.clientY };
+            }
 
             if (draggedObject) {
                 draggedObject.x = mousePos.x;
@@ -243,36 +330,44 @@
             }
         });
 
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+        container.addEventListener('mousedown', (e) => {
+            const wPos = screenToWorld(e.clientX, e.clientY);
 
-            if (e.button === 0) { // ЛКМ
-                // Проверка на захват утки
+            if (e.button === 2 || e.shiftKey) { // ПКМ или Shift+ЛКМ для панорамирования или удаления
+                if (e.button === 2) {
+                    isPanning = true;
+                    panStart = { x: e.clientX, y: e.clientY };
+                }
+                // Удаление по Shift+ЛКМ
+                if (e.shiftKey && e.button === 0) {
+                    tools = tools.filter(t => Math.hypot(t.x - wPos.x, t.y - wPos.y) > 30);
+                    objects = objects.filter(o => Math.hypot(o.x - wPos.x, o.y - wPos.y) > o.radius);
+                    if (portalIn && Math.hypot(portalIn.x - wPos.x, portalIn.y - wPos.y) < 30) portalIn = null;
+                    if (portalOut && Math.hypot(portalOut.x - wPos.x, portalOut.y - wPos.y) < 30) portalOut = null;
+                }
+                return;
+            }
+
+            if (e.button === 0) { // Чистый ЛКМ
+                // Захват уточки мышкой
                 for (let obj of objects) {
-                    let dist = Math.hypot(obj.x - x, obj.y - y);
-                    if (dist < obj.radius) {
+                    if (Math.hypot(obj.x - wPos.x, obj.y - wPos.y) < obj.radius) {
                         draggedObject = obj;
                         return;
                     }
                 }
 
-                // Размещение элементов
-                spawnToolOrObject(x, y);
-            } else if (e.button === 2) { // ПКМ - удаление
-                tools = tools.filter(t => Math.hypot(t.x - x, t.y - y) > 30);
-                objects = objects.filter(o => Math.hypot(o.x - x, o.y - y) > o.radius);
-                if (portalIn && Math.hypot(portalIn.x - x, portalIn.y - y) < 30) portalIn = null;
-                if (portalOut && Math.hypot(portalOut.x - x, portalOut.y - y) < 30) portalOut = null;
+                // Установка инструментов
+                spawnToolOrObject(wPos.x, wPos.y);
             }
         });
 
         window.addEventListener('mouseup', () => {
             draggedObject = null;
+            isPanning = false;
         });
 
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        container.addEventListener('contextmenu', e => e.preventDefault());
 
         function spawnToolOrObject(x, y) {
             if (activeTool === 'duck_std') {
@@ -313,9 +408,8 @@
             };
         }
 
-        // Главный цикл обновлений
+        // Физический цикл
         function update() {
-            // Обновление инструментов
             tools.forEach(tool => {
                 if (tool.type === 'spawner') {
                     tool.cooldown++;
@@ -328,89 +422,78 @@
                 }
             });
 
-            // Физика уточек
             for (let i = objects.length - 1; i >= 0; i--) {
                 let obj = objects[i];
                 if (obj === draggedObject) continue;
 
-                // Гравитация
                 obj.vy += GRAVITY * obj.mass;
 
-                // Воздействие инструментов
+                // Взаимодействие с инструментами
                 tools.forEach(tool => {
                     let dx = obj.x - tool.x;
                     let dy = obj.y - tool.y;
                     let dist = Math.hypot(dx, dy);
 
-                    // Вентилятор
                     if (tool.type === 'fan' && dist < 180) {
                         let fanDirX = Math.cos(tool.angle);
                         let fanDirY = Math.sin(tool.angle);
-                        // Проверка угла конуса сдува
                         let dot = (dx * fanDirX + dy * fanDirY) / dist;
-                        if (dot > 0.5) {
-                            let force = (1 - dist / 180) * 0.8;
+                        if (dot > 0.4) {
+                            let force = (1 - dist / 180) * 0.9;
                             obj.vx += fanDirX * force;
                             obj.vy += fanDirY * force;
                         }
                     }
 
-                    // Магнит
                     if (tool.type === 'magnet' && dist < 220) {
-                        let force = (1 - dist / 220) * 0.6;
+                        let force = (1 - dist / 220) * 0.7;
                         obj.vx -= (dx / dist) * force;
                         obj.vy -= (dy / dist) * force;
                     }
 
-                    // Батут / Отбойник
                     if (tool.type === 'bumper' && dist < obj.radius + 20) {
                         let overlap = (obj.radius + 20) - dist;
                         let nx = dx / dist;
                         let ny = dy / dist;
                         obj.x += nx * overlap;
                         obj.y += ny * overlap;
-                        obj.vx = nx * 12;
-                        obj.vy = ny * 12;
+                        obj.vx = nx * 14;
+                        obj.vy = ny * 14;
                     }
 
-                    // Преобразователь Уровень+
                     if (tool.type === 'upgrader' && Math.abs(dx) < 25 && Math.abs(dy) < 30) {
                         if (obj.tier === 1) {
                             obj.tier = 2;
-                            obj.color = '#b48ead'; // Продвинутая фиолетовая утка
+                            obj.color = '#b48ead';
                             obj.radius = 16;
                         }
                     }
 
-                    // Измельчитель / Пресс
                     if (tool.type === 'crusher' && Math.abs(dx) < 30 && Math.abs(dy) < 20) {
                         let crushState = Math.sin(tool.phase);
                         if (crushState > 0.8 && obj.tier < 3) {
                             obj.tier = 3;
-                            obj.color = '#d08770'; // Спрессованная золотая утка
+                            obj.color = '#d08770';
                             obj.radius = 10;
                         }
                     }
 
-                    // Направляющий желоб
                     if (tool.type === 'ramp') {
                         let cos = Math.cos(-tool.angle);
                         let sin = Math.sin(-tool.angle);
                         let rx = cos * dx - sin * dy;
                         let ry = sin * dx + cos * dy;
 
-                        if (Math.abs(rx) < tool.length / 2 && Math.abs(ry) < obj.radius + 5) {
+                        if (Math.abs(rx) < tool.length / 2 && Math.abs(ry) < obj.radius + 6) {
                             if (ry > 0) {
-                                obj.y += (obj.radius + 5 - ry);
-                                obj.vy *= -0.3;
-                                // Трение скольжения по рампе
-                                obj.vx += Math.cos(tool.angle) * 0.2;
+                                obj.y += (obj.radius + 6 - ry);
+                                obj.vy *= -0.35;
+                                obj.vx += Math.cos(tool.angle) * 0.25;
                             }
                         }
                     }
                 });
 
-                // Порталы
                 if (portalIn && portalOut) {
                     let distIn = Math.hypot(obj.x - portalIn.x, obj.y - portalIn.y);
                     if (distIn < obj.radius + 15) {
@@ -419,20 +502,21 @@
                     }
                 }
 
-                // Движение
                 obj.x += obj.vx;
                 obj.y += obj.vy;
-                obj.vx *= 0.98; // Трение воздуха
+                obj.vx *= 0.98;
                 obj.vy *= 0.98;
 
-                // Столкновения со стенами
-                if (obj.x - obj.radius < 0) { obj.x = obj.radius; obj.vx *= -0.6; }
-                if (obj.x + obj.radius > width) { obj.x = width - obj.radius; obj.vx *= -0.6; }
-
-                // Попадание в Яму (Maw)
+                // Притяжение в Бездну (Maw)
                 let distMaw = Math.hypot(obj.x - maw.x, obj.y - maw.y);
+                if (distMaw < maw.radius + 100) {
+                    let pull = (1 - distMaw / (maw.radius + 100)) * 0.4;
+                    obj.vx -= ((obj.x - maw.x) / distMaw) * pull;
+                    obj.vy -= ((obj.y - maw.y) / distMaw) * pull;
+                }
+
                 if (distMaw < maw.radius) {
-                    score += obj.tier * 10;
+                    score += obj.tier * 15;
                     scoreVal.innerText = score;
                     objects.splice(i, 1);
                 }
@@ -445,24 +529,42 @@
         function render() {
             ctx.clearRect(0, 0, width, height);
 
-            // Отрисовка Ямы (Maw)
             ctx.save();
+            // Трансформация камеры и зума
+            ctx.translate(width / 2, height / 2);
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.translate(-width / 2 + camera.x, -height / 2 + camera.y);
+
+            // Сетка цеха
+            ctx.strokeStyle = 'rgba(46, 52, 64, 0.4)';
+            ctx.lineWidth = 1;
+            const gridSize = 60;
+            const startX = -width;
+            const endX = width * 2;
+            const startY = -height;
+            const endY = height * 2;
+            for (let x = startX; x < endX; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, startY); ctx.lineTo(x, endY); ctx.stroke();
+            }
+            for (let y = startY; y < endY; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(endX, y); ctx.stroke();
+            }
+
+            // Отрисовка Бездны (Maw)
             ctx.beginPath();
             ctx.arc(maw.x, maw.y, maw.radius, 0, Math.PI * 2);
             ctx.fillStyle = '#000000';
             ctx.fill();
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 5;
             ctx.strokeStyle = '#bf616a';
             ctx.stroke();
 
-            // Эффект притягивающего свечения Ямы
             ctx.beginPath();
-            ctx.arc(maw.x, maw.y, maw.radius + 10 + Math.sin(Date.now() / 200) * 4, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(191, 97, 106, 0.3)';
+            ctx.arc(maw.x, maw.y, maw.radius + 12 + Math.sin(Date.now() / 180) * 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(191, 97, 106, 0.35)';
             ctx.stroke();
-            ctx.restore();
 
-            // Отрисовка инструментов
+            // Инструменты
             tools.forEach(tool => {
                 ctx.save();
                 ctx.translate(tool.x, tool.y);
@@ -476,7 +578,6 @@
                     ctx.rotate(tool.angle);
                     ctx.fillStyle = '#81a1c1';
                     ctx.fillRect(-15, -15, 30, 30);
-                    // Лопасти
                     ctx.strokeStyle = '#eceff4';
                     ctx.beginPath();
                     ctx.moveTo(0, 0); ctx.lineTo(120, -40);
@@ -484,23 +585,14 @@
                     ctx.stroke();
                 } else if (tool.type === 'magnet') {
                     ctx.fillStyle = '#bf616a';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#d8dee9';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#d8dee9'; ctx.lineWidth = 3; ctx.stroke();
                 } else if (tool.type === 'bumper') {
                     ctx.fillStyle = '#d08770';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = '#eceff4';
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+                    ctx.lineWidth = 3; ctx.strokeStyle = '#eceff4'; ctx.stroke();
                 } else if (tool.type === 'upgrader') {
-                    ctx.strokeStyle = '#ebcb8b';
-                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#ebcb8b'; ctx.lineWidth = 4;
                     ctx.strokeRect(-20, -25, 40, 50);
                 } else if (tool.type === 'crusher') {
                     ctx.fillStyle = '#4c566a';
@@ -516,31 +608,19 @@
                 ctx.restore();
             });
 
-            // Порталы
             if (portalIn) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(portalIn.x, portalIn.y, 20, 0, Math.PI * 2);
-                ctx.fillStyle = '#b48ead';
-                ctx.fill();
-                ctx.restore();
+                ctx.beginPath(); ctx.arc(portalIn.x, portalIn.y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = '#b48ead'; ctx.fill();
             }
-
             if (portalOut) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(portalOut.x, portalOut.y, 20, 0, Math.PI * 2);
-                ctx.fillStyle = '#88c0d0';
-                ctx.fill();
-                ctx.restore();
+                ctx.beginPath(); ctx.arc(portalOut.x, portalOut.y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = '#88c0d0'; ctx.fill();
             }
 
-            // Отрисовка Уточек
+            // Уточки
             objects.forEach(obj => {
                 ctx.save();
                 ctx.translate(obj.x, obj.y);
-
-                // Тело утки
                 ctx.beginPath();
                 ctx.arc(0, 0, obj.radius, 0, Math.PI * 2);
                 ctx.fillStyle = obj.color;
@@ -549,32 +629,14 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Клюв
                 ctx.beginPath();
                 ctx.arc(obj.radius * 0.6, -2, 4, 0, Math.PI * 2);
                 ctx.fillStyle = '#d08770';
                 ctx.fill();
-
-                // Глаз
-                ctx.beginPath();
-                ctx.arc(obj.radius * 0.2, -4, 2, 0, Math.PI * 2);
-                ctx.fillStyle = '#2e3440';
-                ctx.fill();
-
                 ctx.restore();
             });
 
-            // Предпросмотр установки инструмента при наведении
-            if (activeTool === 'ramp' || activeTool === 'fan') {
-                ctx.save();
-                ctx.translate(mousePos.x, mousePos.y);
-                ctx.rotate(placeAngle);
-                ctx.strokeStyle = 'rgba(136, 192, 208, 0.5)';
-                ctx.lineWidth = 2;
-                if (activeTool === 'ramp') ctx.strokeRect(-60, -5, 120, 10);
-                if (activeTool === 'fan') ctx.strokeRect(-15, -15, 30, 30);
-                ctx.restore();
-            }
+            ctx.restore();
         }
 
         function loop() {
