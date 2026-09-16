@@ -1,797 +1,374 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project P.I.T.T. 2D Simulator</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-        }
-
-        body {
-            background-color: #0f0f15;
-            color: #eceff4;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-            display: flex;
-            height: 100vh;
-        }
-
-        #sidebar {
-            width: 320px;
-            background: #181920;
-            border-right: 2px solid #2e3440;
-            display: flex;
-            flex-direction: column;
-            padding: 15px;
-            gap: 12px;
-            z-index: 10;
-            box-shadow: 4px 0 15px rgba(0,0,0,0.5);
-            overflow-y: auto;
-        }
-
-        h1 {
-            font-size: 1.3rem;
-            color: #88c0d0;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            border-bottom: 2px solid #2e3440;
-            padding-bottom: 8px;
-        }
-
-        .section-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            color: #4c566a;
-            letter-spacing: 1px;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-
-        .tool-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 6px;
-        }
-
-        .btn {
-            background: #2e3440;
-            color: #d8dee9;
-            border: 1px solid #4c566a;
-            padding: 8px 6px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover {
-            background: #434c5e;
-            border-color: #88c0d0;
-        }
-
-        .btn.active {
-            background: #88c0d0;
-            color: #2e3440;
-            font-weight: bold;
-            border-color: #88c0d0;
-        }
-
-        .btn-price {
-            font-size: 0.7rem;
-            opacity: 0.8;
-            background: rgba(0,0,0,0.2);
-            padding: 2px 5px;
-            border-radius: 4px;
-        }
-
-        .btn-clear {
-            background: #bf616a;
-            color: #fff;
-            border: none;
-            margin-top: 10px;
-            justify-content: center;
-        }
-
-        .btn-clear:hover {
-            background: #d08770;
-        }
-
-        #viewport-container {
-            flex-grow: 1;
-            position: relative;
-            background: #0a0a0e;
-            overflow: hidden;
-            cursor: grab;
-        }
-
-        #viewport-container:active {
-            cursor: grabbing;
-        }
-
-        canvas {
-            display: block;
-        }
-
-        .stats-panel {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(24, 25, 32, 0.85);
-            backdrop-filter: blur(5px);
-            border: 1px solid #2e3440;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: #a3be8c;
-            pointer-events: none;
-        }
-
-        .balance-badge {
-            color: #ebcb8b;
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-
-        .combo-badge {
-            color: #88c0d0;
-            font-weight: bold;
-        }
-
-        .zoom-panel {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(24, 25, 32, 0.9);
-            border: 1px solid #2e3440;
-            padding: 6px;
-            border-radius: 8px;
-            display: flex;
-            gap: 6px;
-            z-index: 5;
-        }
-
-        .zoom-btn {
-            background: #2e3440;
-            color: #d8dee9;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .zoom-btn:hover {
-            background: #434c5e;
-        }
-
-        .instructions {
-            font-size: 0.72rem;
-            color: #d8dee9;
-            opacity: 0.75;
-            line-height: 1.4;
-            background: #2e3440;
-            padding: 8px;
-            border-radius: 6px;
-        }
-
-        /* Контекстное меню выделления */
-        #selection-menu {
-            position: absolute;
-            display: none;
-            background: rgba(24, 25, 32, 0.95);
-            border: 1px solid #88c0d0;
-            padding: 6px;
-            border-radius: 8px;
-            gap: 6px;
-            z-index: 20;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            transform: translate(-50%, -100%);
-            margin-top: -15px;
-        }
-
-        #selection-menu button {
-            background: #2e3440;
-            color: #d8dee9;
-            border: 1px solid #4c566a;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        #selection-menu button:hover {
-            background: #434c5e;
-            border-color: #88c0d0;
-        }
-
-        #selection-menu button.btn-delete:hover {
-            background: #bf616a;
-            border-color: #bf616a;
-            color: #fff;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Песочница Автоматизации — Three.js + Cannon.js</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      user-select: none;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(20, 20, 20, 0.85);
+      padding: 12px;
+      border-radius: 8px;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    .btn-group {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    button {
+      background: #34495e;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+    button:hover { background: #415b76; }
+    button.active { background: #27ae60; }
+    #info {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      pointer-events: none;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <div id="sidebar">
-        <h1>Project P.I.T.T.</h1>
-        
-        <div class="section-title">Производство</div>
-        <div class="tool-grid">
-            <button class="btn active" data-tool="manual_press" data-price="0"><span>🐥 Ручной станок</span><span class="btn-price">$0</span></button>
-            <button class="btn" data-tool="register" data-price="20"><span>📟 Касса</span><span class="btn-price">$20</span></button>
-            <button class="btn" data-tool="pinata" data-price="50"><span>🪅 Пиньята</span><span class="btn-price">$50</span></button>
-            <button class="btn" data-tool="spawner" data-price="150"><span>🏭 Спавнер</span><span class="btn-price">$150</span></button>
-        </div>
-
-        <div class="section-title">Инструменты и Поток</div>
-        <div class="tool-grid">
-            <button class="btn" data-tool="broom" data-price="0"><span>🧹 Метла</span><span class="btn-price">$0</span></button>
-            <button class="btn" data-tool="fan" data-price="30"><span>💨 Вентилятор</span><span class="btn-price">$30</span></button>
-            <button class="btn" data-tool="magnet" data-price="45"><span>🧲 Магнит</span><span class="btn-price">$45</span></button>
-            <button class="btn" data-tool="piston" data-price="40"><span>💥 Поршень</span><span class="btn-price">$40</span></button>
-            <button class="btn" data-tool="ramp" data-price="15"><span>📐 Рампа</span><span class="btn-price">$15</span></button>
-            <button class="btn" data-tool="launcher" data-price="75"><span>🚀 Пушка</span><span class="btn-price">$75</span></button>
-        </div>
-
-        <div class="section-title">Управление</div>
-        <div class="instructions">
-            • <b>Зажатие ЛКМ на станок</b> — Авто-выпуск уточек<br>
-            • <b>Зажатый ЛКМ + Метла</b> — Плавное сгребание элементов<br>
-            • <b>Клик по предмету</b> — Выделить и открыть меню<br>
-            • <b>Зажатый ПКМ</b> — Перемещение камеры<br>
-            • <b>Колесо мыши</b> — Зум цеха
-        </div>
-
-        <button class="btn btn-clear" id="clear-btn">🗑️ Очистить цех</button>
+  <div id="ui">
+    <strong>Инструменты:</strong>
+    <div class="btn-group">
+      <button id="btn-fan" onclick="selectTool('fan')">🌀 Вентилятор</button>
+      <button id="btn-magnet" onclick="selectTool('magnet')">🧲 Магнит</button>
+      <button id="btn-panel" onclick="selectTool('panel')">📐 Панель</button>
+      <button id="btn-piston" onclick="selectTool('piston')">🔨 Поршень</button>
+      <button id="btn-launcher" onclick="selectTool('launcher')">🚀 Запускник</button>
+      <button id="btn-spring" onclick="selectTool('spring')">🦘 Пружина</button>
+      <button id="btn-rack" onclick="selectTool('rack')">📦 Стойка</button>
+      <button id="btn-broom" onclick="selectTool('broom')">🧹 Метла</button>
     </div>
-
-    <div id="viewport-container">
-        <canvas id="canvas"></canvas>
-        
-        <!-- Контекстное меню элемента -->
-        <div id="selection-menu">
-            <button id="menu-rotate">🔄 Развернуть</button>
-            <button id="menu-delete" class="btn-delete">🗑️ Удалить</button>
-        </div>
-
-        <div class="stats-panel">
-            Баланс: $<span id="balance-val" class="balance-badge">0</span><br>
-            Комбо: <span id="combo-val" class="combo-badge">x1</span><br>
-            Предметов: <span id="items-val">0</span>
-        </div>
-        <div class="zoom-panel">
-            <button class="zoom-btn" id="zoom-in">+</button>
-            <button class="zoom-btn" id="zoom-reset">1:1</button>
-            <button class="zoom-btn" id="zoom-out">-</button>
-        </div>
+    <hr style="border: 0.5px solid #444; width: 100%;">
+    <strong>Спавн объектов:</strong>
+    <div class="btn-group">
+      <button onclick="spawnMetalBox()">📦 Металл</button>
+      <button onclick="spawnDuck()">🦆 Утка</button>
     </div>
+  </div>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const balanceVal = document.getElementById('balance-val');
-        const comboVal = document.getElementById('combo-val');
-        const itemsVal = document.getElementById('items-val');
-        const container = document.getElementById('viewport-container');
-        const selectionMenu = document.getElementById('selection-menu');
+  <div id="info">Кликните по арене для размещения выбранного инструмента</div>
 
-        let width, height;
-        let activeTool = 'manual_press';
-        let placeAngle = 0;
-        let balance = 0;
-        let combo = 1;
-        let comboTimer = 0;
+  <script>
+    // --- 1. ИНИЦИАЛИЗАЦИЯ THREE.JS И CANNON.JS ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a24);
 
-        const PRICES = {
-            manual_press: 0,
-            register: 20,
-            pinata: 50,
-            spawner: 150,
-            broom: 0,
-            fan: 30,
-            magnet: 45,
-            piston: 40,
-            ramp: 15,
-            launcher: 75
-        };
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 12, 16);
 
-        let camera = { x: 0, y: 0, zoom: 1.0 };
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
 
-        let objects = [];
-        let tools = [];
-        let isPanning = false;
-        let panStart = { x: 0, y: 0 };
-        let draggedObject = null;
-        let selectedItem = null; // Выделенный объект (tool или object)
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 2, 0);
+    controls.update();
 
-        // Переменные для удержания утиного станка и работы метлы
-        let pressingPress = null;
-        let pressInterval = null;
-        let isMouseDown = false;
-        let prevMousePos = { x: 0, y: 0 };
+    // Физический мир
+    const world = new CANNON.World();
+    world.gravity.set(0, -9.81, 0);
 
-        // Пасть (The Maw)
-        let maw = { x: 0, y: 0, radius: 80 };
+    // --- 2. ОСВЕЩЕНИЕ И ОКРУЖЕНИЕ ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
 
-        function resize() {
-            width = canvas.width = container.clientWidth;
-            height = canvas.height = container.clientHeight;
-            maw.x = width / 2;
-            maw.y = height / 2 + 120;
-        }
-        window.addEventListener('resize', resize);
-        resize();
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
 
-        // Выбор инструментов
-        document.querySelectorAll('.tool-grid .btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tool-grid .btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                activeTool = btn.dataset.tool;
-                deselectItem();
-            });
+    // Пол (Арена)
+    const groundGeo = new THREE.PlaneGeometry(20, 20);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.receiveShadow = true;
+    scene.add(groundMesh);
+
+    const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    world.addBody(groundBody);
+
+    // --- 3. ХРАНИЛИЩА ОБЪЕКТОВ И ИНСТРУМЕНТОВ ---
+    const dynamicObjects = []; // Утки и Металлические ящики
+    const activeTools = [];    // Инструменты автоматизации
+    let selectedTool = null;
+
+    // Сетки материалов Three.js
+    const materials = {
+      metal: new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.8, roughness: 0.2 }),
+      duck: new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.5 }),
+      fan: new THREE.MeshStandardMaterial({ color: 0x3498db }),
+      magnet: new THREE.MeshStandardMaterial({ color: 0xe74c3c }),
+      panel: new THREE.MeshStandardMaterial({ color: 0xe67e22 }),
+      piston: new THREE.MeshStandardMaterial({ color: 0x9b59b6 }),
+      launcher: new THREE.MeshStandardMaterial({ color: 0x2ecc71 }),
+      spring: new THREE.MeshStandardMaterial({ color: 0x1abc9c }),
+      rack: new THREE.MeshStandardMaterial({ color: 0x34495e }),
+      broom: new THREE.MeshStandardMaterial({ color: 0xd35400 })
+    };
+
+    // --- 4. КЛАССЫ ИНСТРУМЕНТОВ ---
+    class Tool {
+      constructor(type, position) {
+        this.type = type;
+        this.mesh = new THREE.Group();
+        this.mesh.position.copy(position);
+        scene.add(this.mesh);
+        this.body = null;
+      }
+      update() {}
+    }
+
+    class FanTool extends Tool {
+      constructor(pos) {
+        super('fan', pos);
+        const geo = new THREE.BoxGeometry(1.2, 1.2, 0.5);
+        const mesh = new THREE.Mesh(geo, materials.fan);
+        mesh.castShadow = true;
+        this.mesh.add(mesh);
+        this.mesh.position.y += 0.6;
+      }
+      update() {
+        // Выдувает объекты перед собой вдоль Z+
+        const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+        dynamicObjects.forEach(obj => {
+          const dir = new THREE.Vector3().subVectors(obj.mesh.position, this.mesh.position);
+          const dist = dir.length();
+          if (dist < 6 && dir.angleTo(forward) < 0.5) {
+            const force = forward.clone().multiplyScalar(15 / (dist + 1));
+            obj.body.applyForce(new CANNON.Vec3(force.x, force.y, force.z), obj.body.position);
+          }
         });
+      }
+    }
 
-        document.getElementById('clear-btn').addEventListener('click', () => {
-            objects = [];
-            tools = [];
-            combo = 1;
-            comboVal.innerText = 'x1';
-            deselectItem();
+    class MagnetTool extends Tool {
+      constructor(pos) {
+        super('magnet', pos);
+        const geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+        const mesh = new THREE.Mesh(geo, materials.magnet);
+        mesh.castShadow = true;
+        this.mesh.add(mesh);
+        this.mesh.position.y += 0.5;
+      }
+      update() {
+        dynamicObjects.forEach(obj => {
+          if (obj.isMetallic) {
+            const dir = new THREE.Vector3().subVectors(this.mesh.position, obj.mesh.position);
+            const dist = dir.length();
+            if (dist < 8) {
+              dir.normalize().multiplyScalar(25 / (dist * dist + 0.5));
+              obj.body.applyForce(new CANNON.Vec3(dir.x, dir.y, dir.z), obj.body.position);
+            }
+          }
         });
+      }
+    }
 
-        // Настройки зума
-        document.getElementById('zoom-in').addEventListener('click', () => { camera.zoom = Math.min(2.5, camera.zoom + 0.15); updateMenuPosition(); });
-        document.getElementById('zoom-out').addEventListener('click', () => { camera.zoom = Math.max(0.4, camera.zoom - 0.15); updateMenuPosition(); });
-        document.getElementById('zoom-reset').addEventListener('click', () => { camera.zoom = 1.0; camera.x = 0; camera.y = 0; updateMenuPosition(); });
+    class PanelTool extends Tool {
+      constructor(pos) {
+        super('panel', pos);
+        const geo = new THREE.BoxGeometry(2, 1, 0.2);
+        const mesh = new THREE.Mesh(geo, materials.panel);
+        mesh.castShadow = true;
+        this.mesh.add(mesh);
+        this.mesh.position.y += 0.5;
+        this.mesh.rotation.x = -Math.PI / 6; // Наклонная доска
 
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (e.altKey && selectedItem && selectedItem.angle !== undefined) {
-                selectedItem.angle += Math.sign(e.deltaY) * 0.15;
-            } else {
-                const intensity = 0.1;
-                if (e.deltaY < 0) camera.zoom = Math.min(2.5, camera.zoom + intensity);
-                else camera.zoom = Math.max(0.4, camera.zoom - intensity);
+        const shape = new CANNON.Box(new CANNON.Vec3(1, 0.5, 0.1));
+        this.body = new CANNON.Body({ mass: 0 });
+        this.body.addShape(shape);
+        this.body.position.copy(this.mesh.position);
+        this.body.quaternion.copy(this.mesh.quaternion);
+        world.addBody(this.body);
+      }
+    }
+
+    class PistonTool extends Tool {
+      constructor(pos) {
+        super('piston', pos);
+        const geo = new THREE.BoxGeometry(1, 1, 1);
+        const mesh = new THREE.Mesh(geo, materials.piston);
+        mesh.castShadow = true;
+        this.mesh.add(mesh);
+        this.mesh.position.y += 0.5;
+        this.timer = 0;
+      }
+      update() {
+        this.timer += 0.05;
+        if (Math.sin(this.timer) > 0.95) { // Имитация толчка каждые пару секунд
+          dynamicObjects.forEach(obj => {
+            const dist = this.mesh.position.distanceTo(obj.mesh.position);
+            if (dist < 2.0) {
+              obj.body.applyImpulse(new CANNON.Vec3(0, 5, 10), obj.body.position);
             }
-            updateMenuPosition();
-        }, { passive: false });
-
-        function worldToScreen(worldX, worldY) {
-            return {
-                x: (worldX - (width / 2 - camera.x)) * camera.zoom + width / 2,
-                y: (worldY - (height / 2 - camera.y)) * camera.zoom + height / 2
-            };
+          });
         }
+      }
+    }
 
-        function screenToWorld(screenX, screenY) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = screenX - rect.left;
-            const clientY = screenY - rect.top;
-            return {
-                x: (clientX - width / 2) / camera.zoom + width / 2 - camera.x,
-                y: (clientY - height / 2) / camera.zoom + height / 2 - camera.y
-            };
-        }
-
-        let mousePos = { x: 0, y: 0 };
-
-        container.addEventListener('mousemove', (e) => {
-            const wPos = screenToWorld(e.clientX, e.clientY);
-            mousePos.x = wPos.x;
-            mousePos.y = wPos.y;
-
-            if (isPanning) {
-                camera.x += (e.clientX - panStart.x) / camera.zoom;
-                camera.y += (e.clientY - panStart.y) / camera.zoom;
-                panStart = { x: e.clientX, y: e.clientY };
-                updateMenuPosition();
-            }
-
-            if (draggedObject) {
-                draggedObject.x = mousePos.x;
-                draggedObject.y = mousePos.y;
-                draggedObject.vx = 0;
-                draggedObject.vy = 0;
-                updateMenuPosition();
-            }
-
-            // Улучшенное сгребание метлой при зажатии ЛКМ
-            if (isMouseDown && activeTool === 'broom') {
-                let dx = mousePos.x - prevMousePos.x;
-                let dy = mousePos.y - prevMousePos.y;
-                let broomRadius = 90;
-
-                objects.forEach(obj => {
-                    let dist = Math.hypot(obj.x - mousePos.x, obj.y - mousePos.y);
-                    if (dist < broomRadius) {
-                        let force = (1 - dist / broomRadius) * 0.8;
-                        obj.vx += dx * force + (obj.x - mousePos.x) * 0.05;
-                        obj.vy += dy * force + (obj.y - mousePos.y) * 0.05;
-                    }
-                });
-            }
-
-            prevMousePos = { x: mousePos.x, y: mousePos.y };
+    class SpringTool extends Tool {
+      constructor(pos) {
+        super('spring', pos);
+        const geo = new THREE.CylinderGeometry(0.8, 0.8, 0.3, 16);
+        const mesh = new THREE.Mesh(geo, materials.spring);
+        mesh.castShadow = true;
+        this.mesh.add(mesh);
+        this.mesh.position.y += 0.15;
+      }
+      update() {
+        dynamicObjects.forEach(obj => {
+          const distXZ = new THREE.Vector2(
+            this.mesh.position.x - obj.mesh.position.x,
+            this.mesh.position.z - obj.mesh.position.z
+          ).length();
+          
+          if (distXZ < 0.9 && Math.abs(obj.mesh.position.y - this.mesh.position.y) < 0.6) {
+            obj.body.velocity.y = 12; // Подбрасывание
+          }
         });
+      }
+    }
 
-        container.addEventListener('mousedown', (e) => {
-            const wPos = screenToWorld(e.clientX, e.clientY);
-            isMouseDown = true;
+    // --- 5. СПАВН ДИНАМИЧЕСКИХ ОБЪЕКТОВ ---
+    function spawnMetalBox() {
+      const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+      const mesh = new THREE.Mesh(geo, materials.metal);
+      mesh.castShadow = true;
+      scene.add(mesh);
 
-            if (e.button === 2) {
-                isPanning = true;
-                panStart = { x: e.clientX, y: e.clientY };
-                return;
-            }
+      const shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.4, 0.4));
+      const body = new CANNON.Body({ mass: 2, shape: shape });
+      body.position.set((Math.random() - 0.5) * 4, 8, (Math.random() - 0.5) * 4);
+      world.addBody(body);
 
-            if (e.button === 0) {
-                // 1. Проверка клика по ручному утиному станку
-                for (let tool of tools) {
-                    if (tool.type === 'manual_press' && Math.hypot(tool.x - wPos.x, tool.y - wPos.y) < 30) {
-                        selectItem(tool);
-                        spawnDuckFromPress(tool);
-                        pressingPress = tool;
-                        
-                        // Запуск таймера спавна при удержании
-                        pressInterval = setInterval(() => {
-                            if (pressingPress) spawnDuckFromPress(pressingPress);
-                        }, 300);
-                        return;
-                    }
-                }
+      dynamicObjects.push({ mesh, body, isMetallic: true });
+    }
 
-                // 2. Использование метлы
-                if (activeTool === 'broom') {
-                    deselectItem();
-                    return;
-                }
+    function spawnDuck() {
+      const geo = new THREE.SphereGeometry(0.5, 16, 16);
+      const mesh = new THREE.Mesh(geo, materials.duck);
+      mesh.castShadow = true;
+      scene.add(mesh);
 
-                // 3. Выбор/перетаскивание существующих предметов и станков
-                let clickedTool = tools.find(t => Math.hypot(t.x - wPos.x, t.y - wPos.y) < 30);
-                if (clickedTool) {
-                    selectItem(clickedTool);
-                    draggedObject = clickedTool;
-                    return;
-                }
+      const shape = new CANNON.Sphere(0.5);
+      const body = new CANNON.Body({ mass: 0.5, shape: shape });
+      body.position.set((Math.random() - 0.5) * 4, 8, (Math.random() - 0.5) * 4);
+      world.addBody(body);
 
-                let clickedObj = objects.find(o => Math.hypot(o.x - wPos.x, o.y - wPos.y) < o.radius);
-                if (clickedObj) {
-                    selectItem(clickedObj);
-                    draggedObject = clickedObj;
-                    return;
-                }
+      dynamicObjects.push({ mesh, body, isMetallic: false });
+    }
 
-                // 4. Размещение нового элемента (если не кликнули по существующему)
-                deselectItem();
-                spawnToolOrObject(wPos.x, wPos.y);
-            }
-        });
+    // --- 6. ВЗАИМОДЕЙСТВИЕ И РАЗМЕЩЕНИЕ (RAYCASTING) ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
-        window.addEventListener('mouseup', () => {
-            draggedObject = null;
-            isPanning = false;
-            isMouseDown = false;
-            
-            if (pressInterval) {
-                clearInterval(pressInterval);
-                pressInterval = null;
-            }
-            pressingPress = null;
-        });
+    function selectTool(type) {
+      selectedTool = type;
+      document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`btn-${type}`);
+      if (activeBtn) activeBtn.classList.add('active');
+    }
 
-        container.addEventListener('contextmenu', e => e.preventDefault());
+    window.addEventListener('pointerdown', (e) => {
+      // Игнорировать клики по UI
+      if (e.target.tagName === 'BUTTON' || e.target.closest('#ui')) return;
 
-        function spawnDuckFromPress(tool) {
-            let angle = Math.random() * Math.PI * 2;
-            let duck = createItem(tool.x + Math.cos(angle) * 35, tool.y + Math.sin(angle) * 35, 'duck');
-            duck.vx = Math.cos(angle) * 3;
-            duck.vy = Math.sin(angle) * 3;
-            objects.push(duck);
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(groundMesh);
+
+      if (intersects.length > 0 && selectedTool) {
+        const point = intersects[0].point;
+        let tool = null;
+
+        switch(selectedTool) {
+          case 'fan': tool = new FanTool(point); break;
+          case 'magnet': tool = new MagnetTool(point); break;
+          case 'panel': tool = new PanelTool(point); break;
+          case 'piston': tool = new PistonTool(point); break;
+          case 'spring': tool = new SpringTool(point); break;
+          default:
+            // Базовая реализация для остального
+            tool = new Tool(selectedTool, point);
+            const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const mesh = new THREE.Mesh(geo, materials[selectedTool] || materials.rack);
+            tool.mesh.add(mesh);
+            tool.mesh.position.y += 0.4;
+            break;
         }
 
-        function selectItem(item) {
-            selectedItem = item;
-            updateMenuPosition();
-            selectionMenu.style.display = 'flex';
-        }
+        if (tool) activeTools.push(tool);
+      }
+    });
 
-        function deselectItem() {
-            selectedItem = null;
-            selectionMenu.style.display = 'none';
-        }
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-        function updateMenuPosition() {
-            if (!selectedItem) return;
-            let scrPos = worldToScreen(selectedItem.x, selectedItem.y - (selectedItem.radius || 25));
-            selectionMenu.style.left = scrPos.x + 'px';
-            selectionMenu.style.top = scrPos.y + 'px';
-        }
+    // --- 7. РЕНДЕР И АНИМАЦИОННЫЙ ЦИКЛ ---
+    const timeStep = 1 / 60;
+    function animate() {
+      requestAnimationFrame(animate);
 
-        // Кнопки контекстного меню
-        document.getElementById('menu-rotate').addEventListener('click', () => {
-            if (selectedItem) {
-                if (selectedItem.angle === undefined) selectedItem.angle = 0;
-                selectedItem.angle += Math.PI / 4; // Поворот на 45 градусов
-            }
-        });
+      // Шаг физического мира
+      world.step(timeStep);
 
-        document.getElementById('menu-delete').addEventListener('click', () => {
-            if (selectedItem) {
-                tools = tools.filter(t => t !== selectedItem);
-                objects = objects.filter(o => o !== selectedItem);
-                deselectItem();
-            }
-        });
+      // Синхронизация трехмерных сеток с физическими телами
+      dynamicObjects.forEach(obj => {
+        obj.mesh.position.copy(obj.body.position);
+        obj.mesh.quaternion.copy(obj.body.quaternion);
+      });
 
-        function spawnToolOrObject(x, y) {
-            const price = PRICES[activeTool] || 0;
-            if (balance < price) return;
+      // Обновление работы логики инструментов
+      activeTools.forEach(tool => tool.update());
 
-            let createdItem = null;
-            if (activeTool === 'manual_press') { createdItem = { type: 'manual_press', x, y }; tools.push(createdItem); }
-            else if (activeTool === 'register') { createdItem = createItem(x, y, 'register'); objects.push(createdItem); }
-            else if (activeTool === 'pinata') { createdItem = createItem(x, y, 'pinata'); objects.push(createdItem); }
-            else if (activeTool === 'spawner') { createdItem = { type: 'spawner', x, y, cooldown: 0 }; tools.push(createdItem); }
-            else if (activeTool === 'fan') { createdItem = { type: 'fan', x, y, angle: placeAngle }; tools.push(createdItem); }
-            else if (activeTool === 'magnet') { createdItem = { type: 'magnet', x, y }; tools.push(createdItem); }
-            else if (activeTool === 'piston') { createdItem = { type: 'piston', x, y }; tools.push(createdItem); }
-            else if (activeTool === 'ramp') { createdItem = { type: 'ramp', x, y, angle: placeAngle, length: 140 }; tools.push(createdItem); }
-            else if (activeTool === 'launcher') { createdItem = { type: 'launcher', x, y, angle: placeAngle }; tools.push(createdItem); }
+      renderer.render(scene, camera);
+    }
 
-            if (createdItem) {
-                balance -= price;
-                balanceVal.innerText = balance;
-                selectItem(createdItem);
-            }
-        }
-
-        function createItem(x, y, type) {
-            let base = { x, y, vx: 0, vy: 0, type };
-            if (type === 'duck') return { ...base, radius: 14, mass: 1.0, value: 10, color: '#ebcb8b' };
-            if (type === 'register') return { ...base, radius: 18, mass: 2.2, value: 45, color: '#a3be8c' };
-            if (type === 'pinata') return { ...base, radius: 22, mass: 1.5, value: 110, color: '#b48ead' };
-        }
-
-        function update() {
-            if (comboTimer > 0) {
-                comboTimer--;
-            } else {
-                combo = 1;
-                comboVal.innerText = 'x1';
-            }
-
-            tools.forEach(tool => {
-                if (tool.type === 'spawner') {
-                    tool.cooldown++;
-                    if (tool.cooldown > 90) {
-                        let duck = createItem(tool.x, tool.y + 25, 'duck');
-                        duck.vy = 2;
-                        objects.push(duck);
-                        tool.cooldown = 0;
-                    }
-                }
-            });
-
-            for (let i = objects.length - 1; i >= 0; i--) {
-                let obj = objects[i];
-                if (obj === draggedObject) continue;
-
-                // Взаимодействие с инструментами
-                tools.forEach(tool => {
-                    let dx = obj.x - tool.x;
-                    let dy = obj.y - tool.y;
-                    let dist = Math.hypot(dx, dy);
-
-                    if (tool.type === 'fan' && dist < 200) {
-                        let angle = tool.angle || 0;
-                        let fx = Math.cos(angle);
-                        let fy = Math.sin(angle);
-                        let dot = (dx * fx + dy * fy) / dist;
-                        if (dot > 0.3) {
-                            let force = (1 - dist / 200) * 1.2;
-                            obj.vx += fx * force;
-                            obj.vy += fy * force;
-                        }
-                    }
-
-                    if (tool.type === 'magnet' && dist < 250) {
-                        let force = (1 - dist / 250) * 0.8;
-                        obj.vx -= (dx / dist) * force;
-                        obj.vy -= (dy / dist) * force;
-                    }
-
-                    if (tool.type === 'piston' && dist < obj.radius + 22) {
-                        obj.vx += (dx / dist || 1) * 8;
-                        obj.vy += (dy / dist || 1) * 8;
-                    }
-
-                    if (tool.type === 'launcher' && dist < obj.radius + 25) {
-                        let angle = tool.angle || 0;
-                        obj.vx = Math.cos(angle) * 18;
-                        obj.vy = Math.sin(angle) * 18;
-                    }
-
-                    if (tool.type === 'ramp') {
-                        let angle = tool.angle || 0;
-                        let cos = Math.cos(-angle);
-                        let sin = Math.sin(-angle);
-                        let rx = cos * dx - sin * dy;
-                        let ry = sin * dx + cos * dy;
-
-                        if (Math.abs(rx) < tool.length / 2 && Math.abs(ry) < obj.radius + 6) {
-                            obj.vx += Math.cos(angle) * 0.4;
-                            obj.vy += Math.sin(angle) * 0.4;
-                        }
-                    }
-                });
-
-                obj.x += obj.vx;
-                obj.y += obj.vy;
-                // Трение
-                obj.vx *= 0.96;
-                obj.vy *= 0.96;
-
-                // Всасывание Пастью
-                let distMaw = Math.hypot(obj.x - maw.x, obj.y - maw.y);
-                if (distMaw < maw.radius + 120) {
-                    let pull = (1 - distMaw / (maw.radius + 120)) * 0.6;
-                    obj.vx -= ((obj.x - maw.x) / distMaw) * pull;
-                    obj.vy -= ((obj.y - maw.y) / distMaw) * pull;
-                }
-
-                // Поглощение предмета
-                if (distMaw < maw.radius) {
-                    if (selectedItem === obj) deselectItem();
-                    balance += obj.value * combo;
-                    combo = Math.min(10, combo + 1);
-                    comboTimer = 180;
-                    balanceVal.innerText = balance;
-                    comboVal.innerText = 'x' + combo;
-                    objects.splice(i, 1);
-                }
-            }
-
-            itemsVal.innerText = objects.length;
-            if (selectedItem) updateMenuPosition();
-        }
-
-        function render() {
-            ctx.clearRect(0, 0, width, height);
-
-            ctx.save();
-            ctx.translate(width / 2, height / 2);
-            ctx.scale(camera.zoom, camera.zoom);
-            ctx.translate(-width / 2 + camera.x, -height / 2 + camera.y);
-
-            // Сетка
-            ctx.strokeStyle = 'rgba(46, 52, 64, 0.3)';
-            ctx.lineWidth = 1;
-            for (let x = -width; x < width * 2; x += 60) {
-                ctx.beginPath(); ctx.moveTo(x, -height); ctx.lineTo(x, height * 2); ctx.stroke();
-            }
-            for (let y = -height; y < height * 2; y += 60) {
-                ctx.beginPath(); ctx.moveTo(-width, y); ctx.lineTo(width * 2, y); ctx.stroke();
-            }
-
-            // Зона подметания метлы
-            if (activeTool === 'broom') {
-                ctx.beginPath();
-                ctx.arc(mousePos.x, mousePos.y, 90, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(136, 192, 208, 0.08)';
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(136, 192, 208, 0.3)';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            }
-
-            // Пасть (The Maw)
-            ctx.beginPath();
-            ctx.arc(maw.x, maw.y, maw.radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#050508';
-            ctx.fill();
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = '#bf616a';
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.arc(maw.x, maw.y, maw.radius + 12, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(191, 97, 106, 0.3)';
-            ctx.stroke();
-
-            // Инструменты и станки
-            tools.forEach(tool => {
-                ctx.save();
-                ctx.translate(tool.x, tool.y);
-
-                if (tool.type === 'manual_press') {
-                    ctx.fillStyle = '#ebcb8b';
-                    ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#2e3440';
-                    ctx.font = 'bold 16px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('🐥', 0, 0);
-                } else if (tool.type === 'spawner') {
-                    ctx.fillStyle = '#4c566a'; ctx.fillRect(-20, -20, 40, 20);
-                    ctx.fillStyle = '#a3be8c'; ctx.fillRect(-10, 0, 20, 10);
-                } else if (tool.type === 'fan') {
-                    ctx.rotate(tool.angle || 0);
-                    ctx.fillStyle = '#81a1c1'; ctx.fillRect(-15, -15, 30, 30);
-                    ctx.strokeStyle = '#eceff4'; ctx.beginPath();
-                    ctx.moveTo(0, 0); ctx.lineTo(140, -45); ctx.moveTo(0, 0); ctx.lineTo(140, 45); ctx.stroke();
-                } else if (tool.type === 'magnet') {
-                    ctx.fillStyle = '#bf616a'; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
-                } else if (tool.type === 'piston') {
-                    ctx.fillStyle = '#d08770'; ctx.fillRect(-20, -20, 40, 40);
-                } else if (tool.type === 'launcher') {
-                    ctx.rotate(tool.angle || 0);
-                    ctx.fillStyle = '#b48ead'; ctx.fillRect(-10, -15, 40, 30);
-                } else if (tool.type === 'ramp') {
-                    ctx.rotate(tool.angle || 0);
-                    ctx.fillStyle = '#434c5e'; ctx.fillRect(-tool.length / 2, -6, tool.length, 12);
-                }
-
-                ctx.restore();
-            });
-
-            // Предметы
-            objects.forEach(obj => {
-                ctx.save();
-                ctx.translate(obj.x, obj.y);
-                ctx.beginPath();
-                ctx.arc(0, 0, obj.radius, 0, Math.PI * 2);
-                ctx.fillStyle = obj.color;
-                ctx.fill();
-                ctx.strokeStyle = '#2e3440';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.restore();
-            });
-
-            // Подсветка выделенного элемента
-            if (selectedItem) {
-                ctx.save();
-                ctx.translate(selectedItem.x, selectedItem.y);
-                let r = selectedItem.radius || 30;
-                ctx.beginPath();
-                ctx.arc(0, 0, r + 6, 0, Math.PI * 2);
-                ctx.strokeStyle = '#88c0d0';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 4]);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            ctx.restore();
-        }
-
-        function loop() {
-            update();
-            render();
-            requestAnimationFrame(loop);
-        }
-
-        loop();
-    </script>
+    // Запуск цикла
+    animate();
+  </script>
 </body>
 </html>
