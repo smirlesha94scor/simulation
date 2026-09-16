@@ -197,7 +197,7 @@
         
         <div class="section-title">Производство</div>
         <div class="tool-grid">
-            <button class="btn active" data-tool="duck" data-price="5"><span>🦆 Уточка</span><span class="btn-price">$5</span></button>
+            <button class="btn active" data-tool="manual_press" data-price="0"><span>🐥 Ручной станок</span><span class="btn-price">$0</span></button>
             <button class="btn" data-tool="register" data-price="20"><span>📟 Касса</span><span class="btn-price">$20</span></button>
             <button class="btn" data-tool="pinata" data-price="50"><span>🪅 Пиньята</span><span class="btn-price">$50</span></button>
             <button class="btn" data-tool="spawner" data-price="150"><span>🏭 Спавнер</span><span class="btn-price">$150</span></button>
@@ -215,7 +215,8 @@
 
         <div class="section-title">Управление</div>
         <div class="instructions">
-            • <b>ЛКМ</b> — Купить / Разместить / Толкать<br>
+            • <b>ЛКМ на станок</b> — Создать уточку бесплатно<br>
+            • <b>ЛКМ по цеху</b> — Купить / Разместить / Толкать<br>
             • <b>Зажатый ПКМ</b> — Перемещение камеры<br>
             • <b>Колесо мыши</b> — Зум цеха<br>
             • <b>Alt + Колесо</b> — Поворот элемента<br>
@@ -228,7 +229,7 @@
     <div id="viewport-container">
         <canvas id="canvas"></canvas>
         <div class="stats-panel">
-            Баланс: $<span id="balance-val" class="balance-badge">100</span><br>
+            Баланс: $<span id="balance-val" class="balance-badge">0</span><br>
             Комбо: <span id="combo-val" class="combo-badge">x1</span><br>
             Предметов: <span id="items-val">0</span>
         </div>
@@ -248,14 +249,14 @@
         const container = document.getElementById('viewport-container');
 
         let width, height;
-        let activeTool = 'duck';
+        let activeTool = 'manual_press';
         let placeAngle = 0;
-        let balance = 100; // Стартовый баланс
+        let balance = 0; // Баланс равен 0 на старте
         let combo = 1;
         let comboTimer = 0;
 
         const PRICES = {
-            duck: 5,
+            manual_press: 0,
             register: 20,
             pinata: 50,
             spawner: 150,
@@ -268,7 +269,6 @@
         };
 
         let camera = { x: 0, y: 0, zoom: 1.0 };
-        const GRAVITY = 0.22;
 
         let objects = [];
         let tools = [];
@@ -276,7 +276,7 @@
         let panStart = { x: 0, y: 0 };
         let draggedObject = null;
 
-        // Статичная Пасть (The Maw) без пульсации
+        // Пасть (The Maw)
         let maw = { x: 0, y: 0, radius: 80 };
 
         function resize() {
@@ -288,7 +288,7 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Переключение инструментов
+        // Выбор инструментов
         document.querySelectorAll('.tool-grid .btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.tool-grid .btn').forEach(b => b.classList.remove('active'));
@@ -304,7 +304,7 @@
             comboVal.innerText = 'x1';
         });
 
-        // Масштабирование
+        // Настройки зума
         document.getElementById('zoom-in').addEventListener('click', () => { camera.zoom = Math.min(2.5, camera.zoom + 0.15); });
         document.getElementById('zoom-out').addEventListener('click', () => { camera.zoom = Math.max(0.4, camera.zoom - 0.15); });
         document.getElementById('zoom-reset').addEventListener('click', () => { camera.zoom = 1.0; camera.x = 0; camera.y = 0; });
@@ -367,12 +367,24 @@
             }
 
             if (e.button === 0) {
+                // Клик по ручному утиному станку
+                for (let tool of tools) {
+                    if (tool.type === 'manual_press' && Math.hypot(tool.x - wPos.x, tool.y - wPos.y) < 30) {
+                        let angle = Math.random() * Math.PI * 2;
+                        let duck = createItem(tool.x + Math.cos(angle) * 35, tool.y + Math.sin(angle) * 35, 'duck');
+                        duck.vx = Math.cos(angle) * 3;
+                        duck.vy = Math.sin(angle) * 3;
+                        objects.push(duck);
+                        return;
+                    }
+                }
+
                 if (activeTool === 'broom') {
                     objects.forEach(obj => {
                         let dist = Math.hypot(obj.x - wPos.x, obj.y - wPos.y);
                         if (dist < 100) {
                             obj.vx += (obj.x - wPos.x) * 0.15;
-                            obj.vy += (obj.y - wPos.y) * 0.15 - 2;
+                            obj.vy += (obj.y - wPos.y) * 0.15;
                         }
                     });
                     return;
@@ -398,10 +410,10 @@
 
         function spawnToolOrObject(x, y) {
             const price = PRICES[activeTool] || 0;
-            if (balance < price) return; // Проверка баланса
+            if (balance < price) return;
 
             let created = false;
-            if (activeTool === 'duck') { objects.push(createItem(x, y, 'duck')); created = true; }
+            if (activeTool === 'manual_press') { tools.push({ type: 'manual_press', x, y }); created = true; }
             else if (activeTool === 'register') { objects.push(createItem(x, y, 'register')); created = true; }
             else if (activeTool === 'pinata') { objects.push(createItem(x, y, 'pinata')); created = true; }
             else if (activeTool === 'spawner') { tools.push({ type: 'spawner', x, y, cooldown: 0 }); created = true; }
@@ -418,13 +430,12 @@
         }
 
         function createItem(x, y, type) {
-            let base = { x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, type };
+            let base = { x, y, vx: 0, vy: 0, type };
             if (type === 'duck') return { ...base, radius: 14, mass: 1.0, value: 10, color: '#ebcb8b' };
             if (type === 'register') return { ...base, radius: 18, mass: 2.2, value: 45, color: '#a3be8c' };
             if (type === 'pinata') return { ...base, radius: 22, mass: 1.5, value: 110, color: '#b48ead' };
         }
 
-        // Физика и логика игры
         function update() {
             if (comboTimer > 0) {
                 comboTimer--;
@@ -437,7 +448,9 @@
                 if (tool.type === 'spawner') {
                     tool.cooldown++;
                     if (tool.cooldown > 90) {
-                        objects.push(createItem(tool.x, tool.y + 20, 'duck'));
+                        let duck = createItem(tool.x, tool.y + 25, 'duck');
+                        duck.vy = 2;
+                        objects.push(duck);
                         tool.cooldown = 0;
                     }
                 }
@@ -447,8 +460,7 @@
                 let obj = objects[i];
                 if (obj === draggedObject) continue;
 
-                obj.vy += GRAVITY * obj.mass;
-
+                // Движение по плоскости с трением
                 tools.forEach(tool => {
                     let dx = obj.x - tool.x;
                     let dy = obj.y - tool.y;
@@ -472,8 +484,8 @@
                     }
 
                     if (tool.type === 'piston' && dist < obj.radius + 22) {
-                        obj.vy = -12;
-                        obj.vx += (Math.random() - 0.5) * 4;
+                        obj.vx += (dx / dist || 1) * 8;
+                        obj.vy += (dy / dist || 1) * 8;
                     }
 
                     if (tool.type === 'launcher' && dist < obj.radius + 25) {
@@ -488,29 +500,28 @@
                         let ry = sin * dx + cos * dy;
 
                         if (Math.abs(rx) < tool.length / 2 && Math.abs(ry) < obj.radius + 6) {
-                            if (ry > 0) {
-                                obj.y += (obj.radius + 6 - ry);
-                                obj.vy *= -0.3;
-                                obj.vx += Math.cos(tool.angle) * 0.3;
-                            }
+                            let pushDir = Math.cos(tool.angle);
+                            obj.vx += Math.cos(tool.angle) * 0.4;
+                            obj.vy += Math.sin(tool.angle) * 0.4;
                         }
                     }
                 });
 
                 obj.x += obj.vx;
                 obj.y += obj.vy;
-                obj.vx *= 0.98;
-                obj.vy *= 0.98;
+                // Трение на плоской поверхности
+                obj.vx *= 0.96;
+                obj.vy *= 0.96;
 
-                // Притяжение Maw
+                // Всасывание Пастью
                 let distMaw = Math.hypot(obj.x - maw.x, obj.y - maw.y);
                 if (distMaw < maw.radius + 120) {
-                    let pull = (1 - distMaw / (maw.radius + 120)) * 0.5;
+                    let pull = (1 - distMaw / (maw.radius + 120)) * 0.6;
                     obj.vx -= ((obj.x - maw.x) / distMaw) * pull;
                     obj.vy -= ((obj.y - maw.y) / distMaw) * pull;
                 }
 
-                // Поглощение предмета и пополнение баланса
+                // Поглощение предмета
                 if (distMaw < maw.radius) {
                     balance += obj.value * combo;
                     combo = Math.min(10, combo + 1);
@@ -524,7 +535,6 @@
             itemsVal.innerText = objects.length;
         }
 
-        // Отрисовка
         function render() {
             ctx.clearRect(0, 0, width, height);
 
@@ -533,7 +543,7 @@
             ctx.scale(camera.zoom, camera.zoom);
             ctx.translate(-width / 2 + camera.x, -height / 2 + camera.y);
 
-            // Сетка
+            // Сетка плоскости
             ctx.strokeStyle = 'rgba(46, 52, 64, 0.3)';
             ctx.lineWidth = 1;
             for (let x = -width; x < width * 2; x += 60) {
@@ -543,7 +553,7 @@
                 ctx.beginPath(); ctx.moveTo(-width, y); ctx.lineTo(width * 2, y); ctx.stroke();
             }
 
-            // Статичная Пасть без колебаний и пульсации
+            // Пасть (The Maw)
             ctx.beginPath();
             ctx.arc(maw.x, maw.y, maw.radius, 0, Math.PI * 2);
             ctx.fillStyle = '#050508';
@@ -557,12 +567,20 @@
             ctx.strokeStyle = 'rgba(191, 97, 106, 0.3)';
             ctx.stroke();
 
-            // Инструменты
+            // Инструменты и станки
             tools.forEach(tool => {
                 ctx.save();
                 ctx.translate(tool.x, tool.y);
 
-                if (tool.type === 'spawner') {
+                if (tool.type === 'manual_press') {
+                    ctx.fillStyle = '#ebcb8b';
+                    ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#2e3440';
+                    ctx.font = 'bold 16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🐥', 0, 0);
+                } else if (tool.type === 'spawner') {
                     ctx.fillStyle = '#4c566a'; ctx.fillRect(-20, -20, 40, 20);
                     ctx.fillStyle = '#a3be8c'; ctx.fillRect(-10, 0, 20, 10);
                 } else if (tool.type === 'fan') {
@@ -573,7 +591,7 @@
                 } else if (tool.type === 'magnet') {
                     ctx.fillStyle = '#bf616a'; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
                 } else if (tool.type === 'piston') {
-                    ctx.fillStyle = '#d08770'; ctx.fillRect(-25, -8, 50, 16);
+                    ctx.fillStyle = '#d08770'; ctx.fillRect(-20, -20, 40, 40);
                 } else if (tool.type === 'launcher') {
                     ctx.rotate(tool.angle);
                     ctx.fillStyle = '#b48ead'; ctx.fillRect(-10, -15, 40, 30);
@@ -585,7 +603,7 @@
                 ctx.restore();
             });
 
-            // Предметы
+            // Предметы на плоскости
             objects.forEach(obj => {
                 ctx.save();
                 ctx.translate(obj.x, obj.y);
@@ -598,6 +616,8 @@
                 ctx.stroke();
                 ctx.restore();
             });
+
+            
 
             ctx.restore();
         }
