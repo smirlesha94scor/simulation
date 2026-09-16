@@ -1,1717 +1,1173 @@
 <!DOCTYPE html>
-<html lang="ru" class="h-full bg-slate-950 text-slate-100 select-none">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Проект P.I.T.T. 2D: Корпоративная Бездна</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Google Fonts: Inter & JetBrains Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
-  
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            pit: {
-              dark: '#070a12',
-              panel: '#0f172a',
-              border: '#1e293b',
-              yellow: '#eab308',
-              accent: '#a855f7',
-              cyan: '#06b6d4'
-            }
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Проект P.I.T.T. 2D: Корпоративная Бездна</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background-color: #090d16;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         }
-      }
-    }
-  </script>
+        
+        .warning-stripe {
+            background: repeating-linear-gradient(
+                45deg,
+                #f59e0b,
+                #f59e0b 10px,
+                #000000 10px,
+                #000000 20px
+            );
+        }
 
-  <style>
-    body {
-      touch-action: manipulation;
-      overflow: hidden;
-    }
-    
-    canvas {
-      image-rendering: pixelated;
-    }
-
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.8);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(71, 85, 105, 0.6);
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(100, 116, 139, 0.9);
-    }
-
-    /* Caution stripes background pattern */
-    .bg-hazard {
-      background: repeating-linear-gradient(
-        -45deg,
-        #eab308,
-        #eab308 10px,
-        #090d16 10px,
-        #090d16 20px
-      );
-    }
-
-    /* Pulsing glow effect */
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.3); }
-      50% { box-shadow: 0 0 30px rgba(168, 85, 247, 0.7); }
-    }
-    .pit-glow {
-      animation: pulseGlow 3s infinite ease-in-out;
-    }
-  </style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
 </head>
-<body class="h-full flex flex-col font-sans bg-slate-950 text-slate-100 overflow-hidden select-none">
+<body class="h-screen w-screen flex flex-col text-slate-100">
 
-  <!-- TOP CORPORATE HUD HEADER -->
-  <header class="bg-slate-900/95 border-b border-slate-800 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 z-20 shrink-0 backdrop-blur shadow-xl">
-    
-    <!-- Brand Title & Station Info -->
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/20 border border-yellow-300 shrink-0">
-        <!-- SVG Duck Icon -->
-        <svg class="w-6 h-6 text-slate-950 fill-current" viewBox="0 0 24 24">
-          <path d="M12 3a4 4 0 0 0-4 4c0 .7.18 1.36.5 1.95A6.002 6.002 0 0 0 3 14a5 5 0 0 0 5 5h8a5 5 0 0 0 5-5c0-2.8-1.92-5.16-4.5-5.85C16.82 7.56 17 6.8 17 6a3 3 0 0 0-3-3h-2zm4 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
-          <path d="M21 9c-1 0-2 .5-2 1.5S20 12 21 12s2-.5 2-1.5S22 9 21 9z" fill="#f97316"/>
-        </svg>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="font-extrabold tracking-wider text-xs sm:text-sm text-yellow-400 uppercase font-mono">ПРОЕКТ P.I.T.T. 2D</h1>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold">ОБЪЕКТ-09</span>
+    <!-- ВЕРХНЯЯ ИНФОРМАЦИОННАЯ ПАНЕЛЬ (HUD) -->
+    <header class="bg-slate-900 border-b-2 border-slate-700 p-2 md:p-3 flex flex-wrap items-center justify-between gap-2 shadow-xl z-20">
+        <!-- Логотип и статус -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 md:w-10 md:h-10 warning-stripe rounded border border-amber-500/50 flex items-center justify-center font-black text-black text-lg">
+                P
+            </div>
+            <div>
+                <h1 class="font-bold text-sm md:text-base tracking-wider text-amber-400 uppercase">Project P.I.T.T. 2D</h1>
+                <p class="text-[10px] md:text-xs text-slate-400">Корпоративная Утроба v2.5</p>
+            </div>
         </div>
-        <p class="text-[11px] text-slate-400 font-mono hidden sm:block">СИСТЕМА УТИЛИЗАЦИИ КОРПОРАТИВНОЙ БЕЗДНЫ</p>
-      </div>
-    </div>
 
-    <!-- Live Indicators -->
-    <div class="flex items-center gap-2 sm:gap-4 font-mono text-xs">
-      <!-- Balance -->
-      <div class="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center gap-2 shadow-inner">
-        <span class="text-slate-400 text-[10px] sm:text-xs">БАЛАНС:</span>
-        <span id="stat-money" class="text-emerald-400 font-bold text-sm sm:text-base">$0</span>
-      </div>
-
-      <!-- Combo Multiplier with visual countdown timer bar -->
-      <div class="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center gap-2 shadow-inner relative overflow-hidden min-w-[95px]">
-        <div id="stat-combo-bar" class="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-yellow-500 to-amber-400 transition-all duration-75 w-0"></div>
-        <span class="text-slate-400 text-[10px] sm:text-xs">КОМБО:</span>
-        <span id="stat-combo" class="text-slate-400 font-bold text-sm sm:text-base">x1.0</span>
-      </div>
-
-      <!-- Pit Level Progress -->
-      <div class="hidden md:flex bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 items-center gap-2 shadow-inner">
-        <span class="text-slate-400 text-[10px]">СЫТОСТЬ БЕЗДНЫ:</span>
-        <div class="w-24 bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
-          <div id="stat-pit-bar" class="bg-purple-500 h-full w-0 transition-all duration-300"></div>
+        <!-- Корпоративный Баланс и Доход -->
+        <div class="flex items-center gap-4 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+            <div>
+                <div class="text-[10px] uppercase text-slate-400 font-semibold">Баланс Цеха</div>
+                <div id="stat-money" class="text-base md:text-xl font-bold text-emerald-400">$0</div>
+            </div>
+            <div class="w-px h-8 bg-slate-800"></div>
+            <div>
+                <div class="text-[10px] uppercase text-slate-400 font-semibold">Доход / сек</div>
+                <div id="stat-pps" class="text-xs md:text-sm font-semibold text-emerald-500/80">+$0/с</div>
+            </div>
         </div>
-        <span id="stat-pit-level" class="text-purple-300 font-bold text-xs">УР. 1</span>
-      </div>
+
+        <!-- Прогресс Уровня Бездны -->
+        <div class="flex-1 max-w-xs bg-slate-950 p-2 rounded-lg border border-slate-800 flex flex-col gap-1">
+            <div class="flex justify-between items-center text-xs">
+                <span class="font-bold text-purple-400 flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 fill-current text-purple-400" viewBox="0 0 24 24"><path d="M12 2A10 10 0 1 0 22 12 10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/></svg>
+                    Бездна Уровень <span id="pit-level">1</span>
+                </span>
+                <span id="pit-progress-text" class="text-[10px] text-slate-400">0 / 50 XP</span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div id="pit-progress-bar" class="bg-gradient-to-r from-purple-600 to-indigo-500 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Множитель Комбо -->
+        <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2">
+            <div>
+                <div class="text-[10px] uppercase text-slate-400 font-semibold">Комбо</div>
+                <div id="combo-mult" class="text-sm md:text-lg font-black text-amber-400">x1.0</div>
+            </div>
+            <div class="w-12 bg-slate-900 h-2 rounded-full overflow-hidden">
+                <div id="combo-bar" class="bg-amber-400 h-full w-0 transition-all duration-100"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ИГРОВАЯ ОБЛАСТЬ И ПАНЕЛЬ УПРАВЛЕНИЯ -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- CANVAS ХОЛСТ -->
+        <main class="flex-1 relative bg-slate-950 cursor-crosshair overflow-hidden">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Кнопки управления ЗУМОМ (внизу справа на холсте) -->
+            <div class="absolute bottom-4 right-4 flex flex-col gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-700 shadow-xl backdrop-blur">
+                <button id="btn-zoom-in" title="Приблизить" class="w-9 h-9 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded flex items-center justify-center text-slate-200 font-bold text-lg">
+                    +
+                </button>
+                <button id="btn-zoom-reset" title="Сбросить масштаб (100%)" class="w-9 h-7 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded flex items-center justify-center text-slate-400 font-mono text-xs">
+                    100%
+                </button>
+                <button id="btn-zoom-out" title="Отдалить" class="w-9 h-9 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded flex items-center justify-center text-slate-200 font-bold text-lg">
+                    -
+                </button>
+            </div>
+
+            <!-- Инструменты выбора / сноса (слева сверху на холсте) -->
+            <div class="absolute top-4 left-4 flex gap-2 bg-slate-900/90 p-1.5 rounded-lg border border-slate-700 shadow-xl backdrop-blur">
+                <button id="tool-select" title="Выбор и перетаскивание" class="px-3 py-1.5 bg-amber-500 text-slate-950 font-bold rounded text-xs flex items-center gap-1 transition-all">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2l12 11.2-5.8.5 3.3 7.3-2.2 1-3.2-7.4L5 18z"/></svg>
+                    Выбор
+                </button>
+                <button id="tool-demolish" title="Снести постройку (Возврат 75%)" class="px-3 py-1.5 bg-slate-800 hover:bg-red-950/80 hover:text-red-400 text-slate-300 font-bold rounded text-xs flex items-center gap-1 transition-all border border-transparent hover:border-red-600/50">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    Снос
+                </button>
+            </div>
+
+            <!-- КНОПКА РУЧНОГО ВЫПУСКА УТОК -->
+            <div class="absolute bottom-4 left-4 flex flex-col gap-1">
+                <button id="btn-manual-spawn" class="relative overflow-hidden bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black px-4 py-3 rounded-lg shadow-lg border-2 border-amber-300 flex items-center gap-2 uppercase text-xs md:text-sm tracking-wider transition-all">
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                     Выпустить Утку ($0)
+                    <div id="btn-cooldown-overlay" class="absolute inset-0 bg-slate-950/75 transition-all duration-75 w-0 pointer-events-none"></div>
+                </button>
+                <span class="text-[10px] text-slate-400 text-center font-mono">Перезарядка: <span id="cooldown-val">1.5</span>с</span>
+            </div>
+        </main>
+
+        <!-- БОКОВАЯ ПАНЕЛЬ СТРОИТЕЛЬСТВА И УЛУЧШЕНИЙ -->
+        <aside class="w-80 bg-slate-900 border-l-2 border-slate-700 flex flex-col z-10">
+            
+            <!-- Вкладки бокового меню -->
+            <div class="flex border-b border-slate-800 bg-slate-950">
+                <button id="tab-build" class="flex-1 py-2.5 text-xs font-bold text-amber-400 border-b-2 border-amber-400 uppercase tracking-wider">
+                    Магазин
+                </button>
+                <button id="tab-upgrades" class="flex-1 py-2.5 text-xs font-bold text-slate-400 border-b-2 border-transparent uppercase tracking-wider hover:text-slate-200">
+                    НИОКР (Улучшения)
+                </button>
+            </div>
+
+            <!-- Содержимое: Магазин построек -->
+            <div id="panel-build" class="flex-1 overflow-y-auto p-3 flex flex-col gap-3 custom-scrollbar">
+                
+                <!-- Категории построек -->
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-1">Конвейеры и Направление</div>
+                <div class="grid grid-cols-2 gap-2" id="group-conveyors">
+                    <!-- Заполняется динамически -->
+                </div>
+
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-1 pt-2">Механизмы и Элементы</div>
+                <div class="grid grid-cols-2 gap-2" id="group-mechanisms">
+                    <!-- Заполняется динамически -->
+                </div>
+
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-1 pt-2">Диспенсеры (Генераторы)</div>
+                <div class="grid grid-cols-1 gap-2" id="group-spawners">
+                    <!-- Заполняется динамически -->
+                </div>
+            </div>
+
+            <!-- Содержимое: Улучшения -->
+            <div id="panel-upgrades" class="flex-1 overflow-y-auto p-3 flex flex-col gap-2 custom-scrollbar hidden">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-1">Корпоративные Модификаторы</div>
+                <div id="upgrades-list" class="flex flex-col gap-2">
+                    <!-- Заполняется динамически -->
+                </div>
+            </div>
+
+            <!-- Справка / Статус цеха -->
+            <div class="p-3 bg-slate-950 border-t border-slate-800 text-[11px] text-slate-400 flex flex-col gap-1">
+                <div class="flex justify-between">
+                    <span>Уток на поле:</span>
+                    <span id="stat-ducks-count" class="font-bold text-slate-200">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Всего поглощено:</span>
+                    <span id="stat-total-eaten" class="font-bold text-purple-400">0</span>
+                </div>
+            </div>
+        </aside>
     </div>
 
-    <!-- Header Action Controls -->
-    <div class="flex items-center gap-2">
-      <button id="btn-help" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition text-xs font-mono font-bold border border-slate-700 flex items-center gap-1.5 shadow">
-        <svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-        <span class="hidden sm:inline">ИНСТРУКТАЖ</span>
-      </button>
-
-      <button id="btn-clear" class="px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-800/50 text-red-300 transition text-xs font-mono font-bold flex items-center gap-1">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-        <span>ОЧИСТКА</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN APP WORKSPACE -->
-  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-    
-    <!-- CANVAS DISPLAY AREA -->
-    <main class="flex-1 relative bg-slate-950 flex items-center justify-center overflow-hidden">
-      <canvas id="gameCanvas" class="w-full h-full block cursor-crosshair"></canvas>
-
-      <!-- MANUAL DUCK DISPENSER BUTTON -->
-      <div class="absolute bottom-4 left-4 z-10 flex items-center gap-2">
-        <button id="btn-manual-duck" class="group px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs sm:text-sm tracking-wide shadow-xl shadow-yellow-500/20 active:scale-95 transition-all flex items-center gap-2.5 border border-yellow-300">
-          <svg class="w-5 h-5 text-slate-950 fill-current group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
-            <path d="M12 3a4 4 0 0 0-4 4c0 .7.18 1.36.5 1.95A6.002 6.002 0 0 0 3 14a5 5 0 0 0 5 5h8a5 5 0 0 0 5-5c0-2.8-1.92-5.16-4.5-5.85C16.82 7.56 17 6.8 17 6a3 3 0 0 0-3-3h-2z"/>
-          </svg>
-          <span>ВЫПУСТИТЬ УТКУ</span>
-          <span class="text-[9px] bg-slate-950/20 px-1.5 py-0.5 rounded font-mono font-extrabold uppercase">БЕСПЛАТНО</span>
-        </button>
-      </div>
-
-      <!-- ACTIVE TOOL STATUS BADGE -->
-      <div class="absolute top-4 left-4 z-10 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-300 flex items-center gap-2 pointer-events-none backdrop-blur shadow-lg">
-        <span class="text-slate-500">ИНСТРУМЕНТ:</span>
-        <span id="active-tool-name" class="text-yellow-400 font-bold uppercase">РУКА / ВЫБОР</span>
-      </div>
-
-      <!-- ZOOM CONTROL OVERLAY -->
-      <div class="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl backdrop-blur shadow-lg font-mono text-xs select-none">
-        <button id="btn-zoom-out" title="Уменьшить масштаб" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center font-bold active:scale-95 transition border border-slate-700">-</button>
-        <span id="zoom-level-text" class="px-2 text-yellow-400 font-bold min-w-[45px] text-center">100%</span>
-        <button id="btn-zoom-in" title="Увеличить масштаб" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center font-bold active:scale-95 transition border border-slate-700">+</button>
-        <button id="btn-zoom-reset" title="Сбросить масштаб" class="px-2.5 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 font-bold active:scale-95 transition text-[10px] border border-slate-700">100%</button>
-      </div>
-    </main>
-
-    <!-- RIGHT SIDEBAR: AUTOMATION WORKSHOP & SHOP -->
-    <aside class="w-full lg:w-80 bg-slate-900/95 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col shrink-0 z-10 max-h-[45vh] lg:max-h-full overflow-hidden shadow-2xl backdrop-blur">
-      
-      <!-- Sidebar Title Header -->
-      <div class="p-3 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
-        <h2 class="font-bold text-xs uppercase tracking-wider text-slate-300 font-mono flex items-center gap-2">
-          <svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-          </svg>
-          <span>ЦЕХ АВТОМАТИЗАЦИИ</span>
-        </h2>
-        <span id="intern-rank" class="text-[10px] font-mono px-2 py-0.5 bg-purple-950/80 text-purple-300 rounded border border-purple-800/50 font-bold uppercase">МЛАДШИЙ СТАЖЕР</span>
-      </div>
-
-      <!-- Workshop Shop Navigation Tabs -->
-      <div class="flex border-b border-slate-800 font-mono text-xs bg-slate-950/40">
-        <button id="tab-build" class="flex-1 py-2.5 text-center border-b-2 border-yellow-400 text-yellow-400 font-bold bg-slate-800/50">МЕХАНИЗМЫ</button>
-        <button id="tab-spawners" class="flex-1 py-2.5 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200">ДИСПЕНСЕРЫ</button>
-        <button id="tab-upgrades" class="flex-1 py-2.5 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200">УЛУЧШЕНИЯ</button>
-      </div>
-
-      <!-- Shop Content Container -->
-      <div id="shop-content" class="flex-1 overflow-y-auto p-3 space-y-2">
-        <!-- Rendered dynamically by JS -->
-      </div>
-
-      <!-- Footer Statistics -->
-      <div class="p-3 border-t border-slate-800 bg-slate-950/90 text-[11px] font-mono text-slate-400 flex justify-between items-center shrink-0">
-        <span>СКАРМЛИВАНО: <strong id="stat-ducks-fed" class="text-slate-100">0</strong></span>
-        <span>ДОХОД: <strong id="stat-dps" class="text-emerald-400">$0/сек</strong></span>
-      </div>
-    </aside>
-  </div>
-
-  <!-- HELP MODAL DIALOG -->
-  <div id="modal-help" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative space-y-4">
-      <button id="btn-close-help" class="absolute top-4 right-4 text-slate-400 hover:text-slate-100 font-mono text-lg p-1">✕</button>
-      
-      <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
-          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
+    <!-- УВЕДОМЛЕНИЕ О ПОВЫШЕНИИ УРОВНЯ (POPUP) -->
+    <div id="level-up-toast" class="fixed top-16 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-900 via-slate-900 to-purple-900 border-2 border-purple-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 transition-all duration-500 opacity-0 pointer-events-none transform -translate-y-4 flex items-center gap-3">
+        <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center font-black text-xl shadow-lg">
+            ↑
         </div>
         <div>
-          <h3 class="font-extrabold text-slate-100 text-base sm:text-lg">Инструктаж Стажера P.I.T.T.</h3>
-          <p class="text-xs text-amber-400 font-mono uppercase">Регламент Утилизации Объектов</p>
+            <div class="font-black text-amber-400 text-sm uppercase">Уровень Бездны Повышен!</div>
+            <div id="level-up-msg" class="text-xs text-purple-200">Открыты новые технологии в магазине.</div>
         </div>
-      </div>
-
-      <div class="space-y-3 text-xs text-slate-300 leading-relaxed font-sans">
-        <p>Ваша основная цель: <strong>Создавать уток и направлять их в Корпоративную Бездну (P.I.T.T.) в центре цеха!</strong></p>
-        
-        <div class="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-[11px]">
-          <div class="flex items-start gap-2">
-            <span class="text-yellow-400 font-bold shrink-0">🖐️ Рука:</span>
-            <span>Захватывайте и швыряйте уток мышкой или пальцем.</span>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="text-yellow-400 font-bold shrink-0">➔ Конвейер:</span>
-            <span>Автоматически перемещает предметы в заданном направлении.</span>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="text-purple-400 font-bold shrink-0">⚡ Ворота:</span>
-            <span>Трансмутируют уток в более дорогие версии (Золото ➔ Кибер ➔ Квант).</span>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="text-red-400 font-bold shrink-0">🚀 Трамплин:</span>
-            <span>Выстреливает предметы прямо в яму на высокой скорости.</span>
-          </div>
-          <div class="flex items-start gap-2">
-            <span class="text-emerald-400 font-bold shrink-0">🏭 Диспенсер:</span>
-            <span>Автоматически спавнит уток для пассивного заработка.</span>
-          </div>
-        </div>
-
-        <p class="text-slate-400 italic text-[11px] border-l-2 border-amber-500/50 pl-2">
-          «Непрерывное поглощение предметов поддерживают стабильность корпоративного сингуляра.» — Директорат
-        </p>
-      </div>
-
-      <button id="btn-start-playing" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/20 border border-yellow-300">
-        ПОТЕРТЬ РУКИ И ПРИСТУПИТЬ
-      </button>
     </div>
-  </div>
 
-  <script>
-    /* ==========================================================================
-       1. ITEM TYPES & BUILDING DEFINITIONS WITH PROGRESSIVE UNLOCKS
-       ========================================================================== */
+    <!-- ИГРОВОЙ СКРИПТ -->
+    <script>
+        // ====================================================================
+        // 1. КОНФИГУРАЦИЯ И СОСТОЯНИЕ ИГРЫ
+        // ====================================================================
+        const CELL_SIZE = 60;
+        const GRID_WIDTH = 40;
+        const GRID_HEIGHT = 30;
 
-    // Clean inline SVG strings for tool cards & icons
-    const SVG_ICONS = {
-      HAND: `<svg class="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v7M10 10.5V2a2 2 0 0 0-4 0v11M18 11a2 2 0 0 1 4 0v5a7 7 0 0 1-7 7h-2a7 7 0 0 1-5-2l-4-4 1.5-1.5a2 2 0 0 1 2.8 0L10 18"></path></svg>`,
-      CONVEYOR_RIGHT: `<svg class="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>`,
-      CONVEYOR_LEFT: `<svg class="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 19l-7-7 7-7"></path></svg>`,
-      CONVEYOR_UP: `<svg class="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>`,
-      CONVEYOR_DOWN: `<svg class="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"></path></svg>`,
-      UPGRADER: `<svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
-      LAUNCHER: `<svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path></svg>`,
-      MAGNET: `<svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15v-3a6 6 0 1 1 12 0v3M6 15h4M14 15h4M6 18h4M14 18h4"></path></svg>`,
-      FAN: `<svg class="w-5 h-5 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 12c2-3 5-2 5 0s-3 5-5 0c-3 2-2 5 0 5s5-3 0-5c2 3 5 2 5 0s-3-5-5 0"></path></svg>`,
-      PRESS: `<svg class="w-5 h-5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="5" rx="1"></rect><path d="M12 8v7M8 15h8v4H8z"></path></svg>`,
-      BUMPER: `<svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v8M8 12h8"></path></svg>`,
-      PORTAL_IN: `<svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v10M9 10l3-3 3 3"></path></svg>`,
-      PORTAL_OUT: `<svg class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 17V7M9 14l3 3 3-3"></path></svg>`,
-      SPLITTER: `<svg class="w-5 h-5 text-pink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V11M12 11L6 5M12 11l6-6"></path></svg>`,
-      DEMOLISH: `<svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
-      FACTORY: `<svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4H2v16z"></path></svg>`,
-      LOCK: `<svg class="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
-    };
-
-    // Item Types Definition
-    const DUCK_TYPES = {
-      YELLOW: {
-        id: 'YELLOW',
-        name: 'Стандартная уточка',
-        value: 5,
-        color: '#facc15',
-        beakColor: '#f97316',
-        radius: 15,
-        mass: 1.0
-      },
-      GOLD: {
-        id: 'GOLD',
-        name: 'Золотая уточка',
-        value: 40,
-        color: '#fbbf24',
-        beakColor: '#d97706',
-        radius: 17,
-        mass: 1.2
-      },
-      CYBER: {
-        id: 'CYBER',
-        name: 'Кибер-уточка',
-        value: 250,
-        color: '#06b6d4',
-        beakColor: '#3b82f6',
-        radius: 16,
-        mass: 0.9
-      },
-      BOMB: {
-        id: 'BOMB',
-        name: 'Взрывная уточка',
-        value: 1200,
-        color: '#ef4444',
-        beakColor: '#991b1b',
-        radius: 19,
-        mass: 2.0
-      },
-      QUANTUM: {
-        id: 'QUANTUM',
-        name: 'Квантовое Ядро',
-        value: 8000,
-        color: '#a855f7',
-        beakColor: '#ec4899',
-        radius: 15,
-        mass: 0.7
-      },
-      ANTIMATTER: {
-        id: 'ANTIMATTER',
-        name: 'Антиматерия',
-        value: 50000,
-        color: '#38bdf8',
-        beakColor: '#1e1b4b',
-        radius: 14,
-        mass: 0.5
-      },
-      DIAMOND: {
-        id: 'DIAMOND',
-        name: 'Алмазная уточка',
-        value: 250000,
-        color: '#67e8f9',
-        beakColor: '#0284c7',
-        radius: 18,
-        mass: 1.5
-      },
-      SINGULARITY: {
-        id: 'SINGULARITY',
-        name: 'Сингулярность',
-        value: 1000000,
-        color: '#f43f5e',
-        beakColor: '#881337',
-        radius: 20,
-        mass: 0.3
-      }
-    };
-
-    // Building Specs Definition with minLevel progression
-    const BUILDING_TYPES = {
-      SELECT: { id: 'SELECT', name: 'Рука / Выбор', cost: 0, minLevel: 1, svg: SVG_ICONS.HAND },
-      CONVEYOR_RIGHT: { id: 'CONVEYOR_RIGHT', name: 'Конвейер (Вправо)', cost: 15, minLevel: 1, type: 'conveyor', dir: { x: 1, y: 0 }, svg: SVG_ICONS.CONVEYOR_RIGHT },
-      CONVEYOR_DOWN:  { id: 'CONVEYOR_DOWN',  name: 'Конвейер (Вниз)',   cost: 15, minLevel: 1, type: 'conveyor', dir: { x: 0, y: 1 }, svg: SVG_ICONS.CONVEYOR_DOWN },
-      CONVEYOR_LEFT:  { id: 'CONVEYOR_LEFT',  name: 'Конвейер (Влево)',  cost: 15, minLevel: 2, type: 'conveyor', dir: { x: -1, y: 0 }, svg: SVG_ICONS.CONVEYOR_LEFT },
-      CONVEYOR_UP:    { id: 'CONVEYOR_UP',    name: 'Конвейер (Вверх)',  cost: 15, minLevel: 2, type: 'conveyor', dir: { x: 0, y: -1 }, svg: SVG_ICONS.CONVEYOR_UP },
-      
-      // FAN / VENTILATOR BUILDINGS
-      FAN_RIGHT:      { id: 'FAN_RIGHT',      name: 'Вентилятор (Вправо)', cost: 45, minLevel: 2, type: 'fan', dir: { x: 1, y: 0 }, svg: SVG_ICONS.FAN },
-      FAN_DOWN:       { id: 'FAN_DOWN',       name: 'Вентилятор (Вниз)',   cost: 45, minLevel: 2, type: 'fan', dir: { x: 0, y: 1 }, svg: SVG_ICONS.FAN },
-      FAN_LEFT:       { id: 'FAN_LEFT',       name: 'Вентилятор (Влево)',  cost: 45, minLevel: 2, type: 'fan', dir: { x: -1, y: 0 }, svg: SVG_ICONS.FAN },
-      FAN_UP:         { id: 'FAN_UP',         name: 'Вентилятор (Вверх)',  cost: 45, minLevel: 2, type: 'fan', dir: { x: 0, y: -1 }, svg: SVG_ICONS.FAN },
-
-      PRESS:          { id: 'PRESS',          name: 'Гидравлический Пресс (2x)', cost: 100, minLevel: 3, type: 'press', svg: SVG_ICONS.PRESS },
-      BUMPER:         { id: 'BUMPER',         name: 'Пинбол-Отбойник', cost: 75, minLevel: 2, type: 'bumper', svg: SVG_ICONS.BUMPER },
-      PORTAL_IN:      { id: 'PORTAL_IN',      name: 'Портал (Вход)', cost: 200, minLevel: 4, type: 'portal_in', svg: SVG_ICONS.PORTAL_IN },
-      PORTAL_OUT:     { id: 'PORTAL_OUT',     name: 'Портал (Выход)', cost: 200, minLevel: 4, type: 'portal_out', svg: SVG_ICONS.PORTAL_OUT },
-      SPLITTER:       { id: 'SPLITTER',       name: 'Разделитель потока', cost: 90, minLevel: 3, type: 'splitter', svg: SVG_ICONS.SPLITTER },
-
-      LAUNCHER:       { id: 'LAUNCHER',       name: 'Разгонный Трамплин', cost: 60, minLevel: 2, type: 'launcher', svg: SVG_ICONS.LAUNCHER },
-      UPGRADER:       { id: 'UPGRADER',       name: 'Ворота Трансмутации', cost: 120, minLevel: 3, type: 'upgrader', svg: SVG_ICONS.UPGRADER },
-      MAGNET:         { id: 'MAGNET',         name: 'Магнит Бездны', cost: 180, minLevel: 4, type: 'magnet', svg: SVG_ICONS.MAGNET },
-      
-      SPAWNER_YELLOW: { id: 'SPAWNER_YELLOW', name: 'Стандарт Диспенсер', cost: 80, minLevel: 1, type: 'spawner', duckType: 'YELLOW', rate: 1.6, svg: SVG_ICONS.FACTORY },
-      SPAWNER_GOLD:   { id: 'SPAWNER_GOLD',   name: 'Золотой Диспенсер', cost: 500, minLevel: 3, type: 'spawner', duckType: 'GOLD', rate: 2.2, svg: SVG_ICONS.FACTORY },
-      SPAWNER_CYBER:  { id: 'SPAWNER_CYBER',  name: 'Кибер Диспенсер', cost: 3000, minLevel: 5, type: 'spawner', duckType: 'CYBER', rate: 2.8, svg: SVG_ICONS.FACTORY },
-      SPAWNER_BOMB:   { id: 'SPAWNER_BOMB',   name: 'Взрывной Диспенсер', cost: 12000, minLevel: 6, type: 'spawner', duckType: 'BOMB', rate: 3.5, svg: SVG_ICONS.FACTORY },
-      
-      DEMOLISH:       { id: 'DEMOLISH',       name: 'Демонтаж', cost: 0, minLevel: 1, type: 'demolish', svg: SVG_ICONS.DEMOLISH }
-    };
-
-    // Global Game State
-    const gameState = {
-      money: 0,
-      totalDucksFed: 0,
-      activeTool: 'SELECT',
-      zoom: 1.0,
-      minZoom: 0.5,
-      maxZoom: 2.2,
-      
-      pit: {
-        x: 0,
-        y: 0,
-        baseRadius: 60,
-        radius: 60,
-        satiety: 0,
-        satietyMax: 100,
-        level: 1,
-        combo: 1.0,
-        comboTimer: 0,
-        maxComboTimer: 2.5
-      },
-
-      earnings: 0,
-      lastEarningsCheck: Date.now(),
-      dps: 0,
-
-      upgrades: {
-        conveyorSpeed: 1,
-        pitGrav: 1,
-        fanPower: 1,
-        pressMultiplier: 2.0,
-        valueMultiplier: 1.0
-      },
-
-      ducks: [],
-      buildings: [],
-      particles: [],
-      popups: [],
-
-      draggedDuck: null,
-      lastMousePos: { x: 0, y: 0 },
-      mouseVel: { x: 0, y: 0 },
-      
-      gridSize: 40
-    };
-  </script>
-
-  <script>
-    /* ==========================================================================
-       3. PHYSICS & RENDER ENTITIES
-       ========================================================================== */
-
-    class Particle {
-      constructor(x, y, vx, vy, color, size, life) {
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
-        this.color = color;
-        this.size = size;
-        this.life = life;
-        this.maxLife = life;
-      }
-
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.95;
-        this.vy *= 0.95;
-        this.life--;
-      }
-
-      draw(ctx) {
-        const alpha = Math.max(0, this.life / this.maxLife);
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    class PopupText {
-      constructor(x, y, text, color = '#facc15') {
-        this.x = x;
-        this.y = y;
-        this.text = text;
-        this.color = color;
-        this.life = 45;
-        this.maxLife = 45;
-      }
-
-      update() {
-        this.y -= 1.0;
-        this.life--;
-      }
-
-      draw(ctx) {
-        const alpha = Math.max(0, this.life / this.maxLife);
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.font = '800 13px "JetBrains Mono", monospace';
-        ctx.fillStyle = this.color;
-        ctx.strokeStyle = '#070a12';
-        ctx.lineWidth = 3;
-        ctx.strokeText(this.text, this.x, this.y);
-        ctx.fillText(this.text, this.x, this.y);
-        ctx.restore();
-      }
-    }
-
-    class Duck {
-      constructor(x, y, typeKey = 'YELLOW') {
-        this.id = Math.random().toString(36).substr(2, 9);
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = (Math.random() - 0.5) * 2;
-        this.typeKey = typeKey;
-        this.config = DUCK_TYPES[typeKey] || DUCK_TYPES.YELLOW;
-        
-        this.radius = this.config.radius;
-        this.mass = this.config.mass;
-        this.rotation = Math.random() * Math.PI * 2;
-        this.rotSpeed = (Math.random() - 0.5) * 0.04;
-        this.isBeingDragged = false;
-        
-        this.value = this.config.value;
-        this.scale = 1.0;
-        this.pressed = false; // Has been pressed by Hydraulic Press
-        this.portalCooldown = 0;
-      }
-
-      update(width, height) {
-        if (this.portalCooldown > 0) this.portalCooldown--;
-        if (this.isBeingDragged) return;
-
-        this.vx *= 0.98;
-        this.vy *= 0.98;
-
-        this.x += this.vx;
-        this.y += this.vy;
-        this.rotation += this.rotSpeed;
-
-        // Bounce against viewport boundaries
-        if (this.x - this.radius < 0) {
-          this.x = this.radius;
-          this.vx *= -0.7;
-        } else if (this.x + this.radius > width) {
-          this.x = width - this.radius;
-          this.vx *= -0.7;
-        }
-
-        if (this.y - this.radius < 0) {
-          this.y = this.radius;
-          this.vy *= -0.7;
-        } else if (this.y + this.radius > height) {
-          this.y = height - this.radius;
-          this.vy *= -0.7;
-        }
-      }
-
-      upgradeTo(newTypeKey) {
-        if (this.typeKey === newTypeKey) return;
-        this.typeKey = newTypeKey;
-        this.config = DUCK_TYPES[newTypeKey];
-        this.value = this.config.value * (this.pressed ? gameState.upgrades.pressMultiplier : 1.0) * gameState.upgrades.valueMultiplier;
-        
-        for (let i = 0; i < 12; i++) {
-          gameState.particles.push(new Particle(
-            this.x, this.y,
-            (Math.random() - 0.5) * 5,
-            (Math.random() - 0.5) * 5,
-            this.config.color,
-            4, 30
-          ));
-        }
-      }
-
-      draw(ctx) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotation);
-        
-        // Flatten duck slightly if pressed by Hydraulic Press
-        const scaleY = this.pressed ? 0.65 : 1.0;
-        ctx.scale(this.scale, this.scale * scaleY);
-
-        const r = this.radius;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(2, r * 0.6, r * 0.85, r * 0.4, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Main Body
-        ctx.fillStyle = this.config.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#070a12';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Head
-        ctx.beginPath();
-        ctx.arc(r * 0.4, -r * 0.3, r * 0.55, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Beak
-        ctx.fillStyle = this.config.beakColor;
-        ctx.beginPath();
-        ctx.ellipse(r * 0.85, -r * 0.25, r * 0.32, r * 0.18, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Eye
-        ctx.fillStyle = '#070a12';
-        ctx.beginPath();
-        ctx.arc(r * 0.55, -r * 0.45, r * 0.11, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Special details per type
-        if (this.typeKey === 'CYBER') {
-          ctx.strokeStyle = '#67e8f9';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(-r * 0.5, 0);
-          ctx.lineTo(r * 0.2, 0);
-          ctx.stroke();
-        } else if (this.typeKey === 'BOMB') {
-          ctx.fillStyle = '#f97316';
-          ctx.beginPath();
-          ctx.arc(0, -r * 0.8, 3, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (this.typeKey === 'QUANTUM') {
-          ctx.strokeStyle = '#e879f9';
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(-r * 0.4, -r * 0.4, r * 0.8, r * 0.8);
-        } else if (this.typeKey === 'DIAMOND') {
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(0, -r * 0.6);
-          ctx.lineTo(r * 0.5, 0);
-          ctx.lineTo(0, r * 0.6);
-          ctx.lineTo(-r * 0.5, 0);
-          ctx.closePath();
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      }
-    }
-
-    class Building {
-      constructor(gridX, gridY, configKey) {
-        this.gridX = gridX;
-        this.gridY = gridY;
-        this.configKey = configKey;
-        this.config = BUILDING_TYPES[configKey];
-        this.timer = 0;
-        this.animFrame = 0;
-        this.fanAngle = 0;
-        this.splitterState = 0; // 0 or 1 for alternating output
-      }
-
-      getPixelPos(gridSize) {
-        return {
-          x: this.gridX * gridSize + gridSize / 2,
-          y: this.gridY * gridSize + gridSize / 2
-        };
-      }
-
-      update(dt) {
-        this.animFrame += dt * 6;
-
-        if (this.config.type === 'fan') {
-          this.fanAngle += dt * 15;
-        } else if (this.config.type === 'spawner') {
-          this.timer += dt;
-          if (this.timer >= this.config.rate) {
-            this.timer = 0;
-            const pos = this.getPixelPos(gameState.gridSize);
-            const newDuck = new Duck(pos.x, pos.y, this.config.duckType);
-            newDuck.vx = (Math.random() - 0.5) * 3;
-            newDuck.vy = (Math.random() - 0.5) * 3;
-            gameState.ducks.push(newDuck);
+        const state = {
+            money: 0,
+            pitLevel: 1,
+            pitProgress: 0,
+            pitMaxProgress: 50,
+            combo: 1.0,
+            comboTimer: 0,
+            comboCount: 0,
+            totalEaten: 0,
+            pps: 0, // profit per second
+            lastManualSpawn: 0,
+            manualCooldown: 1.5,
             
-            gameState.particles.push(new Particle(pos.x, pos.y, 0, -1, '#facc15', 3, 15));
-          }
+            // Камера / Зум
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            isDraggingCanvas: false,
+            dragStartX: 0,
+            dragStartY: 0,
+
+            // Активный инструмент / постройка
+            activeTool: 'select', // 'select', 'demolish', 'build'
+            selectedBuildingType: null,
+
+            // Улучшения
+            upgrades: {
+                fan_power: { level: 1, max: 5, cost: 150, name: 'Мощность Вентиляторов', desc: 'Увеличивает радиус сдувания уток' },
+                crusher_mult: { level: 1, max: 5, cost: 300, name: 'Пресс X-Force', desc: 'Увеличивает множитель гидравлического пресса' },
+                spawner_speed: { level: 1, max: 5, cost: 250, name: 'Автоматика Спавнера', desc: 'Ускоряет появление уток на 15%' },
+                combo_time: { level: 1, max: 5, cost: 100, name: 'Стабилизатор Комбо', desc: 'Удерживает комбо-множитель дольше' },
+                manual_cd: { level: 1, max: 5, cost: 80, name: 'Быстрый Ручной Спуск', desc: 'Снижает перезарядку ручной кнопки' }
+            }
+        };
+
+        // БЕЗДНА (Центр карты)
+        const PIT = {
+            x: (GRID_WIDTH * CELL_SIZE) / 2,
+            y: (GRID_HEIGHT * CELL_SIZE) / 2,
+            baseRadius: 65,
+            gravityRadiusMultiplier: 2.6
+        };
+
+        // ТИПЫ УТОК И ИХ ХАРАКТЕРИСТИКИ
+        const DUCK_TYPES = {
+            basic: { name: 'Обычная Утка', color: '#facc15', value: 5, radius: 14, xp: 5 },
+            gold: { name: 'Золотая Утка', color: '#eab308', value: 40, radius: 16, xp: 20 },
+            cyber: { name: 'Кибер-Утка', color: '#06b6d4', value: 250, radius: 17, xp: 80 },
+            explosive: { name: 'Взрывная Утка', color: '#ef4444', value: 1200, radius: 18, xp: 300 },
+            quantum: { name: 'Квантовое Ядро', color: '#a855f7', value: 8000, radius: 20, xp: 1500 },
+            antimatter: { name: 'Антиматерия', color: '#3b82f6', value: 50000, radius: 22, xp: 8000 }
+        };
+
+        // КАТАЛОГ ПОСТРОЕК С МИНИМАЛЬНЫМ УРОВНЕМ ДЛЯ РАЗБЛОКИРОВКИ
+        const BUILDINGS = {
+            // Конвейеры
+            conveyor_r: { category: 'conveyors', name: 'Конвейер (Вправо)', cost: 10, minLevel: 1, dir: 'r', iconSVG: '<path d="M4 12h16m-6-6l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' },
+            conveyor_d: { category: 'conveyors', name: 'Конвейер (Вниз)', cost: 10, minLevel: 1, dir: 'd', iconSVG: '<path d="M12 4v16m-6-6l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' },
+            conveyor_l: { category: 'conveyors', name: 'Конвейер (Влево)', cost: 10, minLevel: 2, dir: 'l', iconSVG: '<path d="M20 12H4m6-6l-6 6 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' },
+            conveyor_u: { category: 'conveyors', name: 'Конвейер (Вверх)', cost: 10, minLevel: 2, dir: 'u', iconSVG: '<path d="M12 20V4m-6 6l6-6 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>' },
+
+            // Механизмы
+            splitter: { category: 'mechanisms', name: 'Разделитель Потока', cost: 75, minLevel: 2, desc: 'Поочередно направляет уток влево и вправо', iconSVG: '<path d="M6 18l6-6 6 6M6 6l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none"/>' },
+            fan_r: { category: 'mechanisms', name: 'Вентилятор (Вправо)', cost: 120, minLevel: 3, dir: 'r', desc: 'Сдувает уток потоком воздуха', iconSVG: '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 12l4-4M12 12l-4 4M12 12l4 4M12 12l-4-4" stroke="currentColor" stroke-width="2"/>' },
+            bumper: { category: 'mechanisms', name: 'Отбойник (Пинбол)', cost: 90, minLevel: 3, desc: 'Отталкивает уток с высокой скоростью', iconSVG: '<circle cx="12" cy="12" r="7" fill="currentColor"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/>' },
+            crusher: { category: 'mechanisms', name: 'Гидравлический Пресс', cost: 350, minLevel: 4, desc: 'Сжимает утку, удваивая ее стоимость', iconSVG: '<path d="M4 4h16v4H4zm2 8h12v8H6z" fill="currentColor"/>' },
+            booster: { category: 'mechanisms', name: 'Разгонный Трамплин', cost: 180, minLevel: 4, desc: 'Выстреливает уток прямо в Яму', iconSVG: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>' },
+            upgrader_gate: { category: 'mechanisms', name: 'Ворота Мутации', cost: 500, minLevel: 4, desc: 'Превращает уток в более ценный вид', iconSVG: '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" fill="none"/>' },
+            teleport_in: { category: 'mechanisms', name: 'Портал (Вход)', cost: 400, minLevel: 5, portalType: 'in', iconSVG: '<circle cx="12" cy="12" r="8" stroke="#3b82f6" stroke-width="3" fill="none"/>' },
+            teleport_out: { category: 'mechanisms', name: 'Портал (Выход)', cost: 400, minLevel: 5, portalType: 'out', iconSVG: '<circle cx="12" cy="12" r="8" stroke="#f97316" stroke-width="3" fill="none"/>' },
+            magnet: { category: 'mechanisms', name: 'Магнит Бездны', cost: 650, minLevel: 5, desc: 'Притягивает уток в радиусе', iconSVG: '<path d="M6 4v8a6 6 0 0012 0V4h-4v8a2 2 0 01-4 0V4H6z" fill="currentColor"/>' },
+
+            // Диспенсеры (Спавнеры)
+            spawner_basic: { category: 'spawners', name: 'Базовый Диспенсер', cost: 50, minLevel: 2, duckType: 'basic', spawnInterval: 3.0, iconSVG: '<rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4" fill="#facc15"/>' },
+            spawner_gold: { category: 'spawners', name: 'Золотой Диспенсер', cost: 300, minLevel: 3, duckType: 'gold', spawnInterval: 4.0, iconSVG: '<rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4" fill="#eab308"/>' },
+            spawner_cyber: { category: 'spawners', name: 'Кибер Диспенсер', cost: 1500, minLevel: 5, duckType: 'cyber', spawnInterval: 5.0, iconSVG: '<rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4" fill="#06b6d4"/>' },
+            spawner_explosive: { category: 'spawners', name: 'Взрывной Диспенсер', cost: 6000, minLevel: 6, duckType: 'explosive', spawnInterval: 6.0, iconSVG: '<rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4" fill="#ef4444"/>' },
+            spawner_quantum: { category: 'spawners', name: 'Квантовый Диспенсер', cost: 25000, minLevel: 7, duckType: 'quantum', spawnInterval: 7.5, iconSVG: '<rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4" fill="#a855f7"/>' }
+        };
+
+        // МАССИВЫ ОБЪЕКТОВ
+        let ducks = [];
+        let buildingsMap = new Map(); // key: "gx,gy" -> building
+        let particles = [];
+        let floatingTexts = [];
+
+        // ИНИЦИАЛИЗАЦИЯ CANVAS
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
         }
-      }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-      draw(ctx, gridSize) {
-        const pos = this.getPixelPos(gridSize);
-        const x = this.gridX * gridSize;
-        const y = this.gridY * gridSize;
+        // Центрирование камеры при запуске
+        state.panX = canvas.width / 2 - PIT.x;
+        state.panY = canvas.height / 2 - PIT.y;
 
-        ctx.save();
-
-        // Tile base background
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(x + 1, y + 1, gridSize - 2, gridSize - 2);
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x + 1, y + 1, gridSize - 2, gridSize - 2);
-
-        if (this.config.type === 'conveyor') {
-          ctx.fillStyle = '#0f172a';
-          ctx.fillRect(x + 3, y + 3, gridSize - 6, gridSize - 6);
-
-          // Animated belt lines
-          ctx.strokeStyle = '#eab308';
-          ctx.lineWidth = 2;
-          const offset = (this.animFrame * 3) % 10;
-          ctx.beginPath();
-          if (this.config.dir.x !== 0) {
-            for (let i = -10; i < gridSize + 10; i += 10) {
-              const lx = x + i + (this.config.dir.x * offset);
-              ctx.moveTo(lx, y + 5);
-              ctx.lineTo(lx, y + gridSize - 5);
-            }
-          } else {
-            for (let i = -10; i < gridSize + 10; i += 10) {
-              const ly = y + i + (this.config.dir.y * offset);
-              ctx.moveTo(x + 5, ly);
-              ctx.lineTo(x + gridSize - 5, ly);
-            }
-          }
-          ctx.stroke();
-
-        } else if (this.config.type === 'fan') {
-          // VENTILATOR DRAWING
-          ctx.fillStyle = '#0f172a';
-          ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-          ctx.strokeStyle = '#14b8a6';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-
-          // Outer frame circle
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, gridSize * 0.35, 0, Math.PI * 2);
-          ctx.strokeStyle = '#2dd4bf';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          // Rotating fan blades
-          ctx.save();
-          ctx.translate(pos.x, pos.y);
-          ctx.rotate(this.fanAngle);
-          ctx.fillStyle = '#99f6e4';
-          for (let i = 0; i < 4; i++) {
-            ctx.rotate(Math.PI / 2);
-            ctx.beginPath();
-            ctx.ellipse(8, 0, 8, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.restore();
-
-          // Arrow indicating wind direction
-          ctx.strokeStyle = '#2dd4bf';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(pos.x, pos.y);
-          ctx.lineTo(pos.x + this.config.dir.x * 14, pos.y + this.config.dir.y * 14);
-          ctx.stroke();
-
-          // Wind draft particles / stream graphics in front of fan
-          ctx.save();
-          ctx.strokeStyle = 'rgba(45, 212, 191, 0.3)';
-          ctx.lineWidth = 1.5;
-          const range = 5 * gridSize * gameState.upgrades.fanPower;
-          const windOffset = (this.animFrame * 8) % 20;
-
-          ctx.beginPath();
-          if (this.config.dir.x !== 0) {
-            for (let w = 10; w < range; w += 25) {
-              const wx = pos.x + this.config.dir.x * (w + windOffset);
-              ctx.moveTo(wx, pos.y - 10);
-              ctx.lineTo(wx + this.config.dir.x * 8, pos.y - 10);
-              ctx.moveTo(wx + 5, pos.y + 10);
-              ctx.lineTo(wx + 5 + this.config.dir.x * 8, pos.y + 10);
-            }
-          } else {
-            for (let w = 10; w < range; w += 25) {
-              const wy = pos.y + this.config.dir.y * (w + windOffset);
-              ctx.moveTo(pos.x - 10, wy);
-              ctx.lineTo(pos.x - 10, wy + this.config.dir.y * 8);
-              ctx.moveTo(pos.x + 10, wy + 5);
-              ctx.lineTo(pos.x + 10, wy + 5 + this.config.dir.y * 8);
-            }
-          }
-          ctx.stroke();
-          ctx.restore();
-
-        } else if (this.config.type === 'press') {
-          // HYDRAULIC PRESS DRAWING
-          ctx.fillStyle = '#451a03';
-          ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-          ctx.strokeStyle = '#f97316';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-
-          // Metallic stamp block
-          const pressPhase = Math.sin(this.animFrame * 0.8) * 4;
-          ctx.fillStyle = '#ea580c';
-          ctx.fillRect(x + 6 + pressPhase, y + 6 + pressPhase, gridSize - 12 - pressPhase * 2, gridSize - 12 - pressPhase * 2);
-
-          ctx.font = '900 10px "JetBrains Mono", monospace';
-          ctx.fillStyle = '#ffedd5';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('2X', pos.x, pos.y);
-
-        } else if (this.config.type === 'bumper') {
-          // PINBALL BUMPER
-          ctx.fillStyle = '#064e3b';
-          ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-          
-          ctx.fillStyle = '#10b981';
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, gridSize * 0.35, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#a7f3d0';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-        } else if (this.config.type === 'portal_in' || this.config.type === 'portal_out') {
-          const isIn = this.config.type === 'portal_in';
-          ctx.fillStyle = isIn ? '#1e3a8a' : '#7c2d12';
-          ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-
-          ctx.strokeStyle = isIn ? '#60a5fa' : '#fbbf24';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, gridSize * 0.3, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.font = '900 9px "JetBrains Mono", monospace';
-          ctx.fillStyle = isIn ? '#93c5fd' : '#fde047';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(isIn ? 'ВХОД' : 'ВЫХОД', pos.x, pos.y);
-
-        } else if (this.config.type === 'splitter') {
-          ctx.fillStyle = '#831843';
-          ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-          ctx.strokeStyle = '#f43f5e';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-
-          ctx.font = '900 12px "JetBrains Mono", monospace';
-          ctx.fillStyle = '#fbcfe8';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('⤢', pos.x, pos.y);
-
-        } else if (this.config.type === 'upgrader') {
-          ctx.fillStyle = 'rgba(168, 85, 247, 0.25)';
-          ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-          ctx.strokeStyle = '#a855f7';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
-
-        } else if (this.config.type === 'spawner') {
-          ctx.fillStyle = '#1e3a8a';
-          ctx.fillRect(x + 3, y + 3, gridSize - 6, gridSize - 6);
-
-          const progress = this.timer / this.config.rate;
-          ctx.fillStyle = '#facc15';
-          ctx.fillRect(x + 4, y + gridSize - 6, (gridSize - 8) * progress, 3);
-
-        } else if (this.config.type === 'launcher') {
-          ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-          ctx.fillRect(x + 3, y + 3, gridSize - 6, gridSize - 6);
-          ctx.strokeStyle = '#ef4444';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 3, y + 3, gridSize - 6, gridSize - 6);
-
-        } else if (this.config.type === 'magnet') {
-          ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
-          ctx.fillRect(x + 3, y + 3, gridSize - 6, gridSize - 6);
-          ctx.strokeStyle = '#06b6d4';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 3, y + 3, gridSize - 6, gridSize - 6);
+        // ====================================================================
+        // 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ И ОРИЕНТАЦИЯ
+        // ====================================================================
+        function getGridPos(worldX, worldY) {
+            return {
+                gx: Math.floor(worldX / CELL_SIZE),
+                gy: Math.floor(worldY / CELL_SIZE)
+            };
         }
 
-        ctx.restore();
-      }
-    }
-  </script>
-
-  <script>
-    /* ==========================================================================
-       4. GAME LOOP & PIT PHYSICS ENGINE
-       ========================================================================== */
-
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-
-    function resizeCanvas() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-
-      gameState.pit.x = canvas.width / 2;
-      gameState.pit.y = canvas.height / 2;
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-
-    let lastTime = performance.now();
-
-    function gameLoop(time) {
-      const dt = Math.min((time - lastTime) / 1000, 0.1);
-      lastTime = time;
-
-      update(dt);
-      render();
-
-      requestAnimationFrame(gameLoop);
-    }
-
-    function update(dt) {
-      // Calculate DPS (Earnings per second)
-      if (Date.now() - gameState.lastEarningsCheck >= 1000) {
-        gameState.dps = gameState.earnings;
-        gameState.earnings = 0;
-        gameState.lastEarningsCheck = Date.now();
-      }
-
-      // Combo Decay Timer
-      if (gameState.pit.comboTimer > 0) {
-        gameState.pit.comboTimer -= dt;
-        if (gameState.pit.comboTimer <= 0) {
-          gameState.pit.combo = 1.0;
+        function screenToWorld(sx, sy) {
+            return {
+                x: (sx - state.panX) / state.zoom,
+                y: (sy - state.panY) / state.zoom
+            };
         }
-      }
 
-      // Buildings update
-      gameState.buildings.forEach(b => b.update(dt));
+        function spawnDuck(typeKey, x, y, vx = (Math.random()-0.5)*2, vy = (Math.random()-0.5)*2) {
+            const proto = DUCK_TYPES[typeKey] || DUCK_TYPES.basic;
+            ducks.push({
+                id: Math.random().toString(36).substr(2, 9),
+                type: typeKey,
+                x: x,
+                y: y,
+                vx: vx,
+                vy: vy,
+                radius: proto.radius,
+                value: proto.value,
+                xp: proto.xp,
+                color: proto.color,
+                crushed: false,
+                teleportCooldown: 0
+            });
+        }
 
-      const speedMult = gameState.upgrades.conveyorSpeed;
+        function addFloatingText(text, x, y, color = '#facc15') {
+            floatingTexts.push({
+                text: text,
+                x: x,
+                y: y,
+                vy: -1.2,
+                life: 1.0,
+                color: color
+            });
+        }
 
-      // PORTAL PAIR LOCATIONS
-      const portalOuts = gameState.buildings.filter(b => b.config.type === 'portal_out');
-
-      for (let i = gameState.ducks.length - 1; i >= 0; i--) {
-        const duck = gameState.ducks[i];
-        duck.update(canvas.width, canvas.height);
-
-        if (!duck.isBeingDragged) {
-          // Grid interactions
-          const gridX = Math.floor(duck.x / gameState.gridSize);
-          const gridY = Math.floor(duck.y / gameState.gridSize);
-          const b = gameState.buildings.find(b => b.gridX === gridX && b.gridY === gridY);
-
-          if (b) {
-            if (b.config.type === 'conveyor') {
-              duck.vx += b.config.dir.x * 0.9 * speedMult;
-              duck.vy += b.config.dir.y * 0.9 * speedMult;
-            } else if (b.config.type === 'launcher') {
-              const dx = gameState.pit.x - duck.x;
-              const dy = gameState.pit.y - duck.y;
-              const angle = Math.atan2(dy, dx);
-              duck.vx = Math.cos(angle) * 18;
-              duck.vy = Math.sin(angle) * 18;
-            } else if (b.config.type === 'upgrader') {
-              if (duck.typeKey === 'YELLOW') duck.upgradeTo('GOLD');
-              else if (duck.typeKey === 'GOLD') duck.upgradeTo('CYBER');
-              else if (duck.typeKey === 'CYBER') duck.upgradeTo('QUANTUM');
-              else if (duck.typeKey === 'QUANTUM') duck.upgradeTo('ANTIMATTER');
-              else if (duck.typeKey === 'ANTIMATTER') duck.upgradeTo('DIAMOND');
-              else if (duck.typeKey === 'DIAMOND') duck.upgradeTo('SINGULARITY');
-            } else if (b.config.type === 'press' && !duck.pressed) {
-              duck.pressed = true;
-              duck.value *= gameState.upgrades.pressMultiplier;
-              gameState.popups.push(new PopupText(duck.x, duck.y - 15, 'СПРЕССОВАНО 2X!', '#f97316'));
-            } else if (b.config.type === 'bumper') {
-              const bPos = b.getPixelPos(gameState.gridSize);
-              const dx = duck.x - bPos.x;
-              const dy = duck.y - bPos.y;
-              const dist = Math.hypot(dx, dy) || 1;
-              duck.vx = (dx / dist) * 12;
-              duck.vy = (dy / dist) * 12;
-            } else if (b.config.type === 'portal_in' && duck.portalCooldown <= 0 && portalOuts.length > 0) {
-              const dest = portalOuts[Math.floor(Math.random() * portalOuts.length)].getPixelPos(gameState.gridSize);
-              duck.x = dest.x;
-              duck.y = dest.y;
-              duck.portalCooldown = 40;
-              gameState.popups.push(new PopupText(duck.x, duck.y - 15, 'ТЕЛЕПОРТ!', '#60a5fa'));
-            } else if (b.config.type === 'splitter') {
-              b.splitterState = 1 - b.splitterState;
-              const angle = b.splitterState === 0 ? Math.PI / 2 : -Math.PI / 2;
-              const curSpeed = Math.hypot(duck.vx, duck.vy) || 5;
-              duck.vx = Math.cos(angle) * curSpeed;
-              duck.vy = Math.sin(angle) * curSpeed;
+        function addParticle(x, y, color, speed = 3) {
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * (Math.random() * speed),
+                    vy: Math.sin(angle) * (Math.random() * speed),
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    life: 1.0
+                });
             }
-          }
+        }
 
-          // FAN / VENTILATOR WIND PHYSICS
-          gameState.buildings.filter(b => b.config.type === 'fan').forEach(fan => {
-            const fPos = fan.getPixelPos(gameState.gridSize);
-            const range = 5 * gameState.gridSize * gameState.upgrades.fanPower;
-            const dir = fan.config.dir;
+        // ====================================================================
+        // 3. ФИЗИКА И ОБНОВЛЕНИЕ ЛОГИКИ (UPDATE)
+        // ====================================================================
+        let lastTime = performance.now();
+        let ppsCounter = 0;
+        let ppsTimer = 0;
 
-            let inWindBox = false;
-            if (dir.x !== 0) {
-              const minX = dir.x > 0 ? fPos.x : fPos.x - range;
-              const maxX = dir.x > 0 ? fPos.x + range : fPos.x;
-              if (duck.x >= minX && duck.x <= maxX && Math.abs(duck.y - fPos.y) < gameState.gridSize * 0.8) {
-                inWindBox = true;
-              }
+        function updateGame(dt) {
+            // --- Перезарядка ручного спавна ---
+            const now = Date.now();
+            const cdMs = state.manualCooldown * 1000;
+            const elapsed = now - state.lastManualSpawn;
+            const overlay = document.getElementById('btn-cooldown-overlay');
+            if (elapsed < cdMs) {
+                const pct = (1 - (elapsed / cdMs)) * 100;
+                overlay.style.width = pct + '%';
             } else {
-              const minY = dir.y > 0 ? fPos.y : fPos.y - range;
-              const maxY = dir.y > 0 ? fPos.y + range : fPos.y;
-              if (duck.y >= minY && duck.y <= maxY && Math.abs(duck.x - fPos.x) < gameState.gridSize * 0.8) {
-                inWindBox = true;
-              }
+                overlay.style.width = '0%';
             }
 
-            if (inWindBox) {
-              const blowForce = 1.2 * gameState.upgrades.fanPower;
-              duck.vx += dir.x * blowForce;
-              duck.vy += dir.y * blowForce;
-            }
-          });
+            // --- Затухание комбо ---
+            if (state.combo > 1.0) {
+                const duration = 3.5 * (1 + (state.upgrades.combo_time.level - 1) * 0.25);
+                state.comboTimer -= dt;
+                const pct = Math.max(0, (state.comboTimer / duration) * 100);
+                document.getElementById('combo-bar').style.width = pct + '%';
 
-          // Magnet attractions
-          gameState.buildings.filter(b => b.config.type === 'magnet').forEach(mag => {
-            const mPos = mag.getPixelPos(gameState.gridSize);
-            const dx = mPos.x - duck.x;
-            const dy = mPos.y - duck.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < 180 && dist > 10) {
-              duck.vx += (dx / dist) * 0.7;
-              duck.vy += (dy / dist) * 0.7;
-            }
-          });
-
-          // Pit Singular Gravity
-          const dx = gameState.pit.x - duck.x;
-          const dy = gameState.pit.y - duck.y;
-          const dist = Math.hypot(dx, dy);
-
-          const pullRadius = gameState.pit.radius * 3.0 * gameState.upgrades.pitGrav;
-
-          if (dist < pullRadius) {
-            const force = (1 - dist / pullRadius) * 1.1;
-            duck.vx += (dx / dist) * force;
-            duck.vy += (dy / dist) * force;
-
-            if (dist < gameState.pit.radius * 1.3) {
-              duck.scale = Math.max(0.08, dist / (gameState.pit.radius * 1.3));
-            }
-          } else {
-            duck.scale = 1.0;
-          }
-
-          // Pit Absorption
-          if (dist < gameState.pit.radius * 0.6) {
-            consumeDuck(duck, i);
-          }
-        }
-      }
-
-      // Update Floating Effects
-      gameState.particles.forEach((p, idx) => {
-        p.update();
-        if (p.life <= 0) gameState.particles.splice(idx, 1);
-      });
-
-      gameState.popups.forEach((p, idx) => {
-        p.update();
-        if (p.life <= 0) gameState.popups.splice(idx, 1);
-      });
-
-      updateHUD();
-    }
-
-    function consumeDuck(duck, index) {
-      const earned = Math.round(duck.value * gameState.pit.combo);
-      gameState.money += earned;
-      gameState.earnings += earned;
-      gameState.totalDucksFed++;
-
-      // Enhanced Combo Mechanics
-      const oldComboFloor = Math.floor(gameState.pit.combo);
-      gameState.pit.combo = Math.min(10.0, gameState.pit.combo + 0.20);
-      gameState.pit.comboTimer = gameState.pit.maxComboTimer;
-      const newComboFloor = Math.floor(gameState.pit.combo);
-
-      // Trigger Combo Milestone Notifications & FX
-      if (newComboFloor > oldComboFloor && newComboFloor >= 2) {
-        const comboColors = ['#facc15', '#f97316', '#a855f7', '#ec4899', '#ef4444'];
-        const color = comboColors[Math.min(newComboFloor - 2, comboColors.length - 1)];
-        gameState.popups.push(new PopupText(
-          gameState.pit.x, 
-          gameState.pit.y - 45, 
-          `🔥 МЕГА-КОМБО x${newComboFloor}.0!`, 
-          color
-        ));
-
-        // Combo Blast Particles
-        for (let i = 0; i < 15; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const spd = 2 + Math.random() * 5;
-          gameState.particles.push(new Particle(
-            gameState.pit.x, gameState.pit.y,
-            Math.cos(angle) * spd, Math.sin(angle) * spd,
-            color, 4, 25
-          ));
-        }
-      }
-
-      // Pit Level Progress
-      gameState.pit.satiety += 10;
-      if (gameState.pit.satiety >= gameState.pit.satietyMax) {
-        gameState.pit.satiety = 0;
-        gameState.pit.level++;
-        gameState.pit.satietyMax = Math.round(gameState.pit.satietyMax * 1.4);
-        gameState.pit.baseRadius = Math.min(120, gameState.pit.baseRadius + 4);
-        
-        // Level Up visual feedback & shop update
-        gameState.popups.push(new PopupText(gameState.pit.x, gameState.pit.y - 30, `УРОВЕНЬ БЕЗДНЫ ${gameState.pit.level}!`, '#a855f7'));
-        gameState.popups.push(new PopupText(gameState.pit.x, gameState.pit.y - 10, 'ОТКРЫТЫ НОВЫЕ ТЕХНОЛОГИИ!', '#facc15'));
-
-        for (let i = 0; i < 35; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 2 + Math.random() * 7;
-          gameState.particles.push(new Particle(
-            gameState.pit.x, gameState.pit.y,
-            Math.cos(angle) * speed, Math.sin(angle) * speed,
-            '#a855f7', 5, 45
-          ));
-        }
-
-        const activeTabBtn = document.querySelector('.border-yellow-400');
-        const activeTab = activeTabBtn ? activeTabBtn.id.replace('tab-', '') : 'build';
-        renderShop(activeTab);
-      }
-
-      gameState.popups.push(new PopupText(duck.x, duck.y, `+$${earned}`));
-
-      if (duck.typeKey === 'BOMB') {
-        for (let i = 0; i < 30; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const spd = 4 + Math.random() * 9;
-          gameState.particles.push(new Particle(
-            gameState.pit.x, gameState.pit.y,
-            Math.cos(angle) * spd, Math.sin(angle) * spd,
-            '#ef4444', 6, 35
-          ));
-        }
-        gameState.ducks.forEach(d => {
-          const dX = d.x - gameState.pit.x;
-          const dY = d.y - gameState.pit.y;
-          const dDist = Math.hypot(dX, dY);
-          if (dDist < 220 && dDist > 1) {
-            d.vx = (dX / dDist) * 16;
-            d.vy = (dY / dDist) * 16;
-          }
-        });
-      }
-
-      gameState.ducks.splice(index, 1);
-    }
-
-    /* --- RENDERING --- */
-    function render() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      ctx.save();
-      // Apply zoom centered at screen midpoint
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.scale(gameState.zoom, gameState.zoom);
-      ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-      drawGrid();
-      gameState.buildings.forEach(b => b.draw(ctx, gameState.gridSize));
-      drawPit();
-      gameState.ducks.forEach(d => d.draw(ctx));
-      gameState.particles.forEach(p => p.draw(ctx));
-      gameState.popups.forEach(p => p.draw(ctx));
-      drawBuildingPreview();
-
-      ctx.restore();
-    }
-
-    function screenToWorld(screenX, screenY) {
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-      return {
-        x: (screenX - cx) / gameState.zoom + cx,
-        y: (screenY - cy) / gameState.zoom + cy
-      };
-    }
-
-    function setZoom(newZoom) {
-      gameState.zoom = Math.min(Math.max(newZoom, gameState.minZoom), gameState.maxZoom);
-      const zoomText = document.getElementById('zoom-level-text');
-      if (zoomText) zoomText.innerText = `${Math.round(gameState.zoom * 100)}%`;
-    }
-
-    function drawGrid() {
-      const g = gameState.gridSize;
-      const topLeft = screenToWorld(0, 0);
-      const bottomRight = screenToWorld(canvas.width, canvas.height);
-
-      const startX = Math.floor(topLeft.x / g) * g - g;
-      const endX = Math.ceil(bottomRight.x / g) * g + g;
-      const startY = Math.floor(topLeft.y / g) * g - g;
-      const endY = Math.ceil(bottomRight.y / g) * g + g;
-
-      ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
-      ctx.lineWidth = 1 / gameState.zoom;
-
-      for (let x = startX; x <= endX; x += g) {
-        ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x, endY);
-        ctx.stroke();
-      }
-      for (let y = startY; y <= endY; y += g) {
-        ctx.beginPath();
-        ctx.moveTo(startX, y);
-        ctx.lineTo(endX, y);
-        ctx.stroke();
-      }
-    }
-
-    function drawPit() {
-      const pit = gameState.pit;
-      // Fixed static radius without pulsing oscillation
-      pit.radius = pit.baseRadius;
-
-      ctx.save();
-
-      // Dynamic Aura based on active Combo
-      const comboMult = Math.max(1, pit.combo);
-      const auraScale = 2.6 + (comboMult - 1) * 0.2;
-
-      // Outer Aura Glow
-      const grad = ctx.createRadialGradient(pit.x, pit.y, pit.radius * 0.2, pit.x, pit.y, pit.radius * auraScale);
-      
-      if (pit.combo >= 5.0) {
-        grad.addColorStop(0, 'rgba(236, 72, 153, 0.9)');
-        grad.addColorStop(0.5, 'rgba(168, 85, 247, 0.4)');
-      } else if (pit.combo > 1.0) {
-        grad.addColorStop(0, 'rgba(245, 158, 11, 0.8)');
-        grad.addColorStop(0.5, 'rgba(147, 51, 234, 0.3)');
-      } else {
-        grad.addColorStop(0, 'rgba(147, 51, 234, 0.8)');
-        grad.addColorStop(0.5, 'rgba(88, 28, 135, 0.3)');
-      }
-      grad.addColorStop(1, 'rgba(7, 10, 18, 0)');
-
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(pit.x, pit.y, pit.radius * auraScale, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Hazard Dashed Border Ring
-      ctx.strokeStyle = pit.combo > 1.0 ? '#f59e0b' : '#eab308';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.arc(pit.x, pit.y, pit.radius + 12, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Pit Void Core
-      ctx.fillStyle = '#070a12';
-      ctx.beginPath();
-      ctx.arc(pit.x, pit.y, pit.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = pit.combo >= 5.0 ? '#ec4899' : (pit.combo > 1.0 ? '#f59e0b' : '#a855f7');
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      // Inner Swirls
-      ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
-      ctx.lineWidth = 2;
-      const time = Date.now() * 0.002 * (1 + (pit.combo - 1) * 0.3);
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        const startAngle = time + (i * Math.PI * 2 / 3);
-        ctx.arc(pit.x, pit.y, pit.radius * 0.65, startAngle, startAngle + Math.PI);
-        ctx.stroke();
-      }
-
-      ctx.font = '800 11px "JetBrains Mono", monospace';
-      ctx.fillStyle = '#c084fc';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`БЕЗДНА УР. ${pit.level}`, pit.x, pit.y);
-
-      ctx.restore();
-    }
-
-    function drawBuildingPreview() {
-      if (gameState.activeTool === 'SELECT' || gameState.activeTool === 'DEMOLISH') return;
-
-      const g = gameState.gridSize;
-      const gridX = Math.floor(gameState.lastMousePos.x / g);
-      const gridY = Math.floor(gameState.lastMousePos.y / g);
-
-      ctx.save();
-      ctx.fillStyle = 'rgba(234, 179, 8, 0.25)';
-      ctx.fillRect(gridX * g, gridY * g, g, g);
-      ctx.strokeStyle = '#eab308';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(gridX * g, gridY * g, g, g);
-      ctx.restore();
-    }
-  </script>
-
-  <script>
-    /* ==========================================================================
-       5. INPUT INTERACTION HANDLERS (MOUSE & TOUCH)
-       ========================================================================== */
-
-    function getMousePos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      return screenToWorld(screenX, screenY);
-    }
-
-    function handlePointerDown(e) {
-      const pos = getMousePos(e);
-      gameState.lastMousePos = pos;
-
-      if (gameState.activeTool === 'SELECT') {
-        for (let i = gameState.ducks.length - 1; i >= 0; i--) {
-          const duck = gameState.ducks[i];
-          const dist = Math.hypot(pos.x - duck.x, pos.y - duck.y);
-          if (dist < duck.radius * 1.5) {
-            gameState.draggedDuck = duck;
-            duck.isBeingDragged = true;
-            return;
-          }
-        }
-      } else {
-        const gridX = Math.floor(pos.x / gameState.gridSize);
-        const gridY = Math.floor(pos.y / gameState.gridSize);
-
-        if (gameState.activeTool === 'DEMOLISH') {
-          const idx = gameState.buildings.findIndex(b => b.gridX === gridX && b.gridY === gridY);
-          if (idx !== -1) {
-            const b = gameState.buildings[idx];
-            gameState.money += Math.round(b.config.cost * 0.75); // Refund 75%
-            gameState.buildings.splice(idx, 1);
-          }
-        } else {
-          const config = BUILDING_TYPES[gameState.activeTool];
-          if (config && config.minLevel <= gameState.pit.level && gameState.money >= config.cost) {
-            const existingIdx = gameState.buildings.findIndex(b => b.gridX === gridX && b.gridY === gridY);
-            if (existingIdx !== -1) {
-              gameState.buildings.splice(existingIdx, 1);
+                if (state.comboTimer <= 0) {
+                    state.combo = 1.0;
+                    state.comboCount = 0;
+                    document.getElementById('combo-mult').innerText = 'x1.0';
+                }
             }
 
-            gameState.money -= config.cost;
-            gameState.buildings.push(new Building(gridX, gridY, gameState.activeTool));
-          }
+            // --- Расчет Дохода в секунду (PPS) ---
+            ppsTimer += dt;
+            if (ppsTimer >= 1.0) {
+                state.pps = ppsCounter;
+                ppsCounter = 0;
+                ppsTimer = 0;
+                document.getElementById('stat-pps').innerText = `+$${state.pps}/с`;
+            }
+
+            // --- Работа Построек (Диспенсеры, Вентиляторы, Прессы) ---
+            const spawnerSpeedMult = 1 - (state.upgrades.spawner_speed.level - 1) * 0.15;
+
+            buildingsMap.forEach((b) => {
+                const bConfig = BUILDINGS[b.type];
+                if (!bConfig) return;
+
+                // Диспенсеры
+                if (bConfig.category === 'spawners') {
+                    b.timer = (b.timer || 0) + dt;
+                    const interval = bConfig.spawnInterval * spawnerSpeedMult;
+                    if (b.timer >= interval) {
+                        b.timer -= interval;
+                        spawnDuck(bConfig.duckType, b.x + CELL_SIZE / 2, b.y + CELL_SIZE / 2);
+                    }
+                }
+            });
+
+            // --- Физика и логика Уток ---
+            const currentPitRadius = PIT.baseRadius + (state.pitLevel - 1) * 6;
+            const gravityRadius = currentPitRadius * PIT.gravityRadiusMultiplier;
+
+            for (let i = ducks.length - 1; i >= 0; i--) {
+                const d = ducks[i];
+                if (d.isDragged) continue; // Ручное перетаскивание
+
+                if (d.teleportCooldown > 0) d.teleportCooldown -= dt;
+
+                // 1. Взаимодействие с бездной (Гравитация)
+                const dxPit = PIT.x - d.x;
+                const dyPit = PIT.y - d.y;
+                const distPit = Math.hypot(dxPit, dyPit);
+
+                if (distPit < gravityRadius) {
+                    const pull = (1 - distPit / gravityRadius) * 280 * dt;
+                    d.vx += (dxPit / distPit) * pull;
+                    d.vy += (dyPit / distPit) * pull;
+                }
+
+                // Поглощение Ямой
+                if (distPit < currentPitRadius * 0.75) {
+                    const reward = Math.round(d.value * state.combo);
+                    state.money += reward;
+                    ppsCounter += reward;
+                    state.totalEaten++;
+                    
+                    // Повышение комбо
+                    state.comboCount++;
+                    state.combo = 1.0 + Math.floor(state.comboCount / 3) * 0.5;
+                    if (state.combo > 10.0) state.combo = 10.0;
+                    state.comboTimer = 3.5 * (1 + (state.upgrades.combo_time.level - 1) * 0.25);
+                    document.getElementById('combo-mult').innerText = `x${state.combo.toFixed(1)}`;
+
+                    // Опыт Бездны
+                    addPitXP(d.xp);
+
+                    // Эффекты
+                    addFloatingText(`+$${reward}`, d.x, d.y, '#34d399');
+                    addParticle(d.x, d.y, d.color, 4);
+
+                    ducks.splice(i, 1);
+                    continue;
+                }
+
+                // 2. Взаимодействие с постройками под уткой
+                const cell = getGridPos(d.x, d.y);
+                const bKey = `${cell.gx},${cell.gy}`;
+                const building = buildingsMap.get(bKey);
+
+                if (building) {
+                    const bConfig = BUILDINGS[building.type];
+
+                    // Конвейеры
+                    if (bConfig.category === 'conveyors') {
+                        const speed = 140 * dt;
+                        if (bConfig.dir === 'r') d.vx += speed;
+                        if (bConfig.dir === 'l') d.vx -= speed;
+                        if (bConfig.dir === 'd') d.vy += speed;
+                        if (bConfig.dir === 'u') d.vy -= speed;
+                    }
+
+                    // Разгонный Трамплин
+                    if (building.type === 'booster') {
+                        const angle = Math.atan2(PIT.y - d.y, PIT.x - d.x);
+                        d.vx = Math.cos(angle) * 600;
+                        d.vy = Math.sin(angle) * 600;
+                        addParticle(d.x, d.y, '#f59e0b', 5);
+                    }
+
+                    // Отбойник
+                    if (building.type === 'bumper') {
+                        const bx = building.x + CELL_SIZE / 2;
+                        const by = building.y + CELL_SIZE / 2;
+                        const angle = Math.atan2(d.y - by, d.x - bx);
+                        d.vx = Math.cos(angle) * 500;
+                        d.vy = Math.sin(angle) * 500;
+                    }
+
+                    // Пресс
+                    if (building.type === 'crusher' && !d.crushed) {
+                        d.crushed = true;
+                        const mult = 2.0 + (state.upgrades.crusher_mult.level - 1) * 0.5;
+                        d.value = Math.round(d.value * mult);
+                        d.radius *= 0.8; // плющится
+                        addFloatingText(`${mult}x!`, d.x, d.y, '#ec4899');
+                        addParticle(d.x, d.y, '#f43f5e', 3);
+                    }
+
+                    // Ворота Мутации
+                    if (building.type === 'upgrader_gate' && !building.cool) {
+                        building.cool = 0.5;
+                        upgradeDuckType(d);
+                    }
+
+                    // Разделитель
+                    if (building.type === 'splitter' && !building.cool) {
+                        building.cool = 0.3;
+                        building.state = !building.state;
+                        if (building.state) { d.vx += 200; } else { d.vx -= 200; }
+                    }
+
+                    // Порталы
+                    if (building.type === 'teleport_in' && d.teleportCooldown <= 0) {
+                        // Найти любой выход
+                        let outPortals = [];
+                        buildingsMap.forEach(b => {
+                            if (b.type === 'teleport_out') outPortals.push(b);
+                        });
+                        if (outPortals.length > 0) {
+                            const target = outPortals[Math.floor(Math.random() * outPortals.length)];
+                            d.x = target.x + CELL_SIZE / 2;
+                            d.y = target.y + CELL_SIZE / 2;
+                            d.teleportCooldown = 1.0;
+                            addParticle(d.x, d.y, '#3b82f6', 6);
+                        }
+                    }
+                }
+
+                // Вентиляторы (срабатывают в радиусе действия)
+                const fanPowerRange = (3 + state.upgrades.fan_power.level) * CELL_SIZE;
+                buildingsMap.forEach(b => {
+                    if (b.type.startsWith('fan_')) {
+                        const fx = b.x + CELL_SIZE / 2;
+                        const fy = b.y + CELL_SIZE / 2;
+                        const bConfig = BUILDINGS[b.type];
+                        
+                        let inStream = false;
+                        if (bConfig.dir === 'r' && d.y >= b.y && d.y <= b.y + CELL_SIZE && d.x >= fx && d.x <= fx + fanPowerRange) {
+                            d.vx += 220 * dt; inStream = true;
+                        } else if (bConfig.dir === 'l' && d.y >= b.y && d.y <= b.y + CELL_SIZE && d.x <= fx && d.x >= fx - fanPowerRange) {
+                            d.vx -= 220 * dt; inStream = true;
+                        } else if (bConfig.dir === 'd' && d.x >= b.x && d.x <= b.x + CELL_SIZE && d.y >= fy && d.y <= fy + fanPowerRange) {
+                            d.vy += 220 * dt; inStream = true;
+                        } else if (bConfig.dir === 'u' && d.x >= b.x && d.x <= b.x + CELL_SIZE && d.y <= fy && d.y >= fy - fanPowerRange) {
+                            d.vy -= 220 * dt; inStream = true;
+                        }
+
+                        if (inStream && Math.random() < 0.2) {
+                            particles.push({ x: d.x, y: d.y, vx: d.vx*0.2, vy: d.vy*0.2, radius: 1.5, color: '#93c5fd', life: 0.4 });
+                        }
+                    }
+
+                    // Магниты
+                    if (b.type === 'magnet') {
+                        const mx = b.x + CELL_SIZE / 2;
+                        const my = b.y + CELL_SIZE / 2;
+                        const distM = Math.hypot(mx - d.x, my - d.y);
+                        if (distM < CELL_SIZE * 4 && distM > 10) {
+                            d.vx += ((mx - d.x) / distM) * 150 * dt;
+                            d.vy += ((my - d.y) / distM) * 150 * dt;
+                        }
+                    }
+                });
+
+                // Перемещение и трение
+                d.x += d.vx * dt;
+                d.y += d.vy * dt;
+                d.vx *= 0.96;
+                d.vy *= 0.96;
+
+                // Ограничение границами цеха
+                const maxX = GRID_WIDTH * CELL_SIZE - d.radius;
+                const maxY = GRID_HEIGHT * CELL_SIZE - d.radius;
+                if (d.x < d.radius) { d.x = d.radius; d.vx *= -0.5; }
+                if (d.x > maxX) { d.x = maxX; d.vx *= -0.5; }
+                if (d.y < d.radius) { d.y = d.radius; d.vy *= -0.5; }
+                if (d.y > maxY) { d.y = maxY; d.vy *= -0.5; }
+            }
+
+            // Охлаждение построек
+            buildingsMap.forEach(b => {
+                if (b.cool > 0) b.cool -= dt;
+            });
+
+            // Обновление частиц
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= dt * 1.5;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Обновление всплывающих текстов
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy;
+                ft.life -= dt;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            // Обновление показателей на UI
+            document.getElementById('stat-money').innerText = `$${state.money.toLocaleString()}`;
+            document.getElementById('stat-ducks-count').innerText = ducks.length;
+            document.getElementById('stat-total-eaten').innerText = state.totalEaten;
         }
-      }
-    }
 
-    function handlePointerMove(e) {
-      const pos = getMousePos(e);
+        // Повышение ранга утки в воротах мутации
+        function upgradeDuckType(d) {
+            const keys = Object.keys(DUCK_TYPES);
+            const idx = keys.indexOf(d.type);
+            if (idx < keys.length - 1) {
+                const nextType = keys[idx + 1];
+                const proto = DUCK_TYPES[nextType];
+                d.type = nextType;
+                d.value = proto.value;
+                d.color = proto.color;
+                d.radius = proto.radius;
+                d.xp = proto.xp;
+                addFloatingText(`УЛУЧШЕНИЕ!`, d.x, d.y, proto.color);
+                addParticle(d.x, d.y, proto.color, 5);
+            }
+        }
 
-      gameState.mouseVel = {
-        x: pos.x - gameState.lastMousePos.x,
-        y: pos.y - gameState.lastMousePos.y
-      };
-      gameState.lastMousePos = pos;
+        // Добавление опыта Бездне
+        function addPitXP(amount) {
+            state.pitProgress += amount;
+            if (state.pitProgress >= state.pitMaxProgress) {
+                state.pitProgress -= state.pitMaxProgress;
+                state.pitLevel++;
+                state.pitMaxProgress = Math.round(state.pitMaxProgress * 1.8);
 
-      if (gameState.draggedDuck) {
-        gameState.draggedDuck.x = pos.x;
-        gameState.draggedDuck.y = pos.y;
-      }
-    }
+                // Оповещение о повышении уровня
+                showLevelUpToast();
+                renderShop(); // Обновление доступности построек
+            }
+            document.getElementById('pit-level').innerText = state.pitLevel;
+            document.getElementById('pit-progress-text').innerText = `${state.pitProgress} / ${state.pitMaxProgress} XP`;
+            document.getElementById('pit-progress-bar').style.width = `${(state.pitProgress / state.pitMaxProgress) * 100}%`;
+        }
 
-    function handlePointerUp() {
-      if (gameState.draggedDuck) {
-        gameState.draggedDuck.vx = gameState.mouseVel.x * 0.8;
-        gameState.draggedDuck.vy = gameState.mouseVel.y * 0.8;
-        gameState.draggedDuck.isBeingDragged = false;
-        gameState.draggedDuck = null;
-      }
-    }
+        function showLevelUpToast() {
+            const toast = document.getElementById('level-up-toast');
+            document.getElementById('level-up-msg').innerText = `Уровень Бездны ${state.pitLevel}! Открыто новое оборудование.`;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
 
-    canvas.addEventListener('mousedown', handlePointerDown);
-    canvas.addEventListener('mousemove', handlePointerMove);
-    window.addEventListener('mouseup', handlePointerUp);
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+            }, 3500);
+        }
 
-    canvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length > 0) handlePointerDown(e.touches[0]);
-    }, { passive: true });
-    
-    canvas.addEventListener('touchmove', (e) => {
-      if (e.touches.length > 0) handlePointerMove(e.touches[0]);
-    }, { passive: true });
+        // ====================================================================
+        // 4. ОТРИСОВКА (RENDER CANVAS)
+        // ====================================================================
+        function render() {
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    window.addEventListener('touchend', handlePointerUp);
+            // Применение трансформации Камеры (Зум и Панорамирование)
+            ctx.translate(state.panX, state.panY);
+            ctx.scale(state.zoom, state.zoom);
 
-    // Zoom mouse wheel event
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      setZoom(gameState.zoom * zoomFactor);
-    }, { passive: false });
+            // 1. Отрисовка Игровой Сетки
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= GRID_WIDTH * CELL_SIZE; x += CELL_SIZE) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, GRID_HEIGHT * CELL_SIZE); ctx.stroke();
+            }
+            for (let y = 0; y <= GRID_HEIGHT * CELL_SIZE; y += CELL_SIZE) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(GRID_WIDTH * CELL_SIZE, y); ctx.stroke();
+            }
 
-    const shopContent = document.getElementById('shop-content');
+            // 2. Отрисовка БЕЗДНЫ (Утробы) - Без пульсации
+            const currentPitRadius = PIT.baseRadius + (state.pitLevel - 1) * 6;
+            const gravRadius = currentPitRadius * PIT.gravityRadiusMultiplier;
 
-    function selectTool(toolKey) {
-      const config = BUILDING_TYPES[toolKey];
-      if (config && config.minLevel > gameState.pit.level) return; // Locked
+            // Гравитационная аура
+            const grad = ctx.createRadialGradient(PIT.x, PIT.y, currentPitRadius * 0.5, PIT.x, PIT.y, gravRadius);
+            grad.addColorStop(0, 'rgba(147, 51, 234, 0.4)');
+            grad.addColorStop(0.6, 'rgba(79, 70, 229, 0.15)');
+            grad.addColorStop(1, 'rgba(15, 23, 42, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(PIT.x, PIT.y, gravRadius, 0, Math.PI * 2); ctx.fill();
 
-      gameState.activeTool = toolKey;
-      document.getElementById('active-tool-name').innerText = 
-        BUILDING_TYPES[toolKey]?.name || toolKey;
-      
-      const activeTabBtn = document.querySelector('.border-yellow-400');
-      const currentTab = activeTabBtn ? activeTabBtn.id.replace('tab-', '') : 'build';
-      renderShop(currentTab);
-    }
+            // Эпицентр Бездны
+            ctx.fillStyle = '#030712';
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(PIT.x, PIT.y, currentPitRadius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-    function renderShop(tab = 'build') {
-      shopContent.innerHTML = '';
+            // Декоративные спирали Ямы
+            ctx.strokeStyle = '#c084fc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < 3; i++) {
+                const angle = (Date.now() * 0.0015) + (i * Math.PI * 2 / 3);
+                ctx.arc(PIT.x, PIT.y, currentPitRadius * 0.5, angle, angle + 1.2);
+            }
+            ctx.stroke();
 
-      if (tab === 'build') {
-        const toolKeys = [
-          'SELECT', 'CONVEYOR_RIGHT', 'CONVEYOR_DOWN', 'CONVEYOR_LEFT', 'CONVEYOR_UP', 
-          'FAN_RIGHT', 'FAN_DOWN', 'FAN_LEFT', 'FAN_UP',
-          'PRESS', 'BUMPER', 'PORTAL_IN', 'PORTAL_OUT', 'SPLITTER',
-          'LAUNCHER', 'UPGRADER', 'MAGNET', 'DEMOLISH'
-        ];
+            // 3. Отрисовка Построек
+            buildingsMap.forEach((b) => {
+                ctx.save();
+                ctx.translate(b.x, b.y);
 
-        toolKeys.forEach(key => {
-          const config = BUILDING_TYPES[key];
-          const isUnlocked = gameState.pit.level >= config.minLevel;
-          const isSelected = gameState.activeTool === key;
-          
-          const card = document.createElement('button');
-          if (!isUnlocked) {
-            card.className = 'w-full p-2.5 rounded-xl border flex items-center justify-between font-mono text-xs opacity-50 bg-slate-950/40 border-slate-900 text-slate-500 cursor-not-allowed';
-            card.disabled = true;
-            card.innerHTML = `
-              <div class="flex items-center gap-2.5">
-                <div class="p-1.5 rounded-lg bg-slate-950 border border-slate-900">${SVG_ICONS.LOCK}</div>
-                <div class="text-left">
-                  <div class="font-bold text-slate-400">${config.name}</div>
-                  <div class="text-[10px] text-amber-500/80 font-bold uppercase">НУЖЕН УР. ${config.minLevel}</div>
-                </div>
-              </div>
-              <span class="px-2 py-1 rounded bg-slate-900 text-[10px] font-bold text-slate-600 uppercase">ЗАКРЫТО</span>
-            `;
-          } else {
-            card.className = `w-full p-2.5 rounded-xl border flex items-center justify-between font-mono text-xs transition ${
-              isSelected 
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md' 
-                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                // Оболочка клетки
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(1, 1, CELL_SIZE - 2, CELL_SIZE - 2);
+
+                const bConfig = BUILDINGS[b.type];
+
+                // Отрисовка Специфичных Текстур
+                if (bConfig.category === 'conveyors') {
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    
+                    // Стрелка направления
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.font = 'bold 20px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    let arrow = '➔';
+                    if (bConfig.dir === 'l') arrow = '⬅';
+                    if (bConfig.dir === 'u') arrow = '⬆';
+                    if (bConfig.dir === 'd') arrow = '⬇';
+                    ctx.fillText(arrow, CELL_SIZE / 2, CELL_SIZE / 2);
+                } 
+                else if (bConfig.category === 'spawners') {
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(2, 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                    ctx.strokeStyle = DUCK_TYPES[bConfig.duckType].color;
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+
+                    ctx.fillStyle = DUCK_TYPES[bConfig.duckType].color;
+                    ctx.beginPath(); ctx.arc(CELL_SIZE/2, CELL_SIZE/2, 10, 0, Math.PI*2); ctx.fill();
+                }
+                else if (b.type.startsWith('fan_')) {
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillRect(3, 3, CELL_SIZE - 6, CELL_SIZE - 6);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('💨', CELL_SIZE/2, CELL_SIZE/2);
+                }
+                else if (b.type === 'crusher') {
+                    ctx.fillStyle = '#be123c';
+                    ctx.fillRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px font-mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('ПРЕСС', CELL_SIZE/2, CELL_SIZE/2);
+                }
+                else if (b.type === 'booster') {
+                    ctx.fillStyle = '#d97706';
+                    ctx.fillRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    ctx.fillStyle = '#ffffff'; ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('🚀', CELL_SIZE/2, CELL_SIZE/2);
+                }
+                else if (b.type === 'upgrader_gate') {
+                    ctx.fillStyle = '#7e22ce';
+                    ctx.fillRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 16px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText('⚡', CELL_SIZE/2, CELL_SIZE/2);
+                }
+                else if (b.type === 'teleport_in') {
+                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    ctx.fillStyle = '#60a5fa'; ctx.font = 'bold 11px font-mono';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ВХОД', CELL_SIZE/2, CELL_SIZE/2);
+                }
+                else if (b.type === 'teleport_out') {
+                    ctx.fillStyle = '#7c2d12'; ctx.fillRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                    ctx.fillStyle = '#fb923c'; ctx.font = 'bold 11px font-mono';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ВЫХОД', CELL_SIZE/2, CELL_SIZE/2);
+                }
+                else {
+                    ctx.strokeStyle = '#475569';
+                    ctx.strokeRect(4, 4, CELL_SIZE - 8, CELL_SIZE - 8);
+                }
+
+                ctx.restore();
+            });
+
+            // 4. Отрисовка УТОК
+            ducks.forEach((d) => {
+                ctx.save();
+                ctx.translate(d.x, d.y);
+
+                // Тело Утки
+                ctx.fillStyle = d.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Клюв утки
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath();
+                ctx.arc(d.radius * 0.6, -2, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Глаз
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(d.radius * 0.2, -4, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            });
+
+            // 5. Частицы
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 6. Всплывающие тексты
+            floatingTexts.forEach(ft => {
+                ctx.fillStyle = ft.color;
+                ctx.font = 'bold 13px font-mono';
+                ctx.globalAlpha = Math.max(0, ft.life);
+                ctx.fillText(ft.text, ft.x, ft.y);
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 7. Предпросмотр постройки при наведении
+            if (state.activeTool === 'build' && state.hoverGrid) {
+                const hx = state.hoverGrid.gx * CELL_SIZE;
+                const hy = state.hoverGrid.gy * CELL_SIZE;
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+                ctx.fillRect(hx, hy, CELL_SIZE, CELL_SIZE);
+                ctx.strokeStyle = '#f59e0b';
+                ctx.strokeRect(hx, hy, CELL_SIZE, CELL_SIZE);
+            }
+
+            ctx.restore();
+        }
+
+        // ====================================================================
+        // 5. ИГРОВОЙ ЦИКЛ (GAME LOOP)
+        // ====================================================================
+        function gameLoop(time) {
+            const dt = Math.min((time - lastTime) / 1000, 0.1);
+            lastTime = time;
+
+            updateGame(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ====================================================================
+        // 6. UI И РЕНДЕР МАГАЗИНА / УЛУЧШЕНИЙ
+        // ====================================================================
+        function renderShop() {
+            const conveyorsContainer = document.getElementById('group-conveyors');
+            const mechanismsContainer = document.getElementById('group-mechanisms');
+            const spawnersContainer = document.getElementById('group-spawners');
+
+            conveyorsContainer.innerHTML = '';
+            mechanismsContainer.innerHTML = '';
+            spawnersContainer.innerHTML = '';
+
+            Object.keys(BUILDINGS).forEach(key => {
+                const b = BUILDINGS[key];
+                const isUnlocked = state.pitLevel >= b.minLevel;
+                const canAfford = state.money >= b.cost;
+
+                const card = document.createElement('button');
+                card.className = `p-2 rounded border flex flex-col justify-between text-left transition-all ${
+                    !isUnlocked 
+                        ? 'bg-slate-950 border-slate-800 opacity-50 cursor-not-allowed' 
+                        : state.selectedBuildingType === key && state.activeTool === 'build'
+                            ? 'bg-amber-950/40 border-amber-500 text-slate-100 ring-1 ring-amber-500'
+                            : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-200'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="w-6 h-6 flex items-center justify-center text-amber-400">
+                            ${b.iconSVG}
+                        </div>
+                        <span class="font-bold text-xs truncate flex-1">${b.name}</span>
+                        ${!isUnlocked ? `<span class="text-[10px] bg-purple-950 text-purple-300 px-1.5 py-0.5 rounded border border-purple-800">Ур.${b.minLevel}</span>` : ''}
+                    </div>
+                    <div class="flex justify-between items-center text-[10px] ${canAfford || !isUnlocked ? 'text-emerald-400' : 'text-red-400'}">
+                        <span>$${b.cost}</span>
+                    </div>
+                `;
+
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        state.activeTool = 'build';
+                        state.selectedBuildingType = key;
+                        updateToolUI();
+                        renderShop();
+                    };
+                }
+
+                if (b.category === 'conveyors') conveyorsContainer.appendChild(card);
+                else if (b.category === 'mechanisms') mechanismsContainer.appendChild(card);
+                else if (b.category === 'spawners') spawnersContainer.appendChild(card);
+            });
+
+            renderUpgrades();
+        }
+
+        function renderUpgrades() {
+            const container = document.getElementById('upgrades-list');
+            container.innerHTML = '';
+
+            Object.keys(state.upgrades).forEach(key => {
+                const up = state.upgrades[key];
+                const isMax = up.level >= up.max;
+                const cost = up.cost * up.level;
+                const canAfford = state.money >= cost && !isMax;
+
+                const item = document.createElement('div');
+                item.className = 'p-2.5 bg-slate-950 border border-slate-800 rounded flex flex-col gap-1.5';
+
+                item.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-bold text-xs text-slate-200">${up.name}</div>
+                            <div class="text-[10px] text-slate-400">${up.desc}</div>
+                        </div>
+                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-amber-400">${up.level}/${up.max}</span>
+                    </div>
+                    <button class="w-full py-1 px-2 rounded font-bold text-xs flex justify-between items-center transition-all ${
+                        isMax 
+                            ? 'bg-slate-800 text-slate-500 cursor-default' 
+                            : canAfford 
+                                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' 
+                                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }">
+                        <span>${isMax ? 'МАКС. УРОВЕНЬ' : 'Улучшить'}</span>
+                        <span>${isMax ? '' : '$' + cost}</span>
+                    </button>
+                `;
+
+                const btn = item.querySelector('button');
+                if (canAfford) {
+                    btn.onclick = () => {
+                        state.money -= cost;
+                        up.level++;
+                        renderShop();
+                    };
+                }
+
+                container.appendChild(item);
+            });
+        }
+
+        function updateToolUI() {
+            const btnSelect = document.getElementById('tool-select');
+            const btnDemolish = document.getElementById('tool-demolish');
+
+            btnSelect.className = `px-3 py-1.5 font-bold rounded text-xs flex items-center gap-1 transition-all ${
+                state.activeTool === 'select' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
             }`;
-            card.onclick = () => selectTool(key);
-            card.innerHTML = `
-              <div class="flex items-center gap-2.5">
-                <div class="p-1.5 rounded-lg bg-slate-900 border border-slate-800">${config.svg}</div>
-                <div class="text-left">
-                  <div class="font-bold">${config.name}</div>
-                  <div class="text-[10px] text-slate-400">${config.cost > 0 ? '$' + config.cost : 'БЕСПЛАТНО'}</div>
-                </div>
-              </div>
-              <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-bold uppercase">${isSelected ? 'АКТИВЕН' : 'ВЫБРАТЬ'}</span>
-            `;
-          }
-          shopContent.appendChild(card);
-        });
 
-      } else if (tab === 'spawners') {
-        const spawnerKeys = ['SPAWNER_YELLOW', 'SPAWNER_GOLD', 'SPAWNER_CYBER', 'SPAWNER_BOMB'];
-
-        spawnerKeys.forEach(key => {
-          const config = BUILDING_TYPES[key];
-          const isUnlocked = gameState.pit.level >= config.minLevel;
-          const isSelected = gameState.activeTool === key;
-
-          const card = document.createElement('button');
-          if (!isUnlocked) {
-            card.className = 'w-full p-2.5 rounded-xl border flex items-center justify-between font-mono text-xs opacity-50 bg-slate-950/40 border-slate-900 text-slate-500 cursor-not-allowed';
-            card.disabled = true;
-            card.innerHTML = `
-              <div class="flex items-center gap-2.5">
-                <div class="p-1.5 rounded-lg bg-slate-950 border border-slate-900">${SVG_ICONS.LOCK}</div>
-                <div class="text-left">
-                  <div class="font-bold text-slate-400">${config.name}</div>
-                  <div class="text-[10px] text-amber-500/80 font-bold uppercase">НУЖЕН УР. ${config.minLevel}</div>
-                </div>
-              </div>
-              <span class="px-2 py-1 rounded bg-slate-900 text-[10px] font-bold text-slate-600 uppercase">ЗАКРЫТО</span>
-            `;
-          } else {
-            card.className = `w-full p-2.5 rounded-xl border flex items-center justify-between font-mono text-xs transition ${
-              isSelected 
-                ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md' 
-                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300'
+            btnDemolish.className = `px-3 py-1.5 font-bold rounded text-xs flex items-center gap-1 transition-all ${
+                state.activeTool === 'demolish' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300'
             }`;
-            card.onclick = () => selectTool(key);
-            card.innerHTML = `
-              <div class="flex items-center gap-2.5">
-                <div class="p-1.5 rounded-lg bg-slate-900 border border-slate-800">${config.svg}</div>
-                <div class="text-left">
-                  <div class="font-bold">${config.name}</div>
-                  <div class="text-[10px] text-slate-400">1 утка / ${config.rate} сек</div>
-                </div>
-              </div>
-              <div class="text-right">
-                <div class="font-bold text-emerald-400">$${config.cost}</div>
-                <span class="text-[10px] text-slate-500 font-bold uppercase">${isSelected ? 'ВЫБРАН' : 'КУПИТЬ'}</span>
-              </div>
-            `;
-          }
-          shopContent.appendChild(card);
+        }
+
+        // ====================================================================
+        // 7. СОБЫТИЯ МЫШИ, ЗУМА И ТАЧ-УПРАВЛЕНИЯ
+        // ====================================================================
+        let draggedDuck = null;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const world = screenToWorld(mouseX, mouseY);
+
+            if (state.activeTool === 'select') {
+                // Проверка нажатия на утку
+                for (let d of ducks) {
+                    if (Math.hypot(d.x - world.x, d.y - world.y) < d.radius * 1.5) {
+                        draggedDuck = d;
+                        d.isDragged = true;
+                        return;
+                    }
+                }
+
+                // В противном случае - перетаскивание холста
+                state.isDraggingCanvas = true;
+                state.dragStartX = e.clientX - state.panX;
+                state.dragStartY = e.clientY - state.panY;
+            } 
+            else if (state.activeTool === 'build' && state.selectedBuildingType) {
+                placeBuilding(world.x, world.y);
+            }
+            else if (state.activeTool === 'demolish') {
+                demolishBuilding(world.x, world.y);
+            }
         });
 
-      } else if (tab === 'upgrades') {
-        const researchList = [
-          {
-            id: 'conveyorSpeed',
-            title: 'Скорость Лент',
-            cost: Math.round(150 * gameState.upgrades.conveyorSpeed),
-            minLevel: 2,
-            level: gameState.upgrades.conveyorSpeed,
-            desc: '+25% к ускорению конвейеров',
-            action: () => {
-              const cost = Math.round(150 * gameState.upgrades.conveyorSpeed);
-              if (gameState.money >= cost) {
-                gameState.money -= cost;
-                gameState.upgrades.conveyorSpeed += 1;
-                renderShop('upgrades');
-              }
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const world = screenToWorld(mouseX, mouseY);
+
+            state.hoverGrid = getGridPos(world.x, world.y);
+
+            if (draggedDuck) {
+                draggedDuck.vx = (world.x - draggedDuck.x) * 10;
+                draggedDuck.vy = (world.y - draggedDuck.y) * 10;
+                draggedDuck.x = world.x;
+                draggedDuck.y = world.y;
+            } else if (state.isDraggingCanvas) {
+                state.panX = e.clientX - state.dragStartX;
+                state.panY = e.clientY - state.dragStartY;
             }
-          },
-          {
-            id: 'fanPower',
-            title: 'Мощность Вентиляторов',
-            cost: Math.round(200 * gameState.upgrades.fanPower),
-            minLevel: 2,
-            level: gameState.upgrades.fanPower,
-            desc: '+35% к дальности и силе обдува',
-            action: () => {
-              const cost = Math.round(200 * gameState.upgrades.fanPower);
-              if (gameState.money >= cost) {
-                gameState.money -= cost;
-                gameState.upgrades.fanPower += 1;
-                renderShop('upgrades');
-              }
-            }
-          },
-          {
-            id: 'pitGrav',
-            title: 'Гравитация Бездны',
-            cost: Math.round(250 * gameState.upgrades.pitGrav),
-            minLevel: 3,
-            level: gameState.upgrades.pitGrav,
-            desc: '+30% к радиусу притяжения Ямы',
-            action: () => {
-              const cost = Math.round(250 * gameState.upgrades.pitGrav);
-              if (gameState.money >= cost) {
-                gameState.money -= cost;
-                gameState.upgrades.pitGrav += 1;
-                renderShop('upgrades');
-              }
-            }
-          }
-        ];
-
-        researchList.forEach(item => {
-          const isUnlocked = gameState.pit.level >= item.minLevel;
-          const card = document.createElement('div');
-
-          if (!isUnlocked) {
-            card.className = 'w-full p-3 rounded-xl bg-slate-950/40 border border-slate-900 font-mono text-xs opacity-50 space-y-2';
-            card.innerHTML = `
-              <div class="flex justify-between items-center">
-                <span class="font-bold text-slate-400 flex items-center gap-1.5">${SVG_ICONS.LOCK} ${item.title}</span>
-                <span class="text-amber-500/80 font-bold text-[10px]">НУЖЕН УР. ${item.minLevel}</span>
-              </div>
-              <p class="text-[11px] text-slate-500">${item.desc}</p>
-            `;
-          } else {
-            card.className = 'w-full p-3 rounded-xl bg-slate-950/60 border border-slate-800 font-mono text-xs space-y-2';
-            card.innerHTML = `
-              <div class="flex justify-between items-center">
-                <span class="font-bold text-amber-300">${item.title} (УР. ${item.level})</span>
-                <span class="text-emerald-400 font-bold">$${item.cost}</span>
-              </div>
-              <p class="text-[11px] text-slate-400">${item.desc}</p>
-            `;
-
-            const btn = document.createElement('button');
-            btn.className = 'w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition uppercase tracking-wider';
-            btn.innerText = 'ИССЛЕДОВАТЬ';
-            btn.onclick = item.action;
-
-            card.appendChild(btn);
-          }
-          shopContent.appendChild(card);
         });
-      }
-    }
 
-    document.getElementById('tab-build').onclick = (e) => switchTab(e.target, 'build');
-    document.getElementById('tab-spawners').onclick = (e) => switchTab(e.target, 'spawners');
-    document.getElementById('tab-upgrades').onclick = (e) => switchTab(e.target, 'upgrades');
+        window.addEventListener('mouseup', () => {
+            if (draggedDuck) {
+                draggedDuck.isDragged = false;
+                draggedDuck = null;
+            }
+            state.isDraggingCanvas = false;
+        });
 
-    function switchTab(btn, tabName) {
-      ['tab-build', 'tab-spawners', 'tab-upgrades'].forEach(id => {
-        const el = document.getElementById(id);
-        el.className = 'flex-1 py-2.5 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200';
-      });
-      btn.className = 'flex-1 py-2.5 text-center border-b-2 border-yellow-400 text-yellow-400 font-bold bg-slate-800/50';
-      renderShop(tabName);
-    }
-  </script>
+        // Управление зумом колесиком мыши
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            const newZoom = Math.min(Math.max(0.4, state.zoom * zoomFactor), 2.2);
 
-  <script>
-    /* ==========================================================================
-       7. HUD STATUS UPDATE & STARTUP
-       ========================================================================== */
+            // Зумирование к позиции курсора
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-    function updateHUD() {
-      document.getElementById('stat-money').innerText = `$${gameState.money.toLocaleString()}`;
-      
-      // Dynamic Combo HUD Update
-      const comboEl = document.getElementById('stat-combo');
-      const comboBar = document.getElementById('stat-combo-bar');
-      
-      comboEl.innerText = `x${gameState.pit.combo.toFixed(1)}`;
-      
-      if (comboBar) {
-        const timerPct = Math.max(0, (gameState.pit.comboTimer / gameState.pit.maxComboTimer) * 100);
-        comboBar.style.width = gameState.pit.combo > 1.0 ? `${timerPct}%` : '0%';
-      }
+            state.panX = mouseX - (mouseX - state.panX) * (newZoom / state.zoom);
+            state.panY = mouseY - (mouseY - state.panY) * (newZoom / state.zoom);
+            state.zoom = newZoom;
+        });
 
-      if (gameState.pit.combo >= 5.0) {
-        comboEl.className = 'text-pink-400 font-extrabold text-sm sm:text-base animate-pulse';
-      } else if (gameState.pit.combo >= 3.0) {
-        comboEl.className = 'text-amber-400 font-bold text-sm sm:text-base';
-      } else if (gameState.pit.combo > 1.0) {
-        comboEl.className = 'text-yellow-400 font-bold text-sm sm:text-base';
-      } else {
-        comboEl.className = 'text-slate-400 font-bold text-sm sm:text-base';
-      }
+        // Строительство постройки
+        function placeBuilding(worldX, worldY) {
+            const grid = getGridPos(worldX, worldY);
+            if (grid.gx < 0 || grid.gx >= GRID_WIDTH || grid.gy < 0 || grid.gy >= GRID_HEIGHT) return;
 
-      document.getElementById('stat-pit-bar').style.width = `${(gameState.pit.satiety / gameState.pit.satietyMax) * 100}%`;
-      document.getElementById('stat-pit-level').innerText = `УР. ${gameState.pit.level}`;
-      
-      document.getElementById('stat-ducks-fed').innerText = gameState.totalDucksFed.toLocaleString();
-      document.getElementById('stat-dps').innerText = `$${gameState.dps}/сек`;
+            const bKey = `${grid.gx},${grid.gy}`;
+            const bConfig = BUILDINGS[state.selectedBuildingType];
 
-      // Intern Ranks
-      const rankEl = document.getElementById('intern-rank');
-      if (gameState.totalDucksFed > 500) rankEl.innerText = 'ДИРЕКТОР БЕЗДНЫ';
-      else if (gameState.totalDucksFed > 200) rankEl.innerText = 'СУПЕРВАЙЗЕР';
-      else if (gameState.totalDucksFed > 50) rankEl.innerText = 'ЛОГИСТ УТОК';
-      else rankEl.innerText = 'МЛАДШИЙ СТАЖЕР';
-    }
+            if (!bConfig || state.money < bConfig.cost || state.pitLevel < bConfig.minLevel) return;
 
-    // Manual Duck Spawn Button
-    document.getElementById('btn-manual-duck').onclick = () => {
-      const spawnX = gameState.pit.x + (Math.random() - 0.5) * 200;
-      const spawnY = 60;
-      const duck = new Duck(spawnX, spawnY, 'YELLOW');
-      gameState.ducks.push(duck);
-    };
+            // Нельзя строить прямо поверх Бездны
+            const pitGrid = getGridPos(PIT.x, PIT.y);
+            if (Math.hypot(grid.gx - pitGrid.gx, grid.gy - pitGrid.gy) < 2) return;
 
-    // Clear board button
-    document.getElementById('btn-clear').onclick = () => {
-      gameState.ducks = [];
-    };
+            state.money -= bConfig.cost;
+            buildingsMap.set(bKey, {
+                type: state.selectedBuildingType,
+                gx: grid.gx,
+                gy: grid.gy,
+                x: grid.gx * CELL_SIZE,
+                y: grid.gy * CELL_SIZE,
+                timer: 0,
+                cool: 0
+            });
 
-    // Help Modal
-    const helpModal = document.getElementById('modal-help');
-    document.getElementById('btn-help').onclick = () => helpModal.classList.remove('hidden');
-    document.getElementById('btn-close-help').onclick = () => helpModal.classList.add('hidden');
-    document.getElementById('btn-start-playing').onclick = () => helpModal.classList.add('hidden');
+            renderShop();
+        }
 
-    // Zoom Control Buttons
-    document.getElementById('btn-zoom-in').onclick = () => setZoom(gameState.zoom * 1.15);
-    document.getElementById('btn-zoom-out').onclick = () => setZoom(gameState.zoom / 1.15);
-    document.getElementById('btn-zoom-reset').onclick = () => setZoom(1.0);
+        // Снос постройки
+        function demolishBuilding(worldX, worldY) {
+            const grid = getGridPos(worldX, worldY);
+            const bKey = `${grid.gx},${grid.gy}`;
+            const b = buildingsMap.get(bKey);
+            if (b) {
+                const bConfig = BUILDINGS[b.type];
+                if (bConfig) {
+                    state.money += Math.round(bConfig.cost * 0.75); // 75% возврат
+                }
+                buildingsMap.delete(bKey);
+                renderShop();
+            }
+        }
 
-    window.onload = () => {
-      resizeCanvas();
-      renderShop('build');
+        // ====================================================================
+        // 8. КНОПКИ И ВИНТЕРФЕЙСНЫЕ СОБЫТИЯ
+        // ====================================================================
+        document.getElementById('btn-manual-spawn').onclick = () => {
+            const now = Date.now();
+            const cdMs = state.manualCooldown * 1000;
+            if (now - state.lastManualSpawn < cdMs) return;
 
-      requestAnimationFrame(gameLoop);
-    };
-  </script>
+            state.lastManualSpawn = now;
+
+            // Спавн 1 базовой утки над ямой
+            spawnDuck('basic', PIT.x + (Math.random()-0.5)*40, PIT.y - 180, (Math.random()-0.5)*50, 100);
+        };
+
+        // Кнопки зума
+        document.getElementById('btn-zoom-in').onclick = () => { state.zoom = Math.min(2.2, state.zoom * 1.2); };
+        document.getElementById('btn-zoom-out').onclick = () => { state.zoom = Math.max(0.4, state.zoom / 1.2); };
+        document.getElementById('btn-zoom-reset').onclick = () => {
+            state.zoom = 1.0;
+            state.panX = canvas.width / 2 - PIT.x;
+            state.panY = canvas.height / 2 - PIT.y;
+        };
+
+        // Инструменты
+        document.getElementById('tool-select').onclick = () => { state.activeTool = 'select'; updateToolUI(); renderShop(); };
+        document.getElementById('tool-demolish').onclick = () => { state.activeTool = 'demolish'; updateToolUI(); renderShop(); };
+
+        // Переключение вкладок боковой панели
+        document.getElementById('tab-build').onclick = () => {
+            document.getElementById('panel-build').classList.remove('hidden');
+            document.getElementById('panel-upgrades').classList.add('hidden');
+            document.getElementById('tab-build').className = 'flex-1 py-2.5 text-xs font-bold text-amber-400 border-b-2 border-amber-400 uppercase tracking-wider';
+            document.getElementById('tab-upgrades').className = 'flex-1 py-2.5 text-xs font-bold text-slate-400 border-b-2 border-transparent uppercase tracking-wider hover:text-slate-200';
+        };
+
+        document.getElementById('tab-upgrades').onclick = () => {
+            document.getElementById('panel-upgrades').classList.remove('hidden');
+            document.getElementById('panel-build').classList.add('hidden');
+            document.getElementById('tab-upgrades').className = 'flex-1 py-2.5 text-xs font-bold text-amber-400 border-b-2 border-amber-400 uppercase tracking-wider';
+            document.getElementById('tab-build').className = 'flex-1 py-2.5 text-xs font-bold text-slate-400 border-b-2 border-transparent uppercase tracking-wider hover:text-slate-200';
+        };
+
+        // СТАРТ ИГРЫ
+        renderShop();
+        requestAnimationFrame(gameLoop);
+    </script>
 </body>
 </html>
