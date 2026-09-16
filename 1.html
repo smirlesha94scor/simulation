@@ -69,7 +69,8 @@
             font-size: 0.8rem;
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: space-between;
+            gap: 4px;
             transition: all 0.2s ease;
         }
 
@@ -85,11 +86,20 @@
             border-color: #88c0d0;
         }
 
+        .btn-price {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
         .btn-clear {
             background: #bf616a;
             color: #fff;
             border: none;
             margin-top: 10px;
+            justify-content: center;
         }
 
         .btn-clear:hover {
@@ -127,9 +137,14 @@
             pointer-events: none;
         }
 
-        .combo-badge {
+        .balance-badge {
             color: #ebcb8b;
             font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .combo-badge {
+            color: #88c0d0;
             font-weight: bold;
         }
 
@@ -182,28 +197,28 @@
         
         <div class="section-title">Производство</div>
         <div class="tool-grid">
-            <button class="btn active" data-tool="duck">🦆 Уточка</button>
-            <button class="btn" data-tool="register">📟 Касса</button>
-            <button class="btn" data-tool="pinata">🪅 Пиньята</button>
-            <button class="btn" data-tool="spawner">🏭 Спавнер</button>
+            <button class="btn active" data-tool="duck" data-price="5"><span>🦆 Уточка</span><span class="btn-price">$5</span></button>
+            <button class="btn" data-tool="register" data-price="20"><span>📟 Касса</span><span class="btn-price">$20</span></button>
+            <button class="btn" data-tool="pinata" data-price="50"><span>🪅 Пиньята</span><span class="btn-price">$50</span></button>
+            <button class="btn" data-tool="spawner" data-price="150"><span>🏭 Спавнер</span><span class="btn-price">$150</span></button>
         </div>
 
         <div class="section-title">Инструменты и Поток</div>
         <div class="tool-grid">
-            <button class="btn" data-tool="broom">🧹 Метла (Сдвиг)</button>
-            <button class="btn" data-tool="fan">💨 Вентилятор</button>
-            <button class="btn" data-tool="magnet">🧲 Магнит</button>
-            <button class="btn" data-tool="piston">💥 Поршень</button>
-            <button class="btn" data-tool="ramp">📐 Рампа/Желоб</button>
-            <button class="btn" data-tool="launcher">🚀 Пушка (Maw)</button>
+            <button class="btn" data-tool="broom" data-price="0"><span>🧹 Метла</span><span class="btn-price">$0</span></button>
+            <button class="btn" data-tool="fan" data-price="30"><span>💨 Вентилятор</span><span class="btn-price">$30</span></button>
+            <button class="btn" data-tool="magnet" data-price="45"><span>🧲 Магнит</span><span class="btn-price">$45</span></button>
+            <button class="btn" data-tool="piston" data-price="40"><span>💥 Поршень</span><span class="btn-price">$40</span></button>
+            <button class="btn" data-tool="ramp" data-price="15"><span>📐 Рампа</span><span class="btn-price">$15</span></button>
+            <button class="btn" data-tool="launcher" data-price="75"><span>🚀 Пушка</span><span class="btn-price">$75</span></button>
         </div>
 
         <div class="section-title">Управление</div>
         <div class="instructions">
-            • <b>ЛКМ</b> — Разместить / Взаимодействовать<br>
+            • <b>ЛКМ</b> — Купить / Разместить / Толкать<br>
             • <b>Зажатый ПКМ</b> — Перемещение камеры<br>
             • <b>Колесо мыши</b> — Зум цеха<br>
-            • <b>Alt + Колесо</b> — Поворот рампы/вентилятора<br>
+            • <b>Alt + Колесо</b> — Поворот элемента<br>
             • <b>Shift + Клик</b> — Удалить элемент
         </div>
 
@@ -213,7 +228,7 @@
     <div id="viewport-container">
         <canvas id="canvas"></canvas>
         <div class="stats-panel">
-            Счет: <span id="score-val">0</span><br>
+            Баланс: $<span id="balance-val" class="balance-badge">100</span><br>
             Комбо: <span id="combo-val" class="combo-badge">x1</span><br>
             Предметов: <span id="items-val">0</span>
         </div>
@@ -227,7 +242,7 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const scoreVal = document.getElementById('score-val');
+        const balanceVal = document.getElementById('balance-val');
         const comboVal = document.getElementById('combo-val');
         const itemsVal = document.getElementById('items-val');
         const container = document.getElementById('viewport-container');
@@ -235,9 +250,22 @@
         let width, height;
         let activeTool = 'duck';
         let placeAngle = 0;
-        let score = 0;
+        let balance = 100; // Стартовый баланс
         let combo = 1;
         let comboTimer = 0;
+
+        const PRICES = {
+            duck: 5,
+            register: 20,
+            pinata: 50,
+            spawner: 150,
+            broom: 0,
+            fan: 30,
+            magnet: 45,
+            piston: 40,
+            ramp: 15,
+            launcher: 75
+        };
 
         let camera = { x: 0, y: 0, zoom: 1.0 };
         const GRAVITY = 0.22;
@@ -248,7 +276,7 @@
         let panStart = { x: 0, y: 0 };
         let draggedObject = null;
 
-        // The Maw (Пасть)
+        // Статичная Пасть (The Maw) без пульсации
         let maw = { x: 0, y: 0, radius: 80 };
 
         function resize() {
@@ -272,9 +300,7 @@
         document.getElementById('clear-btn').addEventListener('click', () => {
             objects = [];
             tools = [];
-            score = 0;
             combo = 1;
-            scoreVal.innerText = score;
             comboVal.innerText = 'x1';
         });
 
@@ -342,7 +368,6 @@
 
             if (e.button === 0) {
                 if (activeTool === 'broom') {
-                    // Толчок метлой ближайших предметов
                     objects.forEach(obj => {
                         let dist = Math.hypot(obj.x - wPos.x, obj.y - wPos.y);
                         if (dist < 100) {
@@ -372,27 +397,35 @@
         container.addEventListener('contextmenu', e => e.preventDefault());
 
         function spawnToolOrObject(x, y) {
-            if (activeTool === 'duck') objects.push(createItem(x, y, 'duck'));
-            else if (activeTool === 'register') objects.push(createItem(x, y, 'register'));
-            else if (activeTool === 'pinata') objects.push(createItem(x, y, 'pinata'));
-            else if (activeTool === 'spawner') tools.push({ type: 'spawner', x, y, cooldown: 0 });
-            else if (activeTool === 'fan') tools.push({ type: 'fan', x, y, angle: placeAngle });
-            else if (activeTool === 'magnet') tools.push({ type: 'magnet', x, y });
-            else if (activeTool === 'piston') tools.push({ type: 'piston', x, y });
-            else if (activeTool === 'ramp') tools.push({ type: 'ramp', x, y, angle: placeAngle, length: 140 });
-            else if (activeTool === 'launcher') tools.push({ type: 'launcher', x, y, angle: placeAngle });
+            const price = PRICES[activeTool] || 0;
+            if (balance < price) return; // Проверка баланса
+
+            let created = false;
+            if (activeTool === 'duck') { objects.push(createItem(x, y, 'duck')); created = true; }
+            else if (activeTool === 'register') { objects.push(createItem(x, y, 'register')); created = true; }
+            else if (activeTool === 'pinata') { objects.push(createItem(x, y, 'pinata')); created = true; }
+            else if (activeTool === 'spawner') { tools.push({ type: 'spawner', x, y, cooldown: 0 }); created = true; }
+            else if (activeTool === 'fan') { tools.push({ type: 'fan', x, y, angle: placeAngle }); created = true; }
+            else if (activeTool === 'magnet') { tools.push({ type: 'magnet', x, y }); created = true; }
+            else if (activeTool === 'piston') { tools.push({ type: 'piston', x, y }); created = true; }
+            else if (activeTool === 'ramp') { tools.push({ type: 'ramp', x, y, angle: placeAngle, length: 140 }); created = true; }
+            else if (activeTool === 'launcher') { tools.push({ type: 'launcher', x, y, angle: placeAngle }); created = true; }
+
+            if (created) {
+                balance -= price;
+                balanceVal.innerText = balance;
+            }
         }
 
         function createItem(x, y, type) {
             let base = { x, y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, type };
             if (type === 'duck') return { ...base, radius: 14, mass: 1.0, value: 10, color: '#ebcb8b' };
-            if (type === 'register') return { ...base, radius: 18, mass: 2.2, value: 40, color: '#a3be8c' };
-            if (type === 'pinata') return { ...base, radius: 22, mass: 1.5, value: 80, color: '#b48ead' };
+            if (type === 'register') return { ...base, radius: 18, mass: 2.2, value: 45, color: '#a3be8c' };
+            if (type === 'pinata') return { ...base, radius: 22, mass: 1.5, value: 110, color: '#b48ead' };
         }
 
-        // Логика физики и комбо
+        // Физика и логика игры
         function update() {
-            // Комбо счетчик
             if (comboTimer > 0) {
                 comboTimer--;
             } else {
@@ -477,12 +510,12 @@
                     obj.vy -= ((obj.y - maw.y) / distMaw) * pull;
                 }
 
-                // Поглощение предмета
+                // Поглощение предмета и пополнение баланса
                 if (distMaw < maw.radius) {
-                    score += obj.value * combo;
+                    balance += obj.value * combo;
                     combo = Math.min(10, combo + 1);
-                    comboTimer = 180; // Сброс таймера комбо
-                    scoreVal.innerText = score;
+                    comboTimer = 180;
+                    balanceVal.innerText = balance;
                     comboVal.innerText = 'x' + combo;
                     objects.splice(i, 1);
                 }
@@ -500,7 +533,7 @@
             ctx.scale(camera.zoom, camera.zoom);
             ctx.translate(-width / 2 + camera.x, -height / 2 + camera.y);
 
-            // Сетка цеха
+            // Сетка
             ctx.strokeStyle = 'rgba(46, 52, 64, 0.3)';
             ctx.lineWidth = 1;
             for (let x = -width; x < width * 2; x += 60) {
@@ -510,7 +543,7 @@
                 ctx.beginPath(); ctx.moveTo(-width, y); ctx.lineTo(width * 2, y); ctx.stroke();
             }
 
-            // The Maw (Пасть)
+            // Статичная Пасть без колебаний и пульсации
             ctx.beginPath();
             ctx.arc(maw.x, maw.y, maw.radius, 0, Math.PI * 2);
             ctx.fillStyle = '#050508';
@@ -520,8 +553,8 @@
             ctx.stroke();
 
             ctx.beginPath();
-            ctx.arc(maw.x, maw.y, maw.radius + 15 + Math.sin(Date.now() / 150) * 6, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(191, 97, 106, 0.4)';
+            ctx.arc(maw.x, maw.y, maw.radius + 12, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(191, 97, 106, 0.3)';
             ctx.stroke();
 
             // Инструменты
