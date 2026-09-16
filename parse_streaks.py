@@ -9,53 +9,67 @@ AUTH_TOKEN = os.environ.get("TWITCH_AUTH_TOKEN")
 DATA_FILE = "data.json"
 
 # Максимальное время ожидания прироста серии на канале (в секундах)
-# 12 минут = 720 секунд (Twitch обычно засчитывает просмотр за 5-10 минут)
-WAIT_TIMEOUT_SECONDS = 720 
-CHECK_INTERVAL_SECONDS = 30
+WAIT_TIMEOUT_SECONDS = 600  # 10 минут
+CHECK_INTERVAL_SECONDS = 20
 
 def extract_number(text):
-    """Извлекает первое число из текста"""
-    match = re.search(r'\d+', str(text))
+    """Извлекает число из текста с учетом пробелов и неразрывных пробелов"""
+    cleaned = text.replace('\xa0', '').replace(' ', '')
+    match = re.search(r'\d+', cleaned)
     return int(match.group()) if match else 0
 
 def get_current_streak(page):
-    """Функция для открытия меню баллов и считывания цифры серии"""
+    """Находит и считывает серию просмотров без привязки к динамическим CSS-классам"""
     try:
         points_button = page.locator('button[data-a-target="player-channel-points-toggle-button"]')
+        
+        # Открываем меню наград, если оно еще не открыто
         if points_button.is_visible():
             points_button.click()
-            time.sleep(1.5)
+            time.sleep(2)
 
-            streak_element = page.locator('text=/серия просмотров|Watch Streak/i')
-            if streak_element.is_visible():
-                parent_text = streak_element.locator('..').inner_text()
-                for line in parent_text.split("\n"):
+        # 1. Поиск по устойчивой ARIA-метке иконки серии просмотров
+        streak_element = page.locator('svg[aria-label="Серия просмотров"], svg[aria-label="Watch Streak"]')
+        
+        if streak_element.count() > 0:
+            # Поднимаемся к родительскому контейнеру, содержащему текст с цифрой
+            parent_box = streak_element.first.locator('xpath=ancestor::div[contains(., "серия просмотров") or contains(., "Watch Streak")]')
+            if parent_box.count() > 0:
+                text = parent_box.first.inner_text()
+                for line in text.split('\n'):
                     if "серия" in line.lower() or "streak" in line.lower():
-                        val = line.split(":")[-1].strip()
-                        # Закрываем меню кликом обратно, чтобы не перекрывать плеер
-                        points_button.click()
-                        return extract_number(val), val
-            points_button.click()
+                        num = extract_number(line)
+                        return num, str(num)
+
+        # 2. Резервный поиск по тексту без учета регистра
+        text_fallback = page.locator('text=/серия просмотров|watch streak/i')
+        if text_fallback.count() > 0:
+            text = text_fallback.first.locator('xpath=..').inner_text()
+            for line in text.split('\n'):
+                if "серия" in line.lower() or "streak" in line.lower():
+                    num = extract_number(line)
+                    return num, str(num)
+
     except Exception as e:
-        print(f"  [!] Ошибка при считывании меню: {e}")
+        print(f"  [!] Ошибка считывания серии: {e}")
+
     return 0, "0"
 
 def get_streaks():
     if not AUTH_TOKEN:
-        print("Ошибка: TWITCH_AUTH_TOKEN не найден.")
+        print("Ошибка: TWITCH_AUTH_TOKEN не найден в переменных окружения.")
         return
 
     channels_data = []
 
     with sync_playwright() as p:
-        # Запускаем Chromium с включенным автовоспроизведением звука/видео,
-        # чтобы Twitch засчитывал просмотр трансляции
         browser = p.chromium.launch(
             headless=True,
             args=["--autoplay-policy=no-user-gesture-required"]
         )
         context = browser.new_context()
 
+        # Авторизация по auth-token
         context.add_cookies([{
             'name': 'auth-token',
             'value': AUTH_TOKEN,
@@ -89,33 +103,29 @@ def get_streaks():
                 page.goto(url, wait_until="domcontentloaded")
                 time.sleep(5)
 
-                # Считываем начальный стрик
                 initial_streak_num, initial_streak_str = get_current_streak(page)
                 print(f"  -> Исходная серия просмотров: {initial_streak_num}")
 
                 final_streak_str = initial_streak_str
 
-                # УСЛОВИЕ: Если серия больше 2 — ждем ее увеличения
-                if initial_streak_num > 2:
-                    print(f"  ⏳ Серия больше 2! Остаемся на стриме и ждем увеличения (макс {WAIT_TIMEOUT_SECONDS // 60} мин)...")
+                # Ждем увеличения серии для всех значений (начиная с 0)
+                print(f"  ⏳ Ждем увеличения серии (макс {WAIT_TIMEOUT_SECONDS // 60} мин)...")
+                
+                start_time = time.time()
+                while time.time() - start_time < WAIT_TIMEOUT_SECONDS:
+                    time.sleep(CHECK_INTERVAL_SECONDS)
                     
-                    start_time = time.time()
-                    while time.time() - start_time < WAIT_TIMEOUT_SECONDS:
-                        time.sleep(CHECK_INTERVAL_SECONDS)
-                        
-                        current_num, current_str = get_current_streak(page)
-                        elapsed = int(time.time() - start_time)
-                        
-                        print(f"     [{elapsed} сек] Текущая серия: {current_num}")
+                    current_num, current_str = get_current_streak(page)
+                    elapsed = int(time.time() - start_time)
+                    
+                    print(f"     [{elapsed} сек] Текущая серия: {current_num}")
 
-                        if current_num > initial_streak_num:
-                            print(f"  🎉 УРА! Серия увеличена: {initial_streak_num} -> {current_num}")
-                            final_streak_str = current_str
-                            break
-                    else:
-                        print("  ⚠️ Время ожидания истекло, серия не изменилась за данный интервал.")
+                    if current_num > initial_streak_num:
+                        print(f"  🎉 УРА! Серия увеличилась: {initial_streak_num} -> {current_num}")
+                        final_streak_str = current_str
+                        break
                 else:
-                    print("  ℹ️ Серия <= 2, ожидание не требуется.")
+                    print("  ⚠️ Время ожидания истекло, фиксируем текущий результат.")
 
                 channels_data.append({
                     "name": channel,
@@ -125,7 +135,7 @@ def get_streaks():
                 })
 
             except Exception as e:
-                print(f"  [!] Ошибка с каналом {channel}: {e}")
+                print(f"  [!] Ошибка при обработке канала {channel}: {e}")
                 channels_data.append({
                     "name": channel,
                     "username": channel,
@@ -143,7 +153,7 @@ def get_streaks():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    print("\nДанные успешно сохранены в data.json")
+    print("\nДанные успешно записаны в data.json")
 
 if __name__ == "__main__":
     get_streaks()
