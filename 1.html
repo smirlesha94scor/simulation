@@ -3,22 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Песочница Автоматизации — Чистый Three.js</title>
+  <title>2D Автоматизация с Утками</title>
   <style>
     body {
       margin: 0;
-      overflow: hidden;
+      padding: 0;
+      background: #1e1e24;
+      color: #fff;
       font-family: Arial, sans-serif;
+      overflow: hidden;
       user-select: none;
     }
     #ui {
       position: absolute;
       top: 10px;
       left: 10px;
-      background: rgba(20, 20, 20, 0.85);
+      background: rgba(30, 30, 40, 0.9);
       padding: 12px;
       border-radius: 8px;
-      color: #fff;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -30,31 +32,18 @@
       gap: 6px;
     }
     button {
-      background: #34495e;
+      background: #3a3f58;
       color: white;
-      border: none;
-      padding: 8px 12px;
+      border: 1px solid #555;
+      padding: 8px 10px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
-      transition: background 0.2s;
     }
-    button:hover { background: #415b76; }
-    button.active { background: #27ae60; }
-    #info {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      color: white;
-      background: rgba(0,0,0,0.7);
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 13px;
-      pointer-events: none;
-    }
+    button:hover { background: #4e5578; }
+    button.active { background: #27ae60; border-color: #2ecc71; }
+    canvas { display: block; }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
@@ -65,335 +54,235 @@
       <button id="btn-magnet" onclick="selectTool('magnet')">🧲 Магнит</button>
       <button id="btn-panel" onclick="selectTool('panel')">📐 Панель</button>
       <button id="btn-piston" onclick="selectTool('piston')">🔨 Поршень</button>
-      <button id="btn-launcher" onclick="selectTool('launcher')">🚀 Запускник</button>
       <button id="btn-spring" onclick="selectTool('spring')">🦘 Пружина</button>
-      <button id="btn-rack" onclick="selectTool('rack')">📦 Стойка</button>
-      <button id="btn-broom" onclick="selectTool('broom')">🧹 Метла</button>
+      <button id="btn-launcher" onclick="selectTool('launcher')">🚀 Запускник</button>
     </div>
     <hr style="border: 0.5px solid #444; width: 100%;">
-    <strong>Спавн объектов:</strong>
+    <strong>Спавн:</strong>
     <div class="btn-group">
-      <button onclick="spawnMetalBox()">📦 Металл</button>
       <button onclick="spawnDuck()">🦆 Утка</button>
+      <button onclick="spawnMetal()">📦 Металл</button>
     </div>
   </div>
 
-  <div id="info">Кликните по арене для размещения выбранного инструмента</div>
+  <canvas id="canvas"></canvas>
 
   <script>
-    // --- 1. ИНИЦИАЛИЗАЦИЯ THREE.JS ---
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a24);
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 12, 16);
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 2, 0);
-    controls.update();
-
-    // Гравитация (м/с²)
-    const GRAVITY = new THREE.Vector3(0, -15, 0);
-
-    // --- 2. ОСВЕЩЕНИЕ И ОКРУЖЕНИЕ ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(10, 20, 10);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    scene.add(dirLight);
-
-    // Пол (Арена)
-    const groundGeo = new THREE.PlaneGeometry(20, 20);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
-    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-    groundMesh.rotation.x = -Math.PI / 2;
-    groundMesh.receiveShadow = true;
-    scene.add(groundMesh);
-
-    // --- 3. ХРАНИЛИЩА ОБЪЕКТОВ И ИНСТРУМЕНТОВ ---
-    const dynamicObjects = []; // Утки и металл
-    const activeTools = [];    // Установленные инструменты
+    const GRAVITY = 0.3;
+    const dynamicObjects = [];
+    const installedTools = [];
     let selectedTool = null;
 
-    // Материалы Three.js
-    const materials = {
-      metal: new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.8, roughness: 0.2 }),
-      duck: new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.5 }),
-      fan: new THREE.MeshStandardMaterial({ color: 0x3498db }),
-      magnet: new THREE.MeshStandardMaterial({ color: 0xe74c3c }),
-      panel: new THREE.MeshStandardMaterial({ color: 0xe67e22 }),
-      piston: new THREE.MeshStandardMaterial({ color: 0x9b59b6 }),
-      launcher: new THREE.MeshStandardMaterial({ color: 0x2ecc71 }),
-      spring: new THREE.MeshStandardMaterial({ color: 0x1abc9c }),
-      rack: new THREE.MeshStandardMaterial({ color: 0x34495e }),
-      broom: new THREE.MeshStandardMaterial({ color: 0xd35400 })
-    };
-
-    // --- 4. ДИНАМИЧЕСКИЙ ФИЗИЧЕСКИЙ ОБЪЕКТ (Кастомный калькулятор физики) ---
-    class PhysicsObject {
-      constructor(mesh, radius, isMetallic) {
-        this.mesh = mesh;
-        this.radius = radius;
-        this.isMetallic = isMetallic;
-        this.velocity = new THREE.Vector3(0, 0, 0);
-        this.acceleration = new THREE.Vector3(0, 0, 0);
-        this.damping = 0.98; // Трение воздуха
-        this.bounce = 0.6;  // Коэффициент отскока
+    // --- ФИЗИЧЕСКИЙ 2D ОБЪЕКТ ---
+    class PhysicalBody2D {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = 0;
+        this.radius = 18;
+        this.type = type; // 'duck' или 'metal'
+        this.isMetallic = type === 'metal';
+        this.bounce = 0.5;
+        this.friction = 0.98;
       }
 
-      applyForce(force) {
-        this.acceleration.add(force);
+      update() {
+        this.vy += GRAVITY;
+        this.vx *= this.friction;
+        this.vy *= this.friction;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Пол
+        if (this.y + this.radius > canvas.height - 20) {
+          this.y = canvas.height - 20 - this.radius;
+          this.vy = -this.vy * this.bounce;
+        }
+        // Стены
+        if (this.x - this.radius < 0) {
+          this.x = this.radius;
+          this.vx = -this.vx * this.bounce;
+        }
+        if (this.x + this.radius > canvas.width) {
+          this.x = canvas.width - this.radius;
+          this.vx = -this.vx * this.bounce;
+        }
       }
 
-      update(dt) {
-        // Добавляем гравитацию
-        this.acceleration.add(GRAVITY);
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
 
-        // Интегрирование Эйлера
-        this.velocity.addScaledVector(this.acceleration, dt);
-        this.mesh.position.addScaledVector(this.velocity, dt);
+        if (this.type === 'duck') {
+          // Отрисовка 2D-уточки
+          ctx.fillStyle = '#f1c40f';
+          ctx.beginPath();
+          ctx.arc(0, 0, 14, 0, Math.PI * 2); // Тело
+          ctx.fill();
 
-        // Замедление трением
-        this.velocity.x *= this.damping;
-        this.velocity.z *= this.damping;
+          ctx.beginPath();
+          ctx.arc(8, -10, 8, 0, Math.PI * 2); // Голова
+          ctx.fill();
 
-        // Коллизия с полом
-        if (this.mesh.position.y - this.radius < 0) {
-          this.mesh.position.y = this.radius;
-          this.velocity.y = -this.velocity.y * this.bounce;
+          ctx.fillStyle = '#e67e22'; // Клюв
+          ctx.beginPath();
+          ctx.moveTo(14, -10);
+          ctx.lineTo(22, -8);
+          ctx.lineTo(14, -6);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#000'; // Глаз
+          ctx.beginPath();
+          ctx.arc(10, -12, 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Отрисовка металлического ящика
+          ctx.fillStyle = '#7f8c8d';
+          ctx.strokeStyle = '#bdc3c7';
+          ctx.lineWidth = 2;
+          ctx.fillRect(-15, -15, 30, 30);
+          ctx.strokeRect(-15, -15, 30, 30);
         }
 
-        // Ограничение по границам арены
-        const bound = 9.5;
-        if (Math.abs(this.mesh.position.x) > bound) {
-          this.mesh.position.x = Math.sign(this.mesh.position.x) * bound;
-          this.velocity.x *= -this.bounce;
-        }
-        if (Math.abs(this.mesh.position.z) > bound) {
-          this.mesh.position.z = Math.sign(this.mesh.position.z) * bound;
-          this.velocity.z *= -this.bounce;
-        }
-
-        // Сброс ускорения для следующего кадра
-        this.acceleration.set(0, 0, 0);
+        ctx.restore();
       }
     }
 
-    // --- 5. КЛАССЫ ИНСТРУМЕНТОВ ---
-    class Tool {
-      constructor(type, position) {
+    // --- 2D ИНСТРУМЕНТЫ ---
+    class Tool2D {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
         this.type = type;
-        this.mesh = new THREE.Group();
-        this.mesh.position.copy(position);
-        scene.add(this.mesh);
-      }
-      update() {}
-    }
-
-    class FanTool extends Tool {
-      constructor(pos) {
-        super('fan', pos);
-        const geo = new THREE.BoxGeometry(1.2, 1.2, 0.5);
-        const mesh = new THREE.Mesh(geo, materials.fan);
-        mesh.castShadow = true;
-        this.mesh.add(mesh);
-        this.mesh.position.y += 0.6;
-      }
-      update() {
-        const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
-        dynamicObjects.forEach(obj => {
-          const dir = new THREE.Vector3().subVectors(obj.mesh.position, this.mesh.position);
-          const dist = dir.length();
-          if (dist < 7 && dir.angleTo(forward) < 0.6) {
-            const force = forward.clone().multiplyScalar(30 / (dist + 1));
-            obj.applyForce(force);
-          }
-        });
-      }
-    }
-
-    class MagnetTool extends Tool {
-      constructor(pos) {
-        super('magnet', pos);
-        const geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
-        const mesh = new THREE.Mesh(geo, materials.magnet);
-        mesh.castShadow = true;
-        this.mesh.add(mesh);
-        this.mesh.position.y += 0.5;
-      }
-      update() {
-        dynamicObjects.forEach(obj => {
-          if (obj.isMetallic) {
-            const dir = new THREE.Vector3().subVectors(this.mesh.position, obj.mesh.position);
-            const dist = dir.length();
-            if (dist < 8) {
-              dir.normalize().multiplyScalar(50 / (dist * dist + 0.5));
-              obj.applyForce(dir);
-            }
-          }
-        });
-      }
-    }
-
-    class PanelTool extends Tool {
-      constructor(pos) {
-        super('panel', pos);
-        const geo = new THREE.BoxGeometry(2, 0.2, 1);
-        const mesh = new THREE.Mesh(geo, materials.panel);
-        mesh.castShadow = true;
-        this.mesh.add(mesh);
-        this.mesh.position.y += 0.5;
-        this.mesh.rotation.z = Math.PI / 8; // Небольшой наклон
-      }
-    }
-
-    class PistonTool extends Tool {
-      constructor(pos) {
-        super('piston', pos);
-        const geo = new THREE.BoxGeometry(1, 1, 1);
-        const mesh = new THREE.Mesh(geo, materials.piston);
-        mesh.castShadow = true;
-        this.mesh.add(mesh);
-        this.mesh.position.y += 0.5;
         this.timer = 0;
       }
+
       update() {
         this.timer += 0.05;
-        if (Math.sin(this.timer) > 0.96) {
-          dynamicObjects.forEach(obj => {
-            const dist = this.mesh.position.distanceTo(obj.mesh.position);
-            if (dist < 1.8) {
-              obj.velocity.add(new THREE.Vector3(0, 8, 12));
-            }
-          });
-        }
-      }
-    }
-
-    class SpringTool extends Tool {
-      constructor(pos) {
-        super('spring', pos);
-        const geo = new THREE.CylinderGeometry(0.8, 0.8, 0.3, 16);
-        const mesh = new THREE.Mesh(geo, materials.spring);
-        mesh.castShadow = true;
-        this.mesh.add(mesh);
-        this.mesh.position.y += 0.15;
-      }
-      update() {
         dynamicObjects.forEach(obj => {
-          const distXZ = new THREE.Vector2(
-            this.mesh.position.x - obj.mesh.position.x,
-            this.mesh.position.z - obj.mesh.position.z
-          ).length();
+          const dx = obj.x - this.x;
+          const dy = obj.y - this.y;
+          const dist = Math.hypot(dx, dy);
 
-          if (distXZ < 0.9 && Math.abs(obj.mesh.position.y - this.mesh.position.y) < 0.6) {
-            obj.velocity.y = 12; // Импульс вверх
+          if (this.type === 'fan' && dist < 180 && dx > 0 && Math.abs(dy) < 50) {
+            obj.vx += (180 - dist) * 0.01; // Выдувание вправо
+          }
+          if (this.type === 'magnet' && obj.isMetallic && dist < 220) {
+            obj.vx -= (dx / dist) * 0.8; // Притяжение
+            obj.vy -= (dy / dist) * 0.8;
+          }
+          if (this.type === 'spring' && dist < 30 && Math.abs(dx) < 25) {
+            obj.vy = -12; // Подбрасывание
+          }
+          if (this.type === 'piston' && dist < 40 && Math.sin(this.timer) > 0.8) {
+            obj.vx += 10;
+            obj.vy -= 4;
+          }
+          if (this.type === 'launcher' && dist < 35) {
+            obj.vx = 15;
+            obj.vy = -10;
           }
         });
       }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        if (this.type === 'fan') {
+          ctx.fillStyle = '#3498db';
+          ctx.fillRect(-20, -20, 40, 40);
+          ctx.fillStyle = '#fff';
+          ctx.fillText('🌀', -8, 5);
+        } else if (this.type === 'magnet') {
+          ctx.fillStyle = '#e74c3c';
+          ctx.beginPath();
+          ctx.arc(0, 0, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.fillText('🧲', -8, 5);
+        } else if (this.type === 'spring') {
+          ctx.fillStyle = '#1abc9c';
+          ctx.fillRect(-25, 0, 50, 10);
+          ctx.fillText('🦘', -8, -5);
+        } else if (this.type === 'piston') {
+          ctx.fillStyle = '#9b59b6';
+          ctx.fillRect(-15, -15, 30, 30);
+          ctx.fillText('🔨', -8, 5);
+        } else if (this.type === 'panel') {
+          ctx.fillStyle = '#e67e22';
+          ctx.rotate(-Math.PI / 6);
+          ctx.fillRect(-40, -5, 80, 10);
+        } else if (this.type === 'launcher') {
+          ctx.fillStyle = '#2ecc71';
+          ctx.fillRect(-20, -10, 40, 20);
+          ctx.fillText('🚀', -8, 5);
+        }
+
+        ctx.restore();
+      }
     }
 
-    // --- 6. СПАВН ОБЪЕКТОВ ---
-    function spawnMetalBox() {
-      const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-      const mesh = new THREE.Mesh(geo, materials.metal);
-      mesh.castShadow = true;
-      scene.add(mesh);
-
-      const obj = new PhysicsObject(mesh, 0.4, true);
-      obj.mesh.position.set((Math.random() - 0.5) * 4, 8, (Math.random() - 0.5) * 4);
-      dynamicObjects.push(obj);
-    }
-
-    function spawnDuck() {
-      const geo = new THREE.SphereGeometry(0.5, 16, 16);
-      const mesh = new THREE.Mesh(geo, materials.duck);
-      mesh.castShadow = true;
-      scene.add(mesh);
-
-      const obj = new PhysicsObject(mesh, 0.5, false);
-      obj.mesh.position.set((Math.random() - 0.5) * 4, 8, (Math.random() - 0.5) * 4);
-      dynamicObjects.push(obj);
-    }
-
-    // --- 7. РАЗМЕЩЕНИЕ И ИНТЕРФЕЙС ---
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
+    // --- УПРАВЛЕНИЕ ---
     function selectTool(type) {
       selectedTool = type;
       document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
-      const activeBtn = document.getElementById(`btn-${type}`);
-      if (activeBtn) activeBtn.classList.add('active');
+      const btn = document.getElementById(`btn-${type}`);
+      if (btn) btn.classList.add('active');
     }
 
-    window.addEventListener('pointerdown', (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.closest('#ui')) return;
+    function spawnDuck() {
+      dynamicObjects.push(new PhysicalBody2D(100 + Math.random() * 50, 50, 'duck'));
+    }
 
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    function spawnMetal() {
+      dynamicObjects.push(new PhysicalBody2D(100 + Math.random() * 50, 50, 'metal'));
+    }
 
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(groundMesh);
-
-      if (intersects.length > 0 && selectedTool) {
-        const point = intersects[0].point;
-        let tool = null;
-
-        switch(selectedTool) {
-          case 'fan': tool = new FanTool(point); break;
-          case 'magnet': tool = new MagnetTool(point); break;
-          case 'panel': tool = new PanelTool(point); break;
-          case 'piston': tool = new PistonTool(point); break;
-          case 'spring': tool = new SpringTool(point); break;
-          default:
-            tool = new Tool(selectedTool, point);
-            const geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-            const mesh = new THREE.Mesh(geo, materials[selectedTool] || materials.rack);
-            tool.mesh.add(mesh);
-            tool.mesh.position.y += 0.4;
-            break;
-        }
-
-        if (tool) activeTools.push(tool);
+    canvas.addEventListener('click', (e) => {
+      if (selectedTool) {
+        installedTools.push(new Tool2D(e.clientX, e.clientY, selectedTool));
       }
     });
 
     window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     });
 
-    // --- 8. АНИМАЦИОННЫЙ ЦИКЛ ---
-    let lastTime = performance.now();
+    // --- ГЛАВНЫЙ ЦИКЛ ---
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function animate() {
-      requestAnimationFrame(animate);
+      // Отрисовка пола
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
 
-      const now = performance.now();
-      const dt = Math.min((now - lastTime) / 1000, 0.1); // Дельта времени
-      lastTime = now;
+      // Обновление и отрисовка инструментов
+      installedTools.forEach(tool => {
+        tool.update();
+        tool.draw();
+      });
 
-      // Обновление логики инструментов
-      activeTools.forEach(tool => tool.update());
+      // Обновление и отрисовка физических тел
+      dynamicObjects.forEach(obj => {
+        obj.update();
+        obj.draw();
+      });
 
-      // Обновление физики всех объектов
-      dynamicObjects.forEach(obj => obj.update(dt));
-
-      renderer.render(scene, camera);
+      requestAnimationFrame(loop);
     }
 
-    animate();
+    loop();
   </script>
 </body>
 </html>
