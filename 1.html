@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2D Автоматизация с Утками</title>
+  <title>2D Автоматизация с Утками — Вид Сверху</title>
   <style>
     body {
       margin: 0;
@@ -48,11 +48,11 @@
 <body>
 
   <div id="ui">
-    <strong>Инструменты:</strong>
+    <strong>Инструменты (Вид сверху):</strong>
     <div class="btn-group">
       <button id="btn-fan" onclick="selectTool('fan')">🌀 Вентилятор</button>
       <button id="btn-magnet" onclick="selectTool('magnet')">🧲 Магнит</button>
-      <button id="btn-panel" onclick="selectTool('panel')">📐 Панель</button>
+      <button id="btn-panel" onclick="selectTool('panel')">📐 Панель-отбойник</button>
       <button id="btn-piston" onclick="selectTool('piston')">🔨 Поршень</button>
       <button id="btn-spring" onclick="selectTool('spring')">🦘 Пружина</button>
       <button id="btn-launcher" onclick="selectTool('launcher')">🚀 Запускник</button>
@@ -74,39 +74,39 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const GRAVITY = 0.3;
     const dynamicObjects = [];
     const installedTools = [];
     let selectedTool = null;
 
-    // --- ФИЗИЧЕСКИЙ 2D ОБЪЕКТ ---
-    class PhysicalBody2D {
+    // --- ФИЗИЧЕСКИЙ ОБЪЕКТ (ВИД СВЕРХУ) ---
+    class TopDownBody {
       constructor(x, y, type) {
         this.x = x;
         this.y = y;
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = 0;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.angle = Math.atan2(this.vy, this.vx);
         this.radius = 18;
-        this.type = type; // 'duck' или 'metal'
+        this.type = type;
         this.isMetallic = type === 'metal';
-        this.bounce = 0.5;
-        this.friction = 0.98;
+        this.friction = 0.96; // Трение о поверхность
+        this.bounce = 0.7;
       }
 
       update() {
-        this.vy += GRAVITY;
+        // Применение трения скольжения
         this.vx *= this.friction;
         this.vy *= this.friction;
 
         this.x += this.vx;
         this.y += this.vy;
 
-        // Пол
-        if (this.y + this.radius > canvas.height - 20) {
-          this.y = canvas.height - 20 - this.radius;
-          this.vy = -this.vy * this.bounce;
+        // Поворот по направлению движения
+        if (Math.hypot(this.vx, this.vy) > 0.2) {
+          this.angle = Math.atan2(this.vy, this.vx);
         }
-        // Стены
+
+        // Границы экрана
         if (this.x - this.radius < 0) {
           this.x = this.radius;
           this.vx = -this.vx * this.bounce;
@@ -115,50 +115,89 @@
           this.x = canvas.width - this.radius;
           this.vx = -this.vx * this.bounce;
         }
+        if (this.y - this.radius < 0) {
+          this.y = this.radius;
+          this.vy = -this.vy * this.bounce;
+        }
+        if (this.y + this.radius > canvas.height) {
+          this.y = canvas.height - this.radius;
+          this.vy = -this.vy * this.bounce;
+        }
       }
 
       draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
 
         if (this.type === 'duck') {
-          // Отрисовка 2D-уточки
-          ctx.fillStyle = '#f1c40f';
+          // --- ОТРИСОВКА УТКИ СВЕРХУ ---
+          // Хвостик
+          ctx.fillStyle = '#f39c12';
           ctx.beginPath();
-          ctx.arc(0, 0, 14, 0, Math.PI * 2); // Тело
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(8, -10, 8, 0, Math.PI * 2); // Голова
-          ctx.fill();
-
-          ctx.fillStyle = '#e67e22'; // Клюв
-          ctx.beginPath();
-          ctx.moveTo(14, -10);
-          ctx.lineTo(22, -8);
-          ctx.lineTo(14, -6);
+          ctx.moveTo(-16, 0);
+          ctx.lineTo(-22, -6);
+          ctx.lineTo(-22, 6);
           ctx.closePath();
           ctx.fill();
 
-          ctx.fillStyle = '#000'; // Глаз
+          // Овальное тело
+          ctx.fillStyle = '#f1c40f';
           ctx.beginPath();
-          ctx.arc(10, -12, 2, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Крылья
+          ctx.fillStyle = '#f39c12';
+          ctx.beginPath();
+          ctx.ellipse(-2, -11, 8, 4, Math.PI / 6, 0, Math.PI * 2);
+          ctx.ellipse(-2, 11, 8, 4, -Math.PI / 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Голова
+          ctx.fillStyle = '#f1c40f';
+          ctx.beginPath();
+          ctx.arc(8, 0, 8, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Клюв (вперед)
+          ctx.fillStyle = '#e67e22';
+          ctx.beginPath();
+          ctx.moveTo(14, -4);
+          ctx.lineTo(22, 0);
+          ctx.lineTo(14, 4);
+          ctx.closePath();
+          ctx.fill();
+
+          // Глаза
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(10, -4, 1.5, 0, Math.PI * 2);
+          ctx.arc(10, 4, 1.5, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // Отрисовка металлического ящика
+          // --- МЕТАЛЛИЧЕСКИЙ ЯЩИК СВЕРХУ ---
           ctx.fillStyle = '#7f8c8d';
           ctx.strokeStyle = '#bdc3c7';
           ctx.lineWidth = 2;
           ctx.fillRect(-15, -15, 30, 30);
           ctx.strokeRect(-15, -15, 30, 30);
+          
+          // Металлическая диагональ
+          ctx.beginPath();
+          ctx.moveTo(-15, -15);
+          ctx.lineTo(15, 15);
+          ctx.moveTo(15, -15);
+          ctx.lineTo(-15, 15);
+          ctx.stroke();
         }
 
         ctx.restore();
       }
     }
 
-    // --- 2D ИНСТРУМЕНТЫ ---
-    class Tool2D {
+    // --- 2D ИНСТРУМЕНТЫ (ВИД СВЕРХУ) ---
+    class ToolTopDown {
       constructor(x, y, type) {
         this.x = x;
         this.y = y;
@@ -173,23 +212,36 @@
           const dy = obj.y - this.y;
           const dist = Math.hypot(dx, dy);
 
-          if (this.type === 'fan' && dist < 180 && dx > 0 && Math.abs(dy) < 50) {
-            obj.vx += (180 - dist) * 0.01; // Выдувание вправо
+          // Вентилятор дует во все стороны (или вправо)
+          if (this.type === 'fan' && dist < 160) {
+            const force = (160 - dist) * 0.015;
+            obj.vx += (dx / dist) * force;
+            obj.vy += (dy / dist) * force;
           }
-          if (this.type === 'magnet' && obj.isMetallic && dist < 220) {
-            obj.vx -= (dx / dist) * 0.8; // Притяжение
+
+          // Магнит притягивает металл
+          if (this.type === 'magnet' && obj.isMetallic && dist < 250) {
+            obj.vx -= (dx / dist) * 0.8;
             obj.vy -= (dy / dist) * 0.8;
           }
-          if (this.type === 'spring' && dist < 30 && Math.abs(dx) < 25) {
-            obj.vy = -12; // Подбрасывание
+
+          // Пружина дает мощный импульс наружу
+          if (this.type === 'spring' && dist < 30) {
+            const angle = Math.atan2(dy, dx);
+            obj.vx = Math.cos(angle) * 15;
+            obj.vy = Math.sin(angle) * 15;
           }
-          if (this.type === 'piston' && dist < 40 && Math.sin(this.timer) > 0.8) {
-            obj.vx += 10;
-            obj.vy -= 4;
+
+          // Поршень толкает каждые пару секунд
+          if (this.type === 'piston' && dist < 50 && Math.sin(this.timer) > 0.85) {
+            obj.vx += 12;
+            obj.vy += 12;
           }
+
+          // Запускник ускоряет предметы вправо
           if (this.type === 'launcher' && dist < 35) {
-            obj.vx = 15;
-            obj.vy = -10;
+            obj.vx = 18;
+            obj.vy = (Math.random() - 0.5) * 4;
           }
         });
       }
@@ -200,32 +252,52 @@
 
         if (this.type === 'fan') {
           ctx.fillStyle = '#3498db';
-          ctx.fillRect(-20, -20, 40, 40);
-          ctx.fillStyle = '#fff';
-          ctx.fillText('🌀', -8, 5);
+          ctx.beginPath();
+          ctx.arc(0, 0, 22, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Вращающиеся лопасти
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
+          ctx.rotate(this.timer * 2);
+          for (let i = 0; i < 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(16, 0);
+            ctx.stroke();
+            ctx.rotate(Math.PI / 2);
+          }
         } else if (this.type === 'magnet') {
           ctx.fillStyle = '#e74c3c';
+          ctx.beginPath();
+          ctx.arc(0, 0, 22, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.font = '16px Arial';
+          ctx.fillText('🧲', -10, 6);
+        } else if (this.type === 'spring') {
+          ctx.fillStyle = '#1abc9c';
           ctx.beginPath();
           ctx.arc(0, 0, 20, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = '#fff';
-          ctx.fillText('🧲', -8, 5);
-        } else if (this.type === 'spring') {
-          ctx.fillStyle = '#1abc9c';
-          ctx.fillRect(-25, 0, 50, 10);
-          ctx.fillText('🦘', -8, -5);
+          ctx.font = '16px Arial';
+          ctx.fillText('🦘', -10, 6);
         } else if (this.type === 'piston') {
           ctx.fillStyle = '#9b59b6';
-          ctx.fillRect(-15, -15, 30, 30);
-          ctx.fillText('🔨', -8, 5);
+          ctx.fillRect(-18, -18, 36, 36);
+          ctx.fillStyle = '#fff';
+          ctx.font = '16px Arial';
+          ctx.fillText('🔨', -10, 6);
         } else if (this.type === 'panel') {
           ctx.fillStyle = '#e67e22';
-          ctx.rotate(-Math.PI / 6);
-          ctx.fillRect(-40, -5, 80, 10);
+          ctx.fillRect(-35, -8, 70, 16);
         } else if (this.type === 'launcher') {
           ctx.fillStyle = '#2ecc71';
-          ctx.fillRect(-20, -10, 40, 20);
-          ctx.fillText('🚀', -8, 5);
+          ctx.fillRect(-20, -15, 40, 30);
+          ctx.fillStyle = '#fff';
+          ctx.font = '16px Arial';
+          ctx.fillText('🚀', -10, 6);
         }
 
         ctx.restore();
@@ -241,16 +313,16 @@
     }
 
     function spawnDuck() {
-      dynamicObjects.push(new PhysicalBody2D(100 + Math.random() * 50, 50, 'duck'));
+      dynamicObjects.push(new TopDownBody(canvas.width / 2 + (Math.random() - 0.5) * 100, canvas.height / 2 + (Math.random() - 0.5) * 100, 'duck'));
     }
 
     function spawnMetal() {
-      dynamicObjects.push(new PhysicalBody2D(100 + Math.random() * 50, 50, 'metal'));
+      dynamicObjects.push(new TopDownBody(canvas.width / 2 + (Math.random() - 0.5) * 100, canvas.height / 2 + (Math.random() - 0.5) * 100, 'metal'));
     }
 
     canvas.addEventListener('click', (e) => {
       if (selectedTool) {
-        installedTools.push(new Tool2D(e.clientX, e.clientY, selectedTool));
+        installedTools.push(new ToolTopDown(e.clientX, e.clientY, selectedTool));
       }
     });
 
@@ -263,9 +335,22 @@
     function loop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Отрисовка пола
-      ctx.fillStyle = '#2c3e50';
-      ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+      // Сеточный фон (арена)
+      ctx.strokeStyle = '#2a2a36';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
 
       // Обновление и отрисовка инструментов
       installedTools.forEach(tool => {
