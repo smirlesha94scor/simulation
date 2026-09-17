@@ -8,47 +8,58 @@ from playwright.sync_api import sync_playwright
 AUTH_TOKEN = os.environ.get("TWITCH_AUTH_TOKEN")
 DATA_FILE = "data.json"
 
-# Максимальное время ожидания прироста серии на канале (в секундах)
-WAIT_TIMEOUT_SECONDS = 600  # 10 минут
+# Время ожидания прироста серии на каждом канале (в секундах) — 10 минут
+WAIT_TIMEOUT_SECONDS = 600
 CHECK_INTERVAL_SECONDS = 20
 
 def extract_number(text):
-    """Извлекает число из текста с учетом пробелов и неразрывных пробелов"""
+    """Извлекает число из текста, убирая пробелы"""
     cleaned = text.replace('\xa0', '').replace(' ', '')
     match = re.search(r'\d+', cleaned)
     return int(match.group()) if match else 0
 
 def get_current_streak(page):
-    """Находит и считывает серию просмотров без привязки к динамическим CSS-классам"""
+    """
+    Открывает детальное окно серии просмотров по шагам со скриншота:
+    1. Клик по кнопке баланса баллов/bits.
+    2. Клик по иконке/стрелке 'Открыть меню серии просмотров'.
+    3. Считывание значения из h2 над текстом 'Ваша серия просмотров'.
+    """
     try:
-        points_button = page.locator('button[data-a-target="player-channel-points-toggle-button"]')
-        
-        # Открываем меню наград, если оно еще не открыто
-        if points_button.is_visible():
-            points_button.click()
+        # Шаг 1: Нажать на кнопку «Баланс Bits и баллов»
+        points_btn = page.locator('button[aria-label="Баланс Bits и баллов"], button[aria-label*="Bits"]')
+        if points_btn.is_visible():
+            points_btn.click()
             time.sleep(2)
 
-        # 1. Поиск по устойчивой ARIA-метке иконки серии просмотров
-        streak_element = page.locator('svg[aria-label="Серия просмотров"], svg[aria-label="Watch Streak"]')
-        
-        if streak_element.count() > 0:
-            # Поднимаемся к родительскому контейнеру, содержащему текст с цифрой
-            parent_box = streak_element.first.locator('xpath=ancestor::div[contains(., "серия просмотров") or contains(., "Watch Streak")]')
-            if parent_box.count() > 0:
-                text = parent_box.first.inner_text()
-                for line in text.split('\n'):
-                    if "серия" in line.lower() or "streak" in line.lower():
-                        num = extract_number(line)
-                        return num, str(num)
+        # Шаг 2: Нажать на кнопку открытия подробного меню серии
+        open_streak_btn = page.locator('button[aria-label="Открыть меню серии просмотров"], button[aria-label*="серии просмотров"]')
+        if open_streak_btn.is_visible():
+            open_streak_btn.click()
+            time.sleep(1.5)
 
-        # 2. Резервный поиск по тексту без учета регистра
-        text_fallback = page.locator('text=/серия просмотров|watch streak/i')
-        if text_fallback.count() > 0:
-            text = text_fallback.first.locator('xpath=..').inner_text()
-            for line in text.split('\n'):
-                if "серия" in line.lower() or "streak" in line.lower():
-                    num = extract_number(line)
-                    return num, str(num)
+        # Шаг 3: Найти заголовок h2 с точным числом серии
+        streak_h2 = page.locator('div:has-text("Ваша серия просмотров") h2, h2:has(+ div:has-text("Ваша серия просмотров"))')
+        
+        if streak_h2.count() > 0:
+            val = extract_number(streak_h2.first.inner_text())
+            if val > 0:
+                # Закрываем меню кликом по той же кнопке
+                points_btn.click()
+                return val, str(val)
+
+        # Резервный поиск по любому h2 в модальном окне серии
+        modal_h2 = page.locator('div[role="dialog"] h2, div[aria-label*="Серия просмотров"] h2')
+        if modal_h2.count() > 0:
+            for h2 in modal_h2.all():
+                val = extract_number(h2.inner_text())
+                if val > 0:
+                    points_btn.click()
+                    return val, str(val)
+
+        # Если не нашли, пробуем закрыть меню
+        if points_btn.is_visible():
+            points_btn.click()
 
     except Exception as e:
         print(f"  [!] Ошибка считывания серии: {e}")
@@ -108,7 +119,7 @@ def get_streaks():
 
                 final_streak_str = initial_streak_str
 
-                # Ждем увеличения серии для всех значений (начиная с 0)
+                # Ожидание прироста серии
                 print(f"  ⏳ Ждем увеличения серии (макс {WAIT_TIMEOUT_SECONDS // 60} мин)...")
                 
                 start_time = time.time()
@@ -125,7 +136,7 @@ def get_streaks():
                         final_streak_str = current_str
                         break
                 else:
-                    print("  ⚠️ Время ожидания истекло, фиксируем текущий результат.")
+                    print("  ⚠️ Время ожидания истекло, сохраняем текущее значение.")
 
                 channels_data.append({
                     "name": channel,
@@ -153,7 +164,7 @@ def get_streaks():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    print("\nДанные успешно записаны в data.json")
+    print("\nДанные успешно сохранены в data.json")
 
 if __name__ == "__main__":
     get_streaks()
