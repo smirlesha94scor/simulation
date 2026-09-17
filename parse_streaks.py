@@ -20,22 +20,21 @@ def extract_number(text):
 
 def get_current_streak(page):
     """
-    Открывает детальное окно серии просмотров по шагам со скриншота:
-    1. Клик по кнопке баланса баллов/bits.
-    2. Клик по иконке/стрелке 'Открыть меню серии просмотров'.
-    3. Считывание значения из h2 над текстом 'Ваша серия просмотров'.
+    Открывает детальное окно серии просмотров по точным селекторам из чата
     """
     try:
-        # Шаг 1: Нажать на кнопку «Баланс Bits и баллов»
-        points_btn = page.locator('button[aria-label="Баланс Bits и баллов"], button[aria-label*="Bits"]')
-        if points_btn.is_visible():
-            points_btn.click()
+        # Шаг 1: Клик по кнопке баллов/Bits строго в нижней панели чата
+        points_btn = page.locator('button[data-a-target="player-channel-points-toggle-button"]')
+        
+        # Если находим несколько, берем первую видимую
+        if points_btn.count() > 0 and points_btn.first.is_visible():
+            points_btn.first.click()
             time.sleep(2)
 
         # Шаг 2: Нажать на кнопку открытия подробного меню серии
         open_streak_btn = page.locator('button[aria-label="Открыть меню серии просмотров"], button[aria-label*="серии просмотров"]')
-        if open_streak_btn.is_visible():
-            open_streak_btn.click()
+        if open_streak_btn.count() > 0 and open_streak_btn.first.is_visible():
+            open_streak_btn.first.click()
             time.sleep(1.5)
 
         # Шаг 3: Найти заголовок h2 с точным числом серии
@@ -44,22 +43,22 @@ def get_current_streak(page):
         if streak_h2.count() > 0:
             val = extract_number(streak_h2.first.inner_text())
             if val > 0:
-                # Закрываем меню кликом по той же кнопке
-                points_btn.click()
+                if points_btn.first.is_visible():
+                    points_btn.first.click()
                 return val, str(val)
 
-        # Резервный поиск по любому h2 в модальном окне серии
+        # Резервный поиск по h2 внутри модального окна
         modal_h2 = page.locator('div[role="dialog"] h2, div[aria-label*="Серия просмотров"] h2')
         if modal_h2.count() > 0:
             for h2 in modal_h2.all():
                 val = extract_number(h2.inner_text())
                 if val > 0:
-                    points_btn.click()
+                    if points_btn.first.is_visible():
+                        points_btn.first.click()
                     return val, str(val)
 
-        # Если не нашли, пробуем закрыть меню
-        if points_btn.is_visible():
-            points_btn.click()
+        if points_btn.first.is_visible():
+            points_btn.first.click()
 
     except Exception as e:
         print(f"  [!] Ошибка считывания серии: {e}")
