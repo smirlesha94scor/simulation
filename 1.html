@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2D Автоматизация с Утками — Вид Сверху</title>
+  <title>2D Автоматизация — Вид Сверху + Яма и Зум</title>
   <style>
     body {
       margin: 0;
       padding: 0;
-      background: #1e1e24;
+      background: #181820;
       color: #fff;
       font-family: Arial, sans-serif;
       overflow: hidden;
@@ -18,13 +18,14 @@
       position: absolute;
       top: 10px;
       left: 10px;
-      background: rgba(30, 30, 40, 0.9);
+      background: rgba(25, 25, 35, 0.92);
       padding: 12px;
       border-radius: 8px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      z-index: 10;
     }
     .btn-group {
       display: grid;
@@ -32,27 +33,38 @@
       gap: 6px;
     }
     button {
-      background: #3a3f58;
+      background: #343a50;
       color: white;
-      border: 1px solid #555;
+      border: 1px solid #4a5170;
       padding: 8px 10px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
     }
-    button:hover { background: #4e5578; }
+    button:hover { background: #474f6e; }
     button.active { background: #27ae60; border-color: #2ecc71; }
+    #controls-info {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 10;
+    }
     canvas { display: block; }
   </style>
 </head>
 <body>
 
   <div id="ui">
-    <strong>Инструменты (Вид сверху):</strong>
+    <strong>Инструменты:</strong>
     <div class="btn-group">
+      <button id="btn-hole" onclick="selectTool('hole')">🕳️ Яма (Слив)</button>
       <button id="btn-fan" onclick="selectTool('fan')">🌀 Вентилятор</button>
       <button id="btn-magnet" onclick="selectTool('magnet')">🧲 Магнит</button>
-      <button id="btn-panel" onclick="selectTool('panel')">📐 Панель-отбойник</button>
       <button id="btn-piston" onclick="selectTool('piston')">🔨 Поршень</button>
       <button id="btn-spring" onclick="selectTool('spring')">🦘 Пружина</button>
       <button id="btn-launcher" onclick="selectTool('launcher')">🚀 Запускник</button>
@@ -63,6 +75,10 @@
       <button onclick="spawnDuck()">🦆 Утка</button>
       <button onclick="spawnMetal()">📦 Металл</button>
     </div>
+  </div>
+
+  <div id="controls-info">
+    Колесико мыши: Масштаб | Зажать СКМ (или Shift+ЛКМ): Перемещение
   </div>
 
   <canvas id="canvas"></canvas>
@@ -78,7 +94,15 @@
     const installedTools = [];
     let selectedTool = null;
 
-    // --- ФИЗИЧЕСКИЙ ОБЪЕКТ (ВИД СВЕРХУ) ---
+    // --- ПАРАМЕТРЫ КАМЕРЫ (МАСШТАБ И СМЕЩЕНИЕ) ---
+    let cameraOffset = { x: 0, y: 0 };
+    let cameraZoom = 1;
+    const MAX_ZOOM = 3;
+    const MIN_ZOOM = 0.3;
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+
+    // --- ФИЗИЧЕСКИЙ ОБЪЕКТ ---
     class TopDownBody {
       constructor(x, y, type) {
         this.x = x;
@@ -86,42 +110,37 @@
         this.vx = (Math.random() - 0.5) * 4;
         this.vy = (Math.random() - 0.5) * 4;
         this.angle = Math.atan2(this.vy, this.vx);
+        this.baseRadius = 18;
         this.radius = 18;
         this.type = type;
         this.isMetallic = type === 'metal';
-        this.friction = 0.96; // Трение о поверхность
-        this.bounce = 0.7;
+        this.friction = 0.96;
+        this.scale = 1;
+        this.isBeingDestroyed = false;
       }
 
       update() {
-        // Применение трения скольжения
+        if (this.isBeingDestroyed) return;
+
         this.vx *= this.friction;
         this.vy *= this.friction;
 
         this.x += this.vx;
         this.y += this.vy;
 
-        // Поворот по направлению движения
         if (Math.hypot(this.vx, this.vy) > 0.2) {
           this.angle = Math.atan2(this.vy, this.vx);
         }
 
-        // Границы экрана
-        if (this.x - this.radius < 0) {
-          this.x = this.radius;
-          this.vx = -this.vx * this.bounce;
+        // Ограничения карты
+        const BOUND = 1200;
+        if (Math.abs(this.x) > BOUND) {
+          this.x = Math.sign(this.x) * BOUND;
+          this.vx *= -0.7;
         }
-        if (this.x + this.radius > canvas.width) {
-          this.x = canvas.width - this.radius;
-          this.vx = -this.vx * this.bounce;
-        }
-        if (this.y - this.radius < 0) {
-          this.y = this.radius;
-          this.vy = -this.vy * this.bounce;
-        }
-        if (this.y + this.radius > canvas.height) {
-          this.y = canvas.height - this.radius;
-          this.vy = -this.vy * this.bounce;
+        if (Math.abs(this.y) > BOUND) {
+          this.y = Math.sign(this.y) * BOUND;
+          this.vy *= -0.7;
         }
       }
 
@@ -129,10 +148,10 @@
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
+        ctx.scale(this.scale, this.scale);
 
         if (this.type === 'duck') {
-          // --- ОТРИСОВКА УТКИ СВЕРХУ ---
-          // Хвостик
+          // Утка
           ctx.fillStyle = '#f39c12';
           ctx.beginPath();
           ctx.moveTo(-16, 0);
@@ -141,26 +160,22 @@
           ctx.closePath();
           ctx.fill();
 
-          // Овальное тело
           ctx.fillStyle = '#f1c40f';
           ctx.beginPath();
           ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          // Крылья
           ctx.fillStyle = '#f39c12';
           ctx.beginPath();
           ctx.ellipse(-2, -11, 8, 4, Math.PI / 6, 0, Math.PI * 2);
           ctx.ellipse(-2, 11, 8, 4, -Math.PI / 6, 0, Math.PI * 2);
           ctx.fill();
 
-          // Голова
           ctx.fillStyle = '#f1c40f';
           ctx.beginPath();
           ctx.arc(8, 0, 8, 0, Math.PI * 2);
           ctx.fill();
 
-          // Клюв (вперед)
           ctx.fillStyle = '#e67e22';
           ctx.beginPath();
           ctx.moveTo(14, -4);
@@ -169,21 +184,19 @@
           ctx.closePath();
           ctx.fill();
 
-          // Глаза
           ctx.fillStyle = '#000';
           ctx.beginPath();
           ctx.arc(10, -4, 1.5, 0, Math.PI * 2);
           ctx.arc(10, 4, 1.5, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // --- МЕТАЛЛИЧЕСКИЙ ЯЩИК СВЕРХУ ---
+          // Металлический ящик
           ctx.fillStyle = '#7f8c8d';
           ctx.strokeStyle = '#bdc3c7';
           ctx.lineWidth = 2;
           ctx.fillRect(-15, -15, 30, 30);
           ctx.strokeRect(-15, -15, 30, 30);
           
-          // Металлическая диагональ
           ctx.beginPath();
           ctx.moveTo(-15, -15);
           ctx.lineTo(15, 15);
@@ -196,7 +209,7 @@
       }
     }
 
-    // --- 2D ИНСТРУМЕНТЫ (ВИД СВЕРХУ) ---
+    // --- 2D ИНСТРУМЕНТЫ ---
     class ToolTopDown {
       constructor(x, y, type) {
         this.x = x;
@@ -207,56 +220,98 @@
 
       update() {
         this.timer += 0.05;
-        dynamicObjects.forEach(obj => {
+
+        for (let i = dynamicObjects.length - 1; i >= 0; i--) {
+          const obj = dynamicObjects[i];
           const dx = obj.x - this.x;
           const dy = obj.y - this.y;
           const dist = Math.hypot(dx, dy);
 
-          // Вентилятор дует во все стороны (или вправо)
+          // 🕳️ ЯМА (СЛИВ ОБЪЕКТОВ)
+          if (this.type === 'hole') {
+            if (dist < 180) {
+              // Затягивание к центру
+              const pullFactor = (180 - dist) * 0.03;
+              obj.vx -= (dx / dist) * pullFactor;
+              obj.vy -= (dy / dist) * pullFactor;
+
+              // Уменьшение размера при приближении к центру
+              if (dist < 60) {
+                obj.scale = Math.max(0, dist / 60);
+              }
+
+              // Удаление из мира при падении в центр
+              if (dist < 10) {
+                dynamicObjects.splice(i, 1);
+                continue;
+              }
+            }
+          }
+
+          // 🌀 ВЕНТИЛЯТОР
           if (this.type === 'fan' && dist < 160) {
             const force = (160 - dist) * 0.015;
             obj.vx += (dx / dist) * force;
             obj.vy += (dy / dist) * force;
           }
 
-          // Магнит притягивает металл
+          // 🧲 МАГНИТ
           if (this.type === 'magnet' && obj.isMetallic && dist < 250) {
             obj.vx -= (dx / dist) * 0.8;
             obj.vy -= (dy / dist) * 0.8;
           }
 
-          // Пружина дает мощный импульс наружу
-          if (this.type === 'spring' && dist < 30) {
+          // 🦘 ПРУЖИНА
+          if (this.type === 'spring' && dist < 35) {
             const angle = Math.atan2(dy, dx);
-            obj.vx = Math.cos(angle) * 15;
-            obj.vy = Math.sin(angle) * 15;
+            obj.vx = Math.cos(angle) * 16;
+            obj.vy = Math.sin(angle) * 16;
           }
 
-          // Поршень толкает каждые пару секунд
+          // 🔨 ПОРШЕНЬ
           if (this.type === 'piston' && dist < 50 && Math.sin(this.timer) > 0.85) {
             obj.vx += 12;
             obj.vy += 12;
           }
 
-          // Запускник ускоряет предметы вправо
+          // 🚀 ЗАПУСКНИК
           if (this.type === 'launcher' && dist < 35) {
-            obj.vx = 18;
+            obj.vx = 20;
             obj.vy = (Math.random() - 0.5) * 4;
           }
-        });
+        }
       }
 
       draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        if (this.type === 'fan') {
+        if (this.type === 'hole') {
+          // Черная глубокая яма с воронкой
+          ctx.fillStyle = '#050508';
+          ctx.beginPath();
+          ctx.arc(0, 0, 35, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#2c3e50';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          // Анимация вращения воронки
+          ctx.strokeStyle = '#34495e';
+          ctx.lineWidth = 2;
+          ctx.rotate(this.timer);
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 12 + i * 7, 0, Math.PI * 1.2);
+            ctx.stroke();
+          }
+        } else if (this.type === 'fan') {
           ctx.fillStyle = '#3498db';
           ctx.beginPath();
           ctx.arc(0, 0, 22, 0, Math.PI * 2);
           ctx.fill();
 
-          // Вращающиеся лопасти
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 3;
           ctx.rotate(this.timer * 2);
@@ -289,9 +344,6 @@
           ctx.fillStyle = '#fff';
           ctx.font = '16px Arial';
           ctx.fillText('🔨', -10, 6);
-        } else if (this.type === 'panel') {
-          ctx.fillStyle = '#e67e22';
-          ctx.fillRect(-35, -8, 70, 16);
         } else if (this.type === 'launcher') {
           ctx.fillStyle = '#2ecc71';
           ctx.fillRect(-20, -15, 40, 30);
@@ -304,7 +356,7 @@
       }
     }
 
-    // --- УПРАВЛЕНИЕ ---
+    // --- УПРАВЛЕНИЕ И ВЗАИМОДЕЙСТВИЕ ---
     function selectTool(type) {
       selectedTool = type;
       document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
@@ -313,44 +365,102 @@
     }
 
     function spawnDuck() {
-      dynamicObjects.push(new TopDownBody(canvas.width / 2 + (Math.random() - 0.5) * 100, canvas.height / 2 + (Math.random() - 0.5) * 100, 'duck'));
+      // Спавн в центре экрана с учетом координат мира
+      const worldCenter = screenToWorld(canvas.width / 2, canvas.height / 2);
+      dynamicObjects.push(new TopDownBody(worldCenter.x + (Math.random() - 0.5) * 50, worldCenter.y + (Math.random() - 0.5) * 50, 'duck'));
     }
 
     function spawnMetal() {
-      dynamicObjects.push(new TopDownBody(canvas.width / 2 + (Math.random() - 0.5) * 100, canvas.height / 2 + (Math.random() - 0.5) * 100, 'metal'));
+      const worldCenter = screenToWorld(canvas.width / 2, canvas.height / 2);
+      dynamicObjects.push(new TopDownBody(worldCenter.x + (Math.random() - 0.5) * 50, worldCenter.y + (Math.random() - 0.5) * 50, 'metal'));
     }
 
-    canvas.addEventListener('click', (e) => {
-      if (selectedTool) {
-        installedTools.push(new ToolTopDown(e.clientX, e.clientY, selectedTool));
+    // Преобразование экранных координат в мировые
+    function screenToWorld(screenX, screenY) {
+      return {
+        x: (screenX - canvas.width / 2 - cameraOffset.x) / cameraZoom,
+        y: (screenY - canvas.height / 2 - cameraOffset.y) / cameraZoom
+      };
+    }
+
+    // ОБРАБОТКА МЫШИ (ЗУМ И ПАНОРАМИРОВАНИЕ)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, cameraZoom * zoomFactor));
+
+      // Зум относительно точки курсора
+      const mouseX = e.clientX - canvas.width / 2;
+      const mouseY = e.clientY - canvas.height / 2;
+
+      cameraOffset.x -= (mouseX - cameraOffset.x) * (newZoom / cameraZoom - 1);
+      cameraOffset.y -= (mouseY - cameraOffset.y) * (newZoom / cameraZoom - 1);
+
+      cameraZoom = newZoom;
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+      // Нажатие СКМ (button 1) или Shift + ЛКМ для перемещения камеры
+      if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+        isDragging = true;
+        dragStart = { x: e.clientX - cameraOffset.x, y: e.clientY - cameraOffset.y };
+        return;
+      }
+
+      // ЛКМ — Размещение выбранного инструмента
+      if (e.button === 0 && selectedTool && !e.target.closest('#ui')) {
+        const worldPos = screenToWorld(e.clientX, e.clientY);
+        installedTools.push(new ToolTopDown(worldPos.x, worldPos.y, selectedTool));
       }
     });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        cameraOffset.x = e.clientX - dragStart.x;
+        cameraOffset.y = e.clientY - dragStart.y;
+      }
+    });
+
+    window.addEventListener('mouseup', () => isDragging = false);
 
     window.addEventListener('resize', () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     });
 
-    // --- ГЛАВНЫЙ ЦИКЛ ---
+    // --- ГЛАВНЫЙ ЦИКЛ ОТРЕСОВКИ ---
     function loop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Сеточный фон (арена)
-      ctx.strokeStyle = '#2a2a36';
+      ctx.save();
+      // Применение трансформации камеры
+      ctx.translate(canvas.width / 2 + cameraOffset.x, canvas.height / 2 + cameraOffset.y);
+      ctx.scale(cameraZoom, cameraZoom);
+
+      // Отрисовка фоновой сетки мира
+      ctx.strokeStyle = '#232330';
       ctx.lineWidth = 1;
-      const gridSize = 40;
-      for (let x = 0; x < canvas.width; x += gridSize) {
+      const gridSize = 50;
+      const BOUND = 1250;
+
+      for (let x = -BOUND; x <= BOUND; x += gridSize) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.moveTo(x, -BOUND);
+        ctx.lineTo(x, BOUND);
         ctx.stroke();
       }
-      for (let y = 0; y < canvas.height; y += gridSize) {
+      for (let y = -BOUND; y <= BOUND; y += gridSize) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.moveTo(-BOUND, y);
+        ctx.lineTo(BOUND, y);
         ctx.stroke();
       }
+
+      // Границы игрового поля
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(-BOUND, -BOUND, BOUND * 2, BOUND * 2);
 
       // Обновление и отрисовка инструментов
       installedTools.forEach(tool => {
@@ -363,6 +473,8 @@
         obj.update();
         obj.draw();
       });
+
+      ctx.restore();
 
       requestAnimationFrame(loop);
     }
