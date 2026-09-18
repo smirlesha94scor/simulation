@@ -19,26 +19,36 @@ def extract_number(text):
 
 def get_current_streak(page):
     try:
-        # Поиск кнопки "Баланс Bits и баллов" или стандартной кнопки
+        # 1. Попытка закрыть возможные всплывающие оверлеи (кнопки "Начать!", "Понятно" и т.д.)
+        popups = page.locator('button:has-text("Начать!"), button:has-text("Понятно"), button[aria-label="Закрыть"]')
+        if popups.count() > 0 and popups.first.is_visible():
+            try:
+                popups.first.click(timeout=2000)
+                time.sleep(0.5)
+            except Exception:
+                pass
+
+        # 2. Ищем кнопку баллов
         points_btn = page.locator('button[aria-label="Баланс Bits и баллов"], button[data-a-target="player-channel-points-toggle-button"]')
         
         if points_btn.count() > 0 and points_btn.first.is_visible():
-            points_btn.first.click()
-            time.sleep(1.2)  # Пауза 1.2 сек аналогично тестам в консоли
+            # Используем force=True, чтобы кликнуть, даже если сверху висит оверлей
+            points_btn.first.click(force=True)
+            time.sleep(1.2)
 
         open_streak_btn = page.locator('button[aria-label="Открыть меню серии просмотров"], button[aria-label*="серии просмотров"]')
         if open_streak_btn.count() > 0 and open_streak_btn.first.is_visible():
-            open_streak_btn.first.click()
-            time.sleep(1.0)  # Пауза 1.0 сек
+            open_streak_btn.first.click(force=True)
+            time.sleep(1.0)
 
-        # Поиск значения серии просмотров
+        # 3. Считываем значение серии
         streak_h2 = page.locator('div:has-text("Ваша серия просмотров") h2, h2:has(+ div:has-text("Ваша серия просмотров"))')
         
         if streak_h2.count() > 0:
             val = extract_number(streak_h2.first.inner_text())
             if val > 0:
                 if points_btn.first.is_visible():
-                    points_btn.first.click()
+                    points_btn.first.click(force=True)
                 return val, str(val)
 
         modal_h2 = page.locator('div[role="dialog"] h2, div[aria-label*="Серия просмотров"] h2')
@@ -47,11 +57,11 @@ def get_current_streak(page):
                 val = extract_number(h2.inner_text())
                 if val > 0:
                     if points_btn.first.is_visible():
-                        points_btn.first.click()
+                        points_btn.first.click(force=True)
                     return val, str(val)
 
         if points_btn.first.is_visible():
-            points_btn.first.click()
+            points_btn.first.click(force=True)
 
     except Exception as e:
         print(f"  [!] Ошибка считывания серии: {e}")
