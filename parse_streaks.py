@@ -65,6 +65,8 @@ def get_current_streak(page):
 
     return 0, "0"
 
+ 
+
 def get_streaks():
     if not AUTH_TOKEN:
         print("Ошибка: TWITCH_AUTH_TOKEN не найден в переменных окружения.")
