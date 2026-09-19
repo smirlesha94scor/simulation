@@ -3,13 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV PlayerJS — Каналы Украины (iptv-org)</title>
+    <title>IPTV Телеканалы Украины</title>
 
-    <!-- 1. HLS.js для поддержки .m3u8 потоков -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-    <!-- 2. Скрипт PlayerJS -->
-    <script src="https://cdn.jsdelivr.net/gh/nomadtouch/PlayerJS@main/playerjs.js" type="text/javascript"></script>
+    <!-- 1. Надежные CDN плеера Clappr (работают всегда) -->
+    <script src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
 
     <style>
         * {
@@ -31,7 +28,7 @@
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 1200px;
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -45,8 +42,19 @@
             gap: 10px;
         }
 
+        .content-layout {
+            display: flex;
+            gap: 20px;
+        }
+
+        @media (max-width: 800px) {
+            .content-layout {
+                flex-direction: column;
+            }
+        }
+
         .player-box {
-            width: 100%;
+            flex: 2;
             aspect-ratio: 16 / 9;
             background: #000;
             border-radius: 12px;
@@ -59,6 +67,62 @@
             height: 100%;
         }
 
+        .playlist-box {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            max-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .playlist-title {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: #38bdf8;
+        }
+
+        .channel-list {
+            list-style: none;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding-right: 5px;
+        }
+
+        .channel-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .channel-list::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        .channel-item {
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channel-item:hover {
+            background: rgba(56, 189, 248, 0.2);
+        }
+
+        .channel-item.active {
+            background: #0284c7;
+            font-weight: bold;
+        }
+
         .status {
             font-size: 0.9rem;
             color: #94a3b8;
@@ -69,20 +133,26 @@
 
     <div class="container">
         <div class="header">
-            <h2>IPTV Телеканалы Украины (iptv-org)</h2>
+            <h2>IPTV Телеканалы Украины</h2>
             <div id="status" class="status">Загрузка плейлиста...</div>
         </div>
 
-        <div class="player-box">
-            <div id="player"></div>
+        <div class="content-layout">
+            <div class="player-box">
+                <div id="player"></div>
+            </div>
+
+            <div class="playlist-box">
+                <div class="playlist-title">Список каналов</div>
+                <ul id="channelList" class="channel-list"></ul>
+            </div>
         </div>
     </div>
 
     <script>
-        // Ссылка на плейлист Украины из iptv-org
         const M3U_URL = 'https://iptv-org.github.io/iptv/countries/ua.m3u';
+        let player = null;
 
-        // Парсинг M3U плейлиста в формат массива PlayerJS
         async function fetchAndParseM3U(url) {
             try {
                 const response = await fetch(url);
@@ -119,7 +189,30 @@
             }
         }
 
-        // Инициализация плеера с украинскими каналами
+        function renderChannelList(playlist) {
+            const listEl = document.getElementById('channelList');
+            listEl.innerHTML = '';
+
+            playlist.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = 'channel-item';
+                li.textContent = `${index + 1}. ${item.title}`;
+
+                li.addEventListener('click', () => {
+                    document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+                    li.classList.add('active');
+
+                    // Переключаем поток в Clappr
+                    if (player) {
+                        player.load(item.file);
+                        player.play();
+                    }
+                });
+
+                listEl.appendChild(li);
+            });
+        }
+
         async function initPlayer() {
             const playlist = await fetchAndParseM3U(M3U_URL);
 
@@ -129,12 +222,15 @@
             }
 
             document.getElementById('status').textContent = `Загружено каналов: ${playlist.length}`;
+            renderChannelList(playlist);
 
-            // Запуск PlayerJS со списком украинских каналов
-            new Playerjs({
-                id: "player",
-                live: 1,
-                file: playlist
+            // Инициализация Clappr
+            player = new Clappr.Player({
+                source: playlist[0].file,
+                parentId: "#player",
+                width: '100%',
+                height: '100%',
+                autoPlay: false
             });
         }
 
