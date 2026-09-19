@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Телеканалы Украины</title>
 
-    <!-- 1. Надежные CDN плеера Clappr (работают всегда) -->
+    <!-- Подключение Clappr -->
     <script src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
 
     <style>
@@ -67,6 +67,29 @@
             height: 100%;
         }
 
+        /* ========================================================
+           ИЗМЕНЕНИЕ ИНТЕРФЕЙСА ПЛЕЕРА CLAPPR ЧЕРЕЗ CSS
+           ======================================================== */
+        
+        /* Изменение цвета акцентов (полоса прогресса, громкость) */
+        [data-player] .bar-fill-1 {
+            background-color: #38bdf8 !important; /* Голубой цвет */
+        }
+        [data-player] .bar-hover {
+            background-color: rgba(56, 189, 248, 0.5) !important;
+        }
+        
+        /* Стилизация панели управления */
+        [data-player] .media-control[data-media-control] {
+            background: linear-gradient(transparent, rgba(15, 23, 42, 0.9)) !important;
+        }
+
+        /* Цвет иконки воспроизведения по центру */
+        [data-player] .play-wrapper[data-poster] svg path {
+            fill: #38bdf8 !important;
+        }
+
+        /* Настройки внешнего списка каналов */
         .playlist-box {
             flex: 1;
             background: rgba(255, 255, 255, 0.05);
@@ -82,6 +105,7 @@
             font-size: 1.1rem;
             margin-bottom: 10px;
             color: #38bdf8;
+            font-weight: bold;
         }
 
         .channel-list {
@@ -89,7 +113,7 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 6px;
             padding-right: 5px;
         }
 
@@ -103,23 +127,26 @@
         }
 
         .channel-item {
-            padding: 10px 12px;
+            padding: 12px 14px;
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-break: break-word;
+            display: flex;
+            align-items: center;
         }
 
         .channel-item:hover {
             background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
         }
 
         .channel-item.active {
             background: #0284c7;
+            color: #fff;
             font-weight: bold;
         }
 
@@ -196,13 +223,15 @@
             playlist.forEach((item, index) => {
                 const li = document.createElement('li');
                 li.className = 'channel-item';
+                if (index === 0) li.classList.add('active');
+
                 li.textContent = `${index + 1}. ${item.title}`;
+                li.title = item.title;
 
                 li.addEventListener('click', () => {
                     document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
                     li.classList.add('active');
 
-                    // Переключаем поток в Clappr
                     if (player) {
                         player.load(item.file);
                         player.play();
@@ -224,13 +253,21 @@
             document.getElementById('status').textContent = `Загружено каналов: ${playlist.length}`;
             renderChannelList(playlist);
 
-            // Инициализация Clappr
+            // Инициализация Clappr с настройками интерфейса
             player = new Clappr.Player({
                 source: playlist[0].file,
                 parentId: "#player",
                 width: '100%',
                 height: '100%',
-                autoPlay: false
+                autoPlay: true,
+
+                // Настройки кастомизации интерфейса:
+                mediacontrol: { 
+                    seekbar: "#38bdf8",  // Цвет полосы прокрутки
+                    buttons: "#ffffff"   // Цвет иконок/кнопок
+                },
+                hideMediaControlDelay: 2000, // Автоматическое скрытие элементов через 2 сек
+                disableVideoTagContextMenu: true // Отключает контекстное меню по правому клику
             });
         }
 
