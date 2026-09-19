@@ -1,485 +1,145 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2D Автоматизация — Вид Сверху + Яма и Зум</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: #181820;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      overflow: hidden;
-      user-select: none;
-    }
-    #ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(25, 25, 35, 0.92);
-      padding: 12px;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-      z-index: 10;
-    }
-    .btn-group {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-    }
-    button {
-      background: #343a50;
-      color: white;
-      border: 1px solid #4a5170;
-      padding: 8px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    button:hover { background: #474f6e; }
-    button.active { background: #27ae60; border-color: #2ecc71; }
-    #controls-info {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      pointer-events: none;
-      z-index: 10;
-    }
-    canvas { display: block; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV PlayerJS — Каналы Украины (iptv-org)</title>
+
+    <!-- 1. HLS.js для поддержки .m3u8 потоков -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <!-- 2. Скрипт PlayerJS -->
+    <script src="https://playerjs.com/script/playerjs.js" type="text/javascript"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .player-box {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+        }
+
+        .status {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+    </style>
 </head>
 <body>
 
-  <div id="ui">
-    <strong>Инструменты:</strong>
-    <div class="btn-group">
-      <button id="btn-hole" onclick="selectTool('hole')">🕳️ Яма (Слив)</button>
-      <button id="btn-fan" onclick="selectTool('fan')">🌀 Вентилятор</button>
-      <button id="btn-magnet" onclick="selectTool('magnet')">🧲 Магнит</button>
-      <button id="btn-piston" onclick="selectTool('piston')">🔨 Поршень</button>
-      <button id="btn-spring" onclick="selectTool('spring')">🦘 Пружина</button>
-      <button id="btn-launcher" onclick="selectTool('launcher')">🚀 Запускник</button>
+    <div class="container">
+        <div class="header">
+            <h2>IPTV Телеканалы Украины (iptv-org)</h2>
+            <div id="status" class="status">Загрузка плейлиста...</div>
+        </div>
+
+        <div class="player-box">
+            <div id="player"></div>
+        </div>
     </div>
-    <hr style="border: 0.5px solid #444; width: 100%;">
-    <strong>Спавн:</strong>
-    <div class="btn-group">
-      <button onclick="spawnDuck()">🦆 Утка</button>
-      <button onclick="spawnMetal()">📦 Металл</button>
-    </div>
-  </div>
 
-  <div id="controls-info">
-    Колесико мыши: Масштаб | Зажать СКМ (или Shift+ЛКМ): Перемещение
-  </div>
+    <script>
+        // Ссылка на плейлист Украины из iptv-org
+        const M3U_URL = 'https://iptv-org.github.io/iptv/countries/ua.m3u';
 
-  <canvas id="canvas"></canvas>
+        // Парсинг M3U плейлиста в формат массива PlayerJS
+        async function fetchAndParseM3U(url) {
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+                const lines = text.split('\n');
+                const playlist = [];
+                let currentTitle = '';
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    
+                    if (line.startsWith('#EXTINF:')) {
+                        const commaIndex = line.lastIndexOf(',');
+                        if (commaIndex !== -1) {
+                            currentTitle = line.substring(commaIndex + 1).trim();
+                        }
+                    } else if (line && !line.startsWith('#')) {
+                        if (currentTitle) {
+                            playlist.push({
+                                title: currentTitle,
+                                file: line
+                            });
+                            currentTitle = '';
+                        }
+                    }
+                }
 
-    const dynamicObjects = [];
-    const installedTools = [];
-    let selectedTool = null;
-
-    // --- ПАРАМЕТРЫ КАМЕРЫ (МАСШТАБ И СМЕЩЕНИЕ) ---
-    let cameraOffset = { x: 0, y: 0 };
-    let cameraZoom = 1;
-    const MAX_ZOOM = 3;
-    const MIN_ZOOM = 0.3;
-    let isDragging = false;
-    let dragStart = { x: 0, y: 0 };
-
-    // --- ФИЗИЧЕСКИЙ ОБЪЕКТ ---
-    class TopDownBody {
-      constructor(x, y, type) {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 4;
-        this.vy = (Math.random() - 0.5) * 4;
-        this.angle = Math.atan2(this.vy, this.vx);
-        this.baseRadius = 18;
-        this.radius = 18;
-        this.type = type;
-        this.isMetallic = type === 'metal';
-        this.friction = 0.96;
-        this.scale = 1;
-        this.isBeingDestroyed = false;
-      }
-
-      update() {
-        if (this.isBeingDestroyed) return;
-
-        this.vx *= this.friction;
-        this.vy *= this.friction;
-
-        this.x += this.vx;
-        this.y += this.vy;
-
-        if (Math.hypot(this.vx, this.vy) > 0.2) {
-          this.angle = Math.atan2(this.vy, this.vx);
-        }
-
-        // Ограничения карты
-        const BOUND = 1200;
-        if (Math.abs(this.x) > BOUND) {
-          this.x = Math.sign(this.x) * BOUND;
-          this.vx *= -0.7;
-        }
-        if (Math.abs(this.y) > BOUND) {
-          this.y = Math.sign(this.y) * BOUND;
-          this.vy *= -0.7;
-        }
-      }
-
-      draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-        ctx.scale(this.scale, this.scale);
-
-        if (this.type === 'duck') {
-          // Утка
-          ctx.fillStyle = '#f39c12';
-          ctx.beginPath();
-          ctx.moveTo(-16, 0);
-          ctx.lineTo(-22, -6);
-          ctx.lineTo(-22, 6);
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.fillStyle = '#f1c40f';
-          ctx.beginPath();
-          ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = '#f39c12';
-          ctx.beginPath();
-          ctx.ellipse(-2, -11, 8, 4, Math.PI / 6, 0, Math.PI * 2);
-          ctx.ellipse(-2, 11, 8, 4, -Math.PI / 6, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = '#f1c40f';
-          ctx.beginPath();
-          ctx.arc(8, 0, 8, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = '#e67e22';
-          ctx.beginPath();
-          ctx.moveTo(14, -4);
-          ctx.lineTo(22, 0);
-          ctx.lineTo(14, 4);
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.fillStyle = '#000';
-          ctx.beginPath();
-          ctx.arc(10, -4, 1.5, 0, Math.PI * 2);
-          ctx.arc(10, 4, 1.5, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          // Металлический ящик
-          ctx.fillStyle = '#7f8c8d';
-          ctx.strokeStyle = '#bdc3c7';
-          ctx.lineWidth = 2;
-          ctx.fillRect(-15, -15, 30, 30);
-          ctx.strokeRect(-15, -15, 30, 30);
-          
-          ctx.beginPath();
-          ctx.moveTo(-15, -15);
-          ctx.lineTo(15, 15);
-          ctx.moveTo(15, -15);
-          ctx.lineTo(-15, 15);
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      }
-    }
-
-    // --- 2D ИНСТРУМЕНТЫ ---
-    class ToolTopDown {
-      constructor(x, y, type) {
-        this.x = x;
-        this.y = y;
-        this.type = type;
-        this.timer = 0;
-      }
-
-      update() {
-        this.timer += 0.05;
-
-        for (let i = dynamicObjects.length - 1; i >= 0; i--) {
-          const obj = dynamicObjects[i];
-          const dx = obj.x - this.x;
-          const dy = obj.y - this.y;
-          const dist = Math.hypot(dx, dy);
-
-          // 🕳️ ЯМА (СЛИВ ОБЪЕКТОВ)
-          if (this.type === 'hole') {
-            if (dist < 180) {
-              // Затягивание к центру
-              const pullFactor = (180 - dist) * 0.03;
-              obj.vx -= (dx / dist) * pullFactor;
-              obj.vy -= (dy / dist) * pullFactor;
-
-              // Уменьшение размера при приближении к центру
-              if (dist < 60) {
-                obj.scale = Math.max(0, dist / 60);
-              }
-
-              // Удаление из мира при падении в центр
-              if (dist < 10) {
-                dynamicObjects.splice(i, 1);
-                continue;
-              }
+                return playlist;
+            } catch (error) {
+                console.error('Ошибка при загрузке плейлиста:', error);
+                document.getElementById('status').textContent = 'Ошибка загрузки плейлиста.';
+                return [];
             }
-          }
-
-          // 🌀 ВЕНТИЛЯТОР
-          if (this.type === 'fan' && dist < 160) {
-            const force = (160 - dist) * 0.015;
-            obj.vx += (dx / dist) * force;
-            obj.vy += (dy / dist) * force;
-          }
-
-          // 🧲 МАГНИТ
-          if (this.type === 'magnet' && obj.isMetallic && dist < 250) {
-            obj.vx -= (dx / dist) * 0.8;
-            obj.vy -= (dy / dist) * 0.8;
-          }
-
-          // 🦘 ПРУЖИНА
-          if (this.type === 'spring' && dist < 35) {
-            const angle = Math.atan2(dy, dx);
-            obj.vx = Math.cos(angle) * 16;
-            obj.vy = Math.sin(angle) * 16;
-          }
-
-          // 🔨 ПОРШЕНЬ
-          if (this.type === 'piston' && dist < 50 && Math.sin(this.timer) > 0.85) {
-            obj.vx += 12;
-            obj.vy += 12;
-          }
-
-          // 🚀 ЗАПУСКНИК
-          if (this.type === 'launcher' && dist < 35) {
-            obj.vx = 20;
-            obj.vy = (Math.random() - 0.5) * 4;
-          }
-        }
-      }
-
-      draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-
-        if (this.type === 'hole') {
-          // Черная глубокая яма с воронкой
-          ctx.fillStyle = '#050508';
-          ctx.beginPath();
-          ctx.arc(0, 0, 35, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.strokeStyle = '#2c3e50';
-          ctx.lineWidth = 4;
-          ctx.stroke();
-
-          // Анимация вращения воронки
-          ctx.strokeStyle = '#34495e';
-          ctx.lineWidth = 2;
-          ctx.rotate(this.timer);
-          for (let i = 0; i < 3; i++) {
-            ctx.beginPath();
-            ctx.arc(0, 0, 12 + i * 7, 0, Math.PI * 1.2);
-            ctx.stroke();
-          }
-        } else if (this.type === 'fan') {
-          ctx.fillStyle = '#3498db';
-          ctx.beginPath();
-          ctx.arc(0, 0, 22, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 3;
-          ctx.rotate(this.timer * 2);
-          for (let i = 0; i < 4; i++) {
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(16, 0);
-            ctx.stroke();
-            ctx.rotate(Math.PI / 2);
-          }
-        } else if (this.type === 'magnet') {
-          ctx.fillStyle = '#e74c3c';
-          ctx.beginPath();
-          ctx.arc(0, 0, 22, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#fff';
-          ctx.font = '16px Arial';
-          ctx.fillText('🧲', -10, 6);
-        } else if (this.type === 'spring') {
-          ctx.fillStyle = '#1abc9c';
-          ctx.beginPath();
-          ctx.arc(0, 0, 20, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#fff';
-          ctx.font = '16px Arial';
-          ctx.fillText('🦘', -10, 6);
-        } else if (this.type === 'piston') {
-          ctx.fillStyle = '#9b59b6';
-          ctx.fillRect(-18, -18, 36, 36);
-          ctx.fillStyle = '#fff';
-          ctx.font = '16px Arial';
-          ctx.fillText('🔨', -10, 6);
-        } else if (this.type === 'launcher') {
-          ctx.fillStyle = '#2ecc71';
-          ctx.fillRect(-20, -15, 40, 30);
-          ctx.fillStyle = '#fff';
-          ctx.font = '16px Arial';
-          ctx.fillText('🚀', -10, 6);
         }
 
-        ctx.restore();
-      }
-    }
+        // Инициализация плеера с украинскими каналами
+        async function initPlayer() {
+            const playlist = await fetchAndParseM3U(M3U_URL);
 
-    // --- УПРАВЛЕНИЕ И ВЗАИМОДЕЙСТВИЕ ---
-    function selectTool(type) {
-      selectedTool = type;
-      document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
-      const btn = document.getElementById(`btn-${type}`);
-      if (btn) btn.classList.add('active');
-    }
+            if (playlist.length === 0) {
+                document.getElementById('status').textContent = 'Плейлист пуст или недоступен.';
+                return;
+            }
 
-    function spawnDuck() {
-      // Спавн в центре экрана с учетом координат мира
-      const worldCenter = screenToWorld(canvas.width / 2, canvas.height / 2);
-      dynamicObjects.push(new TopDownBody(worldCenter.x + (Math.random() - 0.5) * 50, worldCenter.y + (Math.random() - 0.5) * 50, 'duck'));
-    }
+            document.getElementById('status').textContent = `Загружено каналов: ${playlist.length}`;
 
-    function spawnMetal() {
-      const worldCenter = screenToWorld(canvas.width / 2, canvas.height / 2);
-      dynamicObjects.push(new TopDownBody(worldCenter.x + (Math.random() - 0.5) * 50, worldCenter.y + (Math.random() - 0.5) * 50, 'metal'));
-    }
+            // Запуск PlayerJS со списком украинских каналов
+            new Playerjs({
+                id: "player",
+                live: 1,
+                file: playlist
+            });
+        }
 
-    // Преобразование экранных координат в мировые
-    function screenToWorld(screenX, screenY) {
-      return {
-        x: (screenX - canvas.width / 2 - cameraOffset.x) / cameraZoom,
-        y: (screenY - canvas.height / 2 - cameraOffset.y) / cameraZoom
-      };
-    }
+        initPlayer();
+    </script>
 
-    // ОБРАБОТКА МЫШИ (ЗУМ И ПАНОРАМИРОВАНИЕ)
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, cameraZoom * zoomFactor));
-
-      // Зум относительно точки курсора
-      const mouseX = e.clientX - canvas.width / 2;
-      const mouseY = e.clientY - canvas.height / 2;
-
-      cameraOffset.x -= (mouseX - cameraOffset.x) * (newZoom / cameraZoom - 1);
-      cameraOffset.y -= (mouseY - cameraOffset.y) * (newZoom / cameraZoom - 1);
-
-      cameraZoom = newZoom;
-    }, { passive: false });
-
-    canvas.addEventListener('mousedown', (e) => {
-      // Нажатие СКМ (button 1) или Shift + ЛКМ для перемещения камеры
-      if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
-        isDragging = true;
-        dragStart = { x: e.clientX - cameraOffset.x, y: e.clientY - cameraOffset.y };
-        return;
-      }
-
-      // ЛКМ — Размещение выбранного инструмента
-      if (e.button === 0 && selectedTool && !e.target.closest('#ui')) {
-        const worldPos = screenToWorld(e.clientX, e.clientY);
-        installedTools.push(new ToolTopDown(worldPos.x, worldPos.y, selectedTool));
-      }
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        cameraOffset.x = e.clientX - dragStart.x;
-        cameraOffset.y = e.clientY - dragStart.y;
-      }
-    });
-
-    window.addEventListener('mouseup', () => isDragging = false);
-
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
-
-    // --- ГЛАВНЫЙ ЦИКЛ ОТРЕСОВКИ ---
-    function loop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      ctx.save();
-      // Применение трансформации камеры
-      ctx.translate(canvas.width / 2 + cameraOffset.x, canvas.height / 2 + cameraOffset.y);
-      ctx.scale(cameraZoom, cameraZoom);
-
-      // Отрисовка фоновой сетки мира
-      ctx.strokeStyle = '#232330';
-      ctx.lineWidth = 1;
-      const gridSize = 50;
-      const BOUND = 1250;
-
-      for (let x = -BOUND; x <= BOUND; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, -BOUND);
-        ctx.lineTo(x, BOUND);
-        ctx.stroke();
-      }
-      for (let y = -BOUND; y <= BOUND; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(-BOUND, y);
-        ctx.lineTo(BOUND, y);
-        ctx.stroke();
-      }
-
-      // Границы игрового поля
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(-BOUND, -BOUND, BOUND * 2, BOUND * 2);
-
-      // Обновление и отрисовка инструментов
-      installedTools.forEach(tool => {
-        tool.update();
-        tool.draw();
-      });
-
-      // Обновление и отрисовка физических тел
-      dynamicObjects.forEach(obj => {
-        obj.update();
-        obj.draw();
-      });
-
-      ctx.restore();
-
-      requestAnimationFrame(loop);
-    }
-
-    loop();
-  </script>
 </body>
 </html>
