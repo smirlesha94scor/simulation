@@ -42,7 +42,7 @@
             gap: 10px;
         }
 
-        /* Панель кастомизации */
+        /* Панель управления и кастомизации */
         .custompanel {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -50,7 +50,7 @@
             padding: 15px;
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 15px;
             align-items: center;
             justify-content: space-between;
         }
@@ -73,31 +73,6 @@
             border-radius: 6px;
             cursor: pointer;
             background: transparent;
-        }
-
-        input[type="text"] {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 6px;
-            outline: none;
-            font-size: 0.85rem;
-        }
-
-        .btn-add {
-            background: #0284c7;
-            color: #fff;
-            border: none;
-            padding: 7px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: background 0.2s;
-        }
-
-        .btn-add:hover {
-            background: #0369a1;
         }
 
         .content-layout {
@@ -133,25 +108,27 @@
             height: 100%;
         }
 
-        /* Блок пользовательских кнопок под плеером */
+        /* Кнопки управления */
         .custom-buttons-bar {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
             background: rgba(255, 255, 255, 0.03);
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.08);
+            align-items: center;
         }
 
         .custom-btn {
             background: rgba(56, 189, 248, 0.15);
             color: #38bdf8;
             border: 1px solid rgba(56, 189, 248, 0.3);
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.85rem;
+            font-weight: bold;
             transition: all 0.2s;
         }
 
@@ -160,15 +137,25 @@
             color: #0f172a;
         }
 
+        .custom-btn.active-autoplay {
+            background: #ef4444;
+            color: #fff;
+            border-color: #f87171;
+        }
+
+        .timer-info {
+            font-size: 0.85rem;
+            color: #38bdf8;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
         /* Динамическая кастомизация Clappr */
         [data-player] .bar-fill-1 {
             background-color: var(--accent-color, #38bdf8) !important;
         }
         [data-player] .bar-hover {
             background-color: var(--accent-color, rgba(56, 189, 248, 0.5)) !important;
-        }
-        [data-player] .media-control[data-media-control] {
-            background: linear-gradient(transparent, rgba(15, 23, 42, var(--bg-opacity, 0.9))) !important;
         }
 
         /* Список каналов */
@@ -217,9 +204,6 @@
             font-size: 0.95rem;
             line-height: 1.4;
             word-break: break-word;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
 
         .channel-item:hover {
@@ -237,41 +221,24 @@
             font-size: 0.9rem;
             color: #94a3b8;
         }
-
-        .badge-working {
-            font-size: 0.75rem;
-            background: #10b981;
-            color: #fff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 8px;
-        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="header">
-            <h2>IPTV Телеканалы Украины</h2>
+            <h2>IPTV Телеканалы </h2>
             <div id="status" class="status">Загрузка плейлиста...</div>
         </div>
 
         <!-- Панель кастомизации -->
         <div class="custompanel">
             <div class="panel-group">
-                <label for="colorPicker">Цвет элементов:</label>
+                <label for="colorPicker">Цвет акцентов плеера:</label>
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
-
             <div class="panel-group">
-                <label for="opacityPicker">Прозрачность панели:</label>
-                <input type="range" id="opacityPicker" min="0.2" max="1" step="0.1" value="0.9">
-            </div>
-
-            <div class="panel-group">
-                <label>Добавить кнопку:</label>
-                <input type="text" id="btnName" placeholder="Название (напр. Перезапустить)">
-                <button class="btn-add" onclick="addCustomButton()">+ Добавить</button>
+                <span style="font-size: 0.85rem; color: #94a3b8;">Автопереключение удерживает каждый канал 20 секунд</span>
             </div>
         </div>
 
@@ -281,15 +248,17 @@
                     <div id="player"></div>
                 </div>
                 
-                <!-- Кастомные кнопки управления -->
-                <div class="custom-buttons-bar" id="customButtonsBar">
-                    <button class="custom-btn" onclick="reloadStream()">🔄 Обновить поток</button>
+                <!-- Панель кнопок -->
+                <div class="custom-buttons-bar">
+                    <button id="autoPlayBtn" class="custom-btn" onclick="toggleAutoPlay()">▶ Автопросмотр (20 сек)</button>
+                    <button class="custom-btn" onclick="reloadStream()">🔄 Обновить</button>
                     <button class="custom-btn" onclick="toggleMute()">🔇 Мут / Звук</button>
+                    <span id="timerInfo" class="timer-info"></span>
                 </div>
             </div>
 
             <div class="playlist-box">
-                <div class="playlist-title">Рабочие каналы</div>
+                <div class="playlist-title">Все каналы</div>
                 <ul id="channelList" class="channel-list"></ul>
             </div>
         </div>
@@ -298,55 +267,21 @@
     <script>
         const M3U_URL = 'https://iptv-org.github.io/iptv/countries/ua.m3u';
         let player = null;
-        let currentStreamUrl = '';
+        let globalPlaylist = [];
+        let currentIndex = 0;
 
-        // Панель кастомизации: изменение цвета и прозрачности
+        // Переменные для автоматического перебора
+        let isAutoPlaying = false;
+        let autoPlayTimer = null;
+        let countdownTimer = null;
+        let timeLeft = 20;
+
+        // Настройка цвета плеера
         document.getElementById('colorPicker').addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--accent-color', e.target.value);
         });
 
-        document.getElementById('opacityPicker').addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--bg-opacity', e.target.value);
-        });
-
-        // Функция добавления новой пользовательской кнопки
-        function addCustomButton() {
-            const nameInput = document.getElementById('btnName');
-            const btnName = nameInput.value.trim();
-
-            if (!btnName) {
-                alert('Введите название кнопки!');
-                return;
-            }
-
-            const bar = document.getElementById('customButtonsBar');
-            const btn = document.createElement('button');
-            btn.className = 'custom-btn';
-            btn.textContent = `⚡ ${btnName}`;
-            btn.onclick = () => alert(`Нажата кнопка: "${btnName}"`);
-
-            bar.appendChild(btn);
-            nameInput.value = '';
-        }
-
-        function reloadStream() {
-            if (player && currentStreamUrl) {
-                player.load(currentStreamUrl);
-                player.play();
-            }
-        }
-
-        function toggleMute() {
-            if (player) {
-                if (player.getVolume() > 0) {
-                    player.setVolume(0);
-                } else {
-                    player.setVolume(100);
-                }
-            }
-        }
-
-        // Парсинг M3U
+        // Парсинг файла плейлиста M3U
         async function fetchAndParseM3U(url) {
             try {
                 const response = await fetch(url);
@@ -377,54 +312,109 @@
 
                 return playlist;
             } catch (error) {
-                console.error('Ошибка при загрузке плейлиста:', error);
+                console.error('Ошибка загрузки плейлиста:', error);
                 document.getElementById('status').textContent = 'Ошибка загрузки плейлиста.';
                 return [];
             }
         }
 
-        // Проверка одного потока на доступность
-        async function checkStream(url) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+        // Переключение канала по индексу
+        function playChannel(index) {
+            if (index < 0 || index >= globalPlaylist.length) return;
+            
+            currentIndex = index;
+            const item = globalPlaylist[index];
 
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                return response.ok;
-            } catch (e) {
-                clearTimeout(timeoutId);
-                return false;
+            // Подсветка активного канала в списке
+            const items = document.querySelectorAll('.channel-item');
+            items.forEach((el, idx) => {
+                if (idx === index) {
+                    el.classList.add('active');
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+
+            // Воспроизведение
+            if (player) {
+                player.load(item.file);
+                player.play();
             }
         }
 
-        // Фильтрация рабочих каналов
-        async function filterWorkingChannels(rawPlaylist, onProgress) {
-            const workingPlaylist = [];
-            const BATCH_SIZE = 10;
+        // Запуск / Остановка автоматического перебора каналов
+        function toggleAutoPlay() {
+            const btn = document.getElementById('autoPlayBtn');
+            const timerInfo = document.getElementById('timerInfo');
 
-            for (let i = 0; i < rawPlaylist.length; i += BATCH_SIZE) {
-                const batch = rawPlaylist.slice(i, i + BATCH_SIZE);
-                
-                const results = await Promise.all(
-                    batch.map(async (item) => {
-                        const isOk = await checkStream(item.file);
-                        return isOk ? item : null;
-                    })
-                );
-
-                results.forEach(item => {
-                    if (item) workingPlaylist.push(item);
-                });
-
-                const checkedCount = Math.min(i + BATCH_SIZE, rawPlaylist.length);
-                onProgress(checkedCount, rawPlaylist.length, workingPlaylist.length);
+            if (isAutoPlaying) {
+                stopAutoPlay();
+            } else {
+                isAutoPlaying = true;
+                btn.textContent = '⏹ Остановить автопросмотр';
+                btn.classList.add('active-autoplay');
+                startAutoPlayCycle();
             }
+        }
 
-            return workingPlaylist;
+        function stopAutoPlay() {
+            isAutoPlaying = false;
+            clearTimeout(autoPlayTimer);
+            clearInterval(countdownTimer);
+            
+            const btn = document.getElementById('autoPlayBtn');
+            const timerInfo = document.getElementById('timerInfo');
+            
+            btn.textContent = '▶ Автопросмотр (20 сек)';
+            btn.classList.remove('active-autoplay');
+            timerInfo.textContent = '';
+        }
+
+        function startAutoPlayCycle() {
+            if (!isAutoPlaying) return;
+
+            timeLeft = 20;
+            const timerInfo = document.getElementById('timerInfo');
+            timerInfo.textContent = `Следующий канал через: ${timeLeft} с.`;
+
+            // Обновление счетчика каждую секунду
+            clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    timerInfo.textContent = `Следующий канал через: ${timeLeft} с.`;
+                } else {
+                    clearInterval(countdownTimer);
+                }
+            }, 1000);
+
+            // Переход на следующий канал через 20 секунд
+            clearTimeout(autoPlayTimer);
+            autoPlayTimer = setTimeout(() => {
+                if (isAutoPlaying) {
+                    let nextIndex = (currentIndex + 1) % globalPlaylist.length;
+                    playChannel(nextIndex);
+                    startAutoPlayCycle();
+                }
+            }, 20000);
+        }
+
+        function reloadStream() {
+            if (player && globalPlaylist[currentIndex]) {
+                player.load(globalPlaylist[currentIndex].file);
+                player.play();
+            }
+        }
+
+        function toggleMute() {
+            if (player) {
+                if (player.getVolume() > 0) {
+                    player.setVolume(0);
+                } else {
+                    player.setVolume(100);
+                }
+            }
         }
 
         function renderChannelList(playlist) {
@@ -436,21 +426,15 @@
                 li.className = 'channel-item';
                 if (index === 0) li.classList.add('active');
 
-                li.innerHTML = `
-                    <span>${index + 1}. ${item.title}</span>
-                    <span class="badge-working">ONLINE</span>
-                `;
+                li.textContent = `${index + 1}. ${item.title}`;
                 li.title = item.title;
 
                 li.addEventListener('click', () => {
-                    document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-                    li.classList.add('active');
-
-                    currentStreamUrl = item.file;
-                    if (player) {
-                        player.load(item.file);
-                        player.play();
+                    // При ручном клике останавливаем автоматический перебор
+                    if (isAutoPlaying) {
+                        stopAutoPlay();
                     }
+                    playChannel(index);
                 });
 
                 listEl.appendChild(li);
@@ -459,35 +443,24 @@
 
         async function initPlayer() {
             const statusEl = document.getElementById('status');
-            const rawPlaylist = await fetchAndParseM3U(M3U_URL);
+            globalPlaylist = await fetchAndParseM3U(M3U_URL);
 
-            if (rawPlaylist.length === 0) {
+            if (globalPlaylist.length === 0) {
                 statusEl.textContent = 'Плейлист пуст или недоступен.';
                 return;
             }
 
-            statusEl.textContent = `Тестирование каналов (0/${rawPlaylist.length})...`;
+            statusEl.textContent = `Загружено каналов: ${globalPlaylist.length}`;
+            renderChannelList(globalPlaylist);
 
-            const workingPlaylist = await filterWorkingChannels(rawPlaylist, (checked, total, found) => {
-                statusEl.textContent = `Проверено: ${checked}/${total} | Рабочих: ${found}`;
-            });
-
-            if (workingPlaylist.length === 0) {
-                statusEl.textContent = 'Ни один канал не прошёл проверку доступности.';
-                return;
-            }
-
-            statusEl.textContent = `Готово! Рабочих каналов: ${workingPlaylist.length} из ${rawPlaylist.length}`;
-            renderChannelList(workingPlaylist);
-
-            currentStreamUrl = workingPlaylist[0].file;
-
+            // Инициализация Clappr
             player = new Clappr.Player({
-                source: currentStreamUrl,
+                source: globalPlaylist[0].file,
                 parentId: "#player",
                 width: '100%',
                 height: '100%',
-                autoPlay: true
+                autoPlay: true,
+                hideMediaControlDelay: 2000
             });
         }
 
