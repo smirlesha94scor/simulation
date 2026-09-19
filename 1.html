@@ -230,7 +230,7 @@
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
             <div class="panel-group">
-                <span style="font-size: 0.85rem; color: #f87171;">Нерабочие каналы автоматически удаляются из списка</span>
+                <span style="font-size: 0.85rem; color: #f87171;">Нерабочие каналы автоматически удаляются</span>
             </div>
         </div>
 
@@ -265,7 +265,9 @@
         let nextChannelTimer = null;
         let countdownInterval = null;
         let loadTimeoutTimer = null;
-        let isCurrentChannelPlaying = false; // Флаг статуса воспроизведения
+        
+        // Защитный флаг: заиграл ли текущий канал хоть раз
+        let streamHasStarted = false; 
         let timeLeft = 20;
 
         document.getElementById('colorPicker').addEventListener('input', (e) => {
@@ -317,23 +319,15 @@
 
         function updateStatusCount() {
             const statusEl = document.getElementById('status');
-            statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
+            statusEl.textContent = `Всего каналов: ${globalPlaylist.length}`;
         }
 
-        function playNextChannel() {
-            clearAllTimers();
-            if (globalPlaylist.length === 0) {
-                document.getElementById('status').textContent = 'Все каналы были удалены (нет рабочих).';
-                return;
-            }
-            let nextIndex = currentIndex % globalPlaylist.length;
-            playChannel(nextIndex);
-        }
-
-        // Успешный запуск потока
+        // Вызывается событием Clappr, когда канал РЕАЛЬНО начал показывать видео
         function handleStreamPlaying() {
-            isCurrentChannelPlaying = true; // Фиксируем успех
-            clearTimeout(loadTimeoutTimer);
+            if (streamHasStarted) return; // Чтобы не перезапускать 20 сек при внутренних микро-паузах
+            
+            streamHasStarted = true; // Фиксируем факт, что канал РАБОТАЕТ
+            clearTimeout(loadTimeoutTimer); // Отменяем таймер удаления!
             
             const item = globalPlaylist[currentIndex];
             if (!item) return;
@@ -357,36 +351,41 @@
 
                 clearTimeout(nextChannelTimer);
                 nextChannelTimer = setTimeout(() => {
-                    currentIndex = (currentIndex + 1) % globalPlaylist.length;
-                    playNextChannel();
+                    // Переход к следующему каналу по таймеру
+                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                    playChannel(nextIdx);
                 }, 20000);
             }
         }
 
-        // Удаление канала только если он РЕАЛЬНО не смог запуститься
+        // Вызывается ТОЛЬКО если поток не завелся за 8 секунд или при критической ошибке плеера
         function handleStreamError() {
-            if (isCurrentChannelPlaying) return; // Если уже воспроизводится, игнорируем ложные ошибки
+            // Если видео уже запускалось, игнорируем любые ложные ошибки при переключении
+            if (streamHasStarted) return;
 
             clearAllTimers();
             if (globalPlaylist.length === 0) return;
 
             const removedItem = globalPlaylist[currentIndex];
             
-            // Удаляем действительно нерабочий канал
+            // Удаляем нерабочий канал
             globalPlaylist.splice(currentIndex, 1);
             
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён (ошибка). Переключение...`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не ответил и был удален.`;
 
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
             }
 
+            // Переходим к следующему каналу без задержки
             setTimeout(() => {
-                playNextChannel();
-            }, 1000);
+                if (globalPlaylist.length > 0) {
+                    playChannel(currentIndex);
+                }
+            }, 500);
         }
 
         function playChannel(index) {
@@ -394,7 +393,7 @@
             if (index < 0 || index >= globalPlaylist.length) index = 0;
             
             clearAllTimers();
-            isCurrentChannelPlaying = false; // Сбрасываем флаг перед новым запуском
+            streamHasStarted = false; // Сбрасываем флаг перед зауском нового канала
             currentIndex = index;
             const item = globalPlaylist[currentIndex];
 
@@ -414,9 +413,9 @@
                 player.load(item.file);
                 player.play();
 
-                // Увеличен таймаут ожидания до 8 секунд для медленных потоков
+                // Даем 8 секунд на запуск. Если за 8 секунд `handleStreamPlaying` не сработал — удаляем
                 loadTimeoutTimer = setTimeout(() => {
-                    if (!isCurrentChannelPlaying) {
+                    if (!streamHasStarted) {
                         handleStreamError();
                     }
                 }, 8000);
