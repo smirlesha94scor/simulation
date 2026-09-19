@@ -9,7 +9,7 @@ on:
 jobs:
   parse:
     runs-on: ubuntu-latest
-    timeout-minutes: 120 # Даем скрипту до 60 минут на обход всех каналов
+    timeout-minutes: 240 # Даем скрипту до 60 минут на обход всех каналов
     permissions:
       contents: write
 
