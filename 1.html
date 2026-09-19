@@ -234,7 +234,7 @@
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
             <div class="panel-group">
-                <span style="font-size: 0.85rem; color: #10b981;">✔ Работает >10 сек = Сохранён</span>
+                <span style="font-size: 0.85rem; color: #10b981;">✔ Воспроизведение 10 сек = Фиксация канала</span>
             </div>
         </div>
 
@@ -267,12 +267,14 @@
 
         let isAutoPlaying = false;
         let nextChannelTimer = null;
-        let verifyTimer = null;
+        let verifyInterval = null;
         let countdownInterval = null;
         let loadTimeoutTimer = null;
         
-        let isChangingChannel = false; // Блокировка фантомных ошибок во время переключения
-        let timeLeft = 20;
+        let isChangingChannel = false; 
+        let isVerifying = false; // Флаг: идёт обязательная 10-секундная проверка
+        let verifySeconds = 0;
+        let autoPlayTimeLeft = 20;
 
         document.getElementById('colorPicker').addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--accent-color', e.target.value);
@@ -317,7 +319,7 @@
 
         function clearAllTimers() {
             clearTimeout(nextChannelTimer);
-            clearTimeout(verifyTimer);
+            clearInterval(verifyInterval);
             clearTimeout(loadTimeoutTimer);
             clearInterval(countdownInterval);
             document.getElementById('timerInfo').textContent = '';
@@ -328,7 +330,7 @@
             statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
         }
 
-        // Вызывается при запуске видеопотока
+        // Вызывается в момент старта видео
         function handleStreamPlaying() {
             if (isChangingChannel) return;
 
@@ -336,66 +338,88 @@
             const item = globalPlaylist[currentIndex];
             if (!item) return;
 
-            document.getElementById('status').textContent = `Воспроизведение: ${item.title}`;
-
-            // Таймер 10 секунд: Отмечаем канал как гарантированно рабочий
-            clearTimeout(verifyTimer);
-            verifyTimer = setTimeout(() => {
-                if (globalPlaylist[currentIndex]) {
-                    globalPlaylist[currentIndex].verified = true;
-                    renderChannelList(globalPlaylist);
-                    document.getElementById('status').textContent = `Воспроизведение: ${item.title} (Проверен ✔)`;
-                }
-            }, 10000);
-
-            // Режим автопросмотра
-            if (isAutoPlaying) {
-                timeLeft = 20;
-                const timerInfo = document.getElementById('timerInfo');
-                timerInfo.textContent = `Просмотр: ${timeLeft} с.`;
-
-                clearInterval(countdownInterval);
-                countdownInterval = setInterval(() => {
-                    timeLeft--;
-                    if (timeLeft > 0) {
-                        timerInfo.textContent = `Просмотр: ${timeLeft} с.`;
-                    } else {
-                        clearInterval(countdownInterval);
-                    }
-                }, 1000);
-
-                clearTimeout(nextChannelTimer);
-                nextChannelTimer = setTimeout(() => {
-                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
-                    switchChannel(nextIdx);
-                }, 20000);
+            // Если канал уже проверялся раньше, пропускаем 10-секундный таймер
+            if (item.verified) {
+                document.getElementById('status').textContent = `Воспроизведение: ${item.title} (Проверен ✔)`;
+                startAutoPlayTimer();
+                return;
             }
+
+            // Запускаем обязательный 10-секундный таймер проверки
+            isVerifying = true;
+            verifySeconds = 0;
+            const timerInfo = document.getElementById('timerInfo');
+            timerInfo.textContent = `Проверка: 0/10 сек`;
+
+            clearInterval(verifyInterval);
+            verifyInterval = setInterval(() => {
+                verifySeconds++;
+                timerInfo.textContent = `Проверка: ${verifySeconds}/10 сек`;
+
+                if (verifySeconds >= 10) {
+                    clearInterval(verifyInterval);
+                    isVerifying = false; // Снимаем блокировку остановки!
+
+                    if (globalPlaylist[currentIndex]) {
+                        globalPlaylist[currentIndex].verified = true;
+                        renderChannelList(globalPlaylist);
+                        document.getElementById('status').textContent = `Воспроизведение: ${item.title} (Рабочий ✔)`;
+                    }
+
+                    startAutoPlayTimer();
+                }
+            }, 1000);
         }
 
-        // Вызывается ТОЛЬКО если канал не загрузился и НЕ подтвержден
+        function startAutoPlayTimer() {
+            if (!isAutoPlaying) return;
+
+            autoPlayTimeLeft = 10; // Дополнительные 10 сек после проверки (всего 20 сек)
+            const timerInfo = document.getElementById('timerInfo');
+            timerInfo.textContent = `Автопросмотр: ${autoPlayTimeLeft} с.`;
+
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                autoPlayTimeLeft--;
+                if (autoPlayTimeLeft > 0) {
+                    timerInfo.textContent = `Автопросмотр: ${autoPlayTimeLeft} с.`;
+                } else {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+
+            clearTimeout(nextChannelTimer);
+            nextChannelTimer = setTimeout(() => {
+                let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                switchChannel(nextIdx);
+            }, 10000);
+        }
+
+        // Удаление канала при невозможности воспроизведения
         function handleStreamError() {
-            if (isChangingChannel) return; // Игнорируем ошибки, вызванные закрытием предыдущего потока
+            if (isChangingChannel) return;
 
             const item = globalPlaylist[currentIndex];
             
-            // Если канал уже отработал 10 секунд ранее, НЕ удаляем его
+            // Если канал уже отмечен проверенным, не удаляем его при сбое сети
             if (item && item.verified) {
-                console.log(`Канал ${item.title} дал сбой, но он ранее был проверен.`);
                 return;
             }
 
             clearAllTimers();
+            isVerifying = false;
+
             if (globalPlaylist.length === 0) return;
 
             const removedItem = globalPlaylist[currentIndex];
             
-            // Удаляем нерабочий канал из плейлиста
+            // Удаляем нерабочий канал
             globalPlaylist.splice(currentIndex, 1);
             
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не работает и был удален.`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не загрузился и был удалён.`;
 
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
@@ -408,22 +432,27 @@
             }, 500);
         }
 
-        // Безопасное закрытие текущего канала перед включением нового
-        function switchChannel(index) {
+        // Переключение каналов с проверкой 10-секундного блока
+        function switchChannel(index, force = false) {
+            // Запрет остановки/переключения пока плеер не отыграет 10 секунд
+            if (isVerifying && !force) {
+                document.getElementById('status').textContent = `Подождите! Канал проверяется (${verifySeconds}/10 сек)...`;
+                return;
+            }
+
             if (globalPlaylist.length === 0) return;
             if (index < 0 || index >= globalPlaylist.length) index = 0;
 
             clearAllTimers();
-            isChangingChannel = true; // Включаем защиту от фантомных ошибок
+            isVerifying = false;
+            isChangingChannel = true; 
 
-            // Останавливаем текущий поток
             if (player) {
                 try {
                     player.stop();
                 } catch (e) {}
             }
 
-            // Ждем завершения закрытия и запускаем следующий
             setTimeout(() => {
                 isChangingChannel = false;
                 playChannel(index);
@@ -450,7 +479,7 @@
                 player.load(item.file);
                 player.play();
 
-                // Таймаут ожидания загрузки (8 секунд)
+                // Таймаут на загрузку (8 секунд)
                 loadTimeoutTimer = setTimeout(() => {
                     if (!isChangingChannel) {
                         handleStreamError();
@@ -468,7 +497,7 @@
                 isAutoPlaying = true;
                 btn.textContent = '⏹ Остановить автопросмотр';
                 btn.classList.add('active-autoplay');
-                switchChannel(currentIndex);
+                switchChannel(currentIndex, true);
             }
         }
 
@@ -483,7 +512,7 @@
 
         function reloadStream() {
             if (globalPlaylist[currentIndex]) {
-                switchChannel(currentIndex);
+                switchChannel(currentIndex, true);
             }
         }
 
