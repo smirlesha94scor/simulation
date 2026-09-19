@@ -210,6 +210,10 @@
             font-weight: bold;
         }
 
+        .channel-item.verified {
+            border-left: 4px solid #10b981;
+        }
+
         .status {
             font-size: 0.9rem;
             color: #94a3b8;
@@ -230,7 +234,7 @@
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
             <div class="panel-group">
-                <span style="font-size: 0.85rem; color: #f87171;">Нерабочие каналы автоматически удаляются</span>
+                <span style="font-size: 0.85rem; color: #10b981;">✔ Работает >10 сек = Сохранён</span>
             </div>
         </div>
 
@@ -263,11 +267,11 @@
 
         let isAutoPlaying = false;
         let nextChannelTimer = null;
+        let verifyTimer = null;
         let countdownInterval = null;
         let loadTimeoutTimer = null;
         
-        // Защитный флаг: заиграл ли текущий канал хоть раз
-        let streamHasStarted = false; 
+        let isChangingChannel = false; // Блокировка фантомных ошибок во время переключения
         let timeLeft = 20;
 
         document.getElementById('colorPicker').addEventListener('input', (e) => {
@@ -295,7 +299,8 @@
                         if (currentTitle) {
                             playlist.push({
                                 title: currentTitle,
-                                file: line
+                                file: line,
+                                verified: false
                             });
                             currentTitle = '';
                         }
@@ -312,6 +317,7 @@
 
         function clearAllTimers() {
             clearTimeout(nextChannelTimer);
+            clearTimeout(verifyTimer);
             clearTimeout(loadTimeoutTimer);
             clearInterval(countdownInterval);
             document.getElementById('timerInfo').textContent = '';
@@ -319,21 +325,30 @@
 
         function updateStatusCount() {
             const statusEl = document.getElementById('status');
-            statusEl.textContent = `Всего каналов: ${globalPlaylist.length}`;
+            statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
         }
 
-        // Вызывается событием Clappr, когда канал РЕАЛЬНО начал показывать видео
+        // Вызывается при запуске видеопотока
         function handleStreamPlaying() {
-            if (streamHasStarted) return; // Чтобы не перезапускать 20 сек при внутренних микро-паузах
-            
-            streamHasStarted = true; // Фиксируем факт, что канал РАБОТАЕТ
-            clearTimeout(loadTimeoutTimer); // Отменяем таймер удаления!
-            
+            if (isChangingChannel) return;
+
+            clearTimeout(loadTimeoutTimer);
             const item = globalPlaylist[currentIndex];
             if (!item) return;
 
             document.getElementById('status').textContent = `Воспроизведение: ${item.title}`;
 
+            // Таймер 10 секунд: Отмечаем канал как гарантированно рабочий
+            clearTimeout(verifyTimer);
+            verifyTimer = setTimeout(() => {
+                if (globalPlaylist[currentIndex]) {
+                    globalPlaylist[currentIndex].verified = true;
+                    renderChannelList(globalPlaylist);
+                    document.getElementById('status').textContent = `Воспроизведение: ${item.title} (Проверен ✔)`;
+                }
+            }, 10000);
+
+            // Режим автопросмотра
             if (isAutoPlaying) {
                 timeLeft = 20;
                 const timerInfo = document.getElementById('timerInfo');
@@ -351,49 +366,71 @@
 
                 clearTimeout(nextChannelTimer);
                 nextChannelTimer = setTimeout(() => {
-                    // Переход к следующему каналу по таймеру
                     let nextIdx = (currentIndex + 1) % globalPlaylist.length;
-                    playChannel(nextIdx);
+                    switchChannel(nextIdx);
                 }, 20000);
             }
         }
 
-        // Вызывается ТОЛЬКО если поток не завелся за 8 секунд или при критической ошибке плеера
+        // Вызывается ТОЛЬКО если канал не загрузился и НЕ подтвержден
         function handleStreamError() {
-            // Если видео уже запускалось, игнорируем любые ложные ошибки при переключении
-            if (streamHasStarted) return;
+            if (isChangingChannel) return; // Игнорируем ошибки, вызванные закрытием предыдущего потока
+
+            const item = globalPlaylist[currentIndex];
+            
+            // Если канал уже отработал 10 секунд ранее, НЕ удаляем его
+            if (item && item.verified) {
+                console.log(`Канал ${item.title} дал сбой, но он ранее был проверен.`);
+                return;
+            }
 
             clearAllTimers();
             if (globalPlaylist.length === 0) return;
 
             const removedItem = globalPlaylist[currentIndex];
             
-            // Удаляем нерабочий канал
+            // Удаляем нерабочий канал из плейлиста
             globalPlaylist.splice(currentIndex, 1);
             
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не ответил и был удален.`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не работает и был удален.`;
 
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
             }
 
-            // Переходим к следующему каналу без задержки
             setTimeout(() => {
                 if (globalPlaylist.length > 0) {
-                    playChannel(currentIndex);
+                    switchChannel(currentIndex);
                 }
             }, 500);
         }
 
-        function playChannel(index) {
+        // Безопасное закрытие текущего канала перед включением нового
+        function switchChannel(index) {
             if (globalPlaylist.length === 0) return;
             if (index < 0 || index >= globalPlaylist.length) index = 0;
-            
+
             clearAllTimers();
-            streamHasStarted = false; // Сбрасываем флаг перед зауском нового канала
+            isChangingChannel = true; // Включаем защиту от фантомных ошибок
+
+            // Останавливаем текущий поток
+            if (player) {
+                try {
+                    player.stop();
+                } catch (e) {}
+            }
+
+            // Ждем завершения закрытия и запускаем следующий
+            setTimeout(() => {
+                isChangingChannel = false;
+                playChannel(index);
+            }, 300);
+        }
+
+        function playChannel(index) {
             currentIndex = index;
             const item = globalPlaylist[currentIndex];
 
@@ -413,9 +450,9 @@
                 player.load(item.file);
                 player.play();
 
-                // Даем 8 секунд на запуск. Если за 8 секунд `handleStreamPlaying` не сработал — удаляем
+                // Таймаут ожидания загрузки (8 секунд)
                 loadTimeoutTimer = setTimeout(() => {
-                    if (!streamHasStarted) {
+                    if (!isChangingChannel) {
                         handleStreamError();
                     }
                 }, 8000);
@@ -431,7 +468,7 @@
                 isAutoPlaying = true;
                 btn.textContent = '⏹ Остановить автопросмотр';
                 btn.classList.add('active-autoplay');
-                playChannel(currentIndex);
+                switchChannel(currentIndex);
             }
         }
 
@@ -445,8 +482,8 @@
         }
 
         function reloadStream() {
-            if (player && globalPlaylist[currentIndex]) {
-                playChannel(currentIndex);
+            if (globalPlaylist[currentIndex]) {
+                switchChannel(currentIndex);
             }
         }
 
@@ -467,16 +504,18 @@
             playlist.forEach((item, index) => {
                 const li = document.createElement('li');
                 li.className = 'channel-item';
+                
                 if (index === currentIndex) li.classList.add('active');
+                if (item.verified) li.classList.add('verified');
 
-                li.textContent = `${index + 1}. ${item.title}`;
+                li.textContent = `${index + 1}. ${item.title} ${item.verified ? '✔' : ''}`;
                 li.title = item.title;
 
                 li.addEventListener('click', () => {
                     if (isAutoPlaying) {
                         stopAutoPlay();
                     }
-                    playChannel(index);
+                    switchChannel(index);
                 });
 
                 listEl.appendChild(li);
