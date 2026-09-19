@@ -141,6 +141,16 @@
             border-color: #f87171;
         }
 
+        .stopwatch-badge {
+            font-size: 0.9rem;
+            color: #38bdf8;
+            font-weight: bold;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
         .timer-info {
             font-size: 0.85rem;
             color: #38bdf8;
@@ -234,7 +244,8 @@
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
             <div class="panel-group">
-                <span style="font-size: 0.85rem; color: #10b981;">✔ Воспроизведение началось = Канал сохранён</span>
+                <span id="stopwatchDisplay" class="stopwatch-badge">⏱ Секундомер: 00:00</span>
+                <span style="font-size: 0.85rem; color: #10b981;">✔ Воспроизводился > 10 сек = Сохранен</span>
             </div>
         </div>
 
@@ -267,13 +278,14 @@
 
         let isAutoPlaying = false;
         let nextChannelTimer = null;
-        let verifyInterval = null;
         let countdownInterval = null;
         let loadTimeoutTimer = null;
         
+        // Переменные секундомера
+        let stopwatchInterval = null;
+        let playedSeconds = 0;
+
         let isChangingChannel = false; 
-        let streamStarted = false; // Флаг: воспроизведение УЖЕ началось хотя бы на 1 секунду
-        let verifySeconds = 0;
         let autoPlayTimeLeft = 20;
 
         document.getElementById('colorPicker').addEventListener('input', (e) => {
@@ -317,12 +329,44 @@
             }
         }
 
+        // Очистка всех таймеров и сброс секундомера
         function clearAllTimers() {
             clearTimeout(nextChannelTimer);
-            clearInterval(verifyInterval);
             clearTimeout(loadTimeoutTimer);
             clearInterval(countdownInterval);
+            stopStopwatch();
             document.getElementById('timerInfo').textContent = '';
+        }
+
+        function resetAndStartStopwatch() {
+            stopStopwatch();
+            playedSeconds = 0;
+            updateStopwatchUI();
+
+            stopwatchInterval = setInterval(() => {
+                playedSeconds++;
+                updateStopwatchUI();
+
+                // Проверка условия: Если канал воспроизводился больше 10 секунд
+                if (playedSeconds >= 10 && globalPlaylist[currentIndex]) {
+                    if (!globalPlaylist[currentIndex].verified) {
+                        globalPlaylist[currentIndex].verified = true;
+                        renderChannelList(globalPlaylist);
+                        const item = globalPlaylist[currentIndex];
+                        document.getElementById('status').textContent = `Воспроизведение: ${item ? item.title : ''} (Проверен ✔)`;
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopStopwatch() {
+            clearInterval(stopwatchInterval);
+        }
+
+        function updateStopwatchUI() {
+            const mins = String(Math.floor(playedSeconds / 60)).padStart(2, '0');
+            const secs = String(playedSeconds % 60).padStart(2, '0');
+            document.getElementById('stopwatchDisplay').textContent = `⏱ Секундомер: ${mins}:${secs}`;
         }
 
         function updateStatusCount() {
@@ -330,96 +374,70 @@
             statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
         }
 
-        // Вызывается при запуске картинки
+        // Вызывается в момент старта видео
         function handleStreamPlaying() {
             if (isChangingChannel) return;
 
-            // Как только пошло видео — отменяем таймаут удаления!
             clearTimeout(loadTimeoutTimer);
-            streamStarted = true; // Защищаем канал от удаления навсегда
+            
+            // Запуск секундомера при воспроизведении
+            resetAndStartStopwatch();
 
             const item = globalPlaylist[currentIndex];
             if (!item) return;
 
-            if (item.verified) {
-                document.getElementById('status').textContent = `Воспроизведение: ${item.title} (Проверен ✔)`;
-                startAutoPlayTimer();
-                return;
-            }
+            const isVerified = item.verified ? ' (Проверен ✔)' : '';
+            document.getElementById('status').textContent = `Воспроизведение: ${item.title}${isVerified}`;
 
-            // Таймер отсчёта до зелёной галочки (10 секунд)
-            verifySeconds = 0;
-            const timerInfo = document.getElementById('timerInfo');
-            timerInfo.textContent = `Проверка: 0/10 сек`;
+            // Логика автопросмотра
+            if (isAutoPlaying) {
+                autoPlayTimeLeft = 20;
+                const timerInfo = document.getElementById('timerInfo');
+                timerInfo.textContent = `До след. канала: ${autoPlayTimeLeft} с.`;
 
-            clearInterval(verifyInterval);
-            verifyInterval = setInterval(() => {
-                verifySeconds++;
-                timerInfo.textContent = `Проверка: ${verifySeconds}/10 сек`;
-
-                if (verifySeconds >= 10) {
-                    clearInterval(verifyInterval);
-
-                    if (globalPlaylist[currentIndex]) {
-                        globalPlaylist[currentIndex].verified = true;
-                        renderChannelList(globalPlaylist);
-                        document.getElementById('status').textContent = `Воспроизведение: ${item.title} (Стабилен ✔)`;
+                clearInterval(countdownInterval);
+                countdownInterval = setInterval(() => {
+                    autoPlayTimeLeft--;
+                    if (autoPlayTimeLeft > 0) {
+                        timerInfo.textContent = `До след. канала: ${autoPlayTimeLeft} с.`;
+                    } else {
+                        clearInterval(countdownInterval);
                     }
+                }, 1000);
 
-                    startAutoPlayTimer();
-                }
-            }, 1000);
+                clearTimeout(nextChannelTimer);
+                nextChannelTimer = setTimeout(() => {
+                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                    switchChannel(nextIdx);
+                }, 20000);
+            }
         }
 
-        function startAutoPlayTimer() {
-            if (!isAutoPlaying) return;
-
-            autoPlayTimeLeft = 10;
-            const timerInfo = document.getElementById('timerInfo');
-            timerInfo.textContent = `Автопросмотр: ${autoPlayTimeLeft} с.`;
-
-            clearInterval(countdownInterval);
-            countdownInterval = setInterval(() => {
-                autoPlayTimeLeft--;
-                if (autoPlayTimeLeft > 0) {
-                    timerInfo.textContent = `Автопросмотр: ${autoPlayTimeLeft} с.`;
-                } else {
-                    clearInterval(countdownInterval);
-                }
-            }, 1000);
-
-            clearTimeout(nextChannelTimer);
-            nextChannelTimer = setTimeout(() => {
-                let nextIdx = (currentIndex + 1) % globalPlaylist.length;
-                switchChannel(nextIdx);
-            }, 10000);
-        }
-
-        // Вызывается ТОЛЬКО если поток ВООБЩЕ НЕ ЗАПУСТИЛСЯ (0 секунд воспроизведения)
+        // Вызывается при ошибке воспроизведения
         function handleStreamError() {
             if (isChangingChannel) return;
 
-            // Если поток успел проиграть хотя бы 1 секунду — НЕ УДАЛЯЕМ его!
-            if (streamStarted) {
-                console.log("Канал оборвался, но картинка уже показывалась. Не удаляем.");
+            const currentItem = globalPlaylist[currentIndex];
+
+            // Проверка: если канал воспроизводился больше 10 секунд или уже был проверен - НЕ УДАЛЯТЬ
+            if (playedSeconds >= 10 || (currentItem && currentItem.verified)) {
+                console.log(`Канал ${currentItem ? currentItem.title : ''} отыграл >10 сек. Удаление заблокировано.`);
                 return;
             }
 
-            const item = globalPlaylist[currentIndex];
-            if (item && item.verified) return;
-
             clearAllTimers();
+
             if (globalPlaylist.length === 0) return;
 
             const removedItem = globalPlaylist[currentIndex];
             
-            // Удаляем только действительно «мёртвый» поток
+            // Удаляем нерабочий канал из списка
             globalPlaylist.splice(currentIndex, 1);
             
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не загрузился и удалён.`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не проработал 10 сек и удалён.`;
 
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
@@ -432,21 +450,44 @@
             }, 500);
         }
 
+        // Безопасная остановка плеера и переход к следующему каналу
         function switchChannel(index) {
             if (globalPlaylist.length === 0) return;
-            if (index < 0 || index >= globalPlaylist.length) index = 0;
 
             clearAllTimers();
-            streamStarted = false; // Сброс перед новым запуском
             isChangingChannel = true; 
 
+            // 1. Остановка плеера перед переключением
             if (player) {
                 try {
                     player.stop();
-                } catch (e) {}
+                } catch (e) {
+                    console.warn("Ошибка при остановке плеера:", e);
+                }
             }
 
+            // 2. Проверка, что целевой канал остался в списке
             setTimeout(() => {
+                if (globalPlaylist.length === 0) {
+                    document.getElementById('status').textContent = 'Список каналов пуст.';
+                    isChangingChannel = false;
+                    return;
+                }
+
+                // Корректировка индекса, если он вышел за пределы
+                if (index >= globalPlaylist.length) {
+                    index = 0;
+                } else if (index < 0) {
+                    index = globalPlaylist.length - 1;
+                }
+
+                // Проверка наличия объекта канала по индексу
+                const targetChannel = globalPlaylist[index];
+                if (!targetChannel) {
+                    console.warn("Канал не найден в списке. Переходим на индекс 0.");
+                    index = 0;
+                }
+
                 isChangingChannel = false;
                 playChannel(index);
             }, 300);
@@ -455,6 +496,8 @@
         function playChannel(index) {
             currentIndex = index;
             const item = globalPlaylist[currentIndex];
+
+            if (!item) return;
 
             const items = document.querySelectorAll('.channel-item');
             items.forEach((el, idx) => {
@@ -472,9 +515,9 @@
                 player.load(item.file);
                 player.play();
 
-                // Даём 8 секунд на подключение. Если видео так и не заиграет (streamStarted === false) -> удаляем
+                // Таймаут подключения (8 секунд)
                 loadTimeoutTimer = setTimeout(() => {
-                    if (!streamStarted && !isChangingChannel) {
+                    if (playedSeconds === 0 && !isChangingChannel) {
                         handleStreamError();
                     }
                 }, 8000);
