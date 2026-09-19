@@ -265,6 +265,7 @@
         let nextChannelTimer = null;
         let countdownInterval = null;
         let loadTimeoutTimer = null;
+        let isCurrentChannelPlaying = false; // Флаг статуса воспроизведения
         let timeLeft = 20;
 
         document.getElementById('colorPicker').addEventListener('input', (e) => {
@@ -331,8 +332,12 @@
 
         // Успешный запуск потока
         function handleStreamPlaying() {
+            isCurrentChannelPlaying = true; // Фиксируем успех
             clearTimeout(loadTimeoutTimer);
+            
             const item = globalPlaylist[currentIndex];
+            if (!item) return;
+
             document.getElementById('status').textContent = `Воспроизведение: ${item.title}`;
 
             if (isAutoPlaying) {
@@ -358,24 +363,23 @@
             }
         }
 
-        // Ошибка/Таймаут: Полное удаление канала из массива и интерфейса
+        // Удаление канала только если он РЕАЛЬНО не смог запуститься
         function handleStreamError() {
+            if (isCurrentChannelPlaying) return; // Если уже воспроизводится, игнорируем ложные ошибки
+
             clearAllTimers();
-            
             if (globalPlaylist.length === 0) return;
 
             const removedItem = globalPlaylist[currentIndex];
             
-            // Удаляем нерабочий канал из списка
+            // Удаляем действительно нерабочий канал
             globalPlaylist.splice(currentIndex, 1);
             
-            // Перерисовываем список каналов заново
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem.title}" удалён (ошибка). Переключение...`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён (ошибка). Переключение...`;
 
-            // Если индекс вылетел за границы — сбрасываем на 0
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
             }
@@ -390,6 +394,7 @@
             if (index < 0 || index >= globalPlaylist.length) index = 0;
             
             clearAllTimers();
+            isCurrentChannelPlaying = false; // Сбрасываем флаг перед новым запуском
             currentIndex = index;
             const item = globalPlaylist[currentIndex];
 
@@ -409,10 +414,12 @@
                 player.load(item.file);
                 player.play();
 
-                // Таймаут 5 секунд на подгрузку
+                // Увеличен таймаут ожидания до 8 секунд для медленных потоков
                 loadTimeoutTimer = setTimeout(() => {
-                    handleStreamError();
-                }, 5000);
+                    if (!isCurrentChannelPlaying) {
+                        handleStreamError();
+                    }
+                }, 8000);
             }
         }
 
