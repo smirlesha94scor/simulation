@@ -245,7 +245,7 @@
             </div>
             <div class="panel-group">
                 <span id="stopwatchDisplay" class="stopwatch-badge">⏱ Секундомер: 00:00</span>
-                <span style="font-size: 0.85rem; color: #10b981;">✔ Воспроизводился > 10 сек = Сохранен</span>
+                <span style="font-size: 0.85rem; color: #10b981;">✔ Переключение каждые 15 сек</span>
             </div>
         </div>
 
@@ -256,7 +256,7 @@
                 </div>
                 
                 <div class="custom-buttons-bar">
-                    <button id="autoPlayBtn" class="custom-btn" onclick="toggleAutoPlay()">▶ Автопросмотр (20 сек)</button>
+                    <button id="autoPlayBtn" class="custom-btn" onclick="toggleAutoPlay()">▶ Автопросмотр (15 сек)</button>
                     <button class="custom-btn" onclick="reloadStream()">🔄 Обновить</button>
                     <button class="custom-btn" onclick="toggleMute()">🔇 Мут / Звук</button>
                     <span id="timerInfo" class="timer-info"></span>
@@ -277,9 +277,7 @@
         let currentIndex = 0;
 
         let isAutoPlaying = false;
-        let nextChannelTimer = null;
-        let countdownInterval = null;
-        let loadTimeoutTimer = null;
+        let bufferingTimeoutTimer = null; // Таймер на 20 секунд буферизации
         
         // Переменные секундомера
         let stopwatchInterval = null;
@@ -287,7 +285,6 @@
         let isStopwatchRunning = false;
 
         let isChangingChannel = false; 
-        let autoPlayTimeLeft = 20;
 
         document.getElementById('colorPicker').addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--accent-color', e.target.value);
@@ -331,15 +328,13 @@
         }
 
         function clearAllTimers() {
-            clearTimeout(nextChannelTimer);
-            clearTimeout(loadTimeoutTimer);
-            clearInterval(countdownInterval);
+            clearTimeout(bufferingTimeoutTimer);
             stopStopwatch();
             document.getElementById('timerInfo').textContent = '';
         }
 
         function resetAndStartStopwatch() {
-            if (isStopwatchRunning) return; // Не перезапускаем, если уже идет
+            if (isStopwatchRunning) return;
 
             stopStopwatch();
             playedSeconds = 0;
@@ -350,14 +345,25 @@
                 playedSeconds++;
                 updateStopwatchUI();
 
-                // Условие сохранение канала (>10 секунд работы)
-                if (playedSeconds >= 10 && globalPlaylist[currentIndex]) {
-                    if (!globalPlaylist[currentIndex].verified) {
+                // Показываем обратный отсчет на кнопках/панели
+                const timeLeft = 15 - playedSeconds;
+                if (timeLeft > 0) {
+                    document.getElementById('timerInfo').textContent = `До след. канала: ${timeLeft} с.`;
+                }
+
+                // ПРАВИЛО: Достигли 15 секунд непрерывного воспроизведения
+                if (playedSeconds >= 15) {
+                    stopStopwatch();
+
+                    // 1. Помечаем канал как проверенный и рабочий
+                    if (globalPlaylist[currentIndex]) {
                         globalPlaylist[currentIndex].verified = true;
                         renderChannelList(globalPlaylist);
-                        const item = globalPlaylist[currentIndex];
-                        document.getElementById('status').textContent = `Воспроизведение: ${item ? item.title : ''} (Проверен ✔)`;
                     }
+
+                    // 2. Автоматически переключаем на следующий канал
+                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                    switchChannel(nextIdx);
                 }
             }, 1000);
         }
@@ -378,13 +384,42 @@
             statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
         }
 
-        // Вызывается в момент подтверждения работы видеопотока
+        function startBufferingTimer() {
+            // Если канал уже проверен, не удаляем при подвисаниях
+            if (globalPlaylist[currentIndex] && globalPlaylist[currentIndex].verified) return;
+
+            clearTimeout(bufferingTimeoutTimer);
+            
+            // Буферизация > 20 секунд = Удаление канала
+            bufferingTimeoutTimer = setTimeout(() => {
+                if (!isChangingChannel) {
+                    const item = globalPlaylist[currentIndex];
+                    if (!item || !item.verified) {
+                        handleStreamError('Буферизация превысила 20 секунд');
+                    }
+                }
+            }, 20000);
+        }
+
+        function handleStreamBuffer() {
+            if (isChangingChannel) return;
+
+            stopStopwatch();
+            
+            const item = globalPlaylist[currentIndex];
+            if (item) {
+                document.getElementById('status').textContent = `Буферизация (${item.title})... Лимит 20с.`;
+            }
+            startBufferingTimer();
+        }
+
         function handleStreamPlaying() {
             if (isChangingChannel) return;
 
-            clearTimeout(loadTimeoutTimer);
+            // Сбрасываем таймер ошибки буферизации
+            clearTimeout(bufferingTimeoutTimer);
             
-            // Гарантированный запуск секундомера
+            // Запускаем отсчет 15 секунд
             resetAndStartStopwatch();
 
             const item = globalPlaylist[currentIndex];
@@ -392,39 +427,14 @@
 
             const isVerified = item.verified ? ' (Проверен ✔)' : '';
             document.getElementById('status').textContent = `Воспроизведение: ${item.title}${isVerified}`;
-
-            // Таймер для автоматического перехода (20 секунд)
-            if (isAutoPlaying) {
-                autoPlayTimeLeft = 20;
-                const timerInfo = document.getElementById('timerInfo');
-                timerInfo.textContent = `До след. канала: ${autoPlayTimeLeft} с.`;
-
-                clearInterval(countdownInterval);
-                countdownInterval = setInterval(() => {
-                    autoPlayTimeLeft--;
-                    if (autoPlayTimeLeft > 0) {
-                        timerInfo.textContent = `До след. канала: ${autoPlayTimeLeft} с.`;
-                    } else {
-                        clearInterval(countdownInterval);
-                    }
-                }, 1000);
-
-                clearTimeout(nextChannelTimer);
-                nextChannelTimer = setTimeout(() => {
-                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
-                    switchChannel(nextIdx);
-                }, 20000);
-            }
         }
 
-        function handleStreamError() {
+        function handleStreamError(reason = 'Ошибка потока') {
             if (isChangingChannel) return;
 
             const currentItem = globalPlaylist[currentIndex];
 
-            // Если канал отработал >= 10 сек, отменяем его удаление
-            if (playedSeconds >= 10 || (currentItem && currentItem.verified)) {
-                console.log(`Канал ${currentItem ? currentItem.title : ''} отыграл >10 сек. Удаление заблокировано.`);
+            if (playedSeconds >= 15 || (currentItem && currentItem.verified)) {
                 return;
             }
 
@@ -439,7 +449,7 @@
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не проработал 10 сек и был удален.`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён (${reason}).`;
 
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
@@ -481,11 +491,6 @@
                     index = globalPlaylist.length - 1;
                 }
 
-                const targetChannel = globalPlaylist[index];
-                if (!targetChannel) {
-                    index = 0;
-                }
-
                 isChangingChannel = false;
                 playChannel(index);
             }, 300);
@@ -509,11 +514,12 @@
 
             document.getElementById('status').textContent = `Подключение: ${item.title}...`;
 
+            startBufferingTimer();
+
             if (player) {
                 player.load(item.file);
                 player.play();
 
-                // Дополнительный прямое отслеживание через native HTML5 <video>
                 setTimeout(() => {
                     const videoEl = document.querySelector('#player video');
                     if (videoEl) {
@@ -521,13 +527,6 @@
                         videoEl.addEventListener('timeupdate', handleStreamPlaying, { once: true });
                     }
                 }, 500);
-
-                // Ожидание старта воспроизведения (8 секунд)
-                loadTimeoutTimer = setTimeout(() => {
-                    if (playedSeconds === 0 && !isChangingChannel) {
-                        handleStreamError();
-                    }
-                }, 8000);
             }
         }
 
@@ -549,7 +548,7 @@
             clearAllTimers();
             
             const btn = document.getElementById('autoPlayBtn');
-            btn.textContent = '▶ Автопросмотр (20 сек)';
+            btn.textContent = '▶ Автопросмотр (15 сек)';
             btn.classList.remove('active-autoplay');
         }
 
@@ -618,6 +617,9 @@
                     },
                     onPlaying: function() {
                         handleStreamPlaying();
+                    },
+                    onBuffer: function() {
+                        handleStreamBuffer();
                     },
                     onTimeUpdate: function() {
                         handleStreamPlaying();
