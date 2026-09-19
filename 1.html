@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Телеканалы Украины</title>
 
-    <!-- Подключение Clappr -->
+    <!-- 1. Подключение hls.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <!-- 2. Подключение Clappr -->
     <script src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
 
     <style>
@@ -245,7 +248,7 @@
             </div>
             <div class="panel-group">
                 <span id="stopwatchDisplay" class="stopwatch-badge">⏱ Секундомер: 00:00</span>
-                <span style="font-size: 0.85rem; color: #10b981;">✔ Переключение каждые 15 сек</span>
+                <span style="font-size: 0.85rem; color: #10b981;">✔ Воспроизведение > 8 сек = Сохранение</span>
             </div>
         </div>
 
@@ -256,7 +259,7 @@
                 </div>
                 
                 <div class="custom-buttons-bar">
-                    <button id="autoPlayBtn" class="custom-btn" onclick="toggleAutoPlay()">▶ Автопросмотр (15 сек)</button>
+                    <button id="autoPlayBtn" class="custom-btn" onclick="toggleAutoPlay()">▶ Автопросмотр (8 сек)</button>
                     <button class="custom-btn" onclick="reloadStream()">🔄 Обновить</button>
                     <button class="custom-btn" onclick="toggleMute()">🔇 Мут / Звук</button>
                     <span id="timerInfo" class="timer-info"></span>
@@ -277,9 +280,8 @@
         let currentIndex = 0;
 
         let isAutoPlaying = false;
-        let bufferingTimeoutTimer = null; // Таймер на 20 секунд буферизации
+        let bufferingTimeoutTimer = null; // Таймер лимита буферизации (15 сек)
         
-        // Переменные секундомера
         let stopwatchInterval = null;
         let playedSeconds = 0;
         let isStopwatchRunning = false;
@@ -333,6 +335,7 @@
             document.getElementById('timerInfo').textContent = '';
         }
 
+        // Секундомер стартует ТОЛЬКО при физическом старте воспроизведения
         function resetAndStartStopwatch() {
             if (isStopwatchRunning) return;
 
@@ -345,25 +348,28 @@
                 playedSeconds++;
                 updateStopwatchUI();
 
-                // Показываем обратный отсчет на кнопках/панели
-                const timeLeft = 15 - playedSeconds;
+                const timeLeft = 8 - playedSeconds;
                 if (timeLeft > 0) {
-                    document.getElementById('timerInfo').textContent = `До след. канала: ${timeLeft} с.`;
+                    document.getElementById('timerInfo').textContent = `До сохранения: ${timeLeft} с.`;
+                } else {
+                    document.getElementById('timerInfo').textContent = `Сохранено ✔`;
                 }
 
-                // ПРАВИЛО: Достигли 15 секунд непрерывного воспроизведения
-                if (playedSeconds >= 15) {
-                    stopStopwatch();
-
-                    // 1. Помечаем канал как проверенный и рабочий
-                    if (globalPlaylist[currentIndex]) {
+                // ПРАВИЛО 1: Воспроизведение достигло 8 секунд -> Сохраняем
+                if (playedSeconds >= 8) {
+                    if (globalPlaylist[currentIndex] && !globalPlaylist[currentIndex].verified) {
                         globalPlaylist[currentIndex].verified = true;
                         renderChannelList(globalPlaylist);
+                        const item = globalPlaylist[currentIndex];
+                        document.getElementById('status').textContent = `Воспроизведение: ${item ? item.title : ''} (Проверен ✔)`;
                     }
 
-                    // 2. Автоматически переключаем на следующий канал
-                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
-                    switchChannel(nextIdx);
+                    // Переключаем дальше, если включен автопросмотр
+                    if (isAutoPlaying) {
+                        stopStopwatch();
+                        let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                        switchChannel(nextIdx);
+                    }
                 }
             }, 1000);
         }
@@ -384,42 +390,43 @@
             statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
         }
 
+        // ПРАВИЛО 2: Старт таймера лимита буферизации (15 секунд)
         function startBufferingTimer() {
-            // Если канал уже проверен, не удаляем при подвисаниях
             if (globalPlaylist[currentIndex] && globalPlaylist[currentIndex].verified) return;
 
             clearTimeout(bufferingTimeoutTimer);
             
-            // Буферизация > 20 секунд = Удаление канала
             bufferingTimeoutTimer = setTimeout(() => {
                 if (!isChangingChannel) {
                     const item = globalPlaylist[currentIndex];
                     if (!item || !item.verified) {
-                        handleStreamError('Буферизация превысила 20 секунд');
+                        handleStreamError('Буферизация более 15 секунд');
                     }
                 }
-            }, 20000);
+            }, 15000);
         }
 
         function handleStreamBuffer() {
             if (isChangingChannel) return;
 
+            // На время буферизации/зависания секундомер приостанавливается
             stopStopwatch();
             
             const item = globalPlaylist[currentIndex];
             if (item) {
-                document.getElementById('status').textContent = `Буферизация (${item.title})... Лимит 20с.`;
+                document.getElementById('status').textContent = `Буферизация (${item.title})... Лимит 15с.`;
             }
             startBufferingTimer();
         }
 
+        // ПРАВИЛО 3: Запуск секундомера строго при начале воспроизведения
         function handleStreamPlaying() {
             if (isChangingChannel) return;
 
-            // Сбрасываем таймер ошибки буферизации
+            // Воспроизведение началось — отменяем таймер сбоя буферизации
             clearTimeout(bufferingTimeoutTimer);
             
-            // Запускаем отсчет 15 секунд
+            // Запускаем секундомер
             resetAndStartStopwatch();
 
             const item = globalPlaylist[currentIndex];
@@ -434,7 +441,7 @@
 
             const currentItem = globalPlaylist[currentIndex];
 
-            if (playedSeconds >= 15 || (currentItem && currentItem.verified)) {
+            if (playedSeconds >= 8 || (currentItem && currentItem.verified)) {
                 return;
             }
 
@@ -443,7 +450,6 @@
             if (globalPlaylist.length === 0) return;
 
             const removedItem = globalPlaylist[currentIndex];
-            
             globalPlaylist.splice(currentIndex, 1);
             
             renderChannelList(globalPlaylist);
@@ -514,19 +520,24 @@
 
             document.getElementById('status').textContent = `Подключение: ${item.title}...`;
 
+            // Начинаем отсчет 15 секунд на подключение и буферизацию
             startBufferingTimer();
 
             if (player) {
                 player.load(item.file);
                 player.play();
 
+                // Привязка слушателя напрямую к HTML5 video для точного отслеживания момента старта
                 setTimeout(() => {
                     const videoEl = document.querySelector('#player video');
                     if (videoEl) {
+                        videoEl.removeEventListener('playing', handleStreamPlaying);
                         videoEl.removeEventListener('timeupdate', handleStreamPlaying);
+                        
+                        videoEl.addEventListener('playing', handleStreamPlaying, { once: true });
                         videoEl.addEventListener('timeupdate', handleStreamPlaying, { once: true });
                     }
-                }, 500);
+                }, 400);
             }
         }
 
@@ -548,7 +559,7 @@
             clearAllTimers();
             
             const btn = document.getElementById('autoPlayBtn');
-            btn.textContent = '▶ Автопросмотр (15 сек)';
+            btn.textContent = '▶ Автопросмотр (8 сек)';
             btn.classList.remove('active-autoplay');
         }
 
@@ -611,6 +622,12 @@
                 width: '100%',
                 height: '100%',
                 autoPlay: true,
+                playback: {
+                    hlsjsConfig: {
+                        enableWorker: true,
+                        maxBufferLength: 30
+                    }
+                },
                 events: {
                     onPlay: function() {
                         handleStreamPlaying();
