@@ -210,11 +210,6 @@
             font-weight: bold;
         }
 
-        .channel-item.error-item {
-            background: rgba(239, 68, 68, 0.2);
-            color: #f87171;
-        }
-
         .status {
             font-size: 0.9rem;
             color: #94a3b8;
@@ -235,7 +230,7 @@
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
             <div class="panel-group">
-                <span style="font-size: 0.85rem; color: #94a3b8;">Показ 20 сек. стартует только при успешном воспроизведении</span>
+                <span style="font-size: 0.85rem; color: #f87171;">Нерабочие каналы автоматически удаляются из списка</span>
             </div>
         </div>
 
@@ -319,18 +314,26 @@
             document.getElementById('timerInfo').textContent = '';
         }
 
+        function updateStatusCount() {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
+        }
+
         function playNextChannel() {
             clearAllTimers();
-            let nextIndex = (currentIndex + 1) % globalPlaylist.length;
+            if (globalPlaylist.length === 0) {
+                document.getElementById('status').textContent = 'Все каналы были удалены (нет рабочих).';
+                return;
+            }
+            let nextIndex = currentIndex % globalPlaylist.length;
             playChannel(nextIndex);
         }
 
-        // Вызывается в момент, когда поток УСПЕШНО начал играть
+        // Успешный запуск потока
         function handleStreamPlaying() {
-            clearTimeout(loadTimeoutTimer); // Отменяем таймаут ошибки
-            const statusEl = document.getElementById('status');
+            clearTimeout(loadTimeoutTimer);
             const item = globalPlaylist[currentIndex];
-            statusEl.textContent = `Воспроизведение: ${item.title}`;
+            document.getElementById('status').textContent = `Воспроизведение: ${item.title}`;
 
             if (isAutoPlaying) {
                 timeLeft = 20;
@@ -347,42 +350,52 @@
                     }
                 }, 1000);
 
-                // Запуск таймера переключения ровно через 20 секунд УСПЕШНОГО просмотра
                 clearTimeout(nextChannelTimer);
                 nextChannelTimer = setTimeout(() => {
+                    currentIndex = (currentIndex + 1) % globalPlaylist.length;
                     playNextChannel();
                 }, 20000);
             }
         }
 
-        // Вызывается при ОШИБКЕ или невозможности загрузить поток
+        // Ошибка/Таймаут: Полное удаление канала из массива и интерфейса
         function handleStreamError() {
             clearAllTimers();
-            const statusEl = document.getElementById('status');
-            const currentItem = document.querySelectorAll('.channel-item')[currentIndex];
             
-            if (currentItem) {
-                currentItem.classList.add('error-item');
+            if (globalPlaylist.length === 0) return;
+
+            const removedItem = globalPlaylist[currentIndex];
+            
+            // Удаляем нерабочий канал из списка
+            globalPlaylist.splice(currentIndex, 1);
+            
+            // Перерисовываем список каналов заново
+            renderChannelList(globalPlaylist);
+            updateStatusCount();
+
+            document.getElementById('status').textContent = `Канал "${removedItem.title}" удалён (ошибка). Переключение...`;
+
+            // Если индекс вылетел за границы — сбрасываем на 0
+            if (currentIndex >= globalPlaylist.length) {
+                currentIndex = 0;
             }
 
-            statusEl.textContent = `Канал не отвечает. Переключение...`;
-
-            // Быстрый переход к следующему каналу через 1.5 сек
             setTimeout(() => {
                 playNextChannel();
-            }, 1500);
+            }, 1000);
         }
 
         function playChannel(index) {
-            if (index < 0 || index >= globalPlaylist.length) return;
+            if (globalPlaylist.length === 0) return;
+            if (index < 0 || index >= globalPlaylist.length) index = 0;
             
             clearAllTimers();
             currentIndex = index;
-            const item = globalPlaylist[index];
+            const item = globalPlaylist[currentIndex];
 
             const items = document.querySelectorAll('.channel-item');
             items.forEach((el, idx) => {
-                if (idx === index) {
+                if (idx === currentIndex) {
                     el.classList.add('active');
                     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 } else {
@@ -396,7 +409,7 @@
                 player.load(item.file);
                 player.play();
 
-                // Таймаут: Если за 5 секунд канал не начал играть — считаем его нерабочим
+                // Таймаут 5 секунд на подгрузку
                 loadTimeoutTimer = setTimeout(() => {
                     handleStreamError();
                 }, 5000);
@@ -448,7 +461,7 @@
             playlist.forEach((item, index) => {
                 const li = document.createElement('li');
                 li.className = 'channel-item';
-                if (index === 0) li.classList.add('active');
+                if (index === currentIndex) li.classList.add('active');
 
                 li.textContent = `${index + 1}. ${item.title}`;
                 li.title = item.title;
@@ -473,7 +486,7 @@
                 return;
             }
 
-            statusEl.textContent = `Загружено каналов: ${globalPlaylist.length}`;
+            updateStatusCount();
             renderChannelList(globalPlaylist);
 
             player = new Clappr.Player({
