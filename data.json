@@ -1,23 +1,23 @@
 {
-  "updatedAt": "2026-09-19 03:50:05 UTC",
+  "updatedAt": "2026-09-19 07:56:02 UTC",
   "channels": [
     {
-      "name": "d1pro4",
-      "username": "d1pro4",
+      "name": "lota",
+      "username": "lota",
+      "isLive": true,
+      "streak": "0"
+    },
+    {
+      "name": "yuki_nuki",
+      "username": "yuki_nuki",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "guit88man",
-      "username": "guit88man",
+      "name": "sashagrey",
+      "username": "sashagrey",
       "isLive": true,
-      "streak": "2"
-    },
-    {
-      "name": "fandy",
-      "username": "fandy",
-      "isLive": true,
-      "streak": "1"
+      "streak": "0"
     },
     {
       "name": "bobross",
@@ -32,44 +32,20 @@
       "streak": "0"
     },
     {
-      "name": "zhenyamatw",
-      "username": "zhenyamatw",
+      "name": "mhyochi",
+      "username": "mhyochi",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "m1xerboy",
-      "username": "m1xerboy",
+      "name": "ou5hen",
+      "username": "ou5hen",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "yuki_nuki",
-      "username": "yuki_nuki",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "lota",
-      "username": "lota",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "muxa___",
-      "username": "muxa___",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "crittervision",
-      "username": "crittervision",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "ekatrona",
-      "username": "ekatrona",
+      "name": "igorghk",
+      "username": "igorghk",
       "isLive": true,
       "streak": "1"
     },
@@ -80,46 +56,28 @@
       "streak": "1"
     },
     {
-      "name": "sashagrey",
-      "username": "sashagrey",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
       "name": "kiaraoksi",
       "username": "kiaraoksi",
       "isLive": true,
+      "streak": "2"
+    },
+    {
+      "name": "firiondhistory",
+      "username": "firiondhistory",
+      "isLive": true,
       "streak": "1"
     },
     {
-      "name": "vinyljunkies",
-      "username": "vinyljunkies",
+      "name": "crittervision",
+      "username": "crittervision",
+      "isLive": true,
+      "streak": "1"
+    },
+    {
+      "name": "snestaz",
+      "username": "snestaz",
       "isLive": true,
       "streak": "0"
-    },
-    {
-      "name": "ou5hen",
-      "username": "ou5hen",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "olgamelay",
-      "username": "olgamelay",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "redhalat",
-      "username": "redhalat",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "morfa4ka",
-      "username": "morfa4ka",
-      "isLive": true,
-      "streak": "1"
     },
     {
       "name": "caneliii",
@@ -136,12 +94,6 @@
     {
       "name": "rambodriving",
       "username": "rambodriving",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "diacrenk",
-      "username": "diacrenk",
       "isLive": true,
       "streak": "1"
     }
