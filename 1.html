@@ -284,6 +284,7 @@
         // Переменные секундомера
         let stopwatchInterval = null;
         let playedSeconds = 0;
+        let isStopwatchRunning = false;
 
         let isChangingChannel = false; 
         let autoPlayTimeLeft = 20;
@@ -329,7 +330,6 @@
             }
         }
 
-        // Очистка всех таймеров и сброс секундомера
         function clearAllTimers() {
             clearTimeout(nextChannelTimer);
             clearTimeout(loadTimeoutTimer);
@@ -339,15 +339,18 @@
         }
 
         function resetAndStartStopwatch() {
+            if (isStopwatchRunning) return; // Не перезапускаем, если уже идет
+
             stopStopwatch();
             playedSeconds = 0;
+            isStopwatchRunning = true;
             updateStopwatchUI();
 
             stopwatchInterval = setInterval(() => {
                 playedSeconds++;
                 updateStopwatchUI();
 
-                // Проверка условия: Если канал воспроизводился больше 10 секунд
+                // Условие сохранение канала (>10 секунд работы)
                 if (playedSeconds >= 10 && globalPlaylist[currentIndex]) {
                     if (!globalPlaylist[currentIndex].verified) {
                         globalPlaylist[currentIndex].verified = true;
@@ -361,6 +364,7 @@
 
         function stopStopwatch() {
             clearInterval(stopwatchInterval);
+            isStopwatchRunning = false;
         }
 
         function updateStopwatchUI() {
@@ -374,13 +378,13 @@
             statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
         }
 
-        // Вызывается в момент старта видео
+        // Вызывается в момент подтверждения работы видеопотока
         function handleStreamPlaying() {
             if (isChangingChannel) return;
 
             clearTimeout(loadTimeoutTimer);
             
-            // Запуск секундомера при воспроизведении
+            // Гарантированный запуск секундомера
             resetAndStartStopwatch();
 
             const item = globalPlaylist[currentIndex];
@@ -389,7 +393,7 @@
             const isVerified = item.verified ? ' (Проверен ✔)' : '';
             document.getElementById('status').textContent = `Воспроизведение: ${item.title}${isVerified}`;
 
-            // Логика автопросмотра
+            // Таймер для автоматического перехода (20 секунд)
             if (isAutoPlaying) {
                 autoPlayTimeLeft = 20;
                 const timerInfo = document.getElementById('timerInfo');
@@ -413,13 +417,12 @@
             }
         }
 
-        // Вызывается при ошибке воспроизведения
         function handleStreamError() {
             if (isChangingChannel) return;
 
             const currentItem = globalPlaylist[currentIndex];
 
-            // Проверка: если канал воспроизводился больше 10 секунд или уже был проверен - НЕ УДАЛЯТЬ
+            // Если канал отработал >= 10 сек, отменяем его удаление
             if (playedSeconds >= 10 || (currentItem && currentItem.verified)) {
                 console.log(`Канал ${currentItem ? currentItem.title : ''} отыграл >10 сек. Удаление заблокировано.`);
                 return;
@@ -431,13 +434,12 @@
 
             const removedItem = globalPlaylist[currentIndex];
             
-            // Удаляем нерабочий канал из списка
             globalPlaylist.splice(currentIndex, 1);
             
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не проработал 10 сек и удалён.`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" не проработал 10 сек и был удален.`;
 
             if (currentIndex >= globalPlaylist.length) {
                 currentIndex = 0;
@@ -450,14 +452,14 @@
             }, 500);
         }
 
-        // Безопасная остановка плеера и переход к следующему каналу
         function switchChannel(index) {
             if (globalPlaylist.length === 0) return;
 
             clearAllTimers();
+            playedSeconds = 0;
+            updateStopwatchUI();
             isChangingChannel = true; 
 
-            // 1. Остановка плеера перед переключением
             if (player) {
                 try {
                     player.stop();
@@ -466,7 +468,6 @@
                 }
             }
 
-            // 2. Проверка, что целевой канал остался в списке
             setTimeout(() => {
                 if (globalPlaylist.length === 0) {
                     document.getElementById('status').textContent = 'Список каналов пуст.';
@@ -474,17 +475,14 @@
                     return;
                 }
 
-                // Корректировка индекса, если он вышел за пределы
                 if (index >= globalPlaylist.length) {
                     index = 0;
                 } else if (index < 0) {
                     index = globalPlaylist.length - 1;
                 }
 
-                // Проверка наличия объекта канала по индексу
                 const targetChannel = globalPlaylist[index];
                 if (!targetChannel) {
-                    console.warn("Канал не найден в списке. Переходим на индекс 0.");
                     index = 0;
                 }
 
@@ -515,7 +513,16 @@
                 player.load(item.file);
                 player.play();
 
-                // Таймаут подключения (8 секунд)
+                // Дополнительный прямое отслеживание через native HTML5 <video>
+                setTimeout(() => {
+                    const videoEl = document.querySelector('#player video');
+                    if (videoEl) {
+                        videoEl.removeEventListener('timeupdate', handleStreamPlaying);
+                        videoEl.addEventListener('timeupdate', handleStreamPlaying, { once: true });
+                    }
+                }, 500);
+
+                // Ожидание старта воспроизведения (8 секунд)
                 loadTimeoutTimer = setTimeout(() => {
                     if (playedSeconds === 0 && !isChangingChannel) {
                         handleStreamError();
@@ -606,7 +613,13 @@
                 height: '100%',
                 autoPlay: true,
                 events: {
+                    onPlay: function() {
+                        handleStreamPlaying();
+                    },
                     onPlaying: function() {
+                        handleStreamPlaying();
+                    },
+                    onTimeUpdate: function() {
                         handleStreamPlaying();
                     },
                     onError: function() {
