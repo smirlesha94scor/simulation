@@ -42,6 +42,64 @@
             gap: 10px;
         }
 
+        /* Панель кастомизации */
+        .custompanel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .panel-group label {
+            color: #94a3b8;
+        }
+
+        input[type="color"] {
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        input[type="text"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 0.85rem;
+        }
+
+        .btn-add {
+            background: #0284c7;
+            color: #fff;
+            border: none;
+            padding: 7px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .btn-add:hover {
+            background: #0369a1;
+        }
+
         .content-layout {
             display: flex;
             gap: 20px;
@@ -55,11 +113,19 @@
 
         .player-box {
             flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .player-container {
+            width: 100%;
             aspect-ratio: 16 / 9;
             background: #000;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
         }
 
         #player {
@@ -67,36 +133,52 @@
             height: 100%;
         }
 
-        /* ========================================================
-           ИЗМЕНЕНИЕ ИНТЕРФЕЙСА ПЛЕЕРА CLAPPR ЧЕРЕЗ CSS
-           ======================================================== */
-        
-        /* Изменение цвета акцентов (полоса прогресса, громкость) */
+        /* Блок пользовательских кнопок под плеером */
+        .custom-buttons-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .custom-btn {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .custom-btn:hover {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+
+        /* Динамическая кастомизация Clappr */
         [data-player] .bar-fill-1 {
-            background-color: #38bdf8 !important; /* Голубой цвет */
+            background-color: var(--accent-color, #38bdf8) !important;
         }
         [data-player] .bar-hover {
-            background-color: rgba(56, 189, 248, 0.5) !important;
+            background-color: var(--accent-color, rgba(56, 189, 248, 0.5)) !important;
         }
-        
-        /* Стилизация панели управления */
         [data-player] .media-control[data-media-control] {
-            background: linear-gradient(transparent, rgba(15, 23, 42, 0.9)) !important;
+            background: linear-gradient(transparent, rgba(15, 23, 42, var(--bg-opacity, 0.9))) !important;
         }
 
-        /* Цвет иконки воспроизведения по центру */
-        [data-player] .play-wrapper[data-poster] svg path {
-            fill: #38bdf8 !important;
-        }
-
-        /* Настройки внешнего списка каналов */
+        /* Список каналов */
         .playlist-box {
             flex: 1;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             padding: 15px;
-            max-height: 500px;
+            max-height: 520px;
             display: flex;
             flex-direction: column;
         }
@@ -137,6 +219,7 @@
             word-break: break-word;
             display: flex;
             align-items: center;
+            justify-content: space-between;
         }
 
         .channel-item:hover {
@@ -154,6 +237,15 @@
             font-size: 0.9rem;
             color: #94a3b8;
         }
+
+        .badge-working {
+            font-size: 0.75rem;
+            background: #10b981;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
@@ -164,13 +256,40 @@
             <div id="status" class="status">Загрузка плейлиста...</div>
         </div>
 
+        <!-- Панель кастомизации -->
+        <div class="custompanel">
+            <div class="panel-group">
+                <label for="colorPicker">Цвет элементов:</label>
+                <input type="color" id="colorPicker" value="#38bdf8">
+            </div>
+
+            <div class="panel-group">
+                <label for="opacityPicker">Прозрачность панели:</label>
+                <input type="range" id="opacityPicker" min="0.2" max="1" step="0.1" value="0.9">
+            </div>
+
+            <div class="panel-group">
+                <label>Добавить кнопку:</label>
+                <input type="text" id="btnName" placeholder="Название (напр. Перезапустить)">
+                <button class="btn-add" onclick="addCustomButton()">+ Добавить</button>
+            </div>
+        </div>
+
         <div class="content-layout">
             <div class="player-box">
-                <div id="player"></div>
+                <div class="player-container">
+                    <div id="player"></div>
+                </div>
+                
+                <!-- Кастомные кнопки управления -->
+                <div class="custom-buttons-bar" id="customButtonsBar">
+                    <button class="custom-btn" onclick="reloadStream()">🔄 Обновить поток</button>
+                    <button class="custom-btn" onclick="toggleMute()">🔇 Мут / Звук</button>
+                </div>
             </div>
 
             <div class="playlist-box">
-                <div class="playlist-title">Список каналов</div>
+                <div class="playlist-title">Рабочие каналы</div>
                 <ul id="channelList" class="channel-list"></ul>
             </div>
         </div>
@@ -179,7 +298,55 @@
     <script>
         const M3U_URL = 'https://iptv-org.github.io/iptv/countries/ua.m3u';
         let player = null;
+        let currentStreamUrl = '';
 
+        // Панель кастомизации: изменение цвета и прозрачности
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--accent-color', e.target.value);
+        });
+
+        document.getElementById('opacityPicker').addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--bg-opacity', e.target.value);
+        });
+
+        // Функция добавления новой пользовательской кнопки
+        function addCustomButton() {
+            const nameInput = document.getElementById('btnName');
+            const btnName = nameInput.value.trim();
+
+            if (!btnName) {
+                alert('Введите название кнопки!');
+                return;
+            }
+
+            const bar = document.getElementById('customButtonsBar');
+            const btn = document.createElement('button');
+            btn.className = 'custom-btn';
+            btn.textContent = `⚡ ${btnName}`;
+            btn.onclick = () => alert(`Нажата кнопка: "${btnName}"`);
+
+            bar.appendChild(btn);
+            nameInput.value = '';
+        }
+
+        function reloadStream() {
+            if (player && currentStreamUrl) {
+                player.load(currentStreamUrl);
+                player.play();
+            }
+        }
+
+        function toggleMute() {
+            if (player) {
+                if (player.getVolume() > 0) {
+                    player.setVolume(0);
+                } else {
+                    player.setVolume(100);
+                }
+            }
+        }
+
+        // Парсинг M3U
         async function fetchAndParseM3U(url) {
             try {
                 const response = await fetch(url);
@@ -216,6 +383,50 @@
             }
         }
 
+        // Проверка одного потока на доступность
+        async function checkStream(url) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                return response.ok;
+            } catch (e) {
+                clearTimeout(timeoutId);
+                return false;
+            }
+        }
+
+        // Фильтрация рабочих каналов
+        async function filterWorkingChannels(rawPlaylist, onProgress) {
+            const workingPlaylist = [];
+            const BATCH_SIZE = 10;
+
+            for (let i = 0; i < rawPlaylist.length; i += BATCH_SIZE) {
+                const batch = rawPlaylist.slice(i, i + BATCH_SIZE);
+                
+                const results = await Promise.all(
+                    batch.map(async (item) => {
+                        const isOk = await checkStream(item.file);
+                        return isOk ? item : null;
+                    })
+                );
+
+                results.forEach(item => {
+                    if (item) workingPlaylist.push(item);
+                });
+
+                const checkedCount = Math.min(i + BATCH_SIZE, rawPlaylist.length);
+                onProgress(checkedCount, rawPlaylist.length, workingPlaylist.length);
+            }
+
+            return workingPlaylist;
+        }
+
         function renderChannelList(playlist) {
             const listEl = document.getElementById('channelList');
             listEl.innerHTML = '';
@@ -225,13 +436,17 @@
                 li.className = 'channel-item';
                 if (index === 0) li.classList.add('active');
 
-                li.textContent = `${index + 1}. ${item.title}`;
+                li.innerHTML = `
+                    <span>${index + 1}. ${item.title}</span>
+                    <span class="badge-working">ONLINE</span>
+                `;
                 li.title = item.title;
 
                 li.addEventListener('click', () => {
                     document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
                     li.classList.add('active');
 
+                    currentStreamUrl = item.file;
                     if (player) {
                         player.load(item.file);
                         player.play();
@@ -243,31 +458,36 @@
         }
 
         async function initPlayer() {
-            const playlist = await fetchAndParseM3U(M3U_URL);
+            const statusEl = document.getElementById('status');
+            const rawPlaylist = await fetchAndParseM3U(M3U_URL);
 
-            if (playlist.length === 0) {
-                document.getElementById('status').textContent = 'Плейлист пуст или недоступен.';
+            if (rawPlaylist.length === 0) {
+                statusEl.textContent = 'Плейлист пуст или недоступен.';
                 return;
             }
 
-            document.getElementById('status').textContent = `Загружено каналов: ${playlist.length}`;
-            renderChannelList(playlist);
+            statusEl.textContent = `Тестирование каналов (0/${rawPlaylist.length})...`;
 
-            // Инициализация Clappr с настройками интерфейса
+            const workingPlaylist = await filterWorkingChannels(rawPlaylist, (checked, total, found) => {
+                statusEl.textContent = `Проверено: ${checked}/${total} | Рабочих: ${found}`;
+            });
+
+            if (workingPlaylist.length === 0) {
+                statusEl.textContent = 'Ни один канал не прошёл проверку доступности.';
+                return;
+            }
+
+            statusEl.textContent = `Готово! Рабочих каналов: ${workingPlaylist.length} из ${rawPlaylist.length}`;
+            renderChannelList(workingPlaylist);
+
+            currentStreamUrl = workingPlaylist[0].file;
+
             player = new Clappr.Player({
-                source: playlist[0].file,
+                source: currentStreamUrl,
                 parentId: "#player",
                 width: '100%',
                 height: '100%',
-                autoPlay: true,
-
-                // Настройки кастомизации интерфейса:
-                mediacontrol: { 
-                    seekbar: "#38bdf8",  // Цвет полосы прокрутки
-                    buttons: "#ffffff"   // Цвет иконок/кнопок
-                },
-                hideMediaControlDelay: 2000, // Автоматическое скрытие элементов через 2 сек
-                disableVideoTagContextMenu: true // Отключает контекстное меню по правому клику
+                autoPlay: true
             });
         }
 
