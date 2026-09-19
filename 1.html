@@ -42,7 +42,6 @@
             gap: 10px;
         }
 
-        /* Панель управления и кастомизации */
         .custompanel {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -108,7 +107,6 @@
             height: 100%;
         }
 
-        /* Кнопки управления */
         .custom-buttons-bar {
             display: flex;
             flex-wrap: wrap;
@@ -150,15 +148,10 @@
             margin-left: auto;
         }
 
-        /* Динамическая кастомизация Clappr */
         [data-player] .bar-fill-1 {
             background-color: var(--accent-color, #38bdf8) !important;
         }
-        [data-player] .bar-hover {
-            background-color: var(--accent-color, rgba(56, 189, 248, 0.5)) !important;
-        }
 
-        /* Список каналов */
         .playlist-box {
             flex: 1;
             background: rgba(255, 255, 255, 0.05);
@@ -217,6 +210,11 @@
             font-weight: bold;
         }
 
+        .channel-item.error-item {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
         .status {
             font-size: 0.9rem;
             color: #94a3b8;
@@ -227,18 +225,17 @@
 
     <div class="container">
         <div class="header">
-            <h2>IPTV Телеканалы </h2>
+            <h2>IPTV Телеканалы Украины</h2>
             <div id="status" class="status">Загрузка плейлиста...</div>
         </div>
 
-        <!-- Панель кастомизации -->
         <div class="custompanel">
             <div class="panel-group">
                 <label for="colorPicker">Цвет акцентов плеера:</label>
                 <input type="color" id="colorPicker" value="#38bdf8">
             </div>
             <div class="panel-group">
-                <span style="font-size: 0.85rem; color: #94a3b8;">Автопереключение удерживает каждый канал 20 секунд</span>
+                <span style="font-size: 0.85rem; color: #94a3b8;">Показ 20 сек. стартует только при успешном воспроизведении</span>
             </div>
         </div>
 
@@ -248,7 +245,6 @@
                     <div id="player"></div>
                 </div>
                 
-                <!-- Панель кнопок -->
                 <div class="custom-buttons-bar">
                     <button id="autoPlayBtn" class="custom-btn" onclick="toggleAutoPlay()">▶ Автопросмотр (20 сек)</button>
                     <button class="custom-btn" onclick="reloadStream()">🔄 Обновить</button>
@@ -270,18 +266,16 @@
         let globalPlaylist = [];
         let currentIndex = 0;
 
-        // Переменные для автоматического перебора
         let isAutoPlaying = false;
-        let autoPlayTimer = null;
-        let countdownTimer = null;
+        let nextChannelTimer = null;
+        let countdownInterval = null;
+        let loadTimeoutTimer = null;
         let timeLeft = 20;
 
-        // Настройка цвета плеера
         document.getElementById('colorPicker').addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--accent-color', e.target.value);
         });
 
-        // Парсинг файла плейлиста M3U
         async function fetchAndParseM3U(url) {
             try {
                 const response = await fetch(url);
@@ -318,14 +312,74 @@
             }
         }
 
-        // Переключение канала по индексу
+        function clearAllTimers() {
+            clearTimeout(nextChannelTimer);
+            clearTimeout(loadTimeoutTimer);
+            clearInterval(countdownInterval);
+            document.getElementById('timerInfo').textContent = '';
+        }
+
+        function playNextChannel() {
+            clearAllTimers();
+            let nextIndex = (currentIndex + 1) % globalPlaylist.length;
+            playChannel(nextIndex);
+        }
+
+        // Вызывается в момент, когда поток УСПЕШНО начал играть
+        function handleStreamPlaying() {
+            clearTimeout(loadTimeoutTimer); // Отменяем таймаут ошибки
+            const statusEl = document.getElementById('status');
+            const item = globalPlaylist[currentIndex];
+            statusEl.textContent = `Воспроизведение: ${item.title}`;
+
+            if (isAutoPlaying) {
+                timeLeft = 20;
+                const timerInfo = document.getElementById('timerInfo');
+                timerInfo.textContent = `Просмотр: ${timeLeft} с.`;
+
+                clearInterval(countdownInterval);
+                countdownInterval = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft > 0) {
+                        timerInfo.textContent = `Просмотр: ${timeLeft} с.`;
+                    } else {
+                        clearInterval(countdownInterval);
+                    }
+                }, 1000);
+
+                // Запуск таймера переключения ровно через 20 секунд УСПЕШНОГО просмотра
+                clearTimeout(nextChannelTimer);
+                nextChannelTimer = setTimeout(() => {
+                    playNextChannel();
+                }, 20000);
+            }
+        }
+
+        // Вызывается при ОШИБКЕ или невозможности загрузить поток
+        function handleStreamError() {
+            clearAllTimers();
+            const statusEl = document.getElementById('status');
+            const currentItem = document.querySelectorAll('.channel-item')[currentIndex];
+            
+            if (currentItem) {
+                currentItem.classList.add('error-item');
+            }
+
+            statusEl.textContent = `Канал не отвечает. Переключение...`;
+
+            // Быстрый переход к следующему каналу через 1.5 сек
+            setTimeout(() => {
+                playNextChannel();
+            }, 1500);
+        }
+
         function playChannel(index) {
             if (index < 0 || index >= globalPlaylist.length) return;
             
+            clearAllTimers();
             currentIndex = index;
             const item = globalPlaylist[index];
 
-            // Подсветка активного канала в списке
             const items = document.querySelectorAll('.channel-item');
             items.forEach((el, idx) => {
                 if (idx === index) {
@@ -336,17 +390,21 @@
                 }
             });
 
-            // Воспроизведение
+            document.getElementById('status').textContent = `Подключение: ${item.title}...`;
+
             if (player) {
                 player.load(item.file);
                 player.play();
+
+                // Таймаут: Если за 5 секунд канал не начал играть — считаем его нерабочим
+                loadTimeoutTimer = setTimeout(() => {
+                    handleStreamError();
+                }, 5000);
             }
         }
 
-        // Запуск / Остановка автоматического перебора каналов
         function toggleAutoPlay() {
             const btn = document.getElementById('autoPlayBtn');
-            const timerInfo = document.getElementById('timerInfo');
 
             if (isAutoPlaying) {
                 stopAutoPlay();
@@ -354,56 +412,22 @@
                 isAutoPlaying = true;
                 btn.textContent = '⏹ Остановить автопросмотр';
                 btn.classList.add('active-autoplay');
-                startAutoPlayCycle();
+                playChannel(currentIndex);
             }
         }
 
         function stopAutoPlay() {
             isAutoPlaying = false;
-            clearTimeout(autoPlayTimer);
-            clearInterval(countdownTimer);
+            clearAllTimers();
             
             const btn = document.getElementById('autoPlayBtn');
-            const timerInfo = document.getElementById('timerInfo');
-            
             btn.textContent = '▶ Автопросмотр (20 сек)';
             btn.classList.remove('active-autoplay');
-            timerInfo.textContent = '';
-        }
-
-        function startAutoPlayCycle() {
-            if (!isAutoPlaying) return;
-
-            timeLeft = 20;
-            const timerInfo = document.getElementById('timerInfo');
-            timerInfo.textContent = `Следующий канал через: ${timeLeft} с.`;
-
-            // Обновление счетчика каждую секунду
-            clearInterval(countdownTimer);
-            countdownTimer = setInterval(() => {
-                timeLeft--;
-                if (timeLeft > 0) {
-                    timerInfo.textContent = `Следующий канал через: ${timeLeft} с.`;
-                } else {
-                    clearInterval(countdownTimer);
-                }
-            }, 1000);
-
-            // Переход на следующий канал через 20 секунд
-            clearTimeout(autoPlayTimer);
-            autoPlayTimer = setTimeout(() => {
-                if (isAutoPlaying) {
-                    let nextIndex = (currentIndex + 1) % globalPlaylist.length;
-                    playChannel(nextIndex);
-                    startAutoPlayCycle();
-                }
-            }, 20000);
         }
 
         function reloadStream() {
             if (player && globalPlaylist[currentIndex]) {
-                player.load(globalPlaylist[currentIndex].file);
-                player.play();
+                playChannel(currentIndex);
             }
         }
 
@@ -430,7 +454,6 @@
                 li.title = item.title;
 
                 li.addEventListener('click', () => {
-                    // При ручном клике останавливаем автоматический перебор
                     if (isAutoPlaying) {
                         stopAutoPlay();
                     }
@@ -453,14 +476,20 @@
             statusEl.textContent = `Загружено каналов: ${globalPlaylist.length}`;
             renderChannelList(globalPlaylist);
 
-            // Инициализация Clappr
             player = new Clappr.Player({
                 source: globalPlaylist[0].file,
                 parentId: "#player",
                 width: '100%',
                 height: '100%',
                 autoPlay: true,
-                hideMediaControlDelay: 2000
+                events: {
+                    onPlaying: function() {
+                        handleStreamPlaying();
+                    },
+                    onError: function() {
+                        handleStreamError();
+                    }
+                }
             });
         }
 
