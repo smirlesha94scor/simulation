@@ -9,7 +9,7 @@ AUTH_TOKEN = os.environ.get("TWITCH_AUTH_TOKEN")
 DATA_FILE = "data.json"
 
 # Настройки времени ожидания
-MAX_WATCH_TIME_SEC = 600  # Максимум 10 минут ожидания на один канал (600 секунд)
+MAX_WATCH_TIME_SEC = 800  # Максимум 10 минут ожидания на один канал (600 секунд)
 CHECK_INTERVAL_SEC = 15   # Проверять изменение серии каждые 15 секунд
 
 def extract_number(text):
