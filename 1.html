@@ -227,7 +227,14 @@
                     parentId: "#player",
                     width: '100%',
                     height: '100%',
-                    autoPlay: true
+                    autoPlay: true,
+                    playback: {
+                        hlsjsConfig: {
+                            manifestLoadingTimeOut: 15000,
+                            levelLoadingTimeOut: 15000,
+                            fragLoadingTimeOut: 15000
+                        }
+                    }
                 });
             } else {
                 player.load(item.file);
@@ -257,20 +264,20 @@
             document.getElementById('status').textContent = 'Проверка завершена!';
         }
 
-        // ПРОВЕРКА ПО РЕАЛЬНОМУ СДВИГУ КАДРОВ (currentTime > 0.1s)
+        // ПРОВЕРКА ПО РЕАЛЬНОМУ СДВИГУ КАДРОВ С ОЖИДАНИЕМ ДО 15 СЕКУНД
         function checkStream(url) {
             return new Promise((resolve) => {
                 let hls = null;
                 let isResolved = false;
 
-                // Таймаут 6 секунд (если картинка так и не пошла — канал нерабочий)
+                // Увеличен общий тайм-аут ожидания до 15 секунд (15000 мс)
                 const timer = setTimeout(() => {
                     cleanup();
                     if (!isResolved) {
                         isResolved = true;
                         resolve(false);
                     }
-                }, 6000);
+                }, 15000);
 
                 function cleanup() {
                     testVideoEl.removeEventListener('timeupdate', onTimeUpdate);
@@ -283,7 +290,7 @@
                     }
                 }
 
-                // Канал считается рабочим ТОЛЬКО при физическом старте видеокадров
+                // Канал считается рабочим при сдвиге таймкода
                 function onTimeUpdate() {
                     if (testVideoEl.currentTime > 0.1 && !isResolved) {
                         isResolved = true;
@@ -297,9 +304,9 @@
 
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        manifestLoadingTimeOut: 3000,
-                        levelLoadingTimeOut: 3000,
-                        fragLoadingTimeOut: 3000,
+                        manifestLoadingTimeOut: 15000, // 15 секунд
+                        levelLoadingTimeOut: 15000,    // 15 секунд
+                        fragLoadingTimeOut: 15000,     // 15 секунд
                         enableWorker: false
                     });
 
