@@ -67,7 +67,7 @@
 
         <div class="custompanel">
             <div class="playlist-input-container">
-                <input type="text" id="m3uUrlInput" class="playlist-input" value="https://iptv-org.github.io/iptv/countries/ua.m3u" placeholder="Вставьте ссылку на M3U...">
+                <input type="text" id="m3uUrlInput" class="playlist-input" value="https://smarttvnews.ru/apps/iptvchannels.m3u" placeholder="Вставьте ссылку на M3U...">
                 <button class="custom-btn" onclick="loadCustomPlaylist()">Загрузить</button>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; font-size: 0.85rem;">
@@ -125,7 +125,7 @@
                             meta: currentMeta,
                             title: currentTitle,
                             file: line,
-                            status: 'none' // 'none', 'checking', 'ok', 'fail'
+                            status: 'none'
                         });
                         currentMeta = '';
                         currentTitle = '';
@@ -141,12 +141,25 @@
             document.getElementById('status').textContent = 'Загрузка плейлиста...';
 
             try {
+                // Попытка 1: Прямая загрузка
                 const res = await fetch(url);
+                if (!res.ok) throw new Error('CORS or Network Error');
                 const text = await res.text();
                 globalPlaylist = parseM3U(text);
                 initList();
             } catch (e) {
-                alert('Не удалось загрузить ссылку (CORS). Скачайте плейлист и выберите файл с компьютера.');
+                // Попытка 2: Авто-обход CORS через бесплатный прокси
+                try {
+                    document.getElementById('status').textContent = 'Обход CORS через прокси...';
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                    const res = await fetch(proxyUrl);
+                    const text = await res.text();
+                    globalPlaylist = parseM3U(text);
+                    initList();
+                } catch (err) {
+                    alert('Не удалось загрузить плейлист даже через прокси. Пожалуйста, скачайте M3U-файл вручную и выберите его с компьютера.');
+                    document.getElementById('status').textContent = 'Ошибка загрузки';
+                }
             }
         }
 
@@ -264,13 +277,12 @@
             document.getElementById('status').textContent = 'Проверка завершена!';
         }
 
-        // ПРОВЕРКА ПО РЕАЛЬНОМУ СДВИГУ КАДРОВ С ОЖИДАНИЕМ ДО 15 СЕКУНД
+        // ПРОВЕРКА ПО РЕАЛЬНОМУ СДВИГУ КАДРОВ (15 СЕКУНД)
         function checkStream(url) {
             return new Promise((resolve) => {
                 let hls = null;
                 let isResolved = false;
 
-                // Увеличен общий тайм-аут ожидания до 15 секунд (15000 мс)
                 const timer = setTimeout(() => {
                     cleanup();
                     if (!isResolved) {
@@ -290,7 +302,6 @@
                     }
                 }
 
-                // Канал считается рабочим при сдвиге таймкода
                 function onTimeUpdate() {
                     if (testVideoEl.currentTime > 0.1 && !isResolved) {
                         isResolved = true;
@@ -304,9 +315,9 @@
 
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        manifestLoadingTimeOut: 15000, // 15 секунд
-                        levelLoadingTimeOut: 15000,    // 15 секунд
-                        fragLoadingTimeOut: 15000,     // 15 секунд
+                        manifestLoadingTimeOut: 15000,
+                        levelLoadingTimeOut: 15000,
+                        fragLoadingTimeOut: 15000,
                         enableWorker: false
                     });
 
