@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Телеканалы</title>
+    <title>IPTV Плеер</title>
 
     <!-- 1. Подключение hls.js -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -307,7 +307,6 @@
 
         const contextMenu = document.getElementById('contextMenu');
 
-        // Закрытие контекстного меню при клике в любое место
         document.addEventListener('click', () => {
             contextMenu.style.display = 'none';
         });
@@ -432,20 +431,19 @@
 
         function updateStatusCount() {
             const statusEl = document.getElementById('status');
-            statusEl.textContent = `Осталось каналов: ${globalPlaylist.length}`;
+            statusEl.textContent = `Каналов в списке: ${globalPlaylist.length}`;
         }
 
         function startBufferingTimer() {
-            if (globalPlaylist[currentIndex] && globalPlaylist[currentIndex].verified) return;
-
             clearTimeout(bufferingTimeoutTimer);
             
+            // Если буферизация идет более 15 секунд — просто переходим к следующему каналу без удаления
             bufferingTimeoutTimer = setTimeout(() => {
-                if (!isChangingChannel) {
-                    const item = globalPlaylist[currentIndex];
-                    if (!item || !item.verified) {
-                        handleStreamError('Буферизация более 15 секунд');
-                    }
+                if (!isChangingChannel && isAutoPlaying) {
+                    document.getElementById('status').textContent = `Таймаут подключения. Переключение...`;
+                    clearAllTimers();
+                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                    switchChannel(nextIdx);
                 }
             }, 15000);
         }
@@ -457,7 +455,7 @@
             
             const item = globalPlaylist[currentIndex];
             if (item) {
-                document.getElementById('status').textContent = `Буферизация (${item.title})... Лимит 15с.`;
+                document.getElementById('status').textContent = `Буферизация (${item.title})...`;
             }
             startBufferingTimer();
         }
@@ -475,7 +473,8 @@
             document.getElementById('status').textContent = `Воспроизведение: ${item.title}${isVerified}`;
         }
 
-        function removeChannelByIndex(index, reason = 'Удален вручную') {
+        // Ручное удаление канала по ПКМ
+        function removeChannelByIndex(index) {
             if (index < 0 || index >= globalPlaylist.length) return;
 
             const isCurrent = (index === currentIndex);
@@ -485,7 +484,7 @@
             renderChannelList(globalPlaylist);
             updateStatusCount();
 
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён (${reason}).`;
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён вручную.`;
 
             if (globalPlaylist.length === 0) {
                 if (player) player.stop();
@@ -505,22 +504,25 @@
 
         function deleteSelectedChannel() {
             if (selectedChannelIndexForDelete !== null) {
-                removeChannelByIndex(selectedChannelIndexForDelete, 'Удален пользователем');
+                removeChannelByIndex(selectedChannelIndexForDelete);
                 selectedChannelIndexForDelete = null;
             }
         }
 
+        // Обработка ошибок плеера: переключаем канал дальше без удаления
         function handleStreamError(reason = 'Ошибка потока') {
             if (isChangingChannel) return;
 
-            const currentItem = globalPlaylist[currentIndex];
-
-            if (playedSeconds >= 8 || (currentItem && currentItem.verified)) {
-                return;
-            }
-
             clearAllTimers();
-            removeChannelByIndex(currentIndex, reason);
+            const item = globalPlaylist[currentIndex];
+            document.getElementById('status').textContent = `Ошибка воспроизведения (${item ? item.title : ''}). Переключение...`;
+
+            if (isAutoPlaying && globalPlaylist.length > 0) {
+                setTimeout(() => {
+                    let nextIdx = (currentIndex + 1) % globalPlaylist.length;
+                    switchChannel(nextIdx);
+                }, 1000);
+            }
         }
 
         function switchChannel(index) {
@@ -631,12 +633,10 @@
                 li.appendChild(formatBadge);
                 li.title = item.title;
 
-                // Левый клик — переключение канала
                 li.addEventListener('click', () => {
                     switchChannel(index);
                 });
 
-                // Правый клик (ПКМ) — открытие меню удаления
                 li.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     selectedChannelIndexForDelete = index;
