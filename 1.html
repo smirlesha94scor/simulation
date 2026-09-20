@@ -254,7 +254,7 @@
             </div>
             <div class="panel-group">
                 <span id="stopwatchDisplay" class="stopwatch-badge">⏱ Секундомер: 00:00</span>
-                <span style="font-size: 0.85rem; color: #10b981;">✔ Автопереключение каждые 8 сек</span>
+                <span style="font-size: 0.85rem; color: #10b981;">✔ Автопереключение каждые 15 сек</span>
             </div>
         </div>
 
@@ -376,7 +376,7 @@
                     document.getElementById('timerInfo').textContent = `Сохранено ✔`;
                 }
 
-                if (playedSeconds >= 8) {
+                if (playedSeconds >= 15) {
                     if (globalPlaylist[currentIndex] && !globalPlaylist[currentIndex].verified) {
                         globalPlaylist[currentIndex].verified = true;
                         renderChannelList(globalPlaylist);
