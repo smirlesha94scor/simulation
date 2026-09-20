@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Телеканалы Украины</title>
+    <title>IPTV Телеканалы</title>
 
     <!-- 1. Подключение hls.js -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -49,32 +49,31 @@
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            padding: 15px;
+            padding: 12px 15px;
             display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .panel-group {
-            display: flex;
-            align-items: center;
             gap: 10px;
-            font-size: 0.9rem;
+            align-items: center;
         }
 
-        .panel-group label {
-            color: #94a3b8;
+        .playlist-input-container {
+            display: flex;
+            width: 100%;
+            gap: 10px;
         }
 
-        input[type="color"] {
-            border: none;
-            width: 32px;
-            height: 32px;
+        .playlist-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 12px;
             border-radius: 6px;
-            cursor: pointer;
-            background: transparent;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .playlist-input:focus {
+            border-color: #38bdf8;
         }
 
         .content-layout {
@@ -138,25 +137,11 @@
             color: #0f172a;
         }
 
-        .stopwatch-badge {
-            font-size: 0.9rem;
-            color: #38bdf8;
-            font-weight: bold;
-            background: rgba(56, 189, 248, 0.1);
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(56, 189, 248, 0.2);
-        }
-
         .timer-info {
             font-size: 0.85rem;
             color: #38bdf8;
             font-weight: bold;
             margin-left: auto;
-        }
-
-        [data-player] .bar-fill-1 {
-            background-color: var(--accent-color, #38bdf8) !important;
         }
 
         .playlist-box {
@@ -207,6 +192,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            user-select: none;
         }
 
         .channel-item:hover {
@@ -237,24 +223,45 @@
             font-size: 0.9rem;
             color: #94a3b8;
         }
+
+        /* Контекстное меню */
+        .context-menu {
+            position: fixed;
+            display: none;
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .context-menu-item {
+            padding: 10px 20px;
+            color: #ef4444;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="header">
-            <h2>IPTV Телеканалы Украины</h2>
+            <h2>IPTV Плеер</h2>
             <div id="status" class="status">Загрузка плейлиста...</div>
         </div>
 
         <div class="custompanel">
-            <div class="panel-group">
-                <label for="colorPicker">Цвет акцентов плеера:</label>
-                <input type="color" id="colorPicker" value="#38bdf8">
-            </div>
-            <div class="panel-group">
-                <span id="stopwatchDisplay" class="stopwatch-badge">⏱ Секундомер: 00:00</span>
-                <span style="font-size: 0.85rem; color: #10b981;">✔ Автопереключение каждые 15 сек</span>
+            <div class="playlist-input-container">
+                <input type="text" id="m3uUrlInput" class="playlist-input" value="https://iptv-org.github.io/iptv/countries/ua.m3u" placeholder="Вставьте ссылку на M3U плейлист...">
+                <button class="custom-btn" onclick="loadCustomPlaylist()">Загрузить</button>
             </div>
         </div>
 
@@ -278,13 +285,18 @@
         </div>
     </div>
 
+    <!-- Контекстное меню для ПКМ -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" onclick="deleteSelectedChannel()">🗑 Удалить канал</div>
+    </div>
+
     <script>
-        const M3U_URL = 'https://iptv-org.github.io/iptv/countries/ua.m3u';
         let player = null;
         let globalPlaylist = [];
         let currentIndex = 0;
+        let selectedChannelIndexForDelete = null;
 
-        let isAutoPlaying = true; // Автопросмотр включен по умолчанию
+        let isAutoPlaying = true;
         let bufferingTimeoutTimer = null;
         
         let stopwatchInterval = null;
@@ -293,11 +305,13 @@
 
         let isChangingChannel = false; 
 
-        document.getElementById('colorPicker').addEventListener('input', (e) => {
-            document.documentElement.style.setProperty('--accent-color', e.target.value);
+        const contextMenu = document.getElementById('contextMenu');
+
+        // Закрытие контекстного меню при клике в любое место
+        document.addEventListener('click', () => {
+            contextMenu.style.display = 'none';
         });
 
-        // Функция для определения формата из URL
         function detectStreamFormat(url) {
             const cleanUrl = url.split('?')[0].toLowerCase();
             if (cleanUrl.endsWith('.m3u8')) return 'HLS';
@@ -308,48 +322,68 @@
         }
 
         async function fetchAndParseM3U(url) {
-    try {
-        const response = await fetch(url);
-        const text = await response.text();
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
 
-        const lines = text.split('\n');
-        const playlist = [];
-        let currentTitle = '';
+                const lines = text.split('\n');
+                const playlist = [];
+                let currentTitle = '';
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            
-            if (line.startsWith('#EXTINF:')) {
-                const commaIndex = line.lastIndexOf(',');
-                if (commaIndex !== -1) {
-                    currentTitle = line.substring(commaIndex + 1).trim();
-                }
-            } else if (line && !line.startsWith('#')) {
-                if (currentTitle) {
-                    // Автоматически заменяем http:// на https:// для работы на GitHub Pages
-                    let streamUrl = line;
-                    if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
-                        streamUrl = streamUrl.replace('http://', 'https://');
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    
+                    if (line.startsWith('#EXTINF:')) {
+                        const commaIndex = line.lastIndexOf(',');
+                        if (commaIndex !== -1) {
+                            currentTitle = line.substring(commaIndex + 1).trim();
+                        }
+                    } else if (line && !line.startsWith('#')) {
+                        if (currentTitle) {
+                            let streamUrl = line;
+                            if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+                                streamUrl = streamUrl.replace('http://', 'https://');
+                            }
+
+                            playlist.push({
+                                title: currentTitle,
+                                file: streamUrl,
+                                format: detectStreamFormat(streamUrl),
+                                verified: false
+                            });
+                            currentTitle = '';
+                        }
                     }
-
-                    playlist.push({
-                        title: currentTitle,
-                        file: streamUrl,
-                        format: detectStreamFormat(streamUrl),
-                        verified: false
-                    });
-                    currentTitle = '';
                 }
+
+                return playlist;
+            } catch (error) {
+                console.error('Ошибка загрузки плейлиста:', error);
+                document.getElementById('status').textContent = 'Ошибка загрузки плейлиста.';
+                return [];
             }
         }
 
-        return playlist;
-    } catch (error) {
-        console.error('Ошибка загрузки плейлиста:', error);
-        document.getElementById('status').textContent = 'Ошибка загрузки плейлиста.';
-        return [];
-    }
-}
+        async function loadCustomPlaylist() {
+            const inputUrl = document.getElementById('m3uUrlInput').value.trim();
+            if (!inputUrl) return;
+
+            document.getElementById('status').textContent = 'Загрузка нового плейлиста...';
+            clearAllTimers();
+
+            globalPlaylist = await fetchAndParseM3U(inputUrl);
+
+            if (globalPlaylist.length === 0) {
+                document.getElementById('status').textContent = 'Не удалось загрузить плейлист.';
+                renderChannelList([]);
+                return;
+            }
+
+            currentIndex = 0;
+            updateStatusCount();
+            renderChannelList(globalPlaylist);
+            switchChannel(0);
+        }
 
         function clearAllTimers() {
             clearTimeout(bufferingTimeoutTimer);
@@ -363,11 +397,9 @@
             stopStopwatch();
             playedSeconds = 0;
             isStopwatchRunning = true;
-            updateStopwatchUI();
 
             stopwatchInterval = setInterval(() => {
                 playedSeconds++;
-                updateStopwatchUI();
 
                 const timeLeft = 8 - playedSeconds;
                 if (timeLeft > 0) {
@@ -376,7 +408,7 @@
                     document.getElementById('timerInfo').textContent = `Сохранено ✔`;
                 }
 
-                if (playedSeconds >= 15) {
+                if (playedSeconds >= 8) {
                     if (globalPlaylist[currentIndex] && !globalPlaylist[currentIndex].verified) {
                         globalPlaylist[currentIndex].verified = true;
                         renderChannelList(globalPlaylist);
@@ -396,12 +428,6 @@
         function stopStopwatch() {
             clearInterval(stopwatchInterval);
             isStopwatchRunning = false;
-        }
-
-        function updateStopwatchUI() {
-            const mins = String(Math.floor(playedSeconds / 60)).padStart(2, '0');
-            const secs = String(playedSeconds % 60).padStart(2, '0');
-            document.getElementById('stopwatchDisplay').textContent = `⏱ Секундомер: ${mins}:${secs}`;
         }
 
         function updateStatusCount() {
@@ -449,6 +475,41 @@
             document.getElementById('status').textContent = `Воспроизведение: ${item.title}${isVerified}`;
         }
 
+        function removeChannelByIndex(index, reason = 'Удален вручную') {
+            if (index < 0 || index >= globalPlaylist.length) return;
+
+            const isCurrent = (index === currentIndex);
+            const removedItem = globalPlaylist[index];
+            
+            globalPlaylist.splice(index, 1);
+            renderChannelList(globalPlaylist);
+            updateStatusCount();
+
+            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён (${reason}).`;
+
+            if (globalPlaylist.length === 0) {
+                if (player) player.stop();
+                document.getElementById('status').textContent = 'Список каналов пуст.';
+                return;
+            }
+
+            if (isCurrent) {
+                if (currentIndex >= globalPlaylist.length) {
+                    currentIndex = 0;
+                }
+                switchChannel(currentIndex);
+            } else if (index < currentIndex) {
+                currentIndex--;
+            }
+        }
+
+        function deleteSelectedChannel() {
+            if (selectedChannelIndexForDelete !== null) {
+                removeChannelByIndex(selectedChannelIndexForDelete, 'Удален пользователем');
+                selectedChannelIndexForDelete = null;
+            }
+        }
+
         function handleStreamError(reason = 'Ошибка потока') {
             if (isChangingChannel) return;
 
@@ -459,26 +520,7 @@
             }
 
             clearAllTimers();
-
-            if (globalPlaylist.length === 0) return;
-
-            const removedItem = globalPlaylist[currentIndex];
-            globalPlaylist.splice(currentIndex, 1);
-            
-            renderChannelList(globalPlaylist);
-            updateStatusCount();
-
-            document.getElementById('status').textContent = `Канал "${removedItem ? removedItem.title : ''}" удалён (${reason}).`;
-
-            if (currentIndex >= globalPlaylist.length) {
-                currentIndex = 0;
-            }
-
-            setTimeout(() => {
-                if (globalPlaylist.length > 0) {
-                    switchChannel(currentIndex);
-                }
-            }, 500);
+            removeChannelByIndex(currentIndex, reason);
         }
 
         function switchChannel(index) {
@@ -486,7 +528,6 @@
 
             clearAllTimers();
             playedSeconds = 0;
-            updateStopwatchUI();
             isChangingChannel = true; 
 
             if (player) {
@@ -579,11 +620,9 @@
                 if (index === currentIndex) li.classList.add('active');
                 if (item.verified) li.classList.add('verified');
 
-                // Создаем название канала
                 const titleSpan = document.createElement('span');
                 titleSpan.textContent = `${index + 1}. ${item.title} ${item.verified ? '✔' : ''}`;
 
-                // Создаем плашку формата [HLS], [TS] и т.д.
                 const formatBadge = document.createElement('span');
                 formatBadge.className = 'format-badge';
                 formatBadge.textContent = item.format;
@@ -592,8 +631,19 @@
                 li.appendChild(formatBadge);
                 li.title = item.title;
 
+                // Левый клик — переключение канала
                 li.addEventListener('click', () => {
                     switchChannel(index);
+                });
+
+                // Правый клик (ПКМ) — открытие меню удаления
+                li.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    selectedChannelIndexForDelete = index;
+                    
+                    contextMenu.style.left = `${e.clientX}px`;
+                    contextMenu.style.top = `${e.clientY}px`;
+                    contextMenu.style.display = 'block';
                 });
 
                 listEl.appendChild(li);
@@ -601,18 +651,17 @@
         }
 
         async function initPlayer() {
-            const statusEl = document.getElementById('status');
-            globalPlaylist = await fetchAndParseM3U(M3U_URL);
+            const defaultUrl = document.getElementById('m3uUrlInput').value;
+            globalPlaylist = await fetchAndParseM3U(defaultUrl);
 
             if (globalPlaylist.length === 0) {
-                statusEl.textContent = 'Плейлист пуст или недоступен.';
+                document.getElementById('status').textContent = 'Плейлист пуст или недоступен.';
                 return;
             }
 
             updateStatusCount();
             renderChannelList(globalPlaylist);
 
-            // Инициализация плеера для первого канала
             player = new Clappr.Player({
                 source: globalPlaylist[0].file,
                 parentId: "#player",
@@ -622,29 +671,22 @@
                 playback: {
                     hlsjsConfig: {
                         enableWorker: true,
-                        maxBufferLength: 30
+                        maxBufferLength: 30,
+                        forceHLS: true
                     }
                 },
                 events: {
-                    onPlay: function() {
-                        handleStreamPlaying();
-                    },
-                    onPlaying: function() {
-                        handleStreamPlaying();
-                    },
-                    onBuffer: function() {
-                        handleStreamBuffer();
-                    },
-                    onTimeUpdate: function() {
-                        handleStreamPlaying();
-                    },
-                    onError: function() {
-                        handleStreamError();
+                    onPlay: function() { handleStreamPlaying(); },
+                    onPlaying: function() { handleStreamPlaying(); },
+                    onBuffer: function() { handleStreamBuffer(); },
+                    onTimeUpdate: function() { handleStreamPlaying(); },
+                    onError: function(err) {
+                        console.warn("Ошибка воспроизведения:", err);
+                        handleStreamError('Неподдерживаемый формат/кодек');
                     }
                 }
             });
 
-            // Автоматический старт автопросмотра с первого канала
             playChannel(0);
         }
 
