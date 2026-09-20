@@ -308,42 +308,48 @@
         }
 
         async function fetchAndParseM3U(url) {
-            try {
-                const response = await fetch(url);
-                const text = await response.text();
+    try {
+        const response = await fetch(url);
+        const text = await response.text();
 
-                const lines = text.split('\n');
-                const playlist = [];
-                let currentTitle = '';
+        const lines = text.split('\n');
+        const playlist = [];
+        let currentTitle = '';
 
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    
-                    if (line.startsWith('#EXTINF:')) {
-                        const commaIndex = line.lastIndexOf(',');
-                        if (commaIndex !== -1) {
-                            currentTitle = line.substring(commaIndex + 1).trim();
-                        }
-                    } else if (line && !line.startsWith('#')) {
-                        if (currentTitle) {
-                            playlist.push({
-                                title: currentTitle,
-                                file: line,
-                                format: detectStreamFormat(line),
-                                verified: false
-                            });
-                            currentTitle = '';
-                        }
-                    }
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (line.startsWith('#EXTINF:')) {
+                const commaIndex = line.lastIndexOf(',');
+                if (commaIndex !== -1) {
+                    currentTitle = line.substring(commaIndex + 1).trim();
                 }
+            } else if (line && !line.startsWith('#')) {
+                if (currentTitle) {
+                    // Автоматически заменяем http:// на https:// для работы на GitHub Pages
+                    let streamUrl = line;
+                    if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+                        streamUrl = streamUrl.replace('http://', 'https://');
+                    }
 
-                return playlist;
-            } catch (error) {
-                console.error('Ошибка загрузки плейлиста:', error);
-                document.getElementById('status').textContent = 'Ошибка загрузки плейлиста.';
-                return [];
+                    playlist.push({
+                        title: currentTitle,
+                        file: streamUrl,
+                        format: detectStreamFormat(streamUrl),
+                        verified: false
+                    });
+                    currentTitle = '';
+                }
             }
         }
+
+        return playlist;
+    } catch (error) {
+        console.error('Ошибка загрузки плейлиста:', error);
+        document.getElementById('status').textContent = 'Ошибка загрузки плейлиста.';
+        return [];
+    }
+}
 
         function clearAllTimers() {
             clearTimeout(bufferingTimeoutTimer);
