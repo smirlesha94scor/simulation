@@ -1,53 +1,23 @@
 {
-  "updatedAt": "2026-09-19 18:45:29 UTC",
+  "updatedAt": "2026-09-20 04:17:09 UTC",
   "channels": [
     {
-      "name": "t2x2",
-      "username": "t2x2",
-      "isLive": true,
-      "streak": "2"
-    },
-    {
-      "name": "leva2k",
-      "username": "leva2k",
+      "name": "steel",
+      "username": "steel",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "voodoosh",
-      "username": "voodoosh",
+      "name": "guit88man",
+      "username": "guit88man",
       "isLive": true,
-      "streak": "4"
+      "streak": "3"
     },
     {
-      "name": "gaechkatm",
-      "username": "gaechkatm",
+      "name": "lizabaktt",
+      "username": "lizabaktt",
       "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "morphe_ya",
-      "username": "morphe_ya",
-      "isLive": true,
-      "streak": "25"
-    },
-    {
-      "name": "fonbet_media_eleague",
-      "username": "fonbet_media_eleague",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "d1pro4",
-      "username": "d1pro4",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "derzko69",
-      "username": "derzko69",
-      "isLive": true,
-      "streak": "1"
+      "streak": "3"
     },
     {
       "name": "fasoollka",
@@ -56,40 +26,10 @@
       "streak": "0"
     },
     {
-      "name": "olyashaa",
-      "username": "olyashaa",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "eleezabet",
-      "username": "eleezabet",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "sintica",
-      "username": "sintica",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "follentass",
-      "username": "follentass",
-      "isLive": true,
-      "streak": "30"
-    },
-    {
       "name": "bobross",
       "username": "bobross",
       "isLive": true,
       "streak": "10"
-    },
-    {
-      "name": "alison_ace",
-      "username": "alison_ace",
-      "isLive": true,
-      "streak": "1"
     },
     {
       "name": "lota",
@@ -98,44 +38,32 @@
       "streak": "0"
     },
     {
-      "name": "zhenyamatw",
-      "username": "zhenyamatw",
+      "name": "m1xerboy",
+      "username": "m1xerboy",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "renatko",
-      "username": "renatko",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "suhoyq",
-      "username": "suhoyq",
+      "name": "akai_ryoka",
+      "username": "akai_ryoka",
       "isLive": true,
       "streak": "4"
     },
     {
-      "name": "hipdashahop",
-      "username": "hipdashahop",
+      "name": "nedogonpolya",
+      "username": "nedogonpolya",
       "isLive": true,
-      "streak": "1"
+      "streak": "0"
     },
     {
-      "name": "guit88man",
-      "username": "guit88man",
+      "name": "muxa___",
+      "username": "muxa___",
       "isLive": true,
       "streak": "2"
     },
     {
-      "name": "cymanneth",
-      "username": "cymanneth",
-      "isLive": true,
-      "streak": "4"
-    },
-    {
-      "name": "shibuya_kaho",
-      "username": "shibuya_kaho",
+      "name": "azamat799",
+      "username": "azamat799",
       "isLive": true,
       "streak": "1"
     },
@@ -146,140 +74,62 @@
       "streak": "1"
     },
     {
-      "name": "bethycs",
-      "username": "bethycs",
+      "name": "bondarenk01",
+      "username": "bondarenk01",
       "isLive": true,
-      "streak": "3"
+      "streak": "2"
     },
     {
-      "name": "ahrinyan",
-      "username": "ahrinyan",
+      "name": "ekatrona",
+      "username": "ekatrona",
       "isLive": true,
-      "streak": "0"
+      "streak": "2"
     },
     {
-      "name": "pullllya",
-      "username": "pullllya",
+      "name": "dinaminnt",
+      "username": "dinaminnt",
+      "isLive": true,
+      "streak": "5"
+    },
+    {
+      "name": "kiaraoksi",
+      "username": "kiaraoksi",
+      "isLive": true,
+      "streak": "2"
+    },
+    {
+      "name": "rochersha",
+      "username": "rochersha",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "k_i_r_a",
-      "username": "k_i_r_a",
+      "name": "morfa4ka",
+      "username": "morfa4ka",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "alishamalinova",
-      "username": "alishamalinova",
+      "name": "tatarva_",
+      "username": "tatarva_",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "dardary17",
-      "username": "dardary17",
-      "isLive": true,
-      "streak": "17"
-    },
-    {
-      "name": "i0ona",
-      "username": "i0ona",
+      "name": "alissa_kir",
+      "username": "alissa_kir",
       "isLive": true,
       "streak": "1"
     },
     {
-      "name": "neukweb",
-      "username": "neukweb",
+      "name": "redhalat",
+      "username": "redhalat",
       "isLive": true,
       "streak": "0"
-    },
-    {
-      "name": "dimas_bataysk",
-      "username": "dimas_bataysk",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "pereyrapf",
-      "username": "pereyrapf",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "angelimeows",
-      "username": "angelimeows",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "yrarami",
-      "username": "yrarami",
-      "isLive": true,
-      "streak": "6"
-    },
-    {
-      "name": "charlotte__ch",
-      "username": "charlotte__ch",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "ladyleo0",
-      "username": "ladyleo0",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "streamfest_ru",
-      "username": "streamfest_ru",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "maxmanorn",
-      "username": "maxmanorn",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "luckyfffox",
-      "username": "luckyfffox",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "lolichkkaa",
-      "username": "lolichkkaa",
-      "isLive": true,
-      "streak": "0"
-    },
-    {
-      "name": "lisenochek5",
-      "username": "lisenochek5",
-      "isLive": true,
-      "streak": "3"
     },
     {
       "name": "caneliii",
       "username": "caneliii",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "madlovepis",
-      "username": "madlovepis",
-      "isLive": true,
-      "streak": "1"
-    },
-    {
-      "name": "kosiya",
-      "username": "kosiya",
-      "isLive": true,
-      "streak": "4"
-    },
-    {
-      "name": "oolesik",
-      "username": "oolesik",
       "isLive": true,
       "streak": "1"
     },
@@ -290,8 +140,8 @@
       "streak": "1"
     },
     {
-      "name": "roman_fortuna",
-      "username": "roman_fortuna",
+      "name": "madlovepis",
+      "username": "madlovepis",
       "isLive": true,
       "streak": "1"
     }
