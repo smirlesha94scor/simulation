@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Плеер & Чекер</title>
 
+    <!-- Подключение библиотек HLS.js и Clappr -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
 
@@ -44,7 +45,7 @@
         .channel-item:hover { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
         .channel-item.active { background: #0284c7; color: #fff; font-weight: bold; }
         
-        /* Цветовая индикация рабочих и нерабочих каналов */
+        /* Стили статусов каналов */
         .channel-item.status-ok { border-left-color: #10b981; }
         .channel-item.status-fail { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
         .channel-item.status-checking { border-left-color: #f59e0b; }
@@ -55,6 +56,7 @@
 </head>
 <body>
 
+    <!-- Скрытый элемент video для проверки воспроизведения кадров -->
     <video id="hiddenVideo" muted playsinline></video>
 
     <div class="container">
@@ -180,7 +182,7 @@
                 const li = document.createElement('li');
                 
                 let statusClass = '';
-                let statusIcon = '⚪'; // не проверен
+                let statusIcon = '⚪';
 
                 if (item.status === 'ok') {
                     statusClass = 'status-ok';
@@ -233,7 +235,7 @@
             }
         }
 
-        // Фоновый чекер ВСЕХ каналов без удаления
+        // Фоновый чекер ВСЕХ каналов
         async function startCheckAll() {
             if (isCheckingAll) return;
             isCheckingAll = true;
@@ -255,28 +257,81 @@
             document.getElementById('status').textContent = 'Проверка завершена!';
         }
 
+        // ПРОВЕРКА ПО РЕАЛЬНОМУ СДВИГУ КАДРОВ (currentTime > 0.1s)
         function checkStream(url) {
             return new Promise((resolve) => {
-                let hls = new Hls({ manifestLoadingTimeOut: 3500 });
-                let timer = setTimeout(() => {
-                    hls.destroy();
-                    resolve(false);
-                }, 4000);
+                let hls = null;
+                let isResolved = false;
 
-                hls.loadSource(url);
-                hls.attachMedia(testVideoEl);
-                
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    clearTimeout(timer);
-                    hls.destroy();
-                    resolve(true);
-                });
-                
-                hls.on(Hls.Events.ERROR, () => {
-                    clearTimeout(timer);
-                    hls.destroy();
-                    resolve(false);
-                });
+                // Таймаут 6 секунд (если картинка так и не пошла — канал нерабочий)
+                const timer = setTimeout(() => {
+                    cleanup();
+                    if (!isResolved) {
+                        isResolved = true;
+                        resolve(false);
+                    }
+                }, 6000);
+
+                function cleanup() {
+                    testVideoEl.removeEventListener('timeupdate', onTimeUpdate);
+                    testVideoEl.pause();
+                    testVideoEl.removeAttribute('src');
+                    testVideoEl.load();
+                    if (hls) {
+                        hls.destroy();
+                        hls = null;
+                    }
+                }
+
+                // Канал считается рабочим ТОЛЬКО при физическом старте видеокадров
+                function onTimeUpdate() {
+                    if (testVideoEl.currentTime > 0.1 && !isResolved) {
+                        isResolved = true;
+                        clearTimeout(timer);
+                        cleanup();
+                        resolve(true);
+                    }
+                }
+
+                testVideoEl.addEventListener('timeupdate', onTimeUpdate);
+
+                if (Hls.isSupported()) {
+                    hls = new Hls({
+                        manifestLoadingTimeOut: 3000,
+                        levelLoadingTimeOut: 3000,
+                        fragLoadingTimeOut: 3000,
+                        enableWorker: false
+                    });
+
+                    hls.loadSource(url);
+                    hls.attachMedia(testVideoEl);
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        testVideoEl.play().catch(() => {});
+                    });
+
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            clearTimeout(timer);
+                            cleanup();
+                            if (!isResolved) {
+                                isResolved = true;
+                                resolve(false);
+                            }
+                        }
+                    });
+                } else {
+                    testVideoEl.src = url;
+                    testVideoEl.play().catch(() => {});
+                    testVideoEl.onerror = () => {
+                        clearTimeout(timer);
+                        cleanup();
+                        if (!isResolved) {
+                            isResolved = true;
+                            resolve(false);
+                        }
+                    };
+                }
             });
         }
 
