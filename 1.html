@@ -107,8 +107,8 @@
   <!-- Ползунок для изменения шага (размера деления в градусах) -->
   <div class="controls">
     <label for="stepSlider">Шаг деления:</label>
-    <input type="range" id="stepSlider" min="4" max="15" value="8.5" step="0.5">
-    <span id="stepValue">8.5°</span>
+    <input type="range" id="stepSlider" min="2" max="10" value="7" step="0.5">
+    <span id="stepValue">7°</span>
   </div>
 
   <div class="timer-container">
@@ -146,11 +146,14 @@
     let minuteAngles = {};
 
     function calculateAngles() {
-      const base0 = 12;
+      const base0 = 12; // Начальный угол для 0 минут
+      // Все возможные отображаемые значения на шкале
       const targetMinutes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35];
       
       const base = {};
       targetMinutes.forEach((min) => {
+        // Каждое деление умножается на одинаковый шаг (stepDegree), 
+        // поэтому расстояние между любыми соседними минутами всегда строго одинаково.
         base[min] = base0 + min * stepDegree;
       });
 
