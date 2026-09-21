@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ручка таймера</title>
+  <title>Ручка таймера микроволновки</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,21 +16,22 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background-color: #f8f9fa;
-      font-family: Arial, Helvetica, sans-serif;
+      background-color: #f0f2f5;
+      font-family: Arial, sans-serif;
     }
 
-    /* Контейнер таймера */
     .timer-container {
       position: relative;
-      width: 280px;
-      height: 280px;
+      width: 320px;
+      height: 320px;
       display: flex;
       justify-content: center;
       align-items: center;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
     }
 
-    /* Подложка круга и засечек */
     .dial-svg {
       position: absolute;
       width: 100%;
@@ -39,14 +40,14 @@
       left: 0;
     }
 
-    /* Ручка регулировки */
+    /* Ручка регулятора */
     .knob-wrapper {
       position: relative;
-      width: 140px;
-      height: 140px;
+      width: 150px;
+      height: 150px;
       border-radius: 50%;
-      background: linear-gradient(145deg, #ffffff, #d6d6d6);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.9);
+      background: linear-gradient(145deg, #ffffff, #e6e6e6);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.12), inset 0 2px 4px rgba(255,255,255,0.9);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -59,38 +60,36 @@
     }
 
     .knob {
-      width: 110px;
-      height: 110px;
+      width: 118px;
+      height: 118px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #f0f0f0 0%, #d8d8d8 100%);
+      background: linear-gradient(135deg, #f8f8f8 0%, #d8d8d8 100%);
       box-shadow: inset 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(255,255,255,0.8);
       position: relative;
-      transition: transform 0.05s ease-out;
     }
 
-    /* Насечка на ручке */
+    /* Риска на ручке */
     .knob-mark {
       position: absolute;
-      top: 8px;
+      top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      width: 4px;
-      height: 18px;
-      background-color: #adb5bd;
+      width: 3px;
+      height: 16px;
+      background-color: #b0b0b0;
       border-radius: 2px;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
     }
   </style>
 </head>
 <body>
 
   <div class="timer-container">
-    <svg class="dial-svg" viewBox="0 0 280 280">
-      <!-- Внешняя дуга шкалы -->
-      <path d="M 140 30 A 110 110 0 1 1 50 190" fill="none" stroke="#212529" stroke-width="3" stroke-linecap="round"/>
+    <svg class="dial-svg" viewBox="0 0 320 320">
+      <!-- Дуга шкалы -->
+      <path id="scaleArc" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
       
-      <!-- Засечки и текст генерируются через JS -->
-      <g id="ticks"></g>
+      <!-- Засечки, тексты и иконки -->
+      <g id="ticksGroup"></g>
     </svg>
 
     <!-- Ручка регулировки -->
@@ -104,146 +103,191 @@
   <script>
     const knobWrapper = document.getElementById('knobWrapper');
     const knob = document.getElementById('knob');
-    const ticksGroup = document.getElementById('ticks');
+    const ticksGroup = document.getElementById('ticksGroup');
+    const scaleArc = document.getElementById('scaleArc');
 
-    // Настройки шкалы (от 0 до 35 минут)
-    const MAX_MINUTES = 35;
-    const START_ANGLE = 0;   // 12 часов (0 мин)
-    const END_ANGLE = 240;   // ~8 часов (35 мин)
+    const CENTER = 160;
+    const R_ARC = 105;
+    const R_TICK_INNER = 100;
+    const R_TICK_OUTER = 110;
+    const R_TEXT = 124;
 
-    // Метки с особыми иконками
-    const labels = [
-      { min: 0, text: '0' },
-      { min: 1, text: '1', icon: '☕' },
-      { min: 2, text: '2' },
-      { min: 3, text: '3', icon: '🍲' },
-      { min: 4, text: '4' },
-      { min: 5, text: '5' },
-      { min: 6, text: '6' },
-      { min: 7, text: '7', icon: '🥕' },
-      { min: 8, text: '8' },
-      { min: 9, text: '9' },
-      { min: 10, text: '10' },
-      { min: 15, text: '15' },
-      { min: 20, text: '20' },
-      { min: 25, text: '25' },
-      { min: 30, text: '30' },
-      { min: 35, text: '35' }
-    ];
+    // Картографирование минут в углы (в градусах, где 0 - это верх/12 часов)
+    // 0 мин = -12°, 35 мин = -45° (315°), идут по часовой стрелке
+    const minuteAngles = {
+      0: -12,
+      1: 10,
+      2: 28,
+      3: 46,
+      4: 64,
+      5: 82,
+      6: 100,
+      7: 118,
+      8: 136,
+      9: 154,
+      10: 172,
+      15: 212,
+      20: 242,
+      25: 267,
+      30: 290,
+      35: 315
+    };
 
-    let currentAngle = 0;
-    let totalSeconds = 0;
-    let timerInterval = null;
-    let isDragging = false;
-    let audioCtx = null;
+    // Отрисовка дуги от 0 до 35 минут
+    function drawArc() {
+      const startAngle = minuteAngles[0] - 90;
+      const endAngle = minuteAngles[35] - 90;
 
-    // Отрисовка шкалы засечек
+      const startRad = startAngle * (Math.PI / 180);
+      const endRad = endAngle * (Math.PI / 180);
+
+      const x1 = CENTER + R_ARC * Math.cos(startRad);
+      const y1 = CENTER + R_ARC * Math.sin(startRad);
+      const x2 = CENTER + R_ARC * Math.cos(endRad);
+      const y2 = CENTER + R_ARC * Math.sin(endRad);
+
+      // Окружная дуга
+      scaleArc.setAttribute('d', `M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 1 1 ${x2} ${y2}`);
+    }
+
+    // Создание элемента SVG
+    function createSVG(tag, attrs) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (let k in attrs) el.setAttribute(k, attrs[k]);
+      return el;
+    }
+
+    // Построение всех элементов шкалы
     function renderDial() {
-      labels.forEach(item => {
-        const fraction = item.min / MAX_MINUTES;
-        const angle = START_ANGLE + fraction * (END_ANGLE - START_ANGLE);
-        const rad = (angle - 90) * (Math.PI / 180);
+      drawArc();
 
-        const cx = 140, cy = 140;
-        const rTickStart = 107;
-        const rTickEnd = 113;
-        const rText = 126;
+      Object.entries(minuteAngles).forEach(([minStr, angleDeg]) => {
+        const min = Number(minStr);
+        const rad = (angleDeg - 90) * (Math.PI / 180);
 
-        // Линии засечек
-        const x1 = cx + rTickStart * Math.cos(rad);
-        const y1 = cy + rTickStart * Math.sin(rad);
-        const x2 = cx + rTickEnd * Math.cos(rad);
-        const y2 = cy + rTickEnd * Math.sin(rad);
+        // 1. Риски/засечки
+        const x1 = CENTER + R_TICK_INNER * Math.cos(rad);
+        const y1 = CENTER + R_TICK_INNER * Math.sin(rad);
+        const x2 = CENTER + R_TICK_OUTER * Math.cos(rad);
+        const y2 = CENTER + R_TICK_OUTER * Math.sin(rad);
 
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', x1);
-        line.setAttribute('y1', y1);
-        line.setAttribute('x2', x2);
-        line.setAttribute('y2', y2);
-        line.setAttribute('stroke', '#212529');
-        line.setAttribute('stroke-width', '2');
-        ticksGroup.appendChild(line);
+        ticksGroup.appendChild(createSVG('line', {
+          x1, y1, x2, y2,
+          stroke: '#1a1a1a',
+          'stroke-width': min % 5 === 0 ? '2.5' : '1.8',
+          'stroke-linecap': 'round'
+        }));
 
-        // Числа на шкале
-        const tx = cx + rText * Math.cos(rad);
-        const ty = cy + rText * Math.sin(rad);
+        // 2. Цифры
+        const tx = CENTER + R_TEXT * Math.cos(rad);
+        const ty = CENTER + R_TEXT * Math.sin(rad);
 
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', tx);
-        text.setAttribute('y', ty + 4);
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-size', '13');
-        text.setAttribute('font-weight', 'bold');
-        text.setAttribute('fill', '#212529');
-        text.textContent = item.text;
-        ticksGroup.appendChild(text);
+        const textEl = createSVG('text', {
+          x: tx,
+          y: ty + 4,
+          'text-anchor': 'middle',
+          'font-size': '13',
+          'font-weight': 'bold',
+          fill: '#1a1a1a'
+        });
+        textEl.textContent = minStr;
+        ticksGroup.appendChild(textEl);
 
-        // Добавление иконки, если есть
-        if (item.icon) {
-          const rIcon = 142;
-          const ix = cx + rIcon * Math.cos(rad);
-          const iy = cy + rIcon * Math.sin(rad);
-          const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          iconText.setAttribute('x', ix);
-          iconText.setAttribute('y', iy + 5);
-          iconText.setAttribute('text-anchor', 'middle');
-          iconText.setAttribute('font-size', '14');
-          iconText.textContent = item.icon;
-          ticksGroup.appendChild(iconText);
+        // 3. Выносные линии с иконками для 1, 3, 7
+        if ([1, 3, 7].includes(min)) {
+          let lx1 = CENTER + (R_TEXT + 8) * Math.cos(rad);
+          let ly1 = CENTER + (R_TEXT + 8) * Math.sin(rad);
+          let lx2 = lx1 + 18;
+          let ly2 = ly1 - 6;
+          let iconX = lx2 + 10;
+          let iconY = ly2 + 4;
+          let icon = '';
+
+          if (min === 1) icon = '☕';
+          if (min === 3) icon = '🥣';
+          if (min === 7) {
+            ly2 = ly1 + 6;
+            iconY = ly2 + 4;
+            icon = '🥕';
+          }
+
+          // Полоска-выноска
+          ticksGroup.appendChild(createSVG('polyline', {
+            points: `${lx1},${ly1} ${lx2},${ly2}`,
+            stroke: '#1a1a1a',
+            'stroke-width': '1',
+            fill: 'none'
+          }));
+
+          // Иконка
+          const iconEl = createSVG('text', {
+            x: iconX,
+            y: iconY,
+            'font-size': '14',
+            'text-anchor': 'start'
+          });
+          iconEl.textContent = icon;
+          ticksGroup.appendChild(iconEl);
         }
       });
     }
 
     renderDial();
 
-    // Звуковой сигнал по завершению
+    // Логика вращения ручки и таймера
+    let currentAngle = minuteAngles[0];
+    let totalSeconds = 0;
+    let timerInterval = null;
+    let isDragging = false;
+    let audioCtx = null;
+
     function playBellSound() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.2);
 
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-
       osc.start();
       osc.stop(audioCtx.currentTime + 1.2);
     }
 
-    // Обновление положения ручки
-    function updateUI() {
-      const currentFraction = (totalSeconds / 60) / MAX_MINUTES;
-      currentAngle = START_ANGLE + currentFraction * (END_ANGLE - START_ANGLE);
+    function updateKnobPosition() {
+      const currentFraction = totalSeconds / (35 * 60);
+      const minAngle = minuteAngles[0];
+      const maxAngle = minuteAngles[35];
+      
+      currentAngle = minAngle + currentFraction * (maxAngle - minAngle);
       knob.style.transform = `rotate(${currentAngle}deg)`;
     }
 
-    // Обработка вращения ручки
     function calculateAngle(e) {
       const rect = knobWrapper.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
 
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-      const deg = Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
-      let angle = deg + 90; // Смещение относительно 12 часов
+      let deg = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI) + 90;
+      if (deg < -20) deg += 360;
 
-      if (angle < 0) angle += 360;
+      const startA = minuteAngles[0];
+      const endA = minuteAngles[35];
 
-      if (angle > END_ANGLE + 30) angle = START_ANGLE;
-      if (angle > END_ANGLE) angle = END_ANGLE;
+      if (deg < startA) deg = startA;
+      if (deg > endA) deg = endA;
 
-      const fraction = angle / (END_ANGLE - START_ANGLE);
-      const minutes = Math.round(fraction * MAX_MINUTES * 2) / 2; // Округление до 30 сек
-      
-      totalSeconds = Math.max(0, Math.min(MAX_MINUTES * 60, Math.round(minutes * 60)));
-      updateUI();
+      const fraction = (deg - startA) / (endA - startA);
+      const minutes = Math.round(fraction * 35 * 2) / 2;
+
+      totalSeconds = Math.max(0, Math.min(35 * 60, Math.round(minutes * 60)));
+      updateKnobPosition();
     }
 
     function startTimer() {
@@ -252,7 +296,7 @@
         timerInterval = setInterval(() => {
           if (totalSeconds > 0) {
             totalSeconds--;
-            updateUI();
+            updateKnobPosition();
           } else {
             stopTimer();
             playBellSound();
@@ -268,7 +312,6 @@
       }
     }
 
-    // События мыши / тачпада
     function onPointerDown(e) {
       isDragging = true;
       stopTimer();
@@ -278,9 +321,7 @@
     }
 
     function onPointerMove(e) {
-      if (isDragging) {
-        calculateAngle(e);
-      }
+      if (isDragging) calculateAngle(e);
     }
 
     function onPointerUp() {
