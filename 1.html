@@ -14,16 +14,37 @@
       margin: 0;
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       background-color: #f0f2f5;
       font-family: Arial, sans-serif;
+      gap: 20px;
+    }
+
+    /* Панель управления ползунком */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #ffffff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .controls input[type="range"] {
+      cursor: pointer;
+      width: 180px;
     }
 
     .timer-container {
       position: relative;
-      width: 320px;
-      height: 320px;
+      width: 340px;
+      height: 340px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -83,8 +104,15 @@
 </head>
 <body>
 
+  <!-- Ползунок для изменения угла шкалы -->
+  <div class="controls">
+    <label for="angleSlider">Смещение шкалы:</label>
+    <input type="range" id="angleSlider" min="-30" max="30" value="2" step="1">
+    <span id="angleValue">+2°</span>
+  </div>
+
   <div class="timer-container">
-    <svg class="dial-svg" viewBox="0 0 320 320">
+    <svg class="dial-svg" viewBox="0 0 340 340">
       <!-- Дуга шкалы -->
       <path id="scaleArc" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
       
@@ -105,43 +133,42 @@
     const knob = document.getElementById('knob');
     const ticksGroup = document.getElementById('ticksGroup');
     const scaleArc = document.getElementById('scaleArc');
+    const angleSlider = document.getElementById('angleSlider');
+    const angleValue = document.getElementById('angleValue');
 
-    const CENTER = 160;
+    const CENTER = 170;
     const R_ARC = 105;
     const R_TICK_INNER = 100;
     const R_TICK_OUTER = 110;
     const R_TEXT = 124;
 
-    // Сдвиг всей шкалы на 2 градуса по часовой стрелке
-    const SHIFT_ANGLE = 2;
+    // Шаг между каждым делением (1 минута = 8.5 градусов)
+    const STEP_DEGREE = 8.5;
 
-    // Исходные углы (0 начнется с 12° + 2° сдвига = 14°)
-    const baseAngles = {
-      0: 12,
-      1: 30,
-      2: 48,
-      3: 66,
-      4: 84,
-      5: 102,
-      6: 120,
-      7: 138,
-      8: 156,
-      9: 174,
-      10: 192,
-      15: 232,
-      20: 262,
-      25: 287,
-      30: 310,
-      35: 335
-    };
+    let shiftAngle = parseFloat(angleSlider.value);
+    let minuteAngles = {};
 
-    // Применяем смещение ко всем элементам шкалы
-    const minuteAngles = {};
-    Object.keys(baseAngles).forEach(key => {
-      minuteAngles[key] = baseAngles[key] + SHIFT_ANGLE;
-    });
+    function calculateAngles() {
+      const base0 = 12;
+      const targetMinutes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35];
+      
+      const base = {};
+      targetMinutes.forEach((min) => {
+        base[min] = base0 + min * STEP_DEGREE;
+      });
 
-    // Отрисовка дуги от 0 до 35 минут
+      minuteAngles = {};
+      Object.keys(base).forEach(key => {
+        minuteAngles[key] = base[key] + shiftAngle;
+      });
+    }
+
+    function createSVG(tag, attrs) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (let k in attrs) el.setAttribute(k, attrs[k]);
+      return el;
+    }
+
     function drawArc() {
       const startAngle = minuteAngles[0] - 90;
       const endAngle = minuteAngles[35] - 90;
@@ -157,22 +184,16 @@
       scaleArc.setAttribute('d', `M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 1 1 ${x2} ${y2}`);
     }
 
-    // Создание SVG элемента
-    function createSVG(tag, attrs) {
-      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      for (let k in attrs) el.setAttribute(k, attrs[k]);
-      return el;
-    }
-
-    // Построение всех элементов шкалы
     function renderDial() {
+      calculateAngles();
+      ticksGroup.innerHTML = '';
       drawArc();
 
       Object.entries(minuteAngles).forEach(([minStr, angleDeg]) => {
         const min = Number(minStr);
         const rad = (angleDeg - 90) * (Math.PI / 180);
 
-        // 1. Риски / засечки
+        // 1. Засечки
         const x1 = CENTER + R_TICK_INNER * Math.cos(rad);
         const y1 = CENTER + R_TICK_INNER * Math.sin(rad);
         const x2 = CENTER + R_TICK_OUTER * Math.cos(rad);
@@ -200,7 +221,7 @@
         textEl.textContent = minStr;
         ticksGroup.appendChild(textEl);
 
-        // 3. Выносные линии с иконками для 1, 3, 7
+        // 3. Выноски с иконками (1, 3, 7)
         if ([1, 3, 7].includes(min)) {
           let lx1 = CENTER + (R_TEXT + 8) * Math.cos(rad);
           let ly1 = CENTER + (R_TEXT + 8) * Math.sin(rad);
@@ -235,12 +256,16 @@
           ticksGroup.appendChild(iconEl);
         }
       });
+
+      updateKnobPosition();
     }
 
-    renderDial();
+    angleSlider.addEventListener('input', (e) => {
+      shiftAngle = parseFloat(e.target.value);
+      angleValue.textContent = (shiftAngle >= 0 ? '+' : '') + shiftAngle + '°';
+      renderDial();
+    });
 
-    // Логика вращения ручки и обратного отсчета
-    let currentAngle = minuteAngles[0];
     let totalSeconds = 0;
     let timerInterval = null;
     let isDragging = false;
@@ -267,7 +292,7 @@
       const minAngle = minuteAngles[0];
       const maxAngle = minuteAngles[35];
       
-      currentAngle = minAngle + currentFraction * (maxAngle - minAngle);
+      const currentAngle = minAngle + currentFraction * (maxAngle - minAngle);
       knob.style.transform = `rotate(${currentAngle}deg)`;
     }
 
@@ -339,7 +364,8 @@
     }
 
     knobWrapper.addEventListener('pointerdown', onPointerDown);
-    updateKnobPosition();
+
+    renderDial();
   </script>
 </body>
 </html>
