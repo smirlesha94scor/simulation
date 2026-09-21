@@ -5,58 +5,183 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Плеер & Чекер</title>
 
-    <!-- Подключение библиотек HLS.js и Clappr -->
+    <!-- Библиотеки HLS.js и Clappr -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        body { background-color: #0f172a; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .container { width: 100%; max-width: 1200px; display: flex; flex-direction: column; gap: 15px; }
-        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         
-        .custompanel { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px 15px; display: flex; flex-direction: column; gap: 10px; }
+        /* Фиксация страницы без внешнего скролла */
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #fff;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .header, .custompanel, .custom-buttons-bar, .playlist-title {
+            flex-shrink: 0;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        
+        .custompanel { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 12px; 
+            padding: 10px 15px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+        }
+
         .playlist-input-container { display: flex; width: 100%; gap: 10px; }
-        .playlist-input { flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; }
+        .playlist-input { 
+            flex: 1; 
+            background: rgba(0, 0, 0, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            color: #fff; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            font-size: 0.9rem; 
+            outline: none; 
+        }
         .playlist-input:focus { border-color: #38bdf8; }
 
-        .content-layout { display: flex; gap: 20px; }
-        @media (max-width: 800px) { .content-layout { flex-direction: column; } }
+        .content-layout { 
+            display: flex; 
+            gap: 15px; 
+            flex: 1; 
+            min-height: 0; 
+        }
 
-        .player-box { flex: 2; display: flex; flex-direction: column; gap: 10px; }
-        .player-container { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); position: relative; }
+        @media (max-width: 800px) { 
+            .content-layout { flex-direction: column; } 
+            html, body { overflow: auto; } /* На мобильных разрешаем скролл при необходимости */
+        }
+
+        .player-box { 
+            flex: 2; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            min-height: 0; 
+        }
+
+        .player-container { 
+            width: 100%; 
+            aspect-ratio: 16 / 9; 
+            background: #000; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); 
+            position: relative; 
+        }
         #player { width: 100%; height: 100%; }
 
-        .custom-buttons-bar { display: flex; flex-wrap: wrap; gap: 10px; background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); align-items: center; }
+        .custom-buttons-bar { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px; 
+            background: rgba(255, 255, 255, 0.03); 
+            padding: 10px; 
+            border-radius: 8px; 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            align-items: center; 
+        }
         
-        .custom-btn { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
+        .custom-btn { 
+            background: rgba(56, 189, 248, 0.15); 
+            color: #38bdf8; 
+            border: 1px solid rgba(56, 189, 248, 0.3); 
+            padding: 8px 14px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            transition: all 0.2s; 
+        }
         .custom-btn:hover { background: #38bdf8; color: #0f172a; }
         .btn-success { background: rgba(16, 185, 129, 0.2); color: #10b981; border-color: rgba(16, 185, 129, 0.4); }
         .btn-success:hover { background: #10b981; color: #fff; }
 
-        .playlist-box { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 15px; max-height: 520px; display: flex; flex-direction: column; }
-        .playlist-title { font-size: 1.1rem; margin-bottom: 10px; color: #38bdf8; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .playlist-box { 
+            flex: 1; 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 12px; 
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            min-height: 0; 
+        }
+        .playlist-title { 
+            font-size: 1.05rem; 
+            margin-bottom: 10px; 
+            color: #38bdf8; 
+            font-weight: bold; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
 
-        .channel-list { list-style: none; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 5px; }
+        /* Скролл сфокусирован только здесь */
+        .channel-list { 
+            list-style: none; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px; 
+            padding-right: 5px; 
+            flex: 1; 
+            min-height: 0; 
+        }
         .channel-list::-webkit-scrollbar { width: 6px; }
         .channel-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        .channel-item { padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid transparent; }
+        .channel-item { 
+            padding: 10px 12px; 
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s ease; 
+            font-size: 0.9rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-left: 4px solid transparent; 
+        }
         .channel-item:hover { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
         .channel-item.active { background: #0284c7; color: #fff; font-weight: bold; }
         
-        /* Стили статусов каналов */
         .channel-item.status-ok { border-left-color: #10b981; }
-        .channel-item.status-fail { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
         .channel-item.status-checking { border-left-color: #f59e0b; }
 
-        .status { font-size: 0.9rem; color: #94a3b8; }
+        .status { font-size: 0.85rem; color: #94a3b8; }
         #hiddenVideo { width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <!-- Скрытый элемент video для проверки воспроизведения кадров -->
     <video id="hiddenVideo" muted playsinline></video>
 
     <div class="container">
@@ -67,10 +192,10 @@
 
         <div class="custompanel">
             <div class="playlist-input-container">
-                <input type="text" id="m3uUrlInput" class="playlist-input" value="https://smarttvnews.ru/apps/iptvchannels.m3u" placeholder="Вставьте ссылку на M3U...">
+                <input type="text" id="m3uUrlInput" class="playlist-input" value="https://raw.githubusercontent.com/smolnp/IPTVru/refs/heads/gh-pages/IPTVstable.m3u8" placeholder="Вставьте ссылку на M3U...">
                 <button class="custom-btn" onclick="loadCustomPlaylist()">Загрузить</button>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center; font-size: 0.85rem;">
+            <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem;">
                 <span>Или откройте файл с ПК:</span>
                 <input type="file" id="fileInput" accept=".m3u,.m3u8" onchange="handleFileSelect(event)">
             </div>
@@ -85,14 +210,14 @@
                 <div class="custom-buttons-bar">
                     <button class="custom-btn" onclick="reloadStream()">🔄 Обновить</button>
                     <button class="custom-btn" onclick="toggleMute()">🔇 Звук</button>
-                    <button class="custom-btn btn-success" onclick="startCheckAll()">⚡ Проверить весь список</button>
-                    <button class="custom-btn btn-success" onclick="downloadWorkingM3U()" style="margin-left: auto;">💾 Скачать только рабочие</button>
+                    <button class="custom-btn btn-success" onclick="startCheckAll()">⚡ Проверить и очистить нерабочие</button>
+                    <button class="custom-btn btn-success" onclick="downloadWorkingM3U()" style="margin-left: auto;">💾 Скачать рабочие</button>
                 </div>
             </div>
 
             <div class="playlist-box">
                 <div class="playlist-title">
-                    <span>Все каналы</span>
+                    <span>Каналы</span>
                     <span id="counterText" style="font-size: 0.8rem; color: #94a3b8;">0/0</span>
                 </div>
                 <ul id="channelList" class="channel-list"></ul>
@@ -140,26 +265,47 @@
             if (!url) return;
             document.getElementById('status').textContent = 'Загрузка плейлиста...';
 
-            try {
-                // Попытка 1: Прямая загрузка
-                const res = await fetch(url);
-                if (!res.ok) throw new Error('CORS or Network Error');
-                const text = await res.text();
-                globalPlaylist = parseM3U(text);
-                initList();
-            } catch (e) {
-                // Попытка 2: Авто-обход CORS через бесплатный прокси
-                try {
-                    document.getElementById('status').textContent = 'Обход CORS через прокси...';
-                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                    const res = await fetch(proxyUrl);
-                    const text = await res.text();
-                    globalPlaylist = parseM3U(text);
-                    initList();
-                } catch (err) {
-                    alert('Не удалось загрузить плейлист даже через прокси. Пожалуйста, скачайте M3U-файл вручную и выберите его с компьютера.');
-                    document.getElementById('status').textContent = 'Ошибка загрузки';
+            const fetchMethods = [
+                async (u) => {
+                    const res = await fetch(u);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return await res.text();
+                },
+                async (u) => {
+                    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    return data.contents;
+                },
+                async (u) => {
+                    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return await res.text();
                 }
+            ];
+
+            let loadedText = null;
+
+            for (let i = 0; i < fetchMethods.length; i++) {
+                try {
+                    if (i > 0) document.getElementById('status').textContent = `Попытка #${i + 1}...`;
+                    const text = await fetchMethods[i](url);
+                    if (text && (text.includes('#EXTM3U') || text.includes('#EXTINF') || text.includes('http'))) {
+                        loadedText = text;
+                        break;
+                    }
+                } catch (e) {
+                    console.warn(`Метод #${i + 1} не сработал:`, e);
+                }
+            }
+
+            if (loadedText) {
+                globalPlaylist = parseM3U(loadedText);
+                initList();
+                document.getElementById('status').textContent = 'Плейлист загружен!';
+            } else {
+                alert('Не удалось загрузить плейлист. Возможно, ссылка не существует (404) или заблокирована.');
+                document.getElementById('status').textContent = 'Ошибка загрузки';
             }
         }
 
@@ -183,8 +329,7 @@
 
         function updateCounter() {
             const ok = globalPlaylist.filter(c => c.status === 'ok').length;
-            const fail = globalPlaylist.filter(c => c.status === 'fail').length;
-            document.getElementById('counterText').textContent = `Рабочих: ${ok} | Нерабочих: ${fail} | Всего: ${globalPlaylist.length}`;
+            document.getElementById('counterText').textContent = `Рабочих: ${ok} | Всего: ${globalPlaylist.length}`;
         }
 
         function renderChannelList() {
@@ -192,17 +337,15 @@
             listEl.innerHTML = '';
 
             globalPlaylist.forEach((item, idx) => {
+                if (item.status === 'fail') return;
+
                 const li = document.createElement('li');
-                
                 let statusClass = '';
                 let statusIcon = '⚪';
 
                 if (item.status === 'ok') {
                     statusClass = 'status-ok';
                     statusIcon = '✔';
-                } else if (item.status === 'fail') {
-                    statusClass = 'status-fail';
-                    statusIcon = '❌';
                 } else if (item.status === 'checking') {
                     statusClass = 'status-checking';
                     statusIcon = '⏳';
@@ -243,9 +386,9 @@
                     autoPlay: true,
                     playback: {
                         hlsjsConfig: {
-                            manifestLoadingTimeOut: 15000,
-                            levelLoadingTimeOut: 15000,
-                            fragLoadingTimeOut: 15000
+                            manifestLoadingTimeOut: 8000,
+                            levelLoadingTimeOut: 8000,
+                            fragLoadingTimeOut: 8000
                         }
                     }
                 });
@@ -255,14 +398,15 @@
             }
         }
 
-        // Фоновый чекер ВСЕХ каналов
         async function startCheckAll() {
             if (isCheckingAll) return;
             isCheckingAll = true;
-            document.getElementById('status').textContent = 'Проверка всех каналов...';
+            document.getElementById('status').textContent = 'Проверка потоков...';
 
             for (let i = 0; i < globalPlaylist.length; i++) {
                 const ch = globalPlaylist[i];
+                if (ch.status === 'fail') continue;
+
                 ch.status = 'checking';
                 renderChannelList();
 
@@ -273,11 +417,14 @@
                 updateCounter();
             }
 
+            globalPlaylist = globalPlaylist.filter(ch => ch.status !== 'fail');
+            renderChannelList();
+            updateCounter();
+
             isCheckingAll = false;
-            document.getElementById('status').textContent = 'Проверка завершена!';
+            document.getElementById('status').textContent = 'Очистка завершена! Остались только рабочие.';
         }
 
-        // ПРОВЕРКА ПО РЕАЛЬНОМУ СДВИГУ КАДРОВ (15 СЕКУНД)
         function checkStream(url) {
             return new Promise((resolve) => {
                 let hls = null;
@@ -289,7 +436,7 @@
                         isResolved = true;
                         resolve(false);
                     }
-                }, 15000);
+                }, 7000);
 
                 function cleanup() {
                     testVideoEl.removeEventListener('timeupdate', onTimeUpdate);
@@ -315,9 +462,9 @@
 
                 if (Hls.isSupported()) {
                     hls = new Hls({
-                        manifestLoadingTimeOut: 15000,
-                        levelLoadingTimeOut: 15000,
-                        fragLoadingTimeOut: 15000,
+                        manifestLoadingTimeOut: 7000,
+                        levelLoadingTimeOut: 7000,
+                        fragLoadingTimeOut: 7000,
                         enableWorker: false
                     });
 
@@ -359,7 +506,7 @@
         function downloadWorkingM3U() {
             const working = globalPlaylist.filter(c => c.status === 'ok');
             if (working.length === 0) {
-                alert('Сначала нажмите "Проверить весь список", чтобы отфильтровать рабочие каналы.');
+                alert('Сначала нажмите "Проверить и очистить нерабочие".');
                 return;
             }
             let out = "#EXTM3U\n";
