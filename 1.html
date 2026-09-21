@@ -104,11 +104,11 @@
 </head>
 <body>
 
-  <!-- Ползунок для изменения угла шкалы -->
+  <!-- Ползунок для изменения шага (размера деления в градусах) -->
   <div class="controls">
-    <label for="angleSlider">Смещение шкалы:</label>
-    <input type="range" id="angleSlider" min="-30" max="30" value="2" step="1">
-    <span id="angleValue">+2°</span>
+    <label for="stepSlider">Шаг деления:</label>
+    <input type="range" id="stepSlider" min="4" max="15" value="8.5" step="0.5">
+    <span id="stepValue">8.5°</span>
   </div>
 
   <div class="timer-container">
@@ -133,8 +133,8 @@
     const knob = document.getElementById('knob');
     const ticksGroup = document.getElementById('ticksGroup');
     const scaleArc = document.getElementById('scaleArc');
-    const angleSlider = document.getElementById('angleSlider');
-    const angleValue = document.getElementById('angleValue');
+    const stepSlider = document.getElementById('stepSlider');
+    const stepValue = document.getElementById('stepValue');
 
     const CENTER = 170;
     const R_ARC = 105;
@@ -142,10 +142,7 @@
     const R_TICK_OUTER = 110;
     const R_TEXT = 124;
 
-    // Шаг между каждым делением (1 минута = 8.5 градусов)
-    const STEP_DEGREE = 8.5;
-
-    let shiftAngle = parseFloat(angleSlider.value);
+    let stepDegree = parseFloat(stepSlider.value);
     let minuteAngles = {};
 
     function calculateAngles() {
@@ -154,13 +151,10 @@
       
       const base = {};
       targetMinutes.forEach((min) => {
-        base[min] = base0 + min * STEP_DEGREE;
+        base[min] = base0 + min * stepDegree;
       });
 
-      minuteAngles = {};
-      Object.keys(base).forEach(key => {
-        minuteAngles[key] = base[key] + shiftAngle;
-      });
+      minuteAngles = base;
     }
 
     function createSVG(tag, attrs) {
@@ -260,9 +254,9 @@
       updateKnobPosition();
     }
 
-    angleSlider.addEventListener('input', (e) => {
-      shiftAngle = parseFloat(e.target.value);
-      angleValue.textContent = (shiftAngle >= 0 ? '+' : '') + shiftAngle + '°';
+    stepSlider.addEventListener('input', (e) => {
+      stepDegree = parseFloat(e.target.value);
+      stepValue.textContent = stepDegree + '°';
       renderDial();
     });
 
