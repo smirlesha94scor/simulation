@@ -10,178 +10,176 @@
     <script src="https://cdn.jsdelivr.net/npm/@clappr/player@latest/dist/clappr.min.js"></script>
 
     <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-    
-    /* Запрещаем скролл для всего окна браузера */
-    html, body {
-        width: 100%;
-        height: 100vh;
-        margin: 0;
-        padding: 0;
-        overflow: hidden; /* Жестко фиксирует страницу */
-        background-color: #0f172a;
-        color: #fff;
-    }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        
+        /* Фиксируем окно браузера полностью без внешнего скролла */
+        html, body {
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #fff;
+        }
 
-    body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 15px;
-    }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+        }
 
-    .container {
-        width: 100%;
-        max-width: 1200px;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
 
-    .header, .custompanel, .custom-buttons-bar, .playlist-title {
-        flex-shrink: 0; /* Не сжимаются при недостатке места */
-    }
+        .header, .custompanel, .custom-buttons-bar, .playlist-title {
+            flex-shrink: 0;
+        }
 
-    .header { display: flex; justify-content: space-between; align-items: center; }
-    
-    .custompanel { 
-        background: rgba(255, 255, 255, 0.05); 
-        border: 1px solid rgba(255, 255, 255, 0.1); 
-        border-radius: 12px; 
-        padding: 10px 15px; 
-        display: flex; 
-        flex-direction: column; 
-        gap: 8px; 
-    }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        
+        .custompanel { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 12px; 
+            padding: 10px 15px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+        }
 
-    .playlist-input-container { display: flex; width: 100%; gap: 10px; }
-    .playlist-input { 
-        flex: 1; 
-        background: rgba(0, 0, 0, 0.3); 
-        border: 1px solid rgba(255, 255, 255, 0.2); 
-        color: #fff; 
-        padding: 8px 12px; 
-        border-radius: 6px; 
-        font-size: 0.9rem; 
-        outline: none; 
-    }
-    .playlist-input:focus { border-color: #38bdf8; }
+        .playlist-input-container { display: flex; width: 100%; gap: 10px; }
+        .playlist-input { 
+            flex: 1; 
+            background: rgba(0, 0, 0, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            color: #fff; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            font-size: 0.9rem; 
+            outline: none; 
+        }
+        .playlist-input:focus { border-color: #38bdf8; }
 
-    .content-layout { 
-        display: flex; 
-        gap: 15px; 
-        flex: 1; 
-        min-height: 0; /* Важно: позволяет контенту сжиматься в рамках экрана */
-    }
+        .content-layout { 
+            display: flex; 
+            gap: 15px; 
+            flex: 1; 
+            min-height: 0; 
+        }
 
-    @media (max-width: 800px) { 
-        .content-layout { flex-direction: column; } 
-        html, body { overflow-y: auto; } /* Для экранов смартфонов включаем адаптивный скролл */
-    }
+        @media (max-width: 800px) { 
+            .content-layout { flex-direction: column; } 
+            html, body { overflow-y: auto; }
+        }
 
-    .player-box { 
-        flex: 2; 
-        display: flex; 
-        flex-direction: column; 
-        gap: 10px; 
-        min-height: 0; 
-    }
+        .player-box { 
+            flex: 2; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            min-height: 0; 
+        }
 
-    .player-container { 
-        width: 100%; 
-        aspect-ratio: 16 / 9; 
-        background: #000; 
-        border-radius: 12px; 
-        overflow: hidden; 
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); 
-        position: relative; 
-    }
-    #player { width: 100%; height: 100%; }
+        .player-container { 
+            width: 100%; 
+            aspect-ratio: 16 / 9; 
+            background: #000; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); 
+            position: relative; 
+        }
+        #player { width: 100%; height: 100%; }
 
-    .custom-buttons-bar { 
-        display: flex; 
-        flex-wrap: wrap; 
-        gap: 10px; 
-        background: rgba(255, 255, 255, 0.03); 
-        padding: 10px; 
-        border-radius: 8px; 
-        border: 1px solid rgba(255, 255, 255, 0.08); 
-        align-items: center; 
-    }
-    
-    .custom-btn { 
-        background: rgba(56, 189, 248, 0.15); 
-        color: #38bdf8; 
-        border: 1px solid rgba(56, 189, 248, 0.3); 
-        padding: 8px 14px; 
-        border-radius: 6px; 
-        cursor: pointer; 
-        font-size: 0.85rem; 
-        font-weight: bold; 
-        transition: all 0.2s; 
-    }
-    .custom-btn:hover { background: #38bdf8; color: #0f172a; }
-    .btn-success { background: rgba(16, 185, 129, 0.2); color: #10b981; border-color: rgba(16, 185, 129, 0.4); }
-    .btn-success:hover { background: #10b981; color: #fff; }
+        .custom-buttons-bar { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px; 
+            background: rgba(255, 255, 255, 0.03); 
+            padding: 10px; 
+            border-radius: 8px; 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            align-items: center; 
+        }
+        
+        .custom-btn { 
+            background: rgba(56, 189, 248, 0.15); 
+            color: #38bdf8; 
+            border: 1px solid rgba(56, 189, 248, 0.3); 
+            padding: 8px 14px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            transition: all 0.2s; 
+        }
+        .custom-btn:hover { background: #38bdf8; color: #0f172a; }
+        .btn-success { background: rgba(16, 185, 129, 0.2); color: #10b981; border-color: rgba(16, 185, 129, 0.4); }
+        .btn-success:hover { background: #10b981; color: #fff; }
 
-    /* Ограничиваем контейнер плейлиста высотой родительского блока */
-    .playlist-box { 
-        flex: 1; 
-        background: rgba(255, 255, 255, 0.05); 
-        border: 1px solid rgba(255, 255, 255, 0.1); 
-        border-radius: 12px; 
-        padding: 15px; 
-        display: flex; 
-        flex-direction: column; 
-        overflow: hidden; 
-        min-height: 0; 
-    }
-    .playlist-title { 
-        font-size: 1.05rem; 
-        margin-bottom: 10px; 
-        color: #38bdf8; 
-        font-weight: bold; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-    }
+        .playlist-box { 
+            flex: 1; 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 12px; 
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            min-height: 0; 
+        }
 
-    /* Включаем прокрутку ИСКЛЮЧИТЕЛЬНО для списка каналов */
-    .channel-list { 
-        list-style: none; 
-        overflow-y: auto; /* Скролл только внутри списка */
-        display: flex; 
-        flex-direction: column; 
-        gap: 6px; 
-        padding-right: 5px; 
-        flex: 1; 
-        min-height: 0;
-    }
-    .channel-list::-webkit-scrollbar { width: 6px; }
-    .channel-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .playlist-title { 
+            font-size: 1.05rem; 
+            margin-bottom: 10px; 
+            color: #38bdf8; 
+            font-weight: bold; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
 
-    .channel-item { 
-        padding: 10px 12px; 
-        background: rgba(255, 255, 255, 0.05); 
-        border-radius: 8px; 
-        cursor: pointer; 
-        transition: all 0.2s ease; 
-        font-size: 0.9rem; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        border-left: 4px solid transparent; 
-    }
-    .channel-item:hover { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
-    .channel-item.active { background: #0284c7; color: #fff; font-weight: bold; }
-    
-    .channel-item.status-ok { border-left-color: #10b981; }
-    .channel-item.status-checking { border-left-color: #f59e0b; }
+        /* Стандартный системный скроллбар в блоке каналов */
+        .channel-list { 
+            list-style: none; 
+            overflow-y: scroll; /* Стандартный системный скролл */
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px; 
+            padding-right: 5px; 
+            flex: 1; 
+            min-height: 0;
+        }
 
-    .status { font-size: 0.85rem; color: #94a3b8; }
-    #hiddenVideo { width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; }
-</style>
+        .channel-item { 
+            padding: 10px 12px; 
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s ease; 
+            font-size: 0.9rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-left: 4px solid transparent; 
+        }
+        .channel-item:hover { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+        .channel-item.active { background: #0284c7; color: #fff; font-weight: bold; }
+        
+        .channel-item.status-ok { border-left-color: #10b981; }
+        .channel-item.status-checking { border-left-color: #f59e0b; }
+
+        .status { font-size: 0.85rem; color: #94a3b8; }
+        #hiddenVideo { width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; }
+    </style>
 </head>
 <body>
 
