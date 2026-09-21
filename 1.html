@@ -112,26 +112,34 @@
     const R_TICK_OUTER = 110;
     const R_TEXT = 124;
 
-    // Картографирование минут в углы (в градусах, где 0 - это верх/12 часов)
-    // 0 мин = -12°, 35 мин = -45° (315°), идут по часовой стрелке
-    const minuteAngles = {
-      0: -12,
-      1: 10,
-      2: 28,
-      3: 46,
-      4: 64,
-      5: 82,
-      6: 100,
-      7: 118,
-      8: 136,
-      9: 154,
-      10: 172,
-      15: 212,
-      20: 242,
-      25: 267,
-      30: 290,
-      35: 315
+    // Сдвиг всей шкалы на 2 градуса по часовой стрелке
+    const SHIFT_ANGLE = 2;
+
+    // Исходные углы (0 начнется с 12° + 2° сдвига = 14°)
+    const baseAngles = {
+      0: 12,
+      1: 30,
+      2: 48,
+      3: 66,
+      4: 84,
+      5: 102,
+      6: 120,
+      7: 138,
+      8: 156,
+      9: 174,
+      10: 192,
+      15: 232,
+      20: 262,
+      25: 287,
+      30: 310,
+      35: 335
     };
+
+    // Применяем смещение ко всем элементам шкалы
+    const minuteAngles = {};
+    Object.keys(baseAngles).forEach(key => {
+      minuteAngles[key] = baseAngles[key] + SHIFT_ANGLE;
+    });
 
     // Отрисовка дуги от 0 до 35 минут
     function drawArc() {
@@ -146,11 +154,10 @@
       const x2 = CENTER + R_ARC * Math.cos(endRad);
       const y2 = CENTER + R_ARC * Math.sin(endRad);
 
-      // Окружная дуга
       scaleArc.setAttribute('d', `M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 1 1 ${x2} ${y2}`);
     }
 
-    // Создание элемента SVG
+    // Создание SVG элемента
     function createSVG(tag, attrs) {
       const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
       for (let k in attrs) el.setAttribute(k, attrs[k]);
@@ -165,7 +172,7 @@
         const min = Number(minStr);
         const rad = (angleDeg - 90) * (Math.PI / 180);
 
-        // 1. Риски/засечки
+        // 1. Риски / засечки
         const x1 = CENTER + R_TICK_INNER * Math.cos(rad);
         const y1 = CENTER + R_TICK_INNER * Math.sin(rad);
         const x2 = CENTER + R_TICK_OUTER * Math.cos(rad);
@@ -211,7 +218,6 @@
             icon = '🥕';
           }
 
-          // Полоска-выноска
           ticksGroup.appendChild(createSVG('polyline', {
             points: `${lx1},${ly1} ${lx2},${ly2}`,
             stroke: '#1a1a1a',
@@ -219,7 +225,6 @@
             fill: 'none'
           }));
 
-          // Иконка
           const iconEl = createSVG('text', {
             x: iconX,
             y: iconY,
@@ -234,7 +239,7 @@
 
     renderDial();
 
-    // Логика вращения ручки и таймера
+    // Логика вращения ручки и обратного отсчета
     let currentAngle = minuteAngles[0];
     let totalSeconds = 0;
     let timerInterval = null;
@@ -334,6 +339,7 @@
     }
 
     knobWrapper.addEventListener('pointerdown', onPointerDown);
+    updateKnobPosition();
   </script>
 </body>
 </html>
