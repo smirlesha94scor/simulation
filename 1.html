@@ -70,12 +70,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      cursor: grab;
+      cursor: default;
       touch-action: none;
-    }
-
-    .knob-wrapper:active {
-      cursor: grabbing;
     }
 
     .knob {
@@ -85,6 +81,7 @@
       background: linear-gradient(135deg, #f8f8f8 0%, #d8d8d8 100%);
       box-shadow: inset 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(255,255,255,0.8);
       position: relative;
+      pointer-events: none;
     }
 
     .knob-mark {
@@ -279,14 +276,12 @@
 
       const maxAngle = (tickValues.length - 1) * stepDegree;
 
-      // Обработка перехода через мертвую зону
       if (lastAngle > maxAngle - 45 && deg < 180) {
         deg = maxAngle;
       } else if (lastAngle < 45 && deg > 180) {
         deg = 0;
       }
 
-      // Жесткая фиксация в пределах шкалы
       if (deg > maxAngle && deg <= 180) {
         deg = maxAngle;
       } else if (deg > 180) {
@@ -328,11 +323,29 @@
     }
 
     function onPointerDown(e) {
-      isDragging = true;
-      stopTimer();
-      calculateAngle(e);
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
+      const rect = knobWrapper.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const dx = clientX - cx;
+      const dy = clientY - cy;
+      const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
+
+      // Радиус внешнего элемента knob-wrapper равен 75px (ширина 150px / 2)
+      // Допустимая зона: от 65px до 85px (75 ± 10px)
+      const targetRadius = rect.width / 2; 
+      const margin = 10;
+
+      if (distanceFromCenter >= targetRadius - margin && distanceFromCenter <= targetRadius + margin) {
+        isDragging = true;
+        stopTimer();
+        calculateAngle(e);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+      }
     }
 
     function onPointerMove(e) {
