@@ -70,7 +70,6 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      cursor: default;
       touch-action: none;
     }
 
@@ -81,18 +80,33 @@
       background: linear-gradient(135deg, #f8f8f8 0%, #d8d8d8 100%);
       box-shadow: inset 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(255,255,255,0.8);
       position: relative;
-      pointer-events: none;
     }
 
+    /* Насечка / ризка (активная область клика) */
     .knob-mark {
       position: absolute;
-      top: 10px;
+      top: 6px;
       left: 50%;
       transform: translateX(-50%);
+      width: 12px; /* Увеличено для удобства попадания */
+      height: 22px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: grab;
+      z-index: 10;
+    }
+
+    .knob-mark::after {
+      content: '';
       width: 3px;
       height: 16px;
       background-color: #b0b0b0;
       border-radius: 2px;
+    }
+
+    .knob-mark:active {
+      cursor: grabbing;
     }
 
     .time-display {
@@ -123,7 +137,7 @@
 
     <div class="knob-wrapper" id="knobWrapper">
       <div class="knob" id="knob">
-        <div class="knob-mark"></div>
+        <div class="knob-mark" id="knobMark"></div>
       </div>
     </div>
   </div>
@@ -133,6 +147,7 @@
   <script>
     const knobWrapper = document.getElementById('knobWrapper');
     const knob = document.getElementById('knob');
+    const knobMark = document.getElementById('knobMark');
     const ticksGroup = document.getElementById('ticksGroup');
     const scaleArc = document.getElementById('scaleArc');
     const stepSlider = document.getElementById('stepSlider');
@@ -323,29 +338,11 @@
     }
 
     function onPointerDown(e) {
-      const rect = knobWrapper.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-      const dx = clientX - cx;
-      const dy = clientY - cy;
-      const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
-
-      // Радиус внешнего элемента knob-wrapper равен 75px (ширина 150px / 2)
-      // Допустимая зона: от 65px до 85px (75 ± 10px)
-      const targetRadius = rect.width / 2; 
-      const margin = 20;
-
-      if (distanceFromCenter >= targetRadius - margin && distanceFromCenter <= targetRadius + margin) {
-        isDragging = true;
-        stopTimer();
-        calculateAngle(e);
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
-      }
+      isDragging = true;
+      stopTimer();
+      calculateAngle(e);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
     }
 
     function onPointerMove(e) {
@@ -361,7 +358,8 @@
       }
     }
 
-    knobWrapper.addEventListener('pointerdown', onPointerDown);
+    // Слушатель события нажатия повешен только на саму засечку (knobMark)
+    knobMark.addEventListener('pointerdown', onPointerDown);
 
     renderDial();
   </script>
