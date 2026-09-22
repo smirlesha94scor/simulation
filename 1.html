@@ -231,6 +231,7 @@
     let timerInterval = null;
     let isDragging = false;
     let audioCtx = null;
+    let lastAngle = 0;
 
     function playBellSound() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -261,6 +262,7 @@
         angle = (10 * stepDegree) + (extraMinutes / 5) * stepDegree;
       }
 
+      lastAngle = angle;
       knob.style.transform = `rotate(${angle}deg)`;
     }
 
@@ -277,13 +279,18 @@
 
       const maxAngle = (tickValues.length - 1) * stepDegree;
 
-      if (deg > maxAngle && deg < 360) {
-        const midPoint = maxAngle + (360 - maxAngle) / 2;
-        if (deg < midPoint) {
-          deg = maxAngle;
-        } else {
-          deg = 0;
-        }
+      // Обработка перехода через мертвую зону
+      if (lastAngle > maxAngle - 45 && deg < 180) {
+        deg = maxAngle;
+      } else if (lastAngle < 45 && deg > 180) {
+        deg = 0;
+      }
+
+      // Жесткая фиксация в пределах шкалы
+      if (deg > maxAngle && deg <= 180) {
+        deg = maxAngle;
+      } else if (deg > 180) {
+        deg = 0;
       }
 
       let selectedMinutes = 0;
