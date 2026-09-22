@@ -97,14 +97,25 @@
       background-color: #b0b0b0;
       border-radius: 2px;
     }
+
+    .time-display {
+      background: #ffffff;
+      padding: 10px 24px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      letter-spacing: 1px;
+    }
   </style>
 </head>
 <body>
 
   <div class="controls">
     <label for="stepSlider">Шаг деления:</label>
-    <input type="range" id="stepSlider" min="5" max="18" value="11" step="0.5">
-    <span id="stepValue">11°</span>
+    <input type="range" id="stepSlider" min="5" max="25" value="18" step="1">
+    <span id="stepValue">18°</span>
   </div>
 
   <div class="timer-container">
@@ -120,6 +131,8 @@
     </div>
   </div>
 
+  <div class="time-display" id="timeDisplay">00:00</div>
+
   <script>
     const knobWrapper = document.getElementById('knobWrapper');
     const knob = document.getElementById('knob');
@@ -127,6 +140,7 @@
     const scaleArc = document.getElementById('scaleArc');
     const stepSlider = document.getElementById('stepSlider');
     const stepValue = document.getElementById('stepValue');
+    const timeDisplay = document.getElementById('timeDisplay');
 
     const CENTER = 170;
     const R_ARC = 105;
@@ -134,19 +148,15 @@
     const R_TICK_OUTER = 110;
     const R_TEXT = 124;
 
+    const tickValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30];
+
     let stepDegree = parseFloat(stepSlider.value);
-    
-    // Ровно 16 точек на шкале с одинаковым шагом индексов
-    const targetMinutes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35];
     let minuteAngles = {};
 
     function calculateAngles() {
-      const base0 = 10; // Начальный угол
       minuteAngles = {};
-      
-      // Каждое из 16 делений расположено на строго одинаковом угловом расстоянии друг от друга
-      targetMinutes.forEach((min, index) => {
-        minuteAngles[min] = base0 + index * stepDegree;
+      tickValues.forEach((val, idx) => {
+        minuteAngles[val] = idx * stepDegree;
       });
     }
 
@@ -158,7 +168,7 @@
 
     function drawArc() {
       const startAngle = minuteAngles[0] - 90;
-      const endAngle = minuteAngles[35] - 90;
+      const endAngle = minuteAngles[30] - 90;
 
       const startRad = startAngle * (Math.PI / 180);
       const endRad = endAngle * (Math.PI / 180);
@@ -168,7 +178,9 @@
       const x2 = CENTER + R_ARC * Math.cos(endRad);
       const y2 = CENTER + R_ARC * Math.sin(endRad);
 
-      scaleArc.setAttribute('d', `M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 1 1 ${x2} ${y2}`);
+      const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+
+      scaleArc.setAttribute('d', `M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 ${largeArc} 1 ${x2} ${y2}`);
     }
 
     function renderDial() {
@@ -176,11 +188,9 @@
       ticksGroup.innerHTML = '';
       drawArc();
 
-      targetMinutes.forEach((min) => {
-        const angleDeg = minuteAngles[min];
+      Object.entries(minuteAngles).forEach(([minStr, angleDeg]) => {
         const rad = (angleDeg - 90) * (Math.PI / 180);
 
-        // 1. Засечки
         const x1 = CENTER + R_TICK_INNER * Math.cos(rad);
         const y1 = CENTER + R_TICK_INNER * Math.sin(rad);
         const x2 = CENTER + R_TICK_OUTER * Math.cos(rad);
@@ -189,11 +199,10 @@
         ticksGroup.appendChild(createSVG('line', {
           x1, y1, x2, y2,
           stroke: '#1a1a1a',
-          'stroke-width': min % 5 === 0 ? '2.5' : '1.8',
+          'stroke-width': '2',
           'stroke-linecap': 'round'
         }));
 
-        // 2. Цифры
         const tx = CENTER + R_TEXT * Math.cos(rad);
         const ty = CENTER + R_TEXT * Math.sin(rad);
 
@@ -205,46 +214,11 @@
           'font-weight': 'bold',
           fill: '#1a1a1a'
         });
-        textEl.textContent = min;
+        textEl.textContent = minStr;
         ticksGroup.appendChild(textEl);
-
-        // 3. Выноски с иконками (1, 3, 7 минут)
-        if ([1, 3, 7].includes(min)) {
-          let lx1 = CENTER + (R_TEXT + 8) * Math.cos(rad);
-          let ly1 = CENTER + (R_TEXT + 8) * Math.sin(rad);
-          let lx2 = lx1 + 18;
-          let ly2 = ly1 - 6;
-          let iconX = lx2 + 10;
-          let iconY = ly2 + 4;
-          let icon = '';
-
-          if (min === 1) icon = '☕';
-          if (min === 3) icon = '🥣';
-          if (min === 7) {
-            ly2 = ly1 + 6;
-            iconY = ly2 + 4;
-            icon = '🥕';
-          }
-
-          ticksGroup.appendChild(createSVG('polyline', {
-            points: `${lx1},${ly1} ${lx2},${ly2}`,
-            stroke: '#1a1a1a',
-            'stroke-width': '1',
-            fill: 'none'
-          }));
-
-          const iconEl = createSVG('text', {
-            x: iconX,
-            y: iconY,
-            'font-size': '14',
-            'text-anchor': 'start'
-          });
-          iconEl.textContent = icon;
-          ticksGroup.appendChild(iconEl);
-        }
       });
 
-      updateKnobPosition();
+      updateUI();
     }
 
     stepSlider.addEventListener('input', (e) => {
@@ -253,7 +227,7 @@
       renderDial();
     });
 
-    let totalSeconds = 0;
+    let currentMinutes = 0;
     let timerInterval = null;
     let isDragging = false;
     let audioCtx = null;
@@ -274,14 +248,20 @@
       osc.stop(audioCtx.currentTime + 1.2);
     }
 
-    function updateKnobPosition() {
-      const minAngle = minuteAngles[0];
-      const maxAngle = minuteAngles[35];
-      const maxSeconds = 35 * 60;
-      
-      const currentFraction = Math.min(1, Math.max(0, totalSeconds / maxSeconds));
-      const currentAngle = minAngle + currentFraction * (maxAngle - minAngle);
-      knob.style.transform = `rotate(${currentAngle}deg)`;
+    function updateUI() {
+      const min = Math.floor(currentMinutes);
+      const sec = Math.round((currentMinutes - min) * 60);
+      timeDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+
+      let angle = 0;
+      if (currentMinutes <= 10) {
+        angle = currentMinutes * stepDegree;
+      } else {
+        const extraMinutes = Math.min(20, currentMinutes - 10);
+        angle = (10 * stepDegree) + (extraMinutes / 5) * stepDegree;
+      }
+
+      knob.style.transform = `rotate(${angle}deg)`;
     }
 
     function calculateAngle(e) {
@@ -293,34 +273,38 @@
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
       let deg = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI) + 90;
-      if (deg < -20) deg += 360;
+      if (deg < 0) deg += 360;
 
-      const startA = minuteAngles[0];
-      const endA = minuteAngles[35];
+      const maxAngle = (tickValues.length - 1) * stepDegree;
 
-      if (deg < startA) deg = startA;
-      if (deg > endA) deg = endA;
+      if (deg > maxAngle && deg < 360) {
+        const midPoint = maxAngle + (360 - maxAngle) / 2;
+        if (deg < midPoint) {
+          deg = maxAngle;
+        } else {
+          deg = 0;
+        }
+      }
 
-      const fraction = (deg - startA) / (endA - startA);
-      
-      // Находим ближайший индекс из 16 делений для плавного шагания ручки по точкам
-      const totalSteps = targetMinutes.length - 1;
-      const exactIndex = fraction * totalSteps;
-      const nearestIndex = Math.round(exactIndex);
-      
-      const targetMin = targetMinutes[nearestIndex];
-      totalSeconds = targetMin * 60;
-      
-      updateKnobPosition();
+      let selectedMinutes = 0;
+      if (deg <= 10 * stepDegree) {
+        selectedMinutes = deg / stepDegree;
+      } else {
+        const extraSteps = (deg - 10 * stepDegree) / stepDegree;
+        selectedMinutes = 10 + extraSteps * 5;
+      }
+
+      currentMinutes = Math.max(0, Math.min(30, selectedMinutes));
+      updateUI();
     }
 
     function startTimer() {
       stopTimer();
-      if (totalSeconds > 0) {
+      if (currentMinutes > 0) {
         timerInterval = setInterval(() => {
-          if (totalSeconds > 0) {
-            totalSeconds--;
-            updateKnobPosition();
+          if (currentMinutes > 0) {
+            currentMinutes = Math.max(0, currentMinutes - (1 / 60));
+            updateUI();
           } else {
             stopTimer();
             playBellSound();
