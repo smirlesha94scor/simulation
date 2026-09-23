@@ -82,7 +82,6 @@
       position: relative;
     }
 
-    /* Вращающаяся риска */
     .knob-mark {
       position: absolute;
       top: 10px;
@@ -94,7 +93,6 @@
       border-radius: 2px;
     }
 
-    /* Прозрачный интерактивный блок поверх ручки */
     .knob-overlay {
       position: absolute;
       top: 0;
@@ -142,7 +140,6 @@
       <div class="knob" id="knob">
         <div class="knob-mark" id="knobMark"></div>
       </div>
-      <!-- Прозрачный слой поверх для точного откликов на клики и тач -->
       <div class="knob-overlay" id="knobOverlay"></div>
     </div>
   </div>
@@ -275,8 +272,7 @@
       if (currentMinutes <= 10) {
         angle = currentMinutes * stepDegree;
       } else {
-        const extraMinutes = Math.min(20, currentMinutes - 10);
-        angle = (10 * stepDegree) + (extraMinutes / 5) * stepDegree;
+        angle = 10 * stepDegree + ((currentMinutes - 10) / 5) * stepDegree;
       }
 
       lastAngle = angle;
@@ -296,9 +292,10 @@
 
       const maxAngle = (tickValues.length - 1) * stepDegree;
 
-      if (lastAngle > maxAngle - 45 && deg < 180) {
+      // Предотвращение перескока через нулевую отметку
+      if (lastAngle > maxAngle - 30 && deg < 180) {
         deg = maxAngle;
-      } else if (lastAngle < 45 && deg > 180) {
+      } else if (lastAngle < 30 && deg > 180) {
         deg = 0;
       }
 
@@ -308,6 +305,7 @@
         deg = 0;
       }
 
+      // Перевод угла в минуты
       let selectedMinutes = 0;
       if (deg <= 10 * stepDegree) {
         selectedMinutes = deg / stepDegree;
