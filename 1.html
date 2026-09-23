@@ -82,30 +82,33 @@
       position: relative;
     }
 
-    /* Насечка / ризка (активная область клика) */
+    /* Вращающаяся риска */
     .knob-mark {
       position: absolute;
-      top: 6px;
+      top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      width: 12px; /* Увеличено для удобства попадания */
-      height: 22px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: grab;
-      z-index: 10;
-    }
-
-    .knob-mark::after {
-      content: '';
       width: 3px;
       height: 16px;
-      background-color: #b0b0b0;
+      background-color: #777777;
       border-radius: 2px;
     }
 
-    .knob-mark:active {
+    /* Прозрачный интерактивный блок поверх ручки */
+    .knob-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      cursor: grab;
+      z-index: 200;
+      touch-action: none;
+      background: transparent;
+    }
+
+    .knob-overlay:active {
       cursor: grabbing;
     }
 
@@ -139,6 +142,8 @@
       <div class="knob" id="knob">
         <div class="knob-mark" id="knobMark"></div>
       </div>
+      <!-- Прозрачный слой поверх для точного откликов на клики и тач -->
+      <div class="knob-overlay" id="knobOverlay"></div>
     </div>
   </div>
 
@@ -147,7 +152,7 @@
   <script>
     const knobWrapper = document.getElementById('knobWrapper');
     const knob = document.getElementById('knob');
-    const knobMark = document.getElementById('knobMark');
+    const knobOverlay = document.getElementById('knobOverlay');
     const ticksGroup = document.getElementById('ticksGroup');
     const scaleArc = document.getElementById('scaleArc');
     const stepSlider = document.getElementById('stepSlider');
@@ -339,27 +344,31 @@
 
     function onPointerDown(e) {
       isDragging = true;
+      knobOverlay.setPointerCapture(e.pointerId);
       stopTimer();
       calculateAngle(e);
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
     }
 
     function onPointerMove(e) {
-      if (isDragging) calculateAngle(e);
+      if (isDragging) {
+        calculateAngle(e);
+      }
     }
 
-    function onPointerUp() {
+    function onPointerUp(e) {
       if (isDragging) {
         isDragging = false;
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('pointerup', onPointerUp);
+        try {
+          knobOverlay.releasePointerCapture(e.pointerId);
+        } catch (err) {}
         startTimer();
       }
     }
 
-    // Слушатель события нажатия повешен только на саму засечку (knobMark)
-    knobMark.addEventListener('pointerdown', onPointerDown);
+    knobOverlay.addEventListener('pointerdown', onPointerDown);
+    knobOverlay.addEventListener('pointermove', onPointerMove);
+    knobOverlay.addEventListener('pointerup', onPointerUp);
+    knobOverlay.addEventListener('pointercancel', onPointerUp);
 
     renderDial();
   </script>
