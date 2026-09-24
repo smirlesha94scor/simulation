@@ -291,17 +291,23 @@
       if (deg < 0) deg += 360;
 
       const maxAngle = (tickValues.length - 1) * stepDegree;
+      const deadZoneStart = maxAngle;
+      const deadZoneEnd = 360;
 
-      // Предотвращение перескока через нулевую отметку
-      if (lastAngle > maxAngle - 30 && deg < 180) {
-        deg = maxAngle;
-      } else if (lastAngle < 30 && deg > 180) {
-        deg = 0;
+      // Если клик попал в мертвую зону (между 30 минутами и 0 градусов)
+      if (deg > deadZoneStart && deg < deadZoneEnd) {
+        const midPoint = deadZoneStart + (deadZoneEnd - deadZoneStart) / 2;
+        if (deg < midPoint) {
+          deg = maxAngle;
+        } else {
+          deg = 0;
+        }
       }
 
-      if (deg > maxAngle && deg <= 180) {
+      // Защита от резкого прыжка при быстром вращении
+      if (lastAngle > maxAngle - 40 && deg < 40) {
         deg = maxAngle;
-      } else if (deg > 180) {
+      } else if (lastAngle < 40 && deg > maxAngle - 40) {
         deg = 0;
       }
 
