@@ -247,6 +247,10 @@
     let audioCtx = null;
     let lastAngle = 0;
 
+    // Змінні для точного відліку у фоновому режимі
+    let startTime = null;
+    let initialTotalSeconds = 0;
+
     function playBellSound() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
@@ -294,7 +298,6 @@
       const deadZoneStart = maxAngle;
       const deadZoneEnd = 360;
 
-      // Если клик попал в мертвую зону (между 30 минутами и 0 градусов)
       if (deg > deadZoneStart && deg < deadZoneEnd) {
         const midPoint = deadZoneStart + (deadZoneEnd - deadZoneStart) / 2;
         if (deg < midPoint) {
@@ -304,14 +307,12 @@
         }
       }
 
-      // Защита от резкого прыжка при быстром вращении
       if (lastAngle > maxAngle - 40 && deg < 40) {
         deg = maxAngle;
       } else if (lastAngle < 40 && deg > maxAngle - 40) {
         deg = 0;
       }
 
-      // Перевод угла в минуты
       let selectedMinutes = 0;
       if (deg <= 10 * stepDegree) {
         selectedMinutes = deg / stepDegree;
@@ -324,18 +325,27 @@
       updateUI();
     }
 
+    // Оновлена функція таймера з прив'язкою до системного часу
     function startTimer() {
       stopTimer();
       if (currentMinutes > 0) {
+        initialTotalSeconds = currentMinutes * 60;
+        startTime = Date.now();
+
         timerInterval = setInterval(() => {
-          if (currentMinutes > 0) {
-            currentMinutes = Math.max(0, currentMinutes - (1 / 60));
+          const elapsedSeconds = (Date.now() - startTime) / 1000;
+          const remainingSeconds = initialTotalSeconds - elapsedSeconds;
+
+          if (remainingSeconds > 0) {
+            currentMinutes = remainingSeconds / 60;
             updateUI();
           } else {
+            currentMinutes = 0;
+            updateUI();
             stopTimer();
             playBellSound();
           }
-        }, 1000);
+        }, 100);
       }
     }
 
@@ -345,6 +355,23 @@
         timerInterval = null;
       }
     }
+
+    // Повернення користувача на вкладку (для миттєвого оновлення інтерфейсу)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && timerInterval && startTime) {
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        const remainingSeconds = initialTotalSeconds - elapsedSeconds;
+        if (remainingSeconds <= 0) {
+          currentMinutes = 0;
+          updateUI();
+          stopTimer();
+          playBellSound();
+        } else {
+          currentMinutes = remainingSeconds / 60;
+          updateUI();
+        }
+      }
+    });
 
     function onPointerDown(e) {
       isDragging = true;
