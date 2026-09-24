@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Горизонтальная светомузыка (Без Canvas)</title>
+  <title>Гистограмма с защитой от зависания</title>
   <style>
     * {
       box-sizing: border-box;
@@ -21,97 +21,118 @@
       overflow: hidden;
     }
 
-    /* Верхняя панель управления */
+    /* Панель управления */
     .controls {
-      margin-top: 20px;
+      margin-top: 15px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
       z-index: 10;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 20px;
+      border-radius: 20px;
     }
     button {
-      padding: 12px 28px;
-      font-size: 16px;
+      padding: 8px 18px;
+      font-size: 14px;
       font-weight: bold;
       color: #000;
-      background: linear-gradient(135deg, #00ffcc, #0099ff);
+      background: #00ffcc;
       border: none;
-      border-radius: 25px;
+      border-radius: 15px;
       cursor: pointer;
-      box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: background 0.2s;
     }
     button:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 25px rgba(0, 255, 204, 0.8);
+      background: #00cca3;
+    }
+    button:disabled {
+      background: #555;
+      color: #888;
+      cursor: not-allowed;
     }
 
-    /* Контейнер эквалайзера (внизу экрана) */
+    .stats {
+      font-size: 14px;
+      font-family: monospace;
+    }
+    .fps-good { color: #00ffcc; }
+    .fps-bad { color: #ff3366; }
+
+    /* Контейнер эквалайзера */
     .visualizer-container {
-      width: 90vw;
+      width: 95vw;
       height: 60vh;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      gap: 4px;
+      gap: 2px;
       margin-bottom: 20px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 12px;
-      border-bottom: 2px solid rgba(0, 255, 204, 0.2);
     }
 
-    /* Каждый столбик гистограммы */
+    /* Столбец гистограммы */
     .bar {
       flex: 1;
-      height: 0%; /* Меняется динамически через JS */
+      height: 0%;
       background: linear-gradient(to top, #00ffcc, #0099ff, #ff0055);
-      border-radius: 4px 4px 0 0;
-      position: relative;
-      transition: height 0.05s ease-out; /* Плавность движения */
-      box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
-    }
-
-    /* Метка пикового значения (Peak Hold) */
-    .peak {
-      position: absolute;
-      top: -6px;
-      left: 0;
-      width: 100%;
-      height: 3px;
-      background-color: #ffffff;
-      border-radius: 2px;
-      box-shadow: 0 0 6px #fff;
+      border-radius: 2px 2px 0 0;
+      /* CSS transition специально убран для снижения нагрузки на CPU */
     }
   </style>
 </head>
 <body>
 
   <div class="controls">
-    <button id="startBtn">Включить гистограмму</button>
+    <button id="startBtn">Запустить</button>
+    <button id="addBarBtn" disabled>+1 столбец</button>
+    <div class="stats">
+      FPS: <span id="fpsVal" class="fps-good">--</span> | 
+      Столбцов: <span id="barsVal">32</span>
+    </div>
   </div>
 
   <div class="visualizer-container" id="equalizer"></div>
 
   <script>
     const startBtn = document.getElementById('startBtn');
+    const addBarBtn = document.getElementById('addBarBtn');
     const equalizer = document.getElementById('equalizer');
+    const fpsVal = document.getElementById('fpsVal');
+    const barsVal = document.getElementById('barsVal');
 
-    const BARS_COUNT = 32; // Количество столбиков
-    const bars = [];
-    const peaks = [];
-    const peakPos = new Array(BARS_COUNT).fill(0);
+    let currentBarsCount = 32; // Стартуем с 32 столбцов
+    const maxAllowedBars = 128; // Максимальный лимит для fftSize = 256
+    let barsElements = [];
 
-    // Создаем DOM-элементы столбиков и пиков
-    for (let i = 0; i < BARS_COUNT; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
+    // Замер FPS
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let currentFps = 60;
+    let isRunning = false;
 
-      const peak = document.createElement('div');
-      peak.className = 'peak';
-      bar.appendChild(peak);
-
-      equalizer.appendChild(bar);
-      bars.push(bar);
-      peaks.push(peak);
+    // Функция обновления DOM-структуры столбцов
+    function rebuildBars(count) {
+      equalizer.innerHTML = '';
+      barsElements = [];
+      for (let i = 0; i < count; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        equalizer.appendChild(bar);
+        barsElements.push(bar);
+      }
+      barsVal.textContent = count;
     }
+
+    // Создаем начальные 32 столбца
+    rebuildBars(currentBarsCount);
+
+    // Кнопка вручную добавить столбец
+    addBarBtn.addEventListener('click', () => {
+      if (currentBarsCount < maxAllowedBars) {
+        currentBarsCount++;
+        rebuildBars(currentBarsCount);
+      }
+    });
 
     startBtn.addEventListener('click', async () => {
       try {
@@ -122,51 +143,64 @@
 
         const audioTrack = stream.getAudioTracks()[0];
         if (!audioTrack) {
-          alert('Ошибка: Не поставлена галочка "Предоставить доступ к аудиосистемы"!');
+          alert('Не включен доступ к аудио!');
           return;
         }
 
         startBtn.style.display = 'none';
+        addBarBtn.disabled = false;
+        isRunning = true;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
         const analyser = audioCtx.createAnalyser();
 
-        analyser.fftSize = 128; // Данные частот
+        analyser.fftSize = 256; 
         source.connect(analyser);
 
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
         function render() {
           requestAnimationFrame(render);
 
-          analyser.getByteFrequencyData(dataArray);
+          // 1. Расчет FPS каждую секунду
+          const now = performance.now();
+          frameCount++;
+          if (now - lastTime >= 1000) {
+            currentFps = Math.round((frameCount * 1000) / (now - lastTime));
+            fpsVal.textContent = currentFps;
+            frameCount = 0;
+            lastTime = now;
 
-          for (let i = 0; i < BARS_COUNT; i++) {
-            const value = dataArray[i]; // Значение от 0 до 255
-            const percent = (value / 255) * 100; // Высота в %
-
-            // 1. Обновляем высоту DOM-элемента <div>
-            bars[i].style.height = percent + '%';
-
-            // 2. Логика плавно падающих пиков (Peak Hold)
-            if (percent > peakPos[i]) {
-              peakPos[i] = percent;
+            // 2. Детектор лагов: если FPS упал ниже 45, автоматически удаляем 1 столбец
+            if (currentFps < 45 && currentBarsCount > 4) {
+              fpsVal.className = 'fps-bad';
+              currentBarsCount--; // Авто-удаление последнего столбца
+              rebuildBars(currentBarsCount);
             } else {
-              peakPos[i] -= 1.2; // Скорость падения
-              if (peakPos[i] < 0) peakPos[i] = 0;
+              fpsVal.className = 'fps-good';
             }
+          }
 
-            // Позиционируем пик относительно высоты столбика
-            peaks[i].style.top = `-6px`;
+          // 3. Отрисовка частот
+          analyser.getByteFrequencyData(dataArray);
+          const step = dataArray.length / currentBarsCount;
+
+          for (let i = 0; i < currentBarsCount; i++) {
+            const dataIndex = Math.floor(i * step);
+            const value = dataArray[dataIndex];
+            const percent = (value / 255) * 100;
+
+            if (barsElements[i]) {
+              barsElements[i].style.height = percent + '%';
+            }
           }
         }
 
         render();
 
       } catch (err) {
-        console.error("Ошибка доступа: ", err);
+        console.error("Ошибка доступа:", err);
       }
     });
   </script>
