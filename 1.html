@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Гистограмма (40 столбцов x 15px)</title>
+  <title>Ультра-оптимизированная гистограмма (Low CPU)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -21,7 +21,6 @@
       overflow: hidden;
     }
 
-    /* Панель управления */
     .controls {
       margin-top: 15px;
       display: flex;
@@ -41,10 +40,6 @@
       border: none;
       border-radius: 15px;
       cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #00cca3;
     }
 
     .stats {
@@ -54,7 +49,6 @@
     .fps-good { color: #00ffcc; }
     .fps-bad { color: #ff3366; }
 
-    /* Оболочка визуализатора */
     .visualizer-wrapper {
       height: 65vh;
       display: flex;
@@ -62,18 +56,16 @@
       margin-bottom: 20px;
     }
 
-    /* Контейнер столбцов */
     .bars-container {
       flex: 1;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      gap: 3px; /* Отступ между столбцами */
+      gap: 3px;
     }
 
-    /* Оболочка одного столбца фиксированной ширины */
     .bar-item {
-      width: 15px; /* Фиксированная ширина 15px */
+      width: 15px;
       height: 100%;
       display: flex;
       flex-direction: column;
@@ -81,15 +73,15 @@
       align-items: center;
     }
 
-    /* Столбец гистограммы */
     .bar {
       width: 100%;
       height: 0%;
       background: linear-gradient(to top, #00ffcc, #0099ff, #ff0055);
       border-radius: 2px 2px 0 0;
+      /* Отключение сглаживания убирает нагрузку с процессора */
+      will-change: height;
     }
 
-    /* Подпись частоты */
     .freq-label {
       margin-top: 6px;
       font-size: 9px;
@@ -121,28 +113,39 @@
     const fpsVal = document.getElementById('fpsVal');
     const barsVal = document.getElementById('barsVal');
 
-    let currentBarsCount = 40; // Ровно 40 столбцов
-    let barsElements = [];
+    let currentBarsCount = 40;
+    let barStyles = [];       // Массив прямых ссылок на style элемента
+    let prevHeights = [];     // Кэш предыдущих высот (чтобы не перерисовывать то же самое)
+    let binIndices = [];      // Кэш подготовленных индексов частот
     let sampleRate = 44100;
 
     let lastTime = performance.now();
     let frameCount = 0;
-    let currentFps = 60;
 
     function formatFrequency(hz) {
-      if (hz >= 1000) {
-        return (hz / 1000).toFixed(1) + 'k';
-      }
-      return Math.round(hz) + '';
+      return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + '';
     }
 
-    // Пересборка столбцов шириной 15px
+    // Предварительный расчет логарифмической сетки индексов
+    function updateBinIndices(count, totalBins) {
+      binIndices = new Int32Array(count);
+      for (let i = 0; i < count; i++) {
+        const logPercent = Math.pow(i / count, 1.8);
+        binIndices[i] = Math.floor(logPercent * (totalBins * 0.75));
+      }
+    }
+
     function rebuildBars(count) {
       equalizer.innerHTML = '';
-      barsElements = [];
-
+      barStyles = [];
+      prevHeights = new Float32Array(count);
+      
       const nyquist = sampleRate / 2;
-      const totalBins = 256; // fftSize = 512 дает 256 бинов частот
+      const totalBins = 256; 
+
+      updateBinIndices(count, totalBins);
+
+      const fragment = document.createDocumentFragment(); // Использование fragment снижает нагрузку на DOM
 
       for (let i = 0; i < count; i++) {
         const itemWrapper = document.createElement('div');
@@ -151,27 +154,21 @@
         const bar = document.createElement('div');
         bar.className = 'bar';
 
-        // Логарифмический расчет частоты для равномерной анимации
-        const logPercent = Math.pow(i / count, 2);
-        const dataIndex = Math.floor(logPercent * (totalBins * 0.75));
+        const dataIndex = binIndices[i];
         const freqHz = (dataIndex / totalBins) * nyquist;
 
         const label = document.createElement('div');
         label.className = 'freq-label';
-        
-        // Показывать подписи через одну, чтобы текст 15px столбцов не сливался
-        if (i % 2 === 0) {
-          label.textContent = formatFrequency(freqHz);
-        } else {
-          label.textContent = '';
-        }
+        if (i % 2 === 0) label.textContent = formatFrequency(freqHz);
 
         itemWrapper.appendChild(bar);
         itemWrapper.appendChild(label);
-        equalizer.appendChild(itemWrapper);
+        fragment.appendChild(itemWrapper);
 
-        barsElements.push(bar);
+        barStyles.push(bar.style); // Прямая ссылка на объект style
       }
+
+      equalizer.appendChild(fragment);
       barsVal.textContent = count;
     }
 
@@ -185,10 +182,7 @@
         });
 
         const audioTrack = stream.getAudioTracks()[0];
-        if (!audioTrack) {
-          alert('Не включен доступ к аудио!');
-          return;
-        }
+        if (!audioTrack) return alert('Аудио не выбрано!');
 
         startBtn.style.display = 'none';
 
@@ -198,26 +192,27 @@
         const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
         const analyser = audioCtx.createAnalyser();
 
-        analyser.fftSize = 512; // Увеличено разрешение частот для 40 столбцов
+        analyser.fftSize = 512;
+        // Отключение сглаживания в самом Web Audio API экономит CPU
+        analyser.smoothingTimeConstant = 0; 
+        
         source.connect(analyser);
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
         rebuildBars(currentBarsCount);
 
         function render() {
           requestAnimationFrame(render);
 
-          // 1. Мониторинг FPS
+          // 1. Измерение FPS
           const now = performance.now();
           frameCount++;
           if (now - lastTime >= 1000) {
-            currentFps = Math.round((frameCount * 1000) / (now - lastTime));
+            const currentFps = Math.round((frameCount * 1000) / (now - lastTime));
             fpsVal.textContent = currentFps;
             frameCount = 0;
             lastTime = now;
 
-            // Защита от зависания CPU: при FPS < 45 убираем по 1 столбцу
             if (currentFps < 45 && currentBarsCount > 8) {
               fpsVal.className = 'fps-bad';
               currentBarsCount--;
@@ -227,19 +222,17 @@
             }
           }
 
-          // 2. Отрисовка частот с логарифмическим распределением
+          // 2. Ультра-быстрый цикл рендеринга
           analyser.getByteFrequencyData(dataArray);
 
           for (let i = 0; i < currentBarsCount; i++) {
-            // Квадратичное смещение акцентирует внимание на басах и вокале
-            const logPercent = Math.pow(i / currentBarsCount, 1.8);
-            const dataIndex = Math.floor(logPercent * (dataArray.length * 0.75));
-            
-            const value = dataArray[dataIndex];
-            const percent = (value / 255) * 100;
+            const value = dataArray[binIndices[i]];
+            const percent = (value * 0.3921568) | 0; // Быстрое деление (value / 255 * 100) через битовую операцию
 
-            if (barsElements[i]) {
-              barsElements[i].style.height = percent + '%';
+            // Изменяем DOM только если значение высоты действительно изменилось
+            if (percent !== prevHeights[i]) {
+              barStyles[i].height = percent + '%';
+              prevHeights[i] = percent;
             }
           }
         }
@@ -247,7 +240,7 @@
         render();
 
       } catch (err) {
-        console.error("Ошибка:", err);
+        console.error(err);
       }
     });
   </script>
