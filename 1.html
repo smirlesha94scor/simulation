@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Гистограмма с защитой от зависания</title>
+  <title>Гистограмма (40 столбцов x 15px)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -46,11 +46,6 @@
     button:hover {
       background: #00cca3;
     }
-    button:disabled {
-      background: #555;
-      color: #888;
-      cursor: not-allowed;
-    }
 
     .stats {
       font-size: 14px;
@@ -59,24 +54,50 @@
     .fps-good { color: #00ffcc; }
     .fps-bad { color: #ff3366; }
 
-    /* Контейнер эквалайзера */
-    .visualizer-container {
-      width: 95vw;
-      height: 60vh;
+    /* Оболочка визуализатора */
+    .visualizer-wrapper {
+      height: 65vh;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+    }
+
+    /* Контейнер столбцов */
+    .bars-container {
+      flex: 1;
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      gap: 2px;
-      margin-bottom: 20px;
+      gap: 3px; /* Отступ между столбцами */
+    }
+
+    /* Оболочка одного столбца фиксированной ширины */
+    .bar-item {
+      width: 15px; /* Фиксированная ширина 15px */
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
     }
 
     /* Столбец гистограммы */
     .bar {
-      flex: 1;
+      width: 100%;
       height: 0%;
       background: linear-gradient(to top, #00ffcc, #0099ff, #ff0055);
       border-radius: 2px 2px 0 0;
-      /* CSS transition специально убран для снижения нагрузки на CPU */
+    }
+
+    /* Подпись частоты */
+    .freq-label {
+      margin-top: 6px;
+      font-size: 9px;
+      font-family: monospace;
+      color: #8888aa;
+      white-space: nowrap;
+      user-select: none;
+      text-align: center;
     }
   </style>
 </head>
@@ -84,55 +105,77 @@
 
   <div class="controls">
     <button id="startBtn">Запустить</button>
-    <button id="addBarBtn" disabled>+1 столбец</button>
     <div class="stats">
       FPS: <span id="fpsVal" class="fps-good">--</span> | 
-      Столбцов: <span id="barsVal">32</span>
+      Столбцов: <span id="barsVal">40</span>
     </div>
   </div>
 
-  <div class="visualizer-container" id="equalizer"></div>
+  <div class="visualizer-wrapper">
+    <div class="bars-container" id="equalizer"></div>
+  </div>
 
   <script>
     const startBtn = document.getElementById('startBtn');
-    const addBarBtn = document.getElementById('addBarBtn');
     const equalizer = document.getElementById('equalizer');
     const fpsVal = document.getElementById('fpsVal');
     const barsVal = document.getElementById('barsVal');
 
-    let currentBarsCount = 32; // Стартуем с 32 столбцов
-    const maxAllowedBars = 128; // Максимальный лимит для fftSize = 256
+    let currentBarsCount = 40; // Ровно 40 столбцов
     let barsElements = [];
+    let sampleRate = 44100;
 
-    // Замер FPS
     let lastTime = performance.now();
     let frameCount = 0;
     let currentFps = 60;
-    let isRunning = false;
 
-    // Функция обновления DOM-структуры столбцов
+    function formatFrequency(hz) {
+      if (hz >= 1000) {
+        return (hz / 1000).toFixed(1) + 'k';
+      }
+      return Math.round(hz) + '';
+    }
+
+    // Пересборка столбцов шириной 15px
     function rebuildBars(count) {
       equalizer.innerHTML = '';
       barsElements = [];
+
+      const nyquist = sampleRate / 2;
+      const totalBins = 256; // fftSize = 512 дает 256 бинов частот
+
       for (let i = 0; i < count; i++) {
+        const itemWrapper = document.createElement('div');
+        itemWrapper.className = 'bar-item';
+
         const bar = document.createElement('div');
         bar.className = 'bar';
-        equalizer.appendChild(bar);
+
+        // Логарифмический расчет частоты для равномерной анимации
+        const logPercent = Math.pow(i / count, 2);
+        const dataIndex = Math.floor(logPercent * (totalBins * 0.75));
+        const freqHz = (dataIndex / totalBins) * nyquist;
+
+        const label = document.createElement('div');
+        label.className = 'freq-label';
+        
+        // Показывать подписи через одну, чтобы текст 15px столбцов не сливался
+        if (i % 2 === 0) {
+          label.textContent = formatFrequency(freqHz);
+        } else {
+          label.textContent = '';
+        }
+
+        itemWrapper.appendChild(bar);
+        itemWrapper.appendChild(label);
+        equalizer.appendChild(itemWrapper);
+
         barsElements.push(bar);
       }
       barsVal.textContent = count;
     }
 
-    // Создаем начальные 32 столбца
     rebuildBars(currentBarsCount);
-
-    // Кнопка вручную добавить столбец
-    addBarBtn.addEventListener('click', () => {
-      if (currentBarsCount < maxAllowedBars) {
-        currentBarsCount++;
-        rebuildBars(currentBarsCount);
-      }
-    });
 
     startBtn.addEventListener('click', async () => {
       try {
@@ -148,22 +191,24 @@
         }
 
         startBtn.style.display = 'none';
-        addBarBtn.disabled = false;
-        isRunning = true;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        sampleRate = audioCtx.sampleRate;
+
         const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
         const analyser = audioCtx.createAnalyser();
 
-        analyser.fftSize = 256; 
+        analyser.fftSize = 512; // Увеличено разрешение частот для 40 столбцов
         source.connect(analyser);
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
+        rebuildBars(currentBarsCount);
+
         function render() {
           requestAnimationFrame(render);
 
-          // 1. Расчет FPS каждую секунду
+          // 1. Мониторинг FPS
           const now = performance.now();
           frameCount++;
           if (now - lastTime >= 1000) {
@@ -172,22 +217,24 @@
             frameCount = 0;
             lastTime = now;
 
-            // 2. Детектор лагов: если FPS упал ниже 45, автоматически удаляем 1 столбец
-            if (currentFps < 45 && currentBarsCount > 4) {
+            // Защита от зависания CPU: при FPS < 45 убираем по 1 столбцу
+            if (currentFps < 45 && currentBarsCount > 8) {
               fpsVal.className = 'fps-bad';
-              currentBarsCount--; // Авто-удаление последнего столбца
+              currentBarsCount--;
               rebuildBars(currentBarsCount);
             } else {
               fpsVal.className = 'fps-good';
             }
           }
 
-          // 3. Отрисовка частот
+          // 2. Отрисовка частот с логарифмическим распределением
           analyser.getByteFrequencyData(dataArray);
-          const step = dataArray.length / currentBarsCount;
 
           for (let i = 0; i < currentBarsCount; i++) {
-            const dataIndex = Math.floor(i * step);
+            // Квадратичное смещение акцентирует внимание на басах и вокале
+            const logPercent = Math.pow(i / currentBarsCount, 1.8);
+            const dataIndex = Math.floor(logPercent * (dataArray.length * 0.75));
+            
             const value = dataArray[dataIndex];
             const percent = (value / 255) * 100;
 
@@ -200,7 +247,7 @@
         render();
 
       } catch (err) {
-        console.error("Ошибка доступа:", err);
+        console.error("Ошибка:", err);
       }
     });
   </script>
