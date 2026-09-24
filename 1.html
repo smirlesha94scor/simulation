@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Ультра-оптимизированная гистограмма (Широкий шаг частот)</title>
+  <title>Плавная гистограмма (Low CPU)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -114,7 +114,8 @@
 
     let currentBarsCount = 40;
     let barStyles = [];
-    let prevHeights = [];
+    let currentHeights = [];  // Массив плавно анимируемых высот
+    let prevRenderedHeights = [];
     let binIndices = [];
     let sampleRate = 44100;
 
@@ -125,11 +126,9 @@
       return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + '';
     }
 
-    // Увеличенный шаг распределения частот
     function updateBinIndices(count, totalBins) {
       binIndices = new Int32Array(count);
       for (let i = 0; i < count; i++) {
-        // Коэффициент 1.2 дает более широкий и размашистый шаг
         const logPercent = Math.pow(i / (count - 1), 1.2);
         binIndices[i] = 1 + Math.floor(logPercent * (totalBins * 0.9 - 1));
       }
@@ -138,7 +137,8 @@
     function rebuildBars(count) {
       equalizer.innerHTML = '';
       barStyles = [];
-      prevHeights = new Float32Array(count);
+      currentHeights = new Float32Array(count);
+      prevRenderedHeights = new Float32Array(count);
       
       const nyquist = sampleRate / 2;
       const totalBins = 256; 
@@ -193,7 +193,8 @@
         const analyser = audioCtx.createAnalyser();
 
         analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0;
+        // Возвращаем встроенное сглаживание звукового спектра (значение от 0.8 до 0.85 — золотая середина)
+        analyser.smoothingTimeConstant = 0.8; 
         
         source.connect(analyser);
 
@@ -223,12 +224,21 @@
           analyser.getByteFrequencyData(dataArray);
 
           for (let i = 0; i < currentBarsCount; i++) {
-            const value = dataArray[binIndices[i]];
-            const percent = (value * 0.3921568) | 0;
+            const targetPercent = (dataArray[binIndices[i]] * 0.3921568);
+            
+            // Программная плавная интерполяция (Lerp): 
+            // Столбец быстро поднимается вверх на пике, но мягко и постепенно опускается вниз
+            if (targetPercent > currentHeights[i]) {
+              currentHeights[i] = targetPercent; // Мгновенный отклик на удар баса
+            } else {
+              currentHeights[i] += (targetPercent - currentHeights[i]) * 0.25; // Плавное падение
+            }
 
-            if (percent !== prevHeights[i]) {
-              barStyles[i].height = percent + '%';
-              prevHeights[i] = percent;
+            const roundedHeight = currentHeights[i] | 0;
+
+            if (roundedHeight !== prevRenderedHeights[i]) {
+              barStyles[i].height = roundedHeight + '%';
+              prevRenderedHeights[i] = roundedHeight;
             }
           }
         }
