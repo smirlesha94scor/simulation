@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Плавная гистограмма (Low CPU)</title>
+  <title>Ультра-легкая гистограмма (Low CPU)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -61,7 +61,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      gap: 3px;
+      gap: 4px;
     }
 
     .bar-item {
@@ -73,10 +73,11 @@
       align-items: center;
     }
 
+    /* Простой сплошной цвет вместо тяжелого CSS-градиента */
     .bar {
       width: 100%;
       height: 0%;
-      background: linear-gradient(to top, #00ffcc, #0099ff, #ff0055);
+      background-color: #00ffcc; 
       border-radius: 2px 2px 0 0;
       will-change: height;
     }
@@ -98,7 +99,7 @@
     <button id="startBtn">Запустить</button>
     <div class="stats">
       FPS: <span id="fpsVal" class="fps-good">--</span> | 
-      Столбцов: <span id="barsVal">40</span>
+      Столбцов: <span id="barsVal">24</span>
     </div>
   </div>
 
@@ -112,15 +113,15 @@
     const fpsVal = document.getElementById('fpsVal');
     const barsVal = document.getElementById('barsVal');
 
-    let currentBarsCount = 40;
+    let currentBarsCount = 24; // Оптимальный старт
     let barStyles = [];
-    let currentHeights = [];  // Массив плавно анимируемых высот
     let prevRenderedHeights = [];
     let binIndices = [];
     let sampleRate = 44100;
 
     let lastTime = performance.now();
     let frameCount = 0;
+    let renderToggle = false; // Для пропуска кадров
 
     function formatFrequency(hz) {
       return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + '';
@@ -137,11 +138,10 @@
     function rebuildBars(count) {
       equalizer.innerHTML = '';
       barStyles = [];
-      currentHeights = new Float32Array(count);
       prevRenderedHeights = new Float32Array(count);
       
       const nyquist = sampleRate / 2;
-      const totalBins = 256; 
+      const totalBins = 128; // fftSize = 256 дает меньше нагрузку на обработку данных
 
       updateBinIndices(count, totalBins);
 
@@ -192,9 +192,8 @@
         const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
         const analyser = audioCtx.createAnalyser();
 
-        analyser.fftSize = 512;
-        // Возвращаем встроенное сглаживание звукового спектра (значение от 0.8 до 0.85 — золотая середина)
-        analyser.smoothingTimeConstant = 0.8; 
+        analyser.fftSize = 256; // Уменьшенный размер массива снижает нагрузку на CPU
+        analyser.smoothingTimeConstant = 0.75; // Легкое сглаживание средствами браузера
         
         source.connect(analyser);
 
@@ -204,6 +203,7 @@
         function render() {
           requestAnimationFrame(render);
 
+          // 1. Измерение FPS
           const now = performance.now();
           frameCount++;
           if (now - lastTime >= 1000) {
@@ -212,33 +212,27 @@
             frameCount = 0;
             lastTime = now;
 
-            if (currentFps < 45 && currentBarsCount > 8) {
+            if (currentFps < 40 && currentBarsCount > 6) {
               fpsVal.className = 'fps-bad';
-              currentBarsCount--;
+              currentBarsCount -= 2; // Уменьшаем интенсивнее при просадке
               rebuildBars(currentBarsCount);
             } else {
               fpsVal.className = 'fps-good';
             }
           }
 
+          // 2. Пропуск каждого 2-го кадра для снятия нагрузки с процессора
+          renderToggle = !renderToggle;
+          if (renderToggle) return;
+
           analyser.getByteFrequencyData(dataArray);
 
           for (let i = 0; i < currentBarsCount; i++) {
-            const targetPercent = (dataArray[binIndices[i]] * 0.3921568);
-            
-            // Программная плавная интерполяция (Lerp): 
-            // Столбец быстро поднимается вверх на пике, но мягко и постепенно опускается вниз
-            if (targetPercent > currentHeights[i]) {
-              currentHeights[i] = targetPercent; // Мгновенный отклик на удар баса
-            } else {
-              currentHeights[i] += (targetPercent - currentHeights[i]) * 0.25; // Плавное падение
-            }
+            const val = (dataArray[binIndices[i]] * 0.3921568) | 0;
 
-            const roundedHeight = currentHeights[i] | 0;
-
-            if (roundedHeight !== prevRenderedHeights[i]) {
-              barStyles[i].height = roundedHeight + '%';
-              prevRenderedHeights[i] = roundedHeight;
+            if (val !== prevRenderedHeights[i]) {
+              barStyles[i].height = val + '%';
+              prevRenderedHeights[i] = val;
             }
           }
         }
