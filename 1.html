@@ -247,7 +247,6 @@
     let audioCtx = null;
     let lastAngle = 0;
 
-    // Змінні для точного відліку у фоновому режимі
     let startTime = null;
     let initialTotalSeconds = 0;
 
@@ -268,8 +267,10 @@
     }
 
     function updateUI() {
-      const min = Math.floor(currentMinutes);
-      const sec = Math.round((currentMinutes - min) * 60);
+      // Точный расчет минут и секунд без артефактов при переходе
+      const totalSec = Math.max(0, Math.round(currentMinutes * 60));
+      const min = Math.floor(totalSec / 60);
+      const sec = totalSec % 60;
       timeDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 
       let angle = 0;
@@ -325,11 +326,10 @@
       updateUI();
     }
 
-    // Оновлена функція таймера з прив'язкою до системного часу
     function startTimer() {
       stopTimer();
       if (currentMinutes > 0) {
-        initialTotalSeconds = currentMinutes * 60;
+        initialTotalSeconds = Math.round(currentMinutes * 60);
         startTime = Date.now();
 
         timerInterval = setInterval(() => {
@@ -356,7 +356,6 @@
       }
     }
 
-    // Повернення користувача на вкладку (для миттєвого оновлення інтерфейсу)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && timerInterval && startTime) {
         const elapsedSeconds = (Date.now() - startTime) / 1000;
