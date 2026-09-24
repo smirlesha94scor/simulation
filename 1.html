@@ -2,406 +2,112 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ручка таймера микроволновки</title>
+  <title>Светомузыка в браузерe</title>
   <style>
-    * {
-      box-sizing: border-box;
-      user-select: none;
-    }
-
     body {
       margin: 0;
-      min-height: 100vh;
+      background: #050505;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
-      align-items: center;
-      background-color: #f0f2f5;
-      font-family: Arial, sans-serif;
-      gap: 20px;
+      height: 100vh;
+      color: #fff;
+      font-family: sans-serif;
+      overflow: hidden;
     }
-
-    .controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: #ffffff;
-      padding: 12px 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      font-size: 14px;
-      font-weight: bold;
-      color: #333;
+    canvas {
+      border-radius: 50%;
+      box-shadow: 0 0 50px rgba(0, 255, 200, 0.2);
     }
-
-    .controls input[type="range"] {
+    button {
+      position: absolute;
+      top: 20px;
+      padding: 12px 24px;
+      font-size: 16px;
       cursor: pointer;
-      width: 180px;
-    }
-
-    .timer-container {
-      position: relative;
-      width: 340px;
-      height: 340px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background-color: #ffffff;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-    }
-
-    .dial-svg {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-    }
-
-    .knob-wrapper {
-      position: relative;
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      background: linear-gradient(145deg, #ffffff, #e6e6e6);
-      box-shadow: 0 8px 16px rgba(0,0,0,0.12), inset 0 2px 4px rgba(255,255,255,0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      touch-action: none;
-    }
-
-    .knob {
-      width: 118px;
-      height: 118px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #f8f8f8 0%, #d8d8d8 100%);
-      box-shadow: inset 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(255,255,255,0.8);
-      position: relative;
-    }
-
-    .knob-mark {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 3px;
-      height: 16px;
-      background-color: #777777;
-      border-radius: 2px;
-    }
-
-    .knob-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      cursor: grab;
-      z-index: 200;
-      touch-action: none;
-      background: transparent;
-    }
-
-    .knob-overlay:active {
-      cursor: grabbing;
-    }
-
-    .time-display {
-      background: #ffffff;
-      padding: 10px 24px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      font-size: 24px;
+      background: #00ffcc;
+      border: none;
+      border-radius: 20px;
       font-weight: bold;
-      color: #333;
-      letter-spacing: 1px;
+      color: #000;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
 
-  <div class="controls">
-    <label for="stepSlider">Шаг деления:</label>
-    <input type="range" id="stepSlider" min="5" max="25" value="18" step="1">
-    <span id="stepValue">18°</span>
-  </div>
-
-  <div class="timer-container">
-    <svg class="dial-svg" viewBox="0 0 340 340">
-      <path id="scaleArc" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-      <g id="ticksGroup"></g>
-    </svg>
-
-    <div class="knob-wrapper" id="knobWrapper">
-      <div class="knob" id="knob">
-        <div class="knob-mark" id="knobMark"></div>
-      </div>
-      <div class="knob-overlay" id="knobOverlay"></div>
-    </div>
-  </div>
-
-  <div class="time-display" id="timeDisplay">00:00</div>
+  <button id="startBtn">Включить светомузыку</button>
+  <canvas id="visualizer" width="500" height="500"></canvas>
 
   <script>
-    const knobWrapper = document.getElementById('knobWrapper');
-    const knob = document.getElementById('knob');
-    const knobOverlay = document.getElementById('knobOverlay');
-    const ticksGroup = document.getElementById('ticksGroup');
-    const scaleArc = document.getElementById('scaleArc');
-    const stepSlider = document.getElementById('stepSlider');
-    const stepValue = document.getElementById('stepValue');
-    const timeDisplay = document.getElementById('timeDisplay');
+    const startBtn = document.getElementById('startBtn');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
 
-    const CENTER = 170;
-    
-    // Трохи зменшені радіуси елементів шкали
-    const R_ARC = 96;
-    const R_TICK_INNER = 91;
-    const R_TICK_OUTER = 101;
-    const R_TEXT = 115;
-
-    const tickValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30];
-
-    let stepDegree = parseFloat(stepSlider.value);
-    let minuteAngles = {};
-
-    function calculateAngles() {
-      minuteAngles = {};
-      tickValues.forEach((val, idx) => {
-        minuteAngles[val] = idx * stepDegree;
-      });
-    }
-
-    function createSVG(tag, attrs) {
-      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      for (let k in attrs) el.setAttribute(k, attrs[k]);
-      return el;
-    }
-
-    function drawArc() {
-      const startAngle = minuteAngles[0] - 90;
-      const endAngle = minuteAngles[30] - 90;
-
-      const startRad = startAngle * (Math.PI / 180);
-      const endRad = endAngle * (Math.PI / 180);
-
-      const x1 = CENTER + R_ARC * Math.cos(startRad);
-      const y1 = CENTER + R_ARC * Math.sin(startRad);
-      const x2 = CENTER + R_ARC * Math.cos(endRad);
-      const y2 = CENTER + R_ARC * Math.sin(endRad);
-
-      const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
-
-      scaleArc.setAttribute('d', `M ${x1} ${y1} A ${R_ARC} ${R_ARC} 0 ${largeArc} 1 ${x2} ${y2}`);
-    }
-
-    function renderDial() {
-      calculateAngles();
-      ticksGroup.innerHTML = '';
-      drawArc();
-
-      Object.entries(minuteAngles).forEach(([minStr, angleDeg]) => {
-        const rad = (angleDeg - 90) * (Math.PI / 180);
-
-        const x1 = CENTER + R_TICK_INNER * Math.cos(rad);
-        const y1 = CENTER + R_TICK_INNER * Math.sin(rad);
-        const x2 = CENTER + R_TICK_OUTER * Math.cos(rad);
-        const y2 = CENTER + R_TICK_OUTER * Math.sin(rad);
-
-        ticksGroup.appendChild(createSVG('line', {
-          x1, y1, x2, y2,
-          stroke: '#1a1a1a',
-          'stroke-width': '2',
-          'stroke-linecap': 'round'
-        }));
-
-        const tx = CENTER + R_TEXT * Math.cos(rad);
-        const ty = CENTER + R_TEXT * Math.sin(rad);
-
-        const textEl = createSVG('text', {
-          x: tx,
-          y: ty + 4,
-          'text-anchor': 'middle',
-          'font-size': '13',
-          'font-weight': 'bold',
-          fill: '#1a1a1a'
+    startBtn.addEventListener('click', async () => {
+      try {
+        // Запрашиваем захват системного звука через захват экрана
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
         });
-        textEl.textContent = minStr;
-        ticksGroup.appendChild(textEl);
-      });
 
-      updateUI();
-    }
-
-    stepSlider.addEventListener('input', (e) => {
-      stepDegree = parseFloat(e.target.value);
-      stepValue.textContent = stepDegree + '°';
-      renderDial();
-    });
-
-    let currentMinutes = 0;
-    let timerInterval = null;
-    let isDragging = false;
-    let audioCtx = null;
-    let lastAngle = 0;
-
-    let startTime = null;
-    let initialTotalSeconds = 0;
-
-    function playBellSound() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.2);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 1.2);
-    }
-
-    function updateUI() {
-      const totalSec = Math.max(0, Math.round(currentMinutes * 60));
-      const min = Math.floor(totalSec / 60);
-      const sec = totalSec % 60;
-      timeDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-
-      let angle = 0;
-      if (currentMinutes <= 10) {
-        angle = currentMinutes * stepDegree;
-      } else {
-        angle = 10 * stepDegree + ((currentMinutes - 10) / 5) * stepDegree;
-      }
-
-      lastAngle = angle;
-      knob.style.transform = `rotate(${angle}deg)`;
-    }
-
-    function calculateAngle(e) {
-      const rect = knobWrapper.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-      let deg = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI) + 90;
-      if (deg < 0) deg += 360;
-
-      const maxAngle = (tickValues.length - 1) * stepDegree;
-      const deadZoneStart = maxAngle;
-      const deadZoneEnd = 360;
-
-      if (deg > deadZoneStart && deg < deadZoneEnd) {
-        const midPoint = deadZoneStart + (deadZoneEnd - deadZoneStart) / 2;
-        if (deg < midPoint) {
-          deg = maxAngle;
-        } else {
-          deg = 0;
+        // Проверяем, дал ли пользователь доступ к аудио
+        const audioTrack = stream.getAudioTracks()[0];
+        if (!audioTrack) {
+          alert('Ошибка: Вы не включили галочку "Общий доступ к аудио" при выборе экрана!');
+          return;
         }
-      }
 
-      if (lastAngle > maxAngle - 40 && deg < 40) {
-        deg = maxAngle;
-      } else if (lastAngle < 40 && deg > maxAngle - 40) {
-        deg = 0;
-      }
+        startBtn.style.display = 'none';
 
-      let selectedMinutes = 0;
-      if (deg <= 10 * stepDegree) {
-        selectedMinutes = deg / stepDegree;
-      } else {
-        const extraSteps = (deg - 10 * stepDegree) / stepDegree;
-        selectedMinutes = 10 + extraSteps * 5;
-      }
+        // Настройка Web Audio API
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
+        const analyser = audioCtx.createAnalyser();
 
-      currentMinutes = Math.max(0, Math.min(30, selectedMinutes));
-      updateUI();
-    }
+        analyser.fftSize = 64; // Размер массива частот
+        source.connect(analyser);
 
-    function startTimer() {
-      stopTimer();
-      if (currentMinutes > 0) {
-        initialTotalSeconds = Math.round(currentMinutes * 60);
-        startTime = Date.now();
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
 
-        timerInterval = setInterval(() => {
-          const elapsedSeconds = (Date.now() - startTime) / 1000;
-          const remainingSeconds = initialTotalSeconds - elapsedSeconds;
+        function draw() {
+          requestAnimationFrame(draw);
 
-          if (remainingSeconds > 0) {
-            currentMinutes = remainingSeconds / 60;
-            updateUI();
-          } else {
-            currentMinutes = 0;
-            updateUI();
-            stopTimer();
-            playBellSound();
+          // Получаем данные о частотах
+          analyser.getByteFrequencyData(dataArray);
+
+          // Вычисляем среднюю громкость низких частот (басы)
+          let bassSum = 0;
+          for (let i = 0; i < 5; i++) {
+            bassSum += dataArray[i];
           }
-        }, 100);
-      }
-    }
+          let bassAverage = bassSum / 5; // от 0 до 255
 
-    function stopTimer() {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    }
+          // Очищаем Canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && timerInterval && startTime) {
-        const elapsedSeconds = (Date.now() - startTime) / 1000;
-        const remainingSeconds = initialTotalSeconds - elapsedSeconds;
-        if (remainingSeconds <= 0) {
-          currentMinutes = 0;
-          updateUI();
-          stopTimer();
-          playBellSound();
-        } else {
-          currentMinutes = remainingSeconds / 60;
-          updateUI();
+          // Вычисляем радиус и цвет на основе громкости
+          const radius = 80 + (bassAverage / 255) * 120;
+          const hue = (bassAverage * 1.5) % 360; // Меняем цвет от реактивности
+
+          // Рисуем пульсирующий шар
+          ctx.beginPath();
+          ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
+          ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+          ctx.shadowBlur = radius / 2;
+          ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+          ctx.fill();
         }
+
+        draw();
+
+      } catch (err) {
+        console.error("Ошибка доступа: ", err);
       }
     });
-
-    function onPointerDown(e) {
-      isDragging = true;
-      knobOverlay.setPointerCapture(e.pointerId);
-      stopTimer();
-      calculateAngle(e);
-    }
-
-    function onPointerMove(e) {
-      if (isDragging) {
-        calculateAngle(e);
-      }
-    }
-
-    function onPointerUp(e) {
-      if (isDragging) {
-        isDragging = false;
-        try {
-          knobOverlay.releasePointerCapture(e.pointerId);
-        } catch (err) {}
-        startTimer();
-      }
-    }
-
-    knobOverlay.addEventListener('pointerdown', onPointerDown);
-    knobOverlay.addEventListener('pointermove', onPointerMove);
-    knobOverlay.addEventListener('pointerup', onPointerUp);
-    knobOverlay.addEventListener('pointercancel', onPointerUp);
-
-    renderDial();
   </script>
 </body>
 </html>
