@@ -157,10 +157,12 @@
     const timeDisplay = document.getElementById('timeDisplay');
 
     const CENTER = 170;
-    const R_ARC = 105;
-    const R_TICK_INNER = 100;
-    const R_TICK_OUTER = 110;
-    const R_TEXT = 124;
+    
+    // Трохи зменшені радіуси елементів шкали
+    const R_ARC = 96;
+    const R_TICK_INNER = 91;
+    const R_TICK_OUTER = 101;
+    const R_TEXT = 115;
 
     const tickValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30];
 
@@ -267,7 +269,6 @@
     }
 
     function updateUI() {
-      // Точный расчет минут и секунд без артефактов при переходе
       const totalSec = Math.max(0, Math.round(currentMinutes * 60));
       const min = Math.floor(totalSec / 60);
       const sec = totalSec % 60;
