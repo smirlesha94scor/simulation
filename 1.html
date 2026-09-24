@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Ультра-оптимизированная гистограмма (Low CPU)</title>
+  <title>Ультра-оптимизированная гистограмма (Широкий шаг частот)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -78,7 +78,6 @@
       height: 0%;
       background: linear-gradient(to top, #00ffcc, #0099ff, #ff0055);
       border-radius: 2px 2px 0 0;
-      /* Отключение сглаживания убирает нагрузку с процессора */
       will-change: height;
     }
 
@@ -114,9 +113,9 @@
     const barsVal = document.getElementById('barsVal');
 
     let currentBarsCount = 40;
-    let barStyles = [];       // Массив прямых ссылок на style элемента
-    let prevHeights = [];     // Кэш предыдущих высот (чтобы не перерисовывать то же самое)
-    let binIndices = [];      // Кэш подготовленных индексов частот
+    let barStyles = [];
+    let prevHeights = [];
+    let binIndices = [];
     let sampleRate = 44100;
 
     let lastTime = performance.now();
@@ -126,12 +125,13 @@
       return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + '';
     }
 
-    // Предварительный расчет логарифмической сетки индексов
+    // Увеличенный шаг распределения частот
     function updateBinIndices(count, totalBins) {
       binIndices = new Int32Array(count);
       for (let i = 0; i < count; i++) {
-        const logPercent = Math.pow(i / count, 1.8);
-        binIndices[i] = Math.floor(logPercent * (totalBins * 0.75));
+        // Коэффициент 1.2 дает более широкий и размашистый шаг
+        const logPercent = Math.pow(i / (count - 1), 1.2);
+        binIndices[i] = 1 + Math.floor(logPercent * (totalBins * 0.9 - 1));
       }
     }
 
@@ -145,7 +145,7 @@
 
       updateBinIndices(count, totalBins);
 
-      const fragment = document.createDocumentFragment(); // Использование fragment снижает нагрузку на DOM
+      const fragment = document.createDocumentFragment();
 
       for (let i = 0; i < count; i++) {
         const itemWrapper = document.createElement('div');
@@ -165,7 +165,7 @@
         itemWrapper.appendChild(label);
         fragment.appendChild(itemWrapper);
 
-        barStyles.push(bar.style); // Прямая ссылка на объект style
+        barStyles.push(bar.style);
       }
 
       equalizer.appendChild(fragment);
@@ -193,8 +193,7 @@
         const analyser = audioCtx.createAnalyser();
 
         analyser.fftSize = 512;
-        // Отключение сглаживания в самом Web Audio API экономит CPU
-        analyser.smoothingTimeConstant = 0; 
+        analyser.smoothingTimeConstant = 0;
         
         source.connect(analyser);
 
@@ -204,7 +203,6 @@
         function render() {
           requestAnimationFrame(render);
 
-          // 1. Измерение FPS
           const now = performance.now();
           frameCount++;
           if (now - lastTime >= 1000) {
@@ -222,14 +220,12 @@
             }
           }
 
-          // 2. Ультра-быстрый цикл рендеринга
           analyser.getByteFrequencyData(dataArray);
 
           for (let i = 0; i < currentBarsCount; i++) {
             const value = dataArray[binIndices[i]];
-            const percent = (value * 0.3921568) | 0; // Быстрое деление (value / 255 * 100) через битовую операцию
+            const percent = (value * 0.3921568) | 0;
 
-            // Изменяем DOM только если значение высоты действительно изменилось
             if (percent !== prevHeights[i]) {
               barStyles[i].height = percent + '%';
               prevHeights[i] = percent;
