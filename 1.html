@@ -14,7 +14,7 @@
     html, body {
       width: 100%;
       height: 100%;
-      overflow: hidden; /* Запрещаем прокрутку страницы */
+      overflow: hidden;
       background-color: #0d1117;
       color: #e2e8f0;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -52,7 +52,7 @@
     canvas {
       width: 100%;
       height: 100%;
-      object-fit: contain; /* Обеспечивает полное размещение чертежа без обрезки */
+      object-fit: contain;
       display: block;
     }
 
@@ -113,7 +113,7 @@
 <div class="app-wrapper">
   <div class="board-container">
     <div class="hud" id="hud">BM = ?</div>
-    <canvas id="geometryCanvas" width="800" height="500"></canvas>
+    <canvas id="geometryCanvas" width="800" height="520"></canvas>
   </div>
   
   <div class="controls">
@@ -218,20 +218,21 @@
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Точки оригинального чертежа
-    const A = { x: 120, y: 350 };
-    const C = { x: 680, y: 350 };
-    const M = { x: (A.x + C.x) / 2, y: 350 };
-    const B = { x: 310, y: 150 };
+    // Сдвигаем базовую горизонтальную линию AC вверх до y=290, 
+    // чтобы при удвоении медианы точка D (y ≈ 470) не выходила за рамку (height=520)
+    const A = { x: 130, y: 290 };
+    const C = { x: 670, y: 290 };
+    const M = { x: (A.x + C.x) / 2, y: 290 };
+    const B = { x: 310, y: 110 };
 
-    // Точка D (удвоение медианы)
+    // Точка D (удвоение медианы: D = 2M - B)
     const D = {
-      x: 2 * M.x - B.x,
-      y: 2 * M.y - B.y
+      x: 2 * M.x - B.x, // 2*400 - 310 = 490
+      y: 2 * M.y - B.y  // 2*290 - 110 = 470 (отлично помещается!)
     };
 
-    // Надпись сверху
-    drawText('BM = ?', 360, 55, '#ffffff', 28);
+    // Заголовок сверху
+    drawText('BM = ?', 360, 48, '#ffffff', 28);
 
     // Треугольник ABC
     drawChalkLine(A.x, A.y, B.x, B.y, '#ffffff', 3);
@@ -243,11 +244,11 @@
     drawTicks(A.x, A.y, M.x, M.y);
     drawTicks(M.x, M.y, C.x, C.y);
 
-    // Вершины
-    drawText('A', A.x - 22, A.y + 10, '#ffffff', 24);
+    // Подписи вершин
+    drawText('A', A.x - 22, A.y + 8, '#ffffff', 24);
     drawText('B', B.x - 6, B.y - 12, '#ffffff', 24);
-    drawText('C', C.x + 10, C.y + 10, '#ffffff', 24);
-    drawText('M', M.x - 8, M.y + 28, '#ffffff', 24);
+    drawText('C', C.x + 10, C.y + 8, '#ffffff', 24);
+    drawText('M', M.x - 8, M.y + 26, '#ffffff', 24);
 
     // Значения
     drawText('18', (B.x + C.x)/2 + 18, (B.y + C.y)/2 - 8, '#ffffff', 24);
@@ -261,13 +262,13 @@
     drawAngleArc(B.x, B.y, 42, angleBM, angleBA, '73°', '#facc15');
     drawAngleArc(B.x, B.y, 38, angleBC, angleBM, '34°', '#facc15');
 
-    // Параллелограмм
+    // Достроение до параллелограмма
     if (showParallelogram) {
       drawChalkLine(M.x, M.y, D.x, D.y, '#38bdf8', 2.5, true);
       drawChalkLine(C.x, C.y, D.x, D.y, '#38bdf8', 2.5, true);
       drawChalkLine(A.x, A.y, D.x, D.y, '#38bdf8', 2.5, true);
 
-      drawText('D', D.x - 8, D.y + 28, '#38bdf8', 24);
+      drawText('D', D.x + 10, D.y + 10, '#38bdf8', 24);
       drawText('x', (M.x + D.x)/2 + 10, (M.y + D.y)/2, '#38bdf8', 22);
       drawText('18', (A.x + D.x)/2 - 32, (A.y + D.y)/2 + 8, '#38bdf8', 22);
 
@@ -276,11 +277,11 @@
       hud.innerText = 'BM = ?';
     }
 
-    // Равные углы (73°)
+    // Подсветка равных углов (73°)
     if (showEqualAngles) {
       const angleAB = Math.atan2(B.y - A.y, B.x - A.x);
       const angleAD = Math.atan2(D.y - A.y, D.x - A.x);
-      drawAngleArc(A.x, A.y, 42, angleAD, angleAB, '73°', '#4ade80');
+      drawAngleArc(A.x, A.y, 38, angleAD, angleAB, '73°', '#4ade80');
     }
   }
 
