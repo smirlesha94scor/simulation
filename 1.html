@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Задачник — Медиана BM</title>
+  <title>Задачник — Полный анализ решения медианы BM</title>
   <style>
     * {
       box-sizing: border-box;
@@ -31,14 +31,15 @@
       align-items: center;
       justify-content: space-between;
       padding: 12px;
+      gap: 8px;
     }
 
     .board-container {
       position: relative;
       flex: 1;
       width: 100%;
-      max-width: 900px;
-      max-height: calc(100vh - 80px);
+      max-width: 960px;
+      max-height: calc(100vh - 120px);
       background: #19231f;
       border: 8px solid #422817;
       border-radius: 12px;
@@ -56,39 +57,63 @@
       display: block;
     }
 
-    .hud {
+    .hud-box {
       position: absolute;
       top: 12px;
       right: 12px;
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.9);
       border: 1px solid rgba(255,255,255,0.15);
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 16px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 15px;
       font-weight: 600;
       color: #38bdf8;
       backdrop-filter: blur(4px);
       pointer-events: none;
+      max-width: 300px;
+      text-align: right;
+    }
+
+    .analysis-panel {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: #f8fafc;
+      backdrop-filter: blur(4px);
+    }
+
+    .analysis-title {
+      font-weight: 700;
+      color: #facc15;
+      margin-bottom: 4px;
+      font-size: 15px;
     }
 
     .controls {
-      height: 56px;
       display: flex;
-      gap: 12px;
+      gap: 8px;
       align-items: center;
       justify-content: center;
       width: 100%;
-      max-width: 900px;
+      max-width: 960px;
+      flex-wrap: wrap;
     }
 
     button {
       background: #23332c;
       color: #e2e8f0;
       border: 1px solid #3b574b;
-      padding: 10px 18px;
-      border-radius: 8px;
+      padding: 8px 14px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       transition: all 0.2s ease;
       user-select: none;
@@ -104,7 +129,7 @@
       color: #0f172a;
       font-weight: 700;
       border-color: #38bdf8;
-      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
     }
   </style>
 </head>
@@ -112,13 +137,21 @@
 
 <div class="app-wrapper">
   <div class="board-container">
-    <div class="hud" id="hud">BM = ?</div>
+    <div class="hud-box" id="hud">BM = ?</div>
     <canvas id="geometryCanvas" width="800" height="520"></canvas>
+    
+    <div class="analysis-panel" id="analysisPanel">
+      <div class="analysis-title" id="stepTitle">Шаг 0: Условие задачи</div>
+      <div id="stepDesc">Дано: △ABC, медиана BM (AM=MC), ∠ABM=73°, ∠CBM=34°, BC=18. Найти: BM = x.</div>
+    </div>
   </div>
   
   <div class="controls">
-    <button id="toggleParallelogramBtn" onclick="toggleParallelogram()">Достроить до параллелограмма</button>
-    <button id="toggleAnglesBtn" onclick="toggleAngles()">Подсветить равные углы (73°)</button>
+    <button id="btnStep0" class="active" onclick="setStep(0)">0. Условие</button>
+    <button id="btnStep1" onclick="setStep(1)">1. Параллелограмм</button>
+    <button id="btnStep2" onclick="setStep(2)">2. Углы (73° и 34°)</button>
+    <button id="btnStep3" onclick="setStep(3)">3. Равнобедренный △ABD</button>
+    <button id="btnStep4" onclick="setStep(4)">4. Итог: x = 9</button>
   </div>
 </div>
 
@@ -126,27 +159,47 @@
   const canvas = document.getElementById('geometryCanvas');
   const ctx = canvas.getContext('2d');
   const hud = document.getElementById('hud');
+  const stepTitle = document.getElementById('stepTitle');
+  const stepDesc = document.getElementById('stepDesc');
 
-  let showParallelogram = false;
-  let showEqualAngles = false;
+  let currentStep = 0;
 
-  function toggleParallelogram() {
-    showParallelogram = !showParallelogram;
-    document.getElementById('toggleParallelogramBtn').classList.toggle('active', showParallelogram);
-    if (!showParallelogram && showEqualAngles) {
-      showEqualAngles = false;
-      document.getElementById('toggleAnglesBtn').classList.remove('active');
+  const stepsInfo = [
+    {
+      title: "Шаг 0: Анализ условия задачи",
+      desc: "Дано: △ABC с медианой BM (AM = MC). Углы при вершине B равны 73° и 34°. Длина стороны BC = 18. Требуется найти BM = x.",
+      hud: "BM = ?"
+    },
+    {
+      title: "Шаг 1: Метод удвоения медианы",
+      desc: "Продлеваем BM за точку M на расстояние MD = x. Четырехугольник ABDC — параллелограмм (диагонали AC и BD делятся пополам). Отсюда AD = BC = 18.",
+      hud: "AD = BC = 18"
+    },
+    {
+      title: "Шаг 2: Анализ углов параллелограмма",
+      desc: "1) Накрест лежащие углы: ∠ADB = ∠CBM = 34°.<br>2) Сумма соседних углов 180°: ∠BAD = 180° - (73° + 34°) = 73°.",
+      hud: "∠BAD = 73°"
+    },
+    {
+      title: "Шаг 3: Равнобедренный треугольник △ABD",
+      desc: "В △ABD углы при основании AB равны: ∠ABD = 73° и ∠BAD = 73°! Следовательно, △ABD — равнобедренный, и BD = AD = 18.",
+      hud: "BD = AD = 18"
+    },
+    {
+      title: "Шаг 4: Вычисление медианы BM",
+      desc: "Так как вся диагональ BD = 18, а BD состоит из двух равных отрезков 2x (BM + MD), то 2x = 18  ⇒  x = 9.",
+      hud: "2x = 18  ⇒  x = 9"
     }
-    draw();
-  }
+  ];
 
-  function toggleAngles() {
-    showEqualAngles = !showEqualAngles;
-    document.getElementById('toggleAnglesBtn').classList.toggle('active', showEqualAngles);
-    if (showEqualAngles && !showParallelogram) {
-      showParallelogram = true;
-      document.getElementById('toggleParallelogramBtn').classList.add('active');
+  function setStep(step) {
+    currentStep = step;
+    for (let i = 0; i <= 4; i++) {
+      document.getElementById(`btnStep${i}`).classList.toggle('active', i === step);
     }
+    stepTitle.innerText = stepsInfo[step].title;
+    stepDesc.innerHTML = stepsInfo[step].desc;
+    hud.innerText = stepsInfo[step].hud;
     draw();
   }
 
@@ -176,7 +229,7 @@
   function drawAngleArc(cx, cy, radius, startAngle, endAngle, label = '', color = '#facc15') {
     ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, endAngle);
     ctx.stroke();
@@ -218,24 +271,24 @@
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Сдвигаем базовую горизонтальную линию AC вверх до y=290, 
-    // чтобы при удвоении медианы точка D (y ≈ 470) не выходила за рамку (height=520)
-    const A = { x: 130, y: 290 };
-    const C = { x: 670, y: 290 };
-    const M = { x: (A.x + C.x) / 2, y: 290 };
-    const B = { x: 310, y: 110 };
+    // Точки вершины треугольника
+    const A = { x: 130, y: 260 };
+    const C = { x: 670, y: 260 };
+    const M = { x: (A.x + C.x) / 2, y: 260 }; // M = (400, 260)
+    const B = { x: 310, y: 90 };
 
-    // Точка D (удвоение медианы: D = 2M - B)
+    // Точка D (удвоенная медиана: D = 2M - B = 490, 430)
     const D = {
-      x: 2 * M.x - B.x, // 2*400 - 310 = 490
-      y: 2 * M.y - B.y  // 2*290 - 110 = 470 (отлично помещается!)
+      x: 2 * M.x - B.x,
+      y: 2 * M.y - B.y
     };
 
-    // Заголовок сверху
-    drawText('BM = ?', 360, 48, '#ffffff', 28);
+    // Главная надпись на доске
+    drawText('BM = ?', 360, 42, '#ffffff', 26);
 
-    // Треугольник ABC
-    drawChalkLine(A.x, A.y, B.x, B.y, '#ffffff', 3);
+    // 1. Исходный треугольник ABC
+    const isABHighlight = currentStep >= 3;
+    drawChalkLine(A.x, A.y, B.x, B.y, isABHighlight ? '#4ade80' : '#ffffff', isABHighlight ? 4 : 3);
     drawChalkLine(B.x, B.y, C.x, C.y, '#ffffff', 3);
     drawChalkLine(A.x, A.y, C.x, C.y, '#ffffff', 3);
     drawChalkLine(B.x, B.y, M.x, M.y, '#ffffff', 3);
@@ -244,47 +297,52 @@
     drawTicks(A.x, A.y, M.x, M.y);
     drawTicks(M.x, M.y, C.x, C.y);
 
-    // Подписи вершин
-    drawText('A', A.x - 22, A.y + 8, '#ffffff', 24);
+    // Буквенные обозначения
+    drawText('A', A.x - 24, A.y + 8, '#ffffff', 24);
     drawText('B', B.x - 6, B.y - 12, '#ffffff', 24);
     drawText('C', C.x + 10, C.y + 8, '#ffffff', 24);
     drawText('M', M.x - 8, M.y + 26, '#ffffff', 24);
 
-    // Значения
+    // Подписи сторон и медианы
     drawText('18', (B.x + C.x)/2 + 18, (B.y + C.y)/2 - 8, '#ffffff', 24);
     drawText('x', (B.x + M.x)/2 + 10, (B.y + M.y)/2, '#ffffff', 22);
 
-    // Углы при B
+    // Углы при вершине B (73° и 34°)
     const angleBA = Math.atan2(A.y - B.y, A.x - B.x);
     const angleBM = Math.atan2(M.y - B.y, M.x - B.x);
     const angleBC = Math.atan2(C.y - B.y, C.x - B.x);
 
-    drawAngleArc(B.x, B.y, 42, angleBM, angleBA, '73°', '#facc15');
+    drawAngleArc(B.x, B.y, 42, angleBM, angleBA, '73°', currentStep >= 3 ? '#4ade80' : '#facc15');
     drawAngleArc(B.x, B.y, 38, angleBC, angleBM, '34°', '#facc15');
 
-    // Достроение до параллелограмма
-    if (showParallelogram) {
+    // 2. Отображение достроения до параллелограмма (Шаг >= 1)
+    if (currentStep >= 1) {
       drawChalkLine(M.x, M.y, D.x, D.y, '#38bdf8', 2.5, true);
       drawChalkLine(C.x, C.y, D.x, D.y, '#38bdf8', 2.5, true);
-      drawChalkLine(A.x, A.y, D.x, D.y, '#38bdf8', 2.5, true);
+      
+      const isADHighlight = currentStep >= 3;
+      drawChalkLine(A.x, A.y, D.x, D.y, isADHighlight ? '#4ade80' : '#38bdf8', isADHighlight ? 3.5 : 2.5, true);
 
       drawText('D', D.x + 10, D.y + 10, '#38bdf8', 24);
       drawText('x', (M.x + D.x)/2 + 10, (M.y + D.y)/2, '#38bdf8', 22);
-      drawText('18', (A.x + D.x)/2 - 32, (A.y + D.y)/2 + 8, '#38bdf8', 22);
-
-      hud.innerText = '2x = 18  ⇒  x = 9';
-    } else {
-      hud.innerText = 'BM = ?';
+      drawText('18', (A.x + D.x)/2 - 32, (A.y + D.y)/2 + 8, isADHighlight ? '#4ade80' : '#38bdf8', 22);
     }
 
-    // Подсветка равных углов (73°)
-    if (showEqualAngles) {
-      const angleAB = Math.atan2(B.y - A.y, B.x - A.x);
-      const angleAD = Math.atan2(D.y - A.y, D.x - A.x);
-      drawAngleArc(A.x, A.y, 38, angleAD, angleAB, '73°', '#4ade80');
+    // 3. Отображение углов параллелограмма (Шаг >= 2)
+    if (currentStep >= 2) {
+      // Подсветка угла BAD = 73° (точно между лучами AB и AD)
+      const angleAB_fromA = Math.atan2(B.y - A.y, B.x - A.x);
+      const angleAD_fromA = Math.atan2(D.y - A.y, D.x - A.x);
+      drawAngleArc(A.x, A.y, 40, angleAB_fromA, angleAD_fromA, '73°', '#4ade80');
+
+      // Накрест лежащий угол ADB = 34°
+      const angleDA_fromD = Math.atan2(A.y - D.y, A.x - D.x);
+      const angleDB_fromD = Math.atan2(B.y - D.y, B.x - D.x);
+      drawAngleArc(D.x, D.y, 40, angleDB_fromD, angleDA_fromD, '34°', '#38bdf8');
     }
   }
 
+  // Запуск
   draw();
 </script>
 
