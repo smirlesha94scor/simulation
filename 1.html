@@ -3,94 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Чертёж задачи с доски</title>
+  <title>Задачник — Медиана BM</title>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    body {
-      background-color: #121820;
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* Запрещаем прокрутку страницы */
+      background-color: #0d1117;
       color: #e2e8f0;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .app-wrapper {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
+      justify-content: space-between;
+      padding: 12px;
     }
+
     .board-container {
       position: relative;
-      background: #1e2925;
-      border: 12px solid #5c3a21;
-      border-radius: 12px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 100px rgba(0,0,0,0.5);
-      padding: 10px;
+      flex: 1;
+      width: 100%;
       max-width: 900px;
-      width: 100%;
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: auto;
-      background: transparent;
-    }
-    .controls {
+      max-height: calc(100vh - 80px);
+      background: #19231f;
+      border: 8px solid #422817;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7), inset 0 0 80px rgba(0,0,0,0.6);
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
       justify-content: center;
-      margin-top: 15px;
-      padding: 10px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 8px;
+      align-items: center;
+      overflow: hidden;
     }
-    button {
-      background: #2b3d36;
-      color: #e2e8f0;
-      border: 1px solid #4a6b5d;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s ease;
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* Обеспечивает полное размещение чертежа без обрезки */
+      display: block;
     }
-    button:hover {
-      background: #3b5249;
-      border-color: #628c7b;
-    }
-    button.active {
-      background: #4ade80;
-      color: #0f172a;
-      font-weight: bold;
-      border-color: #4ade80;
-    }
+
     .hud {
       position: absolute;
-      top: 25px;
-      right: 25px;
+      top: 12px;
+      right: 12px;
       background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(255,255,255,0.1);
-      padding: 10px 18px;
-      border-radius: 8px;
-      font-size: 18px;
-      font-weight: bold;
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
       color: #38bdf8;
       backdrop-filter: blur(4px);
+      pointer-events: none;
+    }
+
+    .controls {
+      height: 56px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    button {
+      background: #23332c;
+      color: #e2e8f0;
+      border: 1px solid #3b574b;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    button:hover {
+      background: #2f453c;
+      border-color: #527a6a;
+    }
+
+    button.active {
+      background: #38bdf8;
+      color: #0f172a;
+      font-weight: 700;
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
     }
   </style>
 </head>
 <body>
 
-<div class="board-container">
-  <div class="hud" id="hud">BM = ?</div>
-  <canvas id="geometryCanvas" width="800" height="520"></canvas>
+<div class="app-wrapper">
+  <div class="board-container">
+    <div class="hud" id="hud">BM = ?</div>
+    <canvas id="geometryCanvas" width="800" height="500"></canvas>
+  </div>
   
   <div class="controls">
     <button id="toggleParallelogramBtn" onclick="toggleParallelogram()">Достроить до параллелограмма</button>
-    <button id="toggleAnglesBtn" onclick="toggleAngles()">Подсветить равные углы</button>
+    <button id="toggleAnglesBtn" onclick="toggleAngles()">Подсветить равные углы (73°)</button>
   </div>
 </div>
 
@@ -105,12 +133,20 @@
   function toggleParallelogram() {
     showParallelogram = !showParallelogram;
     document.getElementById('toggleParallelogramBtn').classList.toggle('active', showParallelogram);
+    if (!showParallelogram && showEqualAngles) {
+      showEqualAngles = false;
+      document.getElementById('toggleAnglesBtn').classList.remove('active');
+    }
     draw();
   }
 
   function toggleAngles() {
     showEqualAngles = !showEqualAngles;
     document.getElementById('toggleAnglesBtn').classList.toggle('active', showEqualAngles);
+    if (showEqualAngles && !showParallelogram) {
+      showParallelogram = true;
+      document.getElementById('toggleParallelogramBtn').classList.add('active');
+    }
     draw();
   }
 
@@ -129,10 +165,10 @@
     ctx.restore();
   }
 
-  function drawText(text, x, y, color = '#ffffff', size = 22, font = 'Comic Sans MS, cursive, sans-serif') {
+  function drawText(text, x, y, color = '#ffffff', size = 22) {
     ctx.save();
     ctx.fillStyle = color;
-    ctx.font = `${size}px ${font}`;
+    ctx.font = `500 ${size}px 'Comic Sans MS', cursive, sans-serif`;
     ctx.fillText(text, x, y);
     ctx.restore();
   }
@@ -147,9 +183,9 @@
 
     if (label) {
       const midAngle = (startAngle + endAngle) / 2;
-      const lx = cx + (radius + 18) * Math.cos(midAngle);
-      const ly = cy + (radius + 18) * Math.sin(midAngle);
-      drawText(label, lx - 10, ly + 6, color, 18);
+      const lx = cx + (radius + 16) * Math.cos(midAngle);
+      const ly = cy + (radius + 16) * Math.sin(midAngle);
+      drawText(label, lx - 12, ly + 6, color, 16);
     }
     ctx.restore();
   }
@@ -163,14 +199,13 @@
     const nx = -dy / len;
     const ny = dx / len;
 
-    const tickLen = 8;
-    const gap = 4;
+    const tickLen = 7;
+    const gap = 3.5;
 
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
 
-    // Двойная засечка
     ctx.beginPath();
     ctx.moveTo(mx + nx * tickLen - (dx/len)*gap, my + ny * tickLen - (dy/len)*gap);
     ctx.lineTo(mx - nx * tickLen - (dx/len)*gap, my - ny * tickLen - (dy/len)*gap);
@@ -181,89 +216,74 @@
   }
 
   function draw() {
-    // Очистка доски
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Координаты вершин оригинального треугольника с доски
-    const A = { x: 120, y: 380 };
-    const C = { x: 680, y: 380 };
-    const M = { x: (A.x + C.x) / 2, y: 380 }; // M - середина AC (400, 380)
+    // Точки оригинального чертежа
+    const A = { x: 120, y: 350 };
+    const C = { x: 680, y: 350 };
+    const M = { x: (A.x + C.x) / 2, y: 350 };
+    const B = { x: 310, y: 150 };
 
-    // Положение вершины B
-    const B = { x: 310, y: 170 };
-
-    // Точка D (удвоение медианы BM: D = M + (M - B))
+    // Точка D (удвоение медианы)
     const D = {
       x: 2 * M.x - B.x,
       y: 2 * M.y - B.y
     };
 
-    // 1. Отрезок BM=? вверху доски
-    drawText('BM = ?', 350, 60, '#ffffff', 32);
+    // Надпись сверху
+    drawText('BM = ?', 360, 55, '#ffffff', 28);
 
-    // 2. Стороны треугольника ABC
-    drawChalkLine(A.x, A.y, B.x, B.y, '#ffffff', 3.5); // AB
-    drawChalkLine(B.x, B.y, C.x, C.y, '#ffffff', 3.5); // BC
-    drawChalkLine(A.x, A.y, C.x, C.y, '#ffffff', 3.5); // AC
-    drawChalkLine(B.x, B.y, M.x, M.y, '#ffffff', 3.5); // BM (Медиана)
+    // Треугольник ABC
+    drawChalkLine(A.x, A.y, B.x, B.y, '#ffffff', 3);
+    drawChalkLine(B.x, B.y, C.x, C.y, '#ffffff', 3);
+    drawChalkLine(A.x, A.y, C.x, C.y, '#ffffff', 3);
+    drawChalkLine(B.x, B.y, M.x, M.y, '#ffffff', 3);
 
-    // Засечки на AM и MC
+    // Засечки равенства AM = MC
     drawTicks(A.x, A.y, M.x, M.y);
     drawTicks(M.x, M.y, C.x, C.y);
 
-    // Подписи вершин
-    drawText('A', A.x - 25, A.y + 10, '#ffffff', 26);
-    drawText('B', B.x - 8, B.y - 15, '#ffffff', 26);
-    drawText('C', C.x + 10, C.y + 10, '#ffffff', 26);
-    drawText('M', M.x - 8, M.y + 30, '#ffffff', 26);
+    // Вершины
+    drawText('A', A.x - 22, A.y + 10, '#ffffff', 24);
+    drawText('B', B.x - 6, B.y - 12, '#ffffff', 24);
+    drawText('C', C.x + 10, C.y + 10, '#ffffff', 24);
+    drawText('M', M.x - 8, M.y + 28, '#ffffff', 24);
 
-    // Числовые данные задачи с доски
-    drawText('18', (B.x + C.x)/2 + 20, (B.y + C.y)/2 - 10, '#ffffff', 26); // BC = 18
-    drawText('x', (B.x + M.x)/2 + 12, (B.y + M.y)/2, '#ffffff', 24);      // BM = x
+    // Значения
+    drawText('18', (B.x + C.x)/2 + 18, (B.y + C.y)/2 - 8, '#ffffff', 24);
+    drawText('x', (B.x + M.x)/2 + 10, (B.y + M.y)/2, '#ffffff', 22);
 
-    // Вычисление углов для дуг при вершине B
+    // Углы при B
     const angleBA = Math.atan2(A.y - B.y, A.x - B.x);
     const angleBM = Math.atan2(M.y - B.y, M.x - B.x);
     const angleBC = Math.atan2(C.y - B.y, C.x - B.x);
 
-    // Дуги углов при B (73° и 34°)
-    drawAngleArc(B.x, B.y, 45, angleBM, angleBA, '73°', '#facc15');
-    drawAngleArc(B.x, B.y, 40, angleBC, angleBM, '34°', '#facc15');
+    drawAngleArc(B.x, B.y, 42, angleBM, angleBA, '73°', '#facc15');
+    drawAngleArc(B.x, B.y, 38, angleBC, angleBM, '34°', '#facc15');
 
-    // 3. Построение параллелограмма ABDC (при нажатии)
+    // Параллелограмм
     if (showParallelogram) {
-      drawChalkLine(M.x, M.y, D.x, D.y, '#38bdf8', 3, true); // Продление BM до D
-      drawChalkLine(C.x, C.y, D.x, D.y, '#38bdf8', 3, true); // CD
-      drawChalkLine(A.x, A.y, D.x, D.y, '#38bdf8', 3, true); // AD
+      drawChalkLine(M.x, M.y, D.x, D.y, '#38bdf8', 2.5, true);
+      drawChalkLine(C.x, C.y, D.x, D.y, '#38bdf8', 2.5, true);
+      drawChalkLine(A.x, A.y, D.x, D.y, '#38bdf8', 2.5, true);
 
-      drawText('D', D.x - 8, D.y + 30, '#38bdf8', 26);
-      drawText('x', (M.x + D.x)/2 + 12, (M.y + D.y)/2, '#38bdf8', 24);
-      drawText('18', (A.x + D.x)/2 - 35, (A.y + D.y)/2 + 10, '#38bdf8', 24); // AD = BC = 18
+      drawText('D', D.x - 8, D.y + 28, '#38bdf8', 24);
+      drawText('x', (M.x + D.x)/2 + 10, (M.y + D.y)/2, '#38bdf8', 22);
+      drawText('18', (A.x + D.x)/2 - 32, (A.y + D.y)/2 + 8, '#38bdf8', 22);
 
-      hud.innerText = 'BM = 9 (так как 2x = 18)';
+      hud.innerText = '2x = 18  ⇒  x = 9';
     } else {
       hud.innerText = 'BM = ?';
     }
 
-    // 4. Подсветка равных углов 73°
+    // Равные углы (73°)
     if (showEqualAngles) {
-      if (!showParallelogram) {
-        toggleParallelogram();
-        return;
-      }
-      // Угол BAD = 73°
       const angleAB = Math.atan2(B.y - A.y, B.x - A.x);
       const angleAD = Math.atan2(D.y - A.y, D.x - A.x);
-      drawAngleArc(A.x, A.y, 45, angleAD, angleAB, '73°', '#4ade80');
-
-      // Угол ADB = 34°
-      const angleDA = Math.atan2(A.y - D.y, A.x - D.x);
-      const angleDB = Math.atan2(B.y - D.y, B.x - D.x);
-      drawAngleArc(D.x, D.y, 45, angleDB, angleDA, '34°', '#4ade80');
+      drawAngleArc(A.x, A.y, 42, angleAD, angleAB, '73°', '#4ade80');
     }
   }
 
-  // Первоначальная отрисовка
   draw();
 </script>
 
