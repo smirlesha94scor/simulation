@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Ультра-легкая гистограмма (Low CPU)</title>
+  <title>Гистограмма (Min 30 FPS Target)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -73,7 +73,6 @@
       align-items: center;
     }
 
-    /* Простой сплошной цвет вместо тяжелого CSS-градиента */
     .bar {
       width: 100%;
       height: 0%;
@@ -113,7 +112,7 @@
     const fpsVal = document.getElementById('fpsVal');
     const barsVal = document.getElementById('barsVal');
 
-    let currentBarsCount = 24; // Оптимальный старт
+    let currentBarsCount = 24;
     let barStyles = [];
     let prevRenderedHeights = [];
     let binIndices = [];
@@ -121,7 +120,7 @@
 
     let lastTime = performance.now();
     let frameCount = 0;
-    let renderToggle = false; // Для пропуска кадров
+    let renderToggle = false;
 
     function formatFrequency(hz) {
       return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + '';
@@ -141,7 +140,7 @@
       prevRenderedHeights = new Float32Array(count);
       
       const nyquist = sampleRate / 2;
-      const totalBins = 128; // fftSize = 256 дает меньше нагрузку на обработку данных
+      const totalBins = 128;
 
       updateBinIndices(count, totalBins);
 
@@ -192,8 +191,8 @@
         const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
         const analyser = audioCtx.createAnalyser();
 
-        analyser.fftSize = 256; // Уменьшенный размер массива снижает нагрузку на CPU
-        analyser.smoothingTimeConstant = 0.75; // Легкое сглаживание средствами браузера
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
         
         source.connect(analyser);
 
@@ -203,7 +202,17 @@
         function render() {
           requestAnimationFrame(render);
 
-          // 1. Измерение FPS
+          analyser.getByteFrequencyData(dataArray);
+
+          // Определение средней громкости
+          let totalVolume = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            totalVolume += dataArray[i];
+          }
+          const avgVolume = totalVolume / dataArray.length;
+          const hasAudio = avgVolume > 5;
+
+          // 1. Измерение FPS (Ориентир — удерживать минимум 30 FPS)
           const now = performance.now();
           frameCount++;
           if (now - lastTime >= 1000) {
@@ -212,21 +221,23 @@
             frameCount = 0;
             lastTime = now;
 
-            if (currentFps < 40 && currentBarsCount > 6) {
+            // Если FPS падает ниже 32 при играющем звуке — плавно оптимизируем (-1 столбец)
+            if (currentFps < 32 && currentBarsCount > 12 && hasAudio) {
               fpsVal.className = 'fps-bad';
-              currentBarsCount -= 2; // Уменьшаем интенсивнее при просадке
+              currentBarsCount--;
               rebuildBars(currentBarsCount);
-            } else {
+            } else if (currentFps >= 30) {
               fpsVal.className = 'fps-good';
+            } else {
+              fpsVal.className = 'fps-bad';
             }
           }
 
-          // 2. Пропуск каждого 2-го кадра для снятия нагрузки с процессора
+          // 2. Пропуск каждого второго кадра
           renderToggle = !renderToggle;
           if (renderToggle) return;
 
-          analyser.getByteFrequencyData(dataArray);
-
+          // 3. Рендеринг
           for (let i = 0; i < currentBarsCount; i++) {
             const val = (dataArray[binIndices[i]] * 0.3921568) | 0;
 
