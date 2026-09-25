@@ -341,46 +341,6 @@
         </div>
     </div>
 
-    <!-- Audio FX Synthesizer -->
-    <script>
-        class SoundFX {
-            constructor() { this.ctx = null; }
-            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
-            click() {
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.05);
-                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.05);
-            }
-            success() {
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now);
-                osc.frequency.setValueAtTime(659.25, now + 0.1);
-                osc.frequency.setValueAtTime(783.99, now + 0.2);
-                osc.frequency.setValueAtTime(1046.50, now + 0.3);
-                gain.gain.setValueAtTime(0.15, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(now + 0.6);
-            }
-        }
-        const sfx = new SoundFX();
-    </script>
-
     <!-- Main Logic Script -->
     <script>
         // --- PLC STATE & MEMORY ---
@@ -627,14 +587,12 @@
         const tutorialBar = document.getElementById('tutorial-bar');
         
         function startTutorial() {
-            sfx.click();
             currentTutStep = 0;
             tutorialBar.classList.remove('hidden');
             renderTutorialStep();
         }
 
         function renderTutorialStep() {
-            // Remove previous highlights
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
 
             const step = TUTORIAL_STEPS[currentTutStep];
@@ -652,7 +610,6 @@
             if (tutorialBar.classList.contains('hidden')) return;
             const step = TUTORIAL_STEPS[currentTutStep];
             if (step && step.validate()) {
-                sfx.success();
                 if (currentTutStep < TUTORIAL_STEPS.length - 1) {
                     currentTutStep++;
                     renderTutorialStep();
@@ -683,7 +640,7 @@
 
         // --- THEORY MODAL ---
         const theoryModal = document.getElementById('theory-modal');
-        document.getElementById('btn-open-theory').onclick = () => { sfx.click(); theoryModal.classList.remove('hidden'); };
+        document.getElementById('btn-open-theory').onclick = () => { theoryModal.classList.remove('hidden'); };
         document.getElementById('btn-close-theory').onclick = () => theoryModal.classList.add('hidden');
         document.getElementById('btn-close-theory-2').onclick = () => theoryModal.classList.add('hidden');
 
@@ -694,7 +651,6 @@
         const modalAddress = document.getElementById('modal-address');
 
         function openEditModal(rungId, targetType, index) {
-            sfx.click();
             editingTarget = { rungId, targetType, index };
             
             modalAddress.innerHTML = '';
@@ -722,7 +678,6 @@
         }
 
         document.getElementById('modal-save-btn').onclick = () => {
-            sfx.click();
             if (!editingTarget) return;
             const rung = PLC.rungs.find(r => r.id === editingTarget.rungId);
             if (editingTarget.targetType === 'item') {
@@ -742,15 +697,12 @@
 
         // --- CONTROLS ---
         document.getElementById('btn-run').onclick = () => {
-            sfx.init();
-            sfx.click();
             PLC.running = true;
             document.getElementById('plc-status-badge').className = "inline-flex items-center gap-1 text-xs font-bold text-emerald-400";
             document.getElementById('plc-status-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> RUN`;
         };
 
         document.getElementById('btn-stop').onclick = () => {
-            sfx.click();
             PLC.running = false;
             document.getElementById('plc-status-badge').className = "inline-flex items-center gap-1 text-xs font-bold text-red-400";
             document.getElementById('plc-status-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> STOP`;
@@ -761,10 +713,10 @@
         const btnStartPhys = document.getElementById('btn-start-phys');
         const btnStopPhys = document.getElementById('btn-stop-phys');
 
-        btnStartPhys.onmousedown = () => { sfx.click(); PLC.inputs['I0.0'] = true; renderLadder(); };
+        btnStartPhys.onmousedown = () => { PLC.inputs['I0.0'] = true; renderLadder(); };
         btnStartPhys.onmouseup = () => { PLC.inputs['I0.0'] = false; renderLadder(); };
         
-        btnStopPhys.onmousedown = () => { sfx.click(); PLC.inputs['I0.1'] = true; renderLadder(); };
+        btnStopPhys.onmousedown = () => { PLC.inputs['I0.1'] = true; renderLadder(); };
         btnStopPhys.onmouseup = () => { PLC.inputs['I0.1'] = false; renderLadder(); };
 
         function updateIOMonitor() {
