@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симулятор Программиста ПЛК (PLC Simulator) с Обучением</title>
+    <title>Симулятор Программиста ПЛК (PLC Simulator)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -27,14 +27,13 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #6b7280;
         }
-        /* Highlight tutorial target */
         .tutorial-highlight {
-            box-shadow: 0 0 0 4px #3b82f6, 0 0 20px rgba(59, 130, 246, 0.8) !important;
+            box-shadow: 0 0 0 4px #f59e0b, 0 0 20px rgba(245, 158, 11, 0.8) !important;
             animation: pulse-border 1.5s infinite;
         }
         @keyframes pulse-border {
-            0%, 100% { box-shadow: 0 0 0 4px #3b82f6, 0 0 15px rgba(59, 130, 246, 0.6); }
-            50% { box-shadow: 0 0 0 6px #60a5fa, 0 0 25px rgba(96, 165, 250, 0.9); }
+            0%, 100% { box-shadow: 0 0 0 4px #f59e0b, 0 0 15px rgba(245, 158, 11, 0.6); }
+            50% { box-shadow: 0 0 0 6px #fbbf24, 0 0 25px rgba(251, 191, 36, 0.9); }
         }
     </style>
 </head>
@@ -46,7 +45,7 @@
             <i data-lucide="cpu" class="text-blue-400 w-7 h-7"></i>
             <div>
                 <h1 class="font-bold text-lg leading-tight">PLC Logic Studio Pro</h1>
-                <p class="text-xs text-gray-400">Симулятор АСУ ТП и Обучение Языку Ladder Logic</p>
+                <p class="text-xs text-gray-400">Симулятор АСУ ТП и Полный Курс Ladder Logic</p>
             </div>
         </div>
 
@@ -55,7 +54,7 @@
                 <i data-lucide="book-open" class="w-4 h-4"></i> База Знаний (Теория)
             </button>
             <button id="btn-start-tutorial" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1.5 transition shadow">
-                <i data-lucide="graduation-cap" class="w-4 h-4"></i> Обучение / Уроки
+                <i data-lucide="graduation-cap" class="w-4 h-4"></i> Обучение / Курс
             </button>
         </div>
 
@@ -83,17 +82,17 @@
     <!-- Interactive Tutorial Overlay Bar -->
     <div id="tutorial-bar" class="bg-amber-950/90 border-b border-amber-600/50 px-4 py-2.5 flex items-center justify-between text-amber-100 hidden z-20">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center font-bold text-sm shadow">
+            <div class="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center font-bold text-sm shadow shrink-0">
                 <span id="tut-step-num">1</span>
             </div>
             <div>
                 <h4 id="tut-step-title" class="font-bold text-sm text-amber-300">Название шага</h4>
-                <p id="tut-step-desc" class="text-xs text-amber-200">Описание действий для прохождения текущего урока...</p>
+                <p id="tut-step-desc" class="text-xs text-amber-200 leading-snug">Описание действий для прохождения текущего урока...</p>
             </div>
         </div>
-        <div class="flex items-center gap-2">
-            <button id="tut-prev-btn" class="bg-amber-900 hover:bg-amber-800 text-xs px-2.5 py-1 rounded">Назад</button>
-            <button id="tut-next-btn" class="bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-xs px-3 py-1 rounded">Далее</button>
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="tut-prev-btn" class="bg-amber-900 hover:bg-amber-800 text-xs px-3 py-1.5 rounded font-semibold transition">Назад</button>
+            <button id="tut-next-btn" class="bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-xs px-4 py-1.5 rounded transition shadow">Далее</button>
             <button id="tut-close-btn" class="bg-transparent hover:bg-amber-900/50 p-1 rounded text-amber-400 ml-2">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
@@ -109,13 +108,13 @@
             <div class="bg-gray-800/60 p-2 border-b border-gray-700 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-gray-400 font-semibold uppercase mr-2">Элементы:</span>
-                    <div id="tool-no-btn" class="tool-btn bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 cursor-help">
+                    <div id="tool-no-btn" class="tool-btn bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 cursor-pointer">
                         <span class="font-mono font-bold text-blue-400">--[ ]--</span> Н.Р. Контакт
                     </div>
-                    <div id="tool-nc-btn" class="tool-btn bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 cursor-help">
+                    <div id="tool-nc-btn" class="tool-btn bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 cursor-pointer">
                         <span class="font-mono font-bold text-orange-400">--[/]--</span> Н.З. Контакт
                     </div>
-                    <div id="tool-coil-btn" class="tool-btn bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 cursor-help">
+                    <div id="tool-coil-btn" class="tool-btn bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs flex items-center gap-1 border border-gray-600 cursor-pointer">
                         <span class="font-mono font-bold text-emerald-400">--( )--</span> Катушка
                     </div>
                 </div>
@@ -134,7 +133,7 @@
             <!-- Description Footer -->
             <div class="p-3 bg-gray-800 border-t border-gray-700 text-xs text-gray-300 flex justify-between items-center">
                 <div>
-                    <span class="font-semibold text-blue-400">Совет:</span> Нажмите на любой контакт или катушку в схеме, чтобы изменить его тип или привязанный адрес входа/выхода.
+                    <span class="font-semibold text-blue-400">Подсказка:</span> Нажмите на любой контакт или катушку в схеме, чтобы изменить его тип или привязанный адрес (I / Q / M).
                 </div>
                 <div class="flex gap-4">
                     <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Ток есть (TRUE)</span>
@@ -146,14 +145,14 @@
         <!-- Right: Factory Visualization & Control Panel -->
         <div class="w-2/5 flex flex-col bg-gray-950">
             
-            <!-- Task / Mode Selector -->
+            <!-- Task Header -->
             <div class="p-3 bg-gray-800/80 border-b border-gray-700 flex justify-between items-center">
                 <div>
                     <h3 id="task-title" class="font-bold text-sm text-yellow-400 flex items-center gap-1.5">
-                        <i data-lucide="file-text" class="w-4 h-4"></i> Текущая Задача
+                        <i data-lucide="file-text" class="w-4 h-4"></i> <span id="task-title-text">Задание не выбрано</span>
                     </h3>
                     <p id="task-desc" class="text-xs text-gray-300 mt-0.5 leading-relaxed">
-                        Загрузка...
+                        Запустите курс обучения с помощью кнопки "Обучение / Курс" выше.
                     </p>
                 </div>
                 <button id="btn-check-task" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 transition shrink-0 ml-2">
@@ -197,11 +196,11 @@
                         <div class="flex flex-col gap-1.5 text-xs">
                             <label class="flex items-center gap-2 cursor-pointer bg-gray-800 px-2 py-1 rounded border border-gray-700 hover:bg-gray-750">
                                 <input type="checkbox" id="sens-1-toggle" class="rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-0">
-                                <span>Датчик I0.2 (Фотодатчик)</span>
+                                <span id="sens-1-label">Датчик I0.2 (Фотодатчик)</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer bg-gray-800 px-2 py-1 rounded border border-gray-700 hover:bg-gray-750">
                                 <input type="checkbox" id="sens-2-toggle" class="rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-0">
-                                <span>Датчик I0.3 (Уровень)</span>
+                                <span id="sens-2-label">Датчик I0.3 (Уровень)</span>
                             </label>
                         </div>
                     </div>
@@ -212,11 +211,11 @@
                         <div class="flex gap-3">
                             <div class="flex flex-col items-center gap-1">
                                 <div id="lamp-q0" class="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 transition-all duration-200"></div>
-                                <span class="text-[10px] text-gray-400">Q0.0 (Привод)</span>
+                                <span class="text-[10px] text-gray-400">Q0.0 (Привод/Насос)</span>
                             </div>
                             <div class="flex flex-col items-center gap-1">
                                 <div id="lamp-q1" class="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 transition-all duration-200"></div>
-                                <span class="text-[10px] text-gray-400">Q0.1 (Клапан)</span>
+                                <span class="text-[10px] text-gray-400">Q0.1 (Клапан/Толкатель)</span>
                             </div>
                         </div>
                     </div>
@@ -369,36 +368,82 @@
             { group: 'Маркеры Памяти (Memory)', items: ['M0.0', 'M0.1', 'M0.2'] }
         ];
 
-        // --- TUTORIAL STEPS DEFINITION ---
+        // --- VISUAL SCENE MODES ---
+        // 0: Conveyor, 1: Water Tank, 2: Sorter
+        let activeSceneMode = 0; 
+
+        // --- COURSE / TUTORIAL & TASKS DEFINITION ---
         const TUTORIAL_STEPS = [
             {
-                title: "Урок 1: Архитектура ПЛК и кнопка RUN",
-                desc: "Добро пожаловать в симулятор ПЛК! Для исполнения релейной схемы контроллер должен находиться в режиме RUN. Нажмите зелёную кнопку 'RUN' в правом верхнем углу.",
+                title: "Урок 1: Запуск ПЛК (Режим RUN)",
+                desc: "Для работы релейной программы контроллер должен находиться в состоянии RUN. Нажмите кнопку 'RUN' вверху справа.",
                 targetEl: "btn-run",
+                sceneMode: 0,
+                taskTitle: "Задача 1: Включение контроллера",
+                taskDesc: "Запустите ПЛК нажатием RUN.",
                 validate: () => PLC.running
             },
             {
-                title: "Урок 2: Включение Выхода (START)",
-                desc: "Запустите привод Q0.0! Нажмите и удерживайте зеленую кнопку START (I0.0) на панели HMI снизу.",
+                title: "Урок 2: Прямое управление мотором",
+                desc: "Нажмите и удерживайте кнопку START (I0.0) на HMI панели снизу. Пока она нажата — двигатель Q0.0 включен.",
                 targetEl: "btn-start-phys",
+                sceneMode: 0,
+                taskTitle: "Задача 2: Подача сигнала на привод",
+                taskDesc: "Удерживайте START (I0.0) для запуска конвейера Q0.0.",
                 validate: () => PLC.inputs['I0.0'] && PLC.outputs['Q0.0']
             },
             {
-                title: "Урок 3: Принцип Самоподхвата",
-                desc: "Отпустите кнопку START. Обратите внимание: конвейер Q0.0 продолжает работать! Это происходит благодаря параллельному контакту Q0.0 (блокировка/самоподхват).",
+                title: "Урок 3: Эффект Самоподхвата (Latching)",
+                desc: "Отпустите кнопку START. Обратите внимание: мотор Q0.0 всё равно работает благодаря параллельной ветке с контактом Q0.0!",
                 targetEl: "ladder-container",
+                sceneMode: 0,
+                taskTitle: "Задача 3: Удержание питания",
+                taskDesc: "Убедитесь, что привод работает при отпущенной кнопке.",
                 validate: () => !PLC.inputs['I0.0'] && PLC.outputs['Q0.0']
             },
             {
-                title: "Урок 4: Остановка с помощью Н.З. Контакта",
-                desc: "Нажмите красную кнопку STOP (I0.1). Нормально-замкнутый контакт --[/]-- разорвёт цепь, обесточит катушку Q0.0 и сбросит самоподхват.",
+                title: "Урок 4: Аварийный Останов",
+                desc: "Нажмите STOP (I0.1). Нормально-замкнутый контакт размыкается и снимает питание с катушки Q0.0.",
                 targetEl: "btn-stop-phys",
+                sceneMode: 0,
+                taskTitle: "Задача 4: Отключение нагрузки",
+                taskDesc: "Нажмите кнопку STOP для полного останова линии.",
                 validate: () => PLC.inputs['I0.1'] && !PLC.outputs['Q0.0']
             },
             {
-                title: "Урок 5: База Знаний и Самостоятельная Работа",
-                desc: "Отлично! Вы изучили базовый цикл управления ПЛК. Для изучения сложной логики откройте Базу Знаний (Теорию).",
+                title: "Урок 5: Наполнение резервуара (2 датчика)",
+                desc: "Переключаемся на объект 'Водный Бак'. Включите RUN и нажмите START (I0.0), чтобы запустить насос Q0.0 и наполнить бак до 80%.",
+                targetEl: "btn-start-phys",
+                sceneMode: 1,
+                taskTitle: "Задача 5: Наполнение бака",
+                taskDesc: "Включите насос Q0.0 и наполните бак до срабатывания верхнего датчика I0.3.",
+                validate: () => factoryState.tankLevel >= 80
+            },
+            {
+                title: "Урок 6: Авто-отключение по Датчику",
+                desc: "Измените 2-й контакт на схеме с I0.1 на Н.З. контакт датчика I0.3. Когда уровень достигнет I0.3 — насос Q0.0 отключится сам!",
+                targetEl: "ladder-container",
+                sceneMode: 1,
+                taskTitle: "Задача 6: Автоматизация наполнения",
+                taskDesc: "Настройте отключение насоса по сработавшему датчику I0.3.",
+                validate: () => factoryState.tankLevel >= 80 && !PLC.outputs['Q0.0']
+            },
+            {
+                title: "Урок 7: Сортировка коробок",
+                desc: "Переключаемся на 'Конвейер с сортировкой'. Запустите линию Q0.0. Нажмите на датчик I0.2, чтобы проверить работу толкателя Q0.1.",
+                targetEl: "sens-1-toggle",
+                sceneMode: 2,
+                taskTitle: "Задача 7: Проверка толкателя",
+                taskDesc: "Включите датчик I0.2 для активации пневмотолкателя Q0.1.",
+                validate: () => PLC.inputs['I0.2'] && PLC.outputs['Q0.1']
+            },
+            {
+                title: "Урок 8: Завершение курса",
+                desc: "Поздравляем! Вы освоили базовое программирование ПЛК! Для повторения теории откройте Базу Знаний.",
                 targetEl: "btn-open-theory",
+                sceneMode: 2,
+                taskTitle: "Курс завершен!",
+                taskDesc: "Вы полностью прошли обучение и готовы к созданию собственных релейных схем.",
                 validate: () => true
             }
         ];
@@ -406,7 +451,12 @@
         let currentTutStep = 0;
 
         // --- FACTORY SIMULATION CANVAS STATE ---
-        const factoryState = { boxX: 40, boxSize: 30, conveyorRunning: false };
+        const factoryState = { 
+            boxX: 40, 
+            boxSize: 30, 
+            conveyorRunning: false,
+            tankLevel: 20
+        };
 
         const canvas = document.getElementById('factoryCanvas');
         const ctx = canvas.getContext('2d');
@@ -423,29 +473,69 @@
             const w = canvas.width;
             const h = canvas.height;
 
-            const convY = h * 0.65;
-            
-            // Conveyor Belt
-            ctx.fillStyle = '#374151';
-            ctx.fillRect(40, convY, w - 80, 20);
+            if (activeSceneMode === 0 || activeSceneMode === 2) {
+                // Conveyor View
+                const convY = h * 0.65;
+                
+                // Conveyor Belt
+                ctx.fillStyle = '#374151';
+                ctx.fillRect(40, convY, w - 80, 20);
 
-            // Rollers
-            ctx.fillStyle = '#9CA3AF';
-            factoryState.conveyorRunning = PLC.outputs['Q0.0'];
-            if (factoryState.conveyorRunning) {
-                factoryState.boxX += 2;
-                if (factoryState.boxX > w - 100) factoryState.boxX = 40;
+                // Rollers
+                ctx.fillStyle = '#9CA3AF';
+                factoryState.conveyorRunning = PLC.outputs['Q0.0'];
+                if (factoryState.conveyorRunning) {
+                    factoryState.boxX += 2;
+                    if (factoryState.boxX > w - 100) factoryState.boxX = 40;
+                }
+
+                for (let x = 50; x < w - 80; x += 30) {
+                    ctx.beginPath();
+                    ctx.arc(x, convY + 10, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Sorter arm on mode 2
+                if (activeSceneMode === 2) {
+                    const sensX = w * 0.5;
+                    ctx.fillStyle = PLC.outputs['Q0.1'] ? '#F59E0B' : '#6B7280';
+                    const ext = PLC.outputs['Q0.1'] ? 25 : 0;
+                    ctx.fillRect(sensX - 10, convY - 45 + ext, 20, 15);
+                }
+
+                // Moving Box
+                ctx.fillStyle = '#D97706';
+                ctx.fillRect(factoryState.boxX, convY - 30, factoryState.boxSize, 30);
+
+            } else if (activeSceneMode === 1) {
+                // Water Tank View
+                const tankX = w * 0.35;
+                const tankY = h * 0.2;
+                const tankW = w * 0.3;
+                const tankH = h * 0.6;
+
+                // Outline
+                ctx.strokeStyle = '#9CA3AF';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(tankX, tankY, tankW, tankH);
+
+                // Fill logic
+                if (PLC.outputs['Q0.0'] && factoryState.tankLevel < 100) {
+                    factoryState.tankLevel += 0.2;
+                }
+
+                // Water
+                const currentWaterH = (tankH * factoryState.tankLevel) / 100;
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.7)';
+                ctx.fillRect(tankX + 2, tankY + tankH - currentWaterH, tankW - 4, currentWaterH);
+
+                // High Sensor (I0.3)
+                const highY = tankY + tankH * 0.2;
+                PLC.inputs['I0.3'] = factoryState.tankLevel >= 80;
+                document.getElementById('sens-2-toggle').checked = PLC.inputs['I0.3'];
+                ctx.fillStyle = PLC.inputs['I0.3'] ? '#EF4444' : '#4B5563';
+                ctx.fillRect(tankX + tankW + 5, highY, 15, 10);
             }
-
-            for (let x = 50; x < w - 80; x += 30) {
-                ctx.beginPath();
-                ctx.arc(x, convY + 10, 6, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Moving Box
-            ctx.fillStyle = '#D97706';
-            ctx.fillRect(factoryState.boxX, convY - 30, factoryState.boxSize, 30);
 
             requestAnimationFrame(animateFactory);
         }
@@ -547,6 +637,29 @@
             return item.type === 'NO' ? val : !val;
         }
 
+        function addSeriesContact(rungId) {
+            const rung = PLC.rungs.find(r => r.id === rungId);
+            rung.items.push({ id: 'e' + Date.now(), type: 'NO', addr: 'I0.2' });
+            renderLadder();
+        }
+
+        function addParallelBranch(rungId) {
+            const rung = PLC.rungs.find(r => r.id === rungId);
+            rung.parallel = { type: 'NO', addr: 'Q0.0' };
+            renderLadder();
+        }
+
+        document.getElementById('btn-add-rung').onclick = () => {
+            const newId = PLC.rungs.length > 0 ? Math.max(...PLC.rungs.map(r => r.id)) + 1 : 1;
+            PLC.rungs.push({
+                id: newId,
+                items: [{ id: 'e' + Date.now(), type: 'NO', addr: 'I0.2' }],
+                parallel: null,
+                coil: { id: 'c' + Date.now(), type: 'COIL', addr: 'Q0.1' }
+            });
+            renderLadder();
+        };
+
         // --- PLC SCAN ENGINE ---
         function plcScanCycle() {
             if (!PLC.running) return;
@@ -577,7 +690,7 @@
             document.getElementById('lamp-q0').className = `w-8 h-8 rounded-full border-2 transition-all duration-200 ${PLC.outputs['Q0.0'] ? 'bg-emerald-500 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.8)]' : 'bg-gray-800 border-gray-600'}`;
             document.getElementById('lamp-q1').className = `w-8 h-8 rounded-full border-2 transition-all duration-200 ${PLC.outputs['Q0.1'] ? 'bg-amber-500 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.8)]' : 'bg-gray-800 border-gray-600'}`;
 
-            document.getElementById('scan-time').innerText = Math.round((performance.now() - startTime) * 100) / 100 + 2;
+            document.getElementById('scan-time').innerText = (Math.round((performance.now() - startTime) * 100) / 100 + 1.8).toFixed(1);
 
             renderLadder();
             checkTutorialProgress();
@@ -600,6 +713,11 @@
             document.getElementById('tut-step-title').innerText = step.title;
             document.getElementById('tut-step-desc').innerText = step.desc;
 
+            document.getElementById('task-title-text').innerText = step.taskTitle;
+            document.getElementById('task-desc').innerText = step.taskDesc;
+
+            activeSceneMode = step.sceneMode;
+
             const target = document.getElementById(step.targetEl);
             if (target) {
                 target.classList.add('tutorial-highlight');
@@ -610,13 +728,14 @@
             if (tutorialBar.classList.contains('hidden')) return;
             const step = TUTORIAL_STEPS[currentTutStep];
             if (step && step.validate()) {
-                if (currentTutStep < TUTORIAL_STEPS.length - 1) {
-                    currentTutStep++;
-                    renderTutorialStep();
-                }
+                // Glow Next Button
+                document.getElementById('tut-next-btn').classList.add('animate-bounce');
+            } else {
+                document.getElementById('tut-next-btn').classList.remove('animate-bounce');
             }
         }
 
+        // FIX: Direct Manual Click Next Step
         document.getElementById('tut-next-btn').onclick = () => {
             if (currentTutStep < TUTORIAL_STEPS.length - 1) {
                 currentTutStep++;
@@ -637,6 +756,15 @@
         };
 
         document.getElementById('btn-start-tutorial').onclick = startTutorial;
+
+        document.getElementById('btn-check-task').onclick = () => {
+            const step = TUTORIAL_STEPS[currentTutStep];
+            if (step && step.validate()) {
+                alert("🎉 Отлично! Вы полностью выполнили условия текущей задачи.");
+            } else {
+                alert("❌ Условия ещё не выполнены. Проверьте запуск ПЛК (RUN) и положение кнопок/датчиков.");
+            }
+        };
 
         // --- THEORY MODAL ---
         const theoryModal = document.getElementById('theory-modal');
@@ -693,9 +821,21 @@
             renderLadder();
         };
 
+        document.getElementById('modal-delete-btn').onclick = () => {
+            if (!editingTarget) return;
+            const rung = PLC.rungs.find(r => r.id === editingTarget.rungId);
+            if (editingTarget.targetType === 'item' && rung.items.length > 1) {
+                rung.items.splice(editingTarget.index, 1);
+            } else if (editingTarget.targetType === 'parallel') {
+                rung.parallel = null;
+            }
+            modal.classList.add('hidden');
+            renderLadder();
+        };
+
         document.getElementById('modal-cancel-btn').onclick = () => modal.classList.add('hidden');
 
-        // --- CONTROLS ---
+        // --- CONTROLS & EVENT LISTENERS ---
         document.getElementById('btn-run').onclick = () => {
             PLC.running = true;
             document.getElementById('plc-status-badge').className = "inline-flex items-center gap-1 text-xs font-bold text-emerald-400";
@@ -710,6 +850,11 @@
             renderLadder();
         };
 
+        document.getElementById('btn-reset').onclick = () => {
+            factoryState.boxX = 40;
+            factoryState.tankLevel = 20;
+        };
+
         const btnStartPhys = document.getElementById('btn-start-phys');
         const btnStopPhys = document.getElementById('btn-stop-phys');
 
@@ -718,6 +863,30 @@
         
         btnStopPhys.onmousedown = () => { PLC.inputs['I0.1'] = true; renderLadder(); };
         btnStopPhys.onmouseup = () => { PLC.inputs['I0.1'] = false; renderLadder(); };
+
+        document.getElementById('sens-1-toggle').onchange = (e) => {
+            PLC.inputs['I0.2'] = e.target.checked;
+            renderLadder();
+        };
+
+        document.getElementById('sens-2-toggle').onchange = (e) => {
+            PLC.inputs['I0.3'] = e.target.checked;
+            renderLadder();
+        };
+
+        document.getElementById('tab-hmi-btn').onclick = (e) => {
+            document.getElementById('tab-hmi').classList.remove('hidden');
+            document.getElementById('tab-io').classList.add('hidden');
+            e.target.className = "px-4 py-2 text-xs font-semibold border-b-2 border-blue-500 text-blue-400 bg-gray-800";
+            document.getElementById('tab-io-btn').className = "px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200";
+        };
+
+        document.getElementById('tab-io-btn').onclick = (e) => {
+            document.getElementById('tab-hmi').classList.add('hidden');
+            document.getElementById('tab-io').classList.remove('hidden');
+            e.target.className = "px-4 py-2 text-xs font-semibold border-b-2 border-blue-500 text-blue-400 bg-gray-800";
+            document.getElementById('tab-hmi-btn').className = "px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200";
+        };
 
         function updateIOMonitor() {
             document.getElementById('io-inputs-list').innerHTML = Object.entries(PLC.inputs).map(([k, v]) => `
@@ -735,7 +904,8 @@
             `).join('');
         }
 
-        // INIT
+        // INITIALIZATION
+        startTutorial();
         renderLadder();
         setInterval(plcScanCycle, 50);
         animateFactory();
