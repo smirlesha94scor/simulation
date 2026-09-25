@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Гистограмма (Min 30 FPS Target)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Чертёж задачи с доски</title>
   <style>
     * {
       box-sizing: border-box;
@@ -10,250 +11,261 @@
       padding: 0;
     }
     body {
-      background-color: #080810;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      height: 100vh;
+      background-color: #121820;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
       align-items: center;
-      overflow: hidden;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
     }
-
+    .board-container {
+      position: relative;
+      background: #1e2925;
+      border: 12px solid #5c3a21;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 100px rgba(0,0,0,0.5);
+      padding: 10px;
+      max-width: 900px;
+      width: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: transparent;
+    }
     .controls {
-      margin-top: 15px;
       display: flex;
-      gap: 15px;
-      align-items: center;
-      z-index: 10;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 10px 20px;
-      border-radius: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
     }
     button {
-      padding: 8px 18px;
-      font-size: 14px;
-      font-weight: bold;
-      color: #000;
-      background: #00ffcc;
-      border: none;
-      border-radius: 15px;
+      background: #2b3d36;
+      color: #e2e8f0;
+      border: 1px solid #4a6b5d;
+      padding: 8px 16px;
+      border-radius: 6px;
       cursor: pointer;
-    }
-
-    .stats {
       font-size: 14px;
-      font-family: monospace;
+      transition: all 0.2s ease;
     }
-    .fps-good { color: #00ffcc; }
-    .fps-bad { color: #ff3366; }
-
-    .visualizer-wrapper {
-      height: 65vh;
-      display: flex;
-      flex-direction: column;
-      margin-bottom: 20px;
+    button:hover {
+      background: #3b5249;
+      border-color: #628c7b;
     }
-
-    .bars-container {
-      flex: 1;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 4px;
+    button.active {
+      background: #4ade80;
+      color: #0f172a;
+      font-weight: bold;
+      border-color: #4ade80;
     }
-
-    .bar-item {
-      width: 15px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      align-items: center;
-    }
-
-    .bar {
-      width: 100%;
-      height: 0%;
-      background-color: #00ffcc; 
-      border-radius: 2px 2px 0 0;
-      will-change: height;
-    }
-
-    .freq-label {
-      margin-top: 6px;
-      font-size: 9px;
-      font-family: monospace;
-      color: #8888aa;
-      white-space: nowrap;
-      user-select: none;
-      text-align: center;
+    .hud {
+      position: absolute;
+      top: 25px;
+      right: 25px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #38bdf8;
+      backdrop-filter: blur(4px);
     }
   </style>
 </head>
 <body>
 
+<div class="board-container">
+  <div class="hud" id="hud">BM = ?</div>
+  <canvas id="geometryCanvas" width="800" height="520"></canvas>
+  
   <div class="controls">
-    <button id="startBtn">Запустить</button>
-    <div class="stats">
-      FPS: <span id="fpsVal" class="fps-good">--</span> | 
-      Столбцов: <span id="barsVal">24</span>
-    </div>
+    <button id="toggleParallelogramBtn" onclick="toggleParallelogram()">Достроить до параллелограмма</button>
+    <button id="toggleAnglesBtn" onclick="toggleAngles()">Подсветить равные углы</button>
   </div>
+</div>
 
-  <div class="visualizer-wrapper">
-    <div class="bars-container" id="equalizer"></div>
-  </div>
+<script>
+  const canvas = document.getElementById('geometryCanvas');
+  const ctx = canvas.getContext('2d');
+  const hud = document.getElementById('hud');
 
-  <script>
-    const startBtn = document.getElementById('startBtn');
-    const equalizer = document.getElementById('equalizer');
-    const fpsVal = document.getElementById('fpsVal');
-    const barsVal = document.getElementById('barsVal');
+  let showParallelogram = false;
+  let showEqualAngles = false;
 
-    let currentBarsCount = 24;
-    let barStyles = [];
-    let prevRenderedHeights = [];
-    let binIndices = [];
-    let sampleRate = 44100;
+  function toggleParallelogram() {
+    showParallelogram = !showParallelogram;
+    document.getElementById('toggleParallelogramBtn').classList.toggle('active', showParallelogram);
+    draw();
+  }
 
-    let lastTime = performance.now();
-    let frameCount = 0;
-    let renderToggle = false;
+  function toggleAngles() {
+    showEqualAngles = !showEqualAngles;
+    document.getElementById('toggleAnglesBtn').classList.toggle('active', showEqualAngles);
+    draw();
+  }
 
-    function formatFrequency(hz) {
-      return hz >= 1000 ? (hz / 1000).toFixed(1) + 'k' : Math.round(hz) + '';
+  function drawChalkLine(x1, y1, x2, y2, color = '#ffffff', width = 3, dashed = false) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    if (dashed) {
+      ctx.setLineDash([8, 6]);
+    }
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawText(text, x, y, color = '#ffffff', size = 22, font = 'Comic Sans MS, cursive, sans-serif') {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `${size}px ${font}`;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  function drawAngleArc(cx, cy, radius, startAngle, endAngle, label = '', color = '#facc15') {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.stroke();
+
+    if (label) {
+      const midAngle = (startAngle + endAngle) / 2;
+      const lx = cx + (radius + 18) * Math.cos(midAngle);
+      const ly = cy + (radius + 18) * Math.sin(midAngle);
+      drawText(label, lx - 10, ly + 6, color, 18);
+    }
+    ctx.restore();
+  }
+
+  function drawTicks(x1, y1, x2, y2, color = '#ffffff') {
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy);
+    const nx = -dy / len;
+    const ny = dx / len;
+
+    const tickLen = 8;
+    const gap = 4;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+
+    // Двойная засечка
+    ctx.beginPath();
+    ctx.moveTo(mx + nx * tickLen - (dx/len)*gap, my + ny * tickLen - (dy/len)*gap);
+    ctx.lineTo(mx - nx * tickLen - (dx/len)*gap, my - ny * tickLen - (dy/len)*gap);
+    ctx.moveTo(mx + nx * tickLen + (dx/len)*gap, my + ny * tickLen + (dy/len)*gap);
+    ctx.lineTo(mx - nx * tickLen + (dx/len)*gap, my - ny * tickLen + (dy/len)*gap);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    // Очистка доски
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Координаты вершин оригинального треугольника с доски
+    const A = { x: 120, y: 380 };
+    const C = { x: 680, y: 380 };
+    const M = { x: (A.x + C.x) / 2, y: 380 }; // M - середина AC (400, 380)
+
+    // Положение вершины B
+    const B = { x: 310, y: 170 };
+
+    // Точка D (удвоение медианы BM: D = M + (M - B))
+    const D = {
+      x: 2 * M.x - B.x,
+      y: 2 * M.y - B.y
+    };
+
+    // 1. Отрезок BM=? вверху доски
+    drawText('BM = ?', 350, 60, '#ffffff', 32);
+
+    // 2. Стороны треугольника ABC
+    drawChalkLine(A.x, A.y, B.x, B.y, '#ffffff', 3.5); // AB
+    drawChalkLine(B.x, B.y, C.x, C.y, '#ffffff', 3.5); // BC
+    drawChalkLine(A.x, A.y, C.x, C.y, '#ffffff', 3.5); // AC
+    drawChalkLine(B.x, B.y, M.x, M.y, '#ffffff', 3.5); // BM (Медиана)
+
+    // Засечки на AM и MC
+    drawTicks(A.x, A.y, M.x, M.y);
+    drawTicks(M.x, M.y, C.x, C.y);
+
+    // Подписи вершин
+    drawText('A', A.x - 25, A.y + 10, '#ffffff', 26);
+    drawText('B', B.x - 8, B.y - 15, '#ffffff', 26);
+    drawText('C', C.x + 10, C.y + 10, '#ffffff', 26);
+    drawText('M', M.x - 8, M.y + 30, '#ffffff', 26);
+
+    // Числовые данные задачи с доски
+    drawText('18', (B.x + C.x)/2 + 20, (B.y + C.y)/2 - 10, '#ffffff', 26); // BC = 18
+    drawText('x', (B.x + M.x)/2 + 12, (B.y + M.y)/2, '#ffffff', 24);      // BM = x
+
+    // Вычисление углов для дуг при вершине B
+    const angleBA = Math.atan2(A.y - B.y, A.x - B.x);
+    const angleBM = Math.atan2(M.y - B.y, M.x - B.x);
+    const angleBC = Math.atan2(C.y - B.y, C.x - B.x);
+
+    // Дуги углов при B (73° и 34°)
+    drawAngleArc(B.x, B.y, 45, angleBM, angleBA, '73°', '#facc15');
+    drawAngleArc(B.x, B.y, 40, angleBC, angleBM, '34°', '#facc15');
+
+    // 3. Построение параллелограмма ABDC (при нажатии)
+    if (showParallelogram) {
+      drawChalkLine(M.x, M.y, D.x, D.y, '#38bdf8', 3, true); // Продление BM до D
+      drawChalkLine(C.x, C.y, D.x, D.y, '#38bdf8', 3, true); // CD
+      drawChalkLine(A.x, A.y, D.x, D.y, '#38bdf8', 3, true); // AD
+
+      drawText('D', D.x - 8, D.y + 30, '#38bdf8', 26);
+      drawText('x', (M.x + D.x)/2 + 12, (M.y + D.y)/2, '#38bdf8', 24);
+      drawText('18', (A.x + D.x)/2 - 35, (A.y + D.y)/2 + 10, '#38bdf8', 24); // AD = BC = 18
+
+      hud.innerText = 'BM = 9 (так как 2x = 18)';
+    } else {
+      hud.innerText = 'BM = ?';
     }
 
-    function updateBinIndices(count, totalBins) {
-      binIndices = new Int32Array(count);
-      for (let i = 0; i < count; i++) {
-        const logPercent = Math.pow(i / (count - 1), 1.2);
-        binIndices[i] = 1 + Math.floor(logPercent * (totalBins * 0.9 - 1));
+    // 4. Подсветка равных углов 73°
+    if (showEqualAngles) {
+      if (!showParallelogram) {
+        toggleParallelogram();
+        return;
       }
+      // Угол BAD = 73°
+      const angleAB = Math.atan2(B.y - A.y, B.x - A.x);
+      const angleAD = Math.atan2(D.y - A.y, D.x - A.x);
+      drawAngleArc(A.x, A.y, 45, angleAD, angleAB, '73°', '#4ade80');
+
+      // Угол ADB = 34°
+      const angleDA = Math.atan2(A.y - D.y, A.x - D.x);
+      const angleDB = Math.atan2(B.y - D.y, B.x - D.x);
+      drawAngleArc(D.x, D.y, 45, angleDB, angleDA, '34°', '#4ade80');
     }
+  }
 
-    function rebuildBars(count) {
-      equalizer.innerHTML = '';
-      barStyles = [];
-      prevRenderedHeights = new Float32Array(count);
-      
-      const nyquist = sampleRate / 2;
-      const totalBins = 128;
+  // Первоначальная отрисовка
+  draw();
+</script>
 
-      updateBinIndices(count, totalBins);
-
-      const fragment = document.createDocumentFragment();
-
-      for (let i = 0; i < count; i++) {
-        const itemWrapper = document.createElement('div');
-        itemWrapper.className = 'bar-item';
-
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-
-        const dataIndex = binIndices[i];
-        const freqHz = (dataIndex / totalBins) * nyquist;
-
-        const label = document.createElement('div');
-        label.className = 'freq-label';
-        if (i % 2 === 0) label.textContent = formatFrequency(freqHz);
-
-        itemWrapper.appendChild(bar);
-        itemWrapper.appendChild(label);
-        fragment.appendChild(itemWrapper);
-
-        barStyles.push(bar.style);
-      }
-
-      equalizer.appendChild(fragment);
-      barsVal.textContent = count;
-    }
-
-    rebuildBars(currentBarsCount);
-
-    startBtn.addEventListener('click', async () => {
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true
-        });
-
-        const audioTrack = stream.getAudioTracks()[0];
-        if (!audioTrack) return alert('Аудио не выбрано!');
-
-        startBtn.style.display = 'none';
-
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        sampleRate = audioCtx.sampleRate;
-
-        const source = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
-        const analyser = audioCtx.createAnalyser();
-
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.75;
-        
-        source.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        rebuildBars(currentBarsCount);
-
-        function render() {
-          requestAnimationFrame(render);
-
-          analyser.getByteFrequencyData(dataArray);
-
-          // Определение средней громкости
-          let totalVolume = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            totalVolume += dataArray[i];
-          }
-          const avgVolume = totalVolume / dataArray.length;
-          const hasAudio = avgVolume > 5;
-
-          // 1. Измерение FPS (Ориентир — удерживать минимум 30 FPS)
-          const now = performance.now();
-          frameCount++;
-          if (now - lastTime >= 1000) {
-            const currentFps = Math.round((frameCount * 1000) / (now - lastTime));
-            fpsVal.textContent = currentFps;
-            frameCount = 0;
-            lastTime = now;
-
-            // Если FPS падает ниже 32 при играющем звуке — плавно оптимизируем (-1 столбец)
-            if (currentFps < 32 && currentBarsCount > 12 && hasAudio) {
-              fpsVal.className = 'fps-bad';
-              currentBarsCount--;
-              rebuildBars(currentBarsCount);
-            } else if (currentFps >= 30) {
-              fpsVal.className = 'fps-good';
-            } else {
-              fpsVal.className = 'fps-bad';
-            }
-          }
-
-          // 2. Пропуск каждого второго кадра
-          renderToggle = !renderToggle;
-          if (renderToggle) return;
-
-          // 3. Рендеринг
-          for (let i = 0; i < currentBarsCount; i++) {
-            const val = (dataArray[binIndices[i]] * 0.3921568) | 0;
-
-            if (val !== prevRenderedHeights[i]) {
-              barStyles[i].height = val + '%';
-              prevRenderedHeights[i] = val;
-            }
-          }
-        }
-
-        render();
-
-      } catch (err) {
-        console.error(err);
-      }
-    });
-  </script>
 </body>
 </html>
