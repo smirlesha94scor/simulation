@@ -45,7 +45,7 @@
             <i data-lucide="cpu" class="text-blue-400 w-7 h-7"></i>
             <div>
                 <h1 class="font-bold text-lg leading-tight">PLC Logic Studio Pro</h1>
-                <p class="text-xs text-gray-400">Симулятор АСУ ТП и Полный Курс Ladder Logic</p>
+                <p class="text-xs text-gray-400">Симулятор АСУ ТП и Авто-Курс Ladder Logic</p>
             </div>
         </div>
 
@@ -86,8 +86,13 @@
                 <span id="tut-step-num">1</span>
             </div>
             <div>
-                <h4 id="tut-step-title" class="font-bold text-sm text-amber-300">Название шага</h4>
-                <p id="tut-step-desc" class="text-xs text-amber-200 leading-snug">Описание действий для прохождения текущего урока...</p>
+                <div class="flex items-center gap-2">
+                    <h4 id="tut-step-title" class="font-bold text-sm text-amber-300">Название шага</h4>
+                    <span id="tut-auto-badge" class="hidden text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded animate-pulse">
+                        ✓ Выполнено! Переход...
+                    </span>
+                </div>
+                <p id="tut-step-desc" class="text-xs text-amber-200 leading-snug">Описание действий...</p>
             </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -368,15 +373,14 @@
             { group: 'Маркеры Памяти (Memory)', items: ['M0.0', 'M0.1', 'M0.2'] }
         ];
 
-        // --- VISUAL SCENE MODES ---
-        // 0: Conveyor, 1: Water Tank, 2: Sorter
         let activeSceneMode = 0; 
+        let autoStepTimer = null; // Timer for auto-advancing steps
 
         // --- COURSE / TUTORIAL & TASKS DEFINITION ---
         const TUTORIAL_STEPS = [
             {
                 title: "Урок 1: Запуск ПЛК (Режим RUN)",
-                desc: "Для работы релейной программы контроллер должен находиться в состоянии RUN. Нажмите кнопку 'RUN' вверху справа.",
+                desc: "Для работы релейной программы контроллер должен находиться в состоянии RUN. Нажмите зелёную кнопку 'RUN' вверху справа.",
                 targetEl: "btn-run",
                 sceneMode: 0,
                 taskTitle: "Задача 1: Включение контроллера",
@@ -444,7 +448,7 @@
                 sceneMode: 2,
                 taskTitle: "Курс завершен!",
                 taskDesc: "Вы полностью прошли обучение и готовы к созданию собственных релейных схем.",
-                validate: () => true
+                validate: () => false // No auto step on last step
             }
         ];
 
@@ -696,7 +700,7 @@
             checkTutorialProgress();
         }
 
-        // --- TUTORIAL ENGINE ---
+        // --- TUTORIAL ENGINE WITH AUTO-SWITCH ---
         const tutorialBar = document.getElementById('tutorial-bar');
         
         function startTutorial() {
@@ -706,6 +710,11 @@
         }
 
         function renderTutorialStep() {
+            if (autoStepTimer) {
+                clearTimeout(autoStepTimer);
+                autoStepTimer = null;
+            }
+            document.getElementById('tut-auto-badge').classList.add('hidden');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
 
             const step = TUTORIAL_STEPS[currentTutStep];
@@ -728,14 +737,26 @@
             if (tutorialBar.classList.contains('hidden')) return;
             const step = TUTORIAL_STEPS[currentTutStep];
             if (step && step.validate()) {
-                // Glow Next Button
                 document.getElementById('tut-next-btn').classList.add('animate-bounce');
+                document.getElementById('tut-auto-badge').classList.remove('hidden');
+
+                // Auto switch to next step after 1 second delay
+                if (!autoStepTimer && currentTutStep < TUTORIAL_STEPS.length - 1) {
+                    autoStepTimer = setTimeout(() => {
+                        currentTutStep++;
+                        renderTutorialStep();
+                    }, 1000);
+                }
             } else {
                 document.getElementById('tut-next-btn').classList.remove('animate-bounce');
+                document.getElementById('tut-auto-badge').classList.add('hidden');
+                if (autoStepTimer) {
+                    clearTimeout(autoStepTimer);
+                    autoStepTimer = null;
+                }
             }
         }
 
-        // FIX: Direct Manual Click Next Step
         document.getElementById('tut-next-btn').onclick = () => {
             if (currentTutStep < TUTORIAL_STEPS.length - 1) {
                 currentTutStep++;
