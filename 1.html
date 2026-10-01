@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симулятор Программиста ПЛК (PLC Simulator)</title>
+    <title>PLC Logic Studio Pro</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -247,8 +247,8 @@
     </div>
 
     <!-- Edit Element Modal -->
-    <div id="edit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden z-50">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg p-5 w-96 shadow-xl">
+    <div id="edit-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-5 w-96 shadow-2xl">
             <h3 class="font-bold text-base mb-3 flex items-center gap-2 text-blue-400">
                 <i data-lucide="settings" class="w-4 h-4"></i> Конфигурация Контакта / Катушки
             </h3>
@@ -256,7 +256,7 @@
             <div class="space-y-4 text-sm">
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Тип Логического Элемента:</label>
-                    <select id="modal-type" class="w-full bg-gray-700 border border-gray-600 rounded p-2 focus:outline-none focus:border-blue-500">
+                    <select id="modal-type" class="w-full bg-gray-700 border border-gray-600 rounded p-2 focus:outline-none focus:border-blue-500 text-white">
                         <option value="NO">Нормально-разомкнутый (--[ ]--) NO</option>
                         <option value="NC">Нормально-замкнутый (--[/]--) NC</option>
                         <option value="COIL">Выходная Катушка (--( )--) OUT</option>
@@ -265,7 +265,7 @@
 
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Адрес Переменной ПЛК:</label>
-                    <select id="modal-address" class="w-full bg-gray-700 border border-gray-600 rounded p-2 focus:outline-none focus:border-blue-500 font-mono">
+                    <select id="modal-address" class="w-full bg-gray-700 border border-gray-600 rounded p-2 focus:outline-none focus:border-blue-500 font-mono text-white">
                     </select>
                 </div>
             </div>
@@ -374,7 +374,7 @@
         ];
 
         let activeSceneMode = 0; 
-        let autoStepTimer = null; // Timer for auto-advancing steps
+        let autoStepTimer = null; 
 
         // --- COURSE / TUTORIAL & TASKS DEFINITION ---
         const TUTORIAL_STEPS = [
@@ -448,7 +448,7 @@
                 sceneMode: 2,
                 taskTitle: "Курс завершен!",
                 taskDesc: "Вы полностью прошли обучение и готовы к созданию собственных релейных схем.",
-                validate: () => false // No auto step on last step
+                validate: () => false
             }
         ];
 
@@ -478,14 +478,10 @@
             const h = canvas.height;
 
             if (activeSceneMode === 0 || activeSceneMode === 2) {
-                // Conveyor View
                 const convY = h * 0.65;
-                
-                // Conveyor Belt
                 ctx.fillStyle = '#374151';
                 ctx.fillRect(40, convY, w - 80, 20);
 
-                // Rollers
                 ctx.fillStyle = '#9CA3AF';
                 factoryState.conveyorRunning = PLC.outputs['Q0.0'];
                 if (factoryState.conveyorRunning) {
@@ -499,7 +495,6 @@
                     ctx.fill();
                 }
 
-                // Sorter arm on mode 2
                 if (activeSceneMode === 2) {
                     const sensX = w * 0.5;
                     ctx.fillStyle = PLC.outputs['Q0.1'] ? '#F59E0B' : '#6B7280';
@@ -507,33 +502,27 @@
                     ctx.fillRect(sensX - 10, convY - 45 + ext, 20, 15);
                 }
 
-                // Moving Box
                 ctx.fillStyle = '#D97706';
                 ctx.fillRect(factoryState.boxX, convY - 30, factoryState.boxSize, 30);
 
             } else if (activeSceneMode === 1) {
-                // Water Tank View
                 const tankX = w * 0.35;
                 const tankY = h * 0.2;
                 const tankW = w * 0.3;
                 const tankH = h * 0.6;
 
-                // Outline
                 ctx.strokeStyle = '#9CA3AF';
                 ctx.lineWidth = 4;
                 ctx.strokeRect(tankX, tankY, tankW, tankH);
 
-                // Fill logic
                 if (PLC.outputs['Q0.0'] && factoryState.tankLevel < 100) {
                     factoryState.tankLevel += 0.2;
                 }
 
-                // Water
                 const currentWaterH = (tankH * factoryState.tankLevel) / 100;
                 ctx.fillStyle = 'rgba(59, 130, 246, 0.7)';
                 ctx.fillRect(tankX + 2, tankY + tankH - currentWaterH, tankW - 4, currentWaterH);
 
-                // High Sensor (I0.3)
                 const highY = tankY + tankH * 0.2;
                 PLC.inputs['I0.3'] = factoryState.tankLevel >= 80;
                 document.getElementById('sens-2-toggle').checked = PLC.inputs['I0.3'];
@@ -563,9 +552,9 @@
                     const colorClass = PLC.running ? (isActive ? 'text-emerald-400 border-emerald-500 bg-emerald-950/40' : 'text-gray-500 border-gray-700 bg-gray-850') : 'text-gray-300 border-gray-600 bg-gray-800';
                     
                     html += `
-                        <div onclick="openEditModal(${rung.id}, 'item', ${itemIdx})" class="cursor-pointer border-2 ${colorClass} px-3 py-1.5 rounded flex flex-col items-center hover:border-blue-400 transition min-w-[70px]">
-                            <span class="text-[10px] font-mono font-bold text-gray-400">${item.addr}</span>
-                            <span class="font-mono font-extrabold text-sm">${item.type === 'NO' ? '--[ ]--' : '--[/]--'}</span>
+                        <div data-rung="${rung.id}" data-type="item" data-index="${itemIdx}" class="ladder-item cursor-pointer border-2 ${colorClass} px-3 py-1.5 rounded flex flex-col items-center hover:border-blue-400 transition min-w-[70px]">
+                            <span class="text-[10px] font-mono font-bold text-gray-400 pointer-events-none">${item.addr}</span>
+                            <span class="font-mono font-extrabold text-sm pointer-events-none">${item.type === 'NO' ? '--[ ]--' : '--[/]--'}</span>
                         </div>
                     `;
 
@@ -575,7 +564,7 @@
                 });
 
                 html += `
-                    <button onclick="addSeriesContact(${rung.id})" class="text-gray-500 hover:text-gray-300 p-1 border border-dashed border-gray-600 rounded">
+                    <button onclick="addSeriesContact(${rung.id})" class="text-gray-500 hover:text-gray-300 p-1 border border-dashed border-gray-600 rounded ml-1">
                         <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                     </button>
                 `;
@@ -589,9 +578,9 @@
                     html += `
                         <div class="absolute left-4 top-12 flex items-center">
                             <div class="w-3 h-8 border-l-2 border-b-2 border-gray-500"></div>
-                            <div onclick="openEditModal(${rung.id}, 'parallel', 0)" class="cursor-pointer border-2 ${parColor} px-2 py-1 rounded flex flex-col items-center hover:border-blue-400 min-w-[65px] bg-gray-800">
-                                <span class="text-[9px] font-mono font-bold text-gray-400">${rung.parallel.addr}</span>
-                                <span class="font-mono font-bold text-xs">${rung.parallel.type === 'NO' ? '--[ ]--' : '--[/]--'}</span>
+                            <div data-rung="${rung.id}" data-type="parallel" data-index="0" class="ladder-item cursor-pointer border-2 ${parColor} px-2 py-1 rounded flex flex-col items-center hover:border-blue-400 min-w-[65px] bg-gray-800">
+                                <span class="text-[9px] font-mono font-bold text-gray-400 pointer-events-none">${rung.parallel.addr}</span>
+                                <span class="font-mono font-bold text-xs pointer-events-none">${rung.parallel.type === 'NO' ? '--[ ]--' : '--[/]--'}</span>
                             </div>
                             <div class="w-3 h-8 border-r-2 border-b-2 border-gray-500"></div>
                         </div>
@@ -608,9 +597,9 @@
                 const coilColor = PLC.running ? (isCoilActive ? 'text-emerald-400 border-emerald-500 shadow-lg shadow-emerald-950' : 'text-gray-500 border-gray-700') : 'text-gray-300 border-gray-600';
 
                 html += `
-                    <div onclick="openEditModal(${rung.id}, 'coil', 0)" class="cursor-pointer border-2 ${coilColor} px-3 py-1.5 rounded flex flex-col items-center hover:border-blue-400 transition min-w-[70px] ml-auto bg-gray-800">
-                        <span class="text-[10px] font-mono font-bold text-gray-400">${rung.coil.addr}</span>
-                        <span class="font-mono font-extrabold text-sm">--( )--</span>
+                    <div data-rung="${rung.id}" data-type="coil" data-index="0" class="ladder-item cursor-pointer border-2 ${coilColor} px-3 py-1.5 rounded flex flex-col items-center hover:border-blue-400 transition min-w-[70px] ml-auto bg-gray-800">
+                        <span class="text-[10px] font-mono font-bold text-gray-400 pointer-events-none">${rung.coil.addr}</span>
+                        <span class="font-mono font-extrabold text-sm pointer-events-none">--( )--</span>
                     </div>
                 `;
 
@@ -618,6 +607,16 @@
 
                 rungEl.innerHTML = html;
                 ladderContainer.appendChild(rungEl);
+            });
+
+            // Bind click handlers dynamically to elements
+            document.querySelectorAll('.ladder-item').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    const rungId = parseInt(el.getAttribute('data-rung'));
+                    const targetType = el.getAttribute('data-type');
+                    const index = parseInt(el.getAttribute('data-index'));
+                    openEditModal(rungId, targetType, index);
+                });
             });
 
             lucide.createIcons();
@@ -700,7 +699,7 @@
             checkTutorialProgress();
         }
 
-        // --- TUTORIAL ENGINE WITH AUTO-SWITCH ---
+        // --- TUTORIAL ENGINE ---
         const tutorialBar = document.getElementById('tutorial-bar');
         
         function startTutorial() {
@@ -740,7 +739,6 @@
                 document.getElementById('tut-next-btn').classList.add('animate-bounce');
                 document.getElementById('tut-auto-badge').classList.remove('hidden');
 
-                // Auto switch to next step after 1 second delay
                 if (!autoStepTimer && currentTutStep < TUTORIAL_STEPS.length - 1) {
                     autoStepTimer = setTimeout(() => {
                         currentTutStep++;
