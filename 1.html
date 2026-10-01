@@ -128,7 +128,7 @@
                 <!-- Rungs dynamically populated -->
             </div>
             
-            <!-- Inline Properties Panel (Встроенная панель настройки выбранного элемента) -->
+            <!-- Inline Properties Panel -->
             <div id="inline-properties" class="bg-gray-800 p-3 border-t border-gray-700 flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <span class="text-xs text-blue-400 font-bold uppercase flex items-center gap-1">
@@ -178,14 +178,12 @@
                 </button>
             </div>
 
-            <!-- 2D Simulation HTML View (Без Canvas) -->
+            <!-- 2D Simulation View -->
             <div class="relative flex-1 bg-gray-950 border-b border-gray-800 flex items-center justify-center p-4">
                 <!-- Scene 0 & 2: Conveyor -->
                 <div id="scene-conveyor" class="w-full h-full flex flex-col justify-center items-center relative overflow-hidden">
-                    <!-- Sorter Arm -->
                     <div id="sorter-arm" class="absolute top-1/4 w-6 h-12 bg-amber-500 rounded-b transition-all duration-300 hidden" style="left: 50%;"></div>
 
-                    <!-- Conveyor Track -->
                     <div class="w-full h-8 bg-gray-700 rounded-lg relative flex items-center justify-around border-2 border-gray-600">
                         <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin"></div>
                         <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin"></div>
@@ -193,7 +191,6 @@
                         <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin"></div>
                         <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin"></div>
                         
-                        <!-- Box Item -->
                         <div id="conveyor-box" class="absolute -top-8 left-4 w-8 h-8 bg-amber-600 border-2 border-amber-400 rounded shadow-lg transition-all duration-75"></div>
                     </div>
                 </div>
@@ -201,9 +198,7 @@
                 <!-- Scene 1: Tank -->
                 <div id="scene-tank" class="w-full h-full flex flex-col items-center justify-center relative hidden">
                     <div class="w-36 h-48 border-4 border-gray-500 rounded-b-lg relative bg-gray-900/50 overflow-hidden flex flex-col justify-end">
-                        <!-- Water Level -->
                         <div id="tank-water" class="w-full bg-blue-500/80 transition-all duration-100" style="height: 20%;"></div>
-                        <!-- Sensor Level Marker I0.3 -->
                         <div class="absolute top-8 -right-1 w-4 h-3 bg-red-500 rounded-l border border-white"></div>
                     </div>
                 </div>
@@ -211,15 +206,12 @@
 
             <!-- HMI & I/O Monitor Panel -->
             <div class="h-64 bg-gray-900 flex flex-col border-t border-gray-800">
-                <!-- Tabs Header -->
                 <div class="flex border-b border-gray-800 bg-gray-850">
                     <button id="tab-hmi-btn" class="px-4 py-2 text-xs font-semibold border-b-2 border-blue-500 text-blue-400 bg-gray-800">Панель Оператора (HMI)</button>
                     <button id="tab-io-btn" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200">Таблица Сигналов I/O</button>
                 </div>
 
-                <!-- Tab 1: HMI Control Panel -->
                 <div id="tab-hmi" class="p-4 flex-1 flex gap-4 items-center justify-around">
-                    <!-- Physical Buttons -->
                     <div class="flex flex-col gap-2">
                         <span class="text-xs font-bold text-gray-400 text-center uppercase tracking-wider">Кнопки управления</span>
                         <div class="flex gap-3">
@@ -234,7 +226,6 @@
                         </div>
                     </div>
 
-                    <!-- Sensor Toggles -->
                     <div class="flex flex-col gap-2">
                         <span class="text-xs font-bold text-gray-400 text-center uppercase tracking-wider">Имитация Датчиков</span>
                         <div class="flex flex-col gap-1.5 text-xs">
@@ -249,7 +240,6 @@
                         </div>
                     </div>
 
-                    <!-- Indicator Lamps -->
                     <div class="flex flex-col gap-2">
                         <span class="text-xs font-bold text-gray-400 text-center uppercase tracking-wider">Исполнители</span>
                         <div class="flex gap-3">
@@ -265,7 +255,6 @@
                     </div>
                 </div>
 
-                <!-- Tab 2: I/O Monitor -->
                 <div id="tab-io" class="p-3 flex-1 overflow-y-auto hidden">
                     <div class="grid grid-cols-2 gap-4 text-xs font-mono">
                         <div>
@@ -285,7 +274,7 @@
 
     </div>
 
-    <!-- Theory / Knowledge Modal -->
+    <!-- Theory Modal -->
     <div id="theory-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-gray-800 border border-gray-700 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl">
             <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-850">
@@ -301,26 +290,8 @@
                 <section>
                     <h3 class="text-base font-bold text-blue-300 mb-2 border-b border-gray-700 pb-1">1. Что такое Ladder Logic (LD)?</h3>
                     <p>
-                        <strong>Ladder Diagram (LD)</strong> — графический язык программирования ПЛК, эмулирующий электрические схемы с реле. Программа читается слева направо и сверху вниз. Левая шина находится под напряжением.
+                        <strong>Ladder Diagram (LD)</strong> — графический язык программирования ПЛК, эмулирующий электрические схемы с реле.
                     </p>
-                </section>
-
-                <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-gray-900 p-3 rounded border border-gray-700">
-                        <div class="font-mono font-bold text-blue-400 text-center text-lg mb-1">--[ ]--</div>
-                        <h4 class="font-bold text-xs text-center uppercase text-gray-300">Н.Р. Контакт (NO)</h4>
-                        <p class="text-xs text-gray-400 mt-2">Пропускает ток, только когда привязанный сигнал равен <strong>1 (TRUE / Нажат)</strong>.</p>
-                    </div>
-                    <div class="bg-gray-900 p-3 rounded border border-gray-700">
-                        <div class="font-mono font-bold text-orange-400 text-center text-lg mb-1">--[/]--</div>
-                        <h4 class="font-bold text-xs text-center uppercase text-gray-300">Н.З. Контакт (NC)</h4>
-                        <p class="text-xs text-gray-400 mt-2">Пропускает ток, когда сигнал равен <strong>0 (FALSE / Отжат)</strong>. Размыкается при 1.</p>
-                    </div>
-                    <div class="bg-gray-900 p-3 rounded border border-gray-700">
-                        <div class="font-mono font-bold text-emerald-400 text-center text-lg mb-1">--( )--</div>
-                        <h4 class="font-bold text-xs text-center uppercase text-gray-300">Катушка (Coil)</h4>
-                        <p class="text-xs text-gray-400 mt-2">Включает выход (Q) или маркер памяти (M), если до неё доходит логический ток.</p>
-                    </div>
                 </section>
             </div>
 
@@ -334,7 +305,6 @@
 
     <!-- Main Logic Script -->
     <script>
-        // --- PLC STATE & MEMORY ---
         const PLC = {
             running: false,
             scanTime: 0,
@@ -361,12 +331,10 @@
         ];
 
         let activeSceneMode = 0; 
-        let autoStepTimer = null; 
-        let activeSelection = null; // Currently selected element for inline editing
+        let activeSelection = null;
 
         const factoryState = { boxX: 10, tankLevel: 20 };
 
-        // --- COURSE / TUTORIAL DEFINITION ---
         const TUTORIAL_STEPS = [
             {
                 title: "Урок 1: Запуск ПЛК (Режим RUN)",
@@ -523,7 +491,6 @@
                 ladderContainer.appendChild(rungEl);
             });
 
-            // Bind click handlers to select elements for inline properties bar
             document.querySelectorAll('.ladder-item').forEach(el => {
                 el.addEventListener('click', () => {
                     const rungId = parseInt(el.getAttribute('data-rung'));
@@ -571,7 +538,6 @@
             renderLadder();
         }
 
-        // Inline Controls Listeners (Мгновенное изменение при выборе из списков)
         document.getElementById('inline-type').onchange = (e) => {
             if (!activeSelection) return;
             const rung = PLC.rungs.find(r => r.id === activeSelection.rungId);
@@ -676,7 +642,6 @@
 
                 document.getElementById('scan-time').innerText = (Math.round((performance.now() - startTime) * 100) / 100 + 1.8).toFixed(1);
 
-                // Simulation Animation Logic (Pure DOM)
                 if (activeSceneMode === 0 || activeSceneMode === 2) {
                     if (PLC.outputs['Q0.0']) {
                         factoryState.boxX += 1.5;
@@ -697,7 +662,6 @@
                     }
                     document.getElementById('tank-water').style.height = factoryState.tankLevel + '%';
                     
-                    // High Sensor Trigger at 80%
                     PLC.inputs['I0.3'] = factoryState.tankLevel >= 80;
                     document.getElementById('sens-2-toggle').checked = PLC.inputs['I0.3'];
                 }
@@ -707,7 +671,7 @@
             }
         }
 
-        // --- TUTORIAL ENGINE ---
+        // --- TUTORIAL ENGINE WITH INSTANT AUTO-SWITCH ---
         const tutorialBar = document.getElementById('tutorial-bar');
         
         function startTutorial() {
@@ -717,10 +681,6 @@
         }
 
         function renderTutorialStep() {
-            if (autoStepTimer) {
-                clearTimeout(autoStepTimer);
-                autoStepTimer = null;
-            }
             document.getElementById('tut-auto-badge').classList.add('hidden');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
 
@@ -747,25 +707,14 @@
             }
         }
 
+        // Мгновенный переход при выполнении условий задачи
         function checkTutorialProgress() {
             if (tutorialBar.classList.contains('hidden')) return;
             const step = TUTORIAL_STEPS[currentTutStep];
             if (step && step.validate()) {
-                document.getElementById('tut-next-btn').classList.add('animate-bounce');
-                document.getElementById('tut-auto-badge').classList.remove('hidden');
-
-                if (!autoStepTimer && currentTutStep < TUTORIAL_STEPS.length - 1) {
-                    autoStepTimer = setTimeout(() => {
-                        currentTutStep++;
-                        renderTutorialStep();
-                    }, 1000);
-                }
-            } else {
-                document.getElementById('tut-next-btn').classList.remove('animate-bounce');
-                document.getElementById('tut-auto-badge').classList.add('hidden');
-                if (autoStepTimer) {
-                    clearTimeout(autoStepTimer);
-                    autoStepTimer = null;
+                if (currentTutStep < TUTORIAL_STEPS.length - 1) {
+                    currentTutStep++;
+                    renderTutorialStep();
                 }
             }
         }
