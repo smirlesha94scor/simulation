@@ -117,8 +117,8 @@
                         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Добавить новую цепь
                     </button>
                 </div>
-                <div class="text-[11px] text-gray-400">
-                    💡 Нажмите на любой контакт для открытия параметров
+                <div class="text-[11px] text-amber-400/90 font-medium">
+                    ⚠️ Редактирование схемы заблокировано во время работы (RUN)
                 </div>
             </div>
 
@@ -389,11 +389,11 @@
             },
             {
                 title: "Урок 6: Авто-отключение по Датчику",
-                desc: "Нажмите на 2-й контакт (I0.1) в схеме. Во всплывающем окне смените его адрес на I0.3 и нажмите 'Применить'.",
-                targetEl: "ladder-container",
+                desc: "Остановите ПЛК (кнопка STOP). Затем нажмите на 2-й контакт (I0.1) в схеме, измените его адрес на I0.3, нажмите 'Применить' и снова запустите RUN.",
+                targetEl: "btn-stop",
                 sceneMode: 1,
                 taskTitle: "Задача 6: Автоматизация наполнения",
-                taskDesc: "Настройте отключение насоса по сработавшему датчику I0.3.",
+                taskDesc: "Остановите ПЛК, перенастройте контакт отключения на датчик I0.3 и запустите RUN.",
                 validate: () => factoryState.tankLevel >= 80 && !PLC.outputs['Q0.0']
             },
             {
@@ -504,9 +504,13 @@
                 ladderContainer.appendChild(rungEl);
             });
 
-            // Открытие Pop-up окна по клику
+            // Блокировка открытия формы редактирования при активном RUN
             document.querySelectorAll('.ladder-item').forEach(el => {
                 el.addEventListener('click', () => {
+                    if (PLC.running) {
+                        alert("⚠️ Ошибка безопасности! Редактирование схемы запрещено при работающем ПЛК (RUN). Остановите контроллер (кнопка STOP).");
+                        return;
+                    }
                     const rungId = parseInt(el.getAttribute('data-rung'));
                     const targetType = el.getAttribute('data-type');
                     const index = parseInt(el.getAttribute('data-index'));
@@ -609,18 +613,30 @@
         }
 
         function addSeriesContact(rungId) {
+            if (PLC.running) {
+                alert("⚠️ Изменение состава схемы запрещено во время работы ПЛК!");
+                return;
+            }
             const rung = PLC.rungs.find(r => r.id === rungId);
             rung.items.push({ id: 'e' + Date.now(), type: 'NO', addr: 'I0.2' });
             renderLadder();
         }
 
         function addParallelBranch(rungId) {
+            if (PLC.running) {
+                alert("⚠️ Изменение состава схемы запрещено во время работы ПЛК!");
+                return;
+            }
             const rung = PLC.rungs.find(r => r.id === rungId);
             rung.parallel = { type: 'NO', addr: 'Q0.0' };
             renderLadder();
         }
 
         document.getElementById('btn-add-rung').onclick = () => {
+            if (PLC.running) {
+                alert("⚠️ Добавление новых цепей запрещено во время работы ПЛК!");
+                return;
+            }
             const newId = PLC.rungs.length > 0 ? Math.max(...PLC.rungs.map(r => r.id)) + 1 : 1;
             PLC.rungs.push({
                 id: newId,
@@ -807,7 +823,7 @@
         btnStartPhys.ontouchend = (e) => { e.preventDefault(); releaseStart(); };
 
         const pressStop = () => { PLC.inputs['I0.1'] = true; renderLadder(); };
-        const releaseStop = () => { PLC.inputs['I0.1'] = false; renderLadder(); };
+        const releaseStop = () => { PLC.inputs['I0.1'] = false; renderStop(); };
 
         btnStopPhys.onmousedown = pressStop;
         btnStopPhys.onmouseup = releaseStop;
