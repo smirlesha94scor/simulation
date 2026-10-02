@@ -146,23 +146,27 @@
                 </button>
             </div>
 
-            <!-- 2D Simulation View (Высота увеличена благодаря min-h-[280px]) -->
+            <!-- 2D Simulation View -->
             <div class="relative flex-1 min-h-[280px] bg-gray-950 border-b border-gray-800 flex items-center justify-center p-4">
                 <!-- Scene 0 & 2: Conveyor -->
                 <div id="scene-conveyor" class="w-full h-full flex flex-col justify-between items-center relative overflow-hidden py-2">
                     
-                    <!-- PNEUMATIC PUSHER ASSEMBLY (Толкатель на верху) -->
-                    <div id="sorter-arm" class="absolute z-30 transition-all duration-150 flex flex-col items-center pointer-events-none hidden" style="top: 10px; left: 45%; transform: translateY(0);">
-                        <!-- Cylinder Base / Housing -->
-                        <div class="w-10 h-8 bg-gray-800 border-2 border-amber-500 rounded-t shadow-md flex items-center justify-center relative">
+                    <!-- PNEUMATIC PUSHER ASSEMBLY (Корпус неподвижен, выдвигается только поршень) -->
+                    <div id="sorter-arm" class="absolute z-30 flex flex-col items-center pointer-events-none hidden" style="top: 10px; left: 45%;">
+                        <!-- Cylinder Base / Housing (Зафиксирован) -->
+                        <div class="w-10 h-8 bg-gray-800 border-2 border-amber-500 rounded-t shadow-md flex items-center justify-center relative z-20">
                             <span class="text-[9px] font-mono text-amber-400 font-bold">Q0.1</span>
                             <div class="absolute -top-2 w-3 h-2 bg-gray-600 rounded-t"></div>
                         </div>
-                        <!-- Piston Rod -->
-                        <div id="pusher-rod" class="w-3 h-8 bg-gradient-to-r from-gray-300 via-gray-100 to-gray-400 border-x border-gray-500 shadow-inner"></div>
-                        <!-- Pusher Head / Pad -->
-                        <div class="w-14 h-4 bg-amber-600 border-2 border-amber-300 rounded-sm shadow-lg flex items-center justify-center">
-                            <div class="w-10 h-1 bg-amber-400 rounded-full"></div>
+                        
+                        <!-- Piston Assembly (Шток + Головка) - ДВИГАЕТСЯ ТОЛЬКО ЭТА ЧАСТЬ -->
+                        <div id="pusher-piston" class="flex flex-col items-center transition-transform duration-150 relative z-10" style="transform: translateY(0px);">
+                            <!-- Piston Rod -->
+                            <div id="pusher-rod" class="w-3 h-12 bg-gradient-to-r from-gray-300 via-gray-100 to-gray-400 border-x border-gray-500 shadow-inner -mt-1"></div>
+                            <!-- Pusher Head / Pad -->
+                            <div class="w-14 h-4 bg-amber-600 border-2 border-amber-300 rounded-sm shadow-lg flex items-center justify-center">
+                                <div class="w-10 h-1 bg-amber-400 rounded-full"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -538,7 +542,7 @@
             document.querySelectorAll('.ladder-item').forEach(el => {
                 el.addEventListener('click', () => {
                     if (PLC.running) {
-                        alert("⚠️️ Ошибка безопасности! Редактирование схемы запрещено при работающем ПЛК (RUN). Остановите контроллер (кнопка STOP).");
+                        alert("⚠️ Ошибка безопасности! Редактирование схемы запрещено при работающем ПЛК (RUN). Остановите контроллер (кнопка STOP).");
                         return;
                     }
                     const rungId = parseInt(el.getAttribute('data-rung'));
@@ -711,14 +715,15 @@
                 if (activeSceneMode === 0 || activeSceneMode === 2) {
                     const boxEl = document.getElementById('conveyor-box');
                     const sorterArm = document.getElementById('sorter-arm');
+                    const pusherPiston = document.getElementById('pusher-piston');
                     const sorterChute = document.getElementById('sorter-chute');
 
-                    // Толкатель и лоток выводятся ТОЛЬКО на уроке сортировки (activeSceneMode === 2)
+                    // Выдвигается только сам поршень/шток (#pusher-piston), корпус Q0.1 остаётся на месте
                     const isPusherExtended = PLC.outputs['Q0.1'];
                     if (activeSceneMode === 2) {
                         sorterArm.classList.remove('hidden');
                         sorterChute.classList.remove('hidden');
-                        sorterArm.style.transform = isPusherExtended ? 'translateY(65px)' : 'translateY(0px)';
+                        pusherPiston.style.transform = isPusherExtended ? 'translateY(50px)' : 'translateY(0px)';
                     } else {
                         sorterArm.classList.add('hidden');
                         sorterChute.classList.add('hidden');
