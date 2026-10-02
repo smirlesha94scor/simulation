@@ -2,366 +2,113 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Схема зарядки аккумулятора</title>
+  <title>Three.js CPU Test</title>
   <style>
-    :root {
-      --bg: #121824;
-      --card-bg: #1a2234;
-      --text: #e2e8f0;
-    }
-
     body {
       margin: 0;
-      padding: 20px;
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
+      overflow: hidden;
+      background-color: #111;
+      font-family: monospace;
     }
-
-    h2 {
-      margin-bottom: 10px;
-      color: #edf2f7;
-    }
-
-    .container {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-      max-width: 800px;
-      width: 100%;
-    }
-
-    svg {
-      width: 100%;
-      height: 380px;
-      background: #0f141d;
-      border-radius: 8px;
-    }
-
-    /* Анимация тока */
-    .wire-active {
-      stroke: #3182ce;
-      transition: stroke 0.3s;
-    }
-
-    .wire-active.charging {
-      stroke-dasharray: 8, 8;
-      animation: dash 1s linear infinite;
-    }
-
-    @keyframes dash {
-      to { stroke-dashoffset: -16; }
-    }
-
-    /* Элементы управления */
-    .controls {
-      display: flex;
-      gap: 15px;
-      margin-top: 20px;
-      justify-content: center;
-      align-items: center;
-    }
-
-    button {
-      background-color: #3182ce;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      font-size: 15px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.2s, transform 0.1s;
-    }
-
-    button:hover {
-      background-color: #2b6cb0;
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    button.btn-reset {
-      background-color: #4a5568;
-    }
-    
-    button.btn-reset:hover {
-      background-color: #718096;
-    }
-
-    .status-panel {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 15px;
-      background: #0f141d;
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #00ffcc;
+      background: rgba(0, 0, 0, 0.8);
       padding: 12px;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-
-    .status-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: #4a5568;
+      border-radius: 6px;
+      border: 1px solid #00ffcc;
+      pointer-events: none;
     }
   </style>
+  <!-- Подключаем Three.js через CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-  <div class="container">
-    <h2>Схема зарядки аккумулятора</h2>
-    
-    <svg id="circuit" viewBox="0 0 700 340">
-      <defs>
-        <!-- Свечение индикатора -->
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="6" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      <!-- ТРАССА ПРОВОДОВ -->
-      <!-- Главный контур: Питание -> Ключ S1 -> АКБ -->
-      <path id="main-wire" class="wire-active" d="M 120 180 L 120 70 L 230 70 M 310 70 L 530 70 L 530 130 M 530 230 L 530 270 L 120 270 L 120 220" fill="none" stroke="#4a5568" stroke-width="4" stroke-linejoin="round"/>
-      
-      <!-- Ветка индикации (подключена параллельно АКБ после ключа S1) -->
-      <!-- Ток от верхней линии идет вниз через резистор R1, затем через LED на нижний провод (минус) -->
-      <path id="led-wire" d="M 380 70 L 380 120 M 380 170 L 380 180 M 380 220 L 380 270" fill="none" stroke="#4a5568" stroke-width="3" stroke-linejoin="round"/>
-
-      <!-- ИСТОЧНИК ПИТАНИЯ (5V DC) -->
-      <g transform="translate(100, 180)">
-        <circle cx="20" cy="20" r="22" fill="#1a2234" stroke="#e2e8f0" stroke-width="2"/>
-        <text x="20" y="15" fill="#e2e8f0" font-size="12" text-anchor="middle" font-weight="bold">DC 5V</text>
-        <text x="20" y="32" fill="#e2e8f0" font-size="16" text-anchor="middle" font-weight="bold">+</text>
-        <text x="20" y="-10" fill="#e2e8f0" font-size="12" text-anchor="middle">+</text>
-        <text x="20" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">-</text>
-      </g>
-
-      <!-- ВЫКЛЮЧАТЕЛЬ S1 -->
-      <g transform="translate(230, 70)">
-        <circle cx="0" cy="0" r="5" fill="#e2e8f0"/>
-        <circle cx="80" cy="0" r="5" fill="#e2e8f0"/>
-        <line id="switch-lever" x1="0" y1="0" x2="75" y2="-25" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round" style="transition: all 0.2s;"/>
-        <text x="40" y="-20" fill="#a0aec0" font-size="12" text-anchor="middle">S1 (Ключ)</text>
-      </g>
-
-      <!-- ОГРАНИЧИТЕЛЬНЫЙ РЕЗИСТОР R1 (ПОСЛЕДОВАТЕЛЬНО СО СВЕТОДИОДОМ) -->
-      <g transform="translate(380, 145)">
-        <rect x="-15" y="-25" width="30" height="50" fill="#1a2234" stroke="#e2e8f0" stroke-width="2" rx="3"/>
-        <text x="-25" y="5" fill="#a0aec0" font-size="12" text-anchor="end">R1 (220 Ом)</text>
-        <!-- Полосы резистора -->
-        <line x1="-15" y1="-10" x2="15" y2="-10" stroke="#e53e3e" stroke-width="3"/>
-        <line x1="-15" y1="0" x2="15" y2="0" stroke="#e53e3e" stroke-width="3"/>
-        <line x1="-15" y1="10" x2="15" y2="10" stroke="#a0aec0" stroke-width="3"/>
-      </g>
-
-      <!-- ДВУХЦВЕТНЫЙ СВЕТОДИОД (LED) -->
-      <g transform="translate(380, 200)">
-        <circle id="led-body" cx="0" cy="0" r="16" fill="#2d3748" stroke="#e2e8f0" stroke-width="2"/>
-        <!-- Треугольник диода (вершиной вниз по направлению тока) -->
-        <polygon points="-8,-8 8,-8 0,8" fill="none" stroke="#e2e8f0" stroke-width="2"/>
-        <line x1="-8" y1="8" x2="8" y2="8" stroke="#e2e8f0" stroke-width="2"/>
-        <text x="-25" y="5" fill="#a0aec0" font-size="12" text-anchor="end">Индикатор</text>
-      </g>
-
-      <!-- АККУМУЛЯТОР (BATTERY) -->
-      <g transform="translate(530, 180)">
-        <!-- Внешний корпус -->
-        <rect x="-25" y="-45" width="50" height="90" rx="6" fill="#1a2234" stroke="#e2e8f0" stroke-width="2"/>
-        <!-- Плюс контакта -->
-        <rect x="-10" y="-52" width="20" height="7" rx="2" fill="#e2e8f0"/>
-        
-        <!-- Уровень заряда -->
-        <rect id="battery-level" x="-20" y="38" width="40" height="0" rx="3" fill="#e53e3e" style="transition: all 0.2s;"/>
-        
-        <!-- Текст процентов -->
-        <text id="battery-text" x="0" y="5" fill="#ffffff" font-size="14" font-weight="bold" text-anchor="middle">0%</text>
-        
-        <text x="35" y="5" fill="#a0aec0" font-size="12">АКБ (3.7V)</text>
-      </g>
-    </svg>
-
-    <div class="status-panel">
-      <div class="status-item">
-        <span>Статус цепи:</span>
-        <strong id="circuit-status" style="color: #a0aec0;">Разомкнута</strong>
-      </div>
-      <div class="status-item">
-        <div id="status-indicator-dot" class="status-dot"></div>
-        <span>Индикатор:</span>
-        <strong id="led-status-text" style="color: #a0aec0;">Выключен</strong>
-      </div>
-      <div class="status-item">
-        <span>Ток зарядки:</span>
-        <strong id="current-text" style="color: #a0aec0;">0 mA</strong>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button id="btn-toggle">Замкнуть выключатель</button>
-      <button id="btn-reset" class="btn-reset">Сбросить аккумулятор</button>
-    </div>
+  <div id="info">
+    <div><b>FPS:</b> <span id="fps">0</span></div>
+    <div><b>Рендерер:</b> <span id="renderer-info">Загрузка...</span></div>
+    <div><b>Режим:</b> <span id="mode-info">...</span></div>
   </div>
 
   <script>
-    let isClosed = false;
-    let batteryCharge = 10;
-    let chargeInterval = null;
+    // 1. Создание сцены, камеры и рендерера
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 3;
 
-    const switchLever = document.getElementById('switch-lever');
-    const mainWire = document.getElementById('main-wire');
-    const ledWire = document.getElementById('led-wire');
-    const ledBody = document.getElementById('led-body');
-    const batteryLevel = document.getElementById('battery-level');
-    const batteryText = document.getElementById('battery-text');
+    const renderer = new THREE.WebGLRenderer({ antialias: false }); // Отключаем сглаживание для экономии ресурсов CPU
+    renderer.setPixelRatio(1); // Заживаем разрешение 1:1
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 2. Добавление 3D-объекта (Куб)
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshPhongMaterial({ color: 0x00ff88, wireframe: false });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // 3. Добавление источников света
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+    pointLight.position.set(5, 5, 5);
+    scene.add(pointLight);
+
+    // 4. Определение видеокарты / эмулятора CPU
+    const gl = renderer.getContext();
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
     
-    const circuitStatus = document.getElementById('circuit-status');
-    const ledStatusText = document.getElementById('led-status-text');
-    const statusIndicatorDot = document.getElementById('status-indicator-dot');
-    const currentText = document.getElementById('current-text');
-    
-    const btnToggle = document.getElementById('btn-toggle');
-    const btnReset = document.getElementById('btn-reset');
+    if (debugInfo) {
+      const gpuName = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+      document.getElementById('renderer-info').innerText = gpuName;
 
-    function updateBatteryUI() {
-      batteryText.textContent = `${Math.round(batteryCharge)}%`;
-      
-      const height = (batteryCharge / 100) * 80;
-      const yOffset = 38 - height;
-      
-      batteryLevel.setAttribute('height', height);
-      batteryLevel.setAttribute('y', yOffset);
-
-      if (batteryCharge < 20) {
-        batteryLevel.setAttribute('fill', '#e53e3e');
-      } else if (batteryCharge < 80) {
-        batteryLevel.setAttribute('fill', '#dd6b20');
+      // Если в названии рендерера есть SwiftShader, LLVMpipe или Software — это CPU
+      if (/SwiftShader|Software|LLVMpipe|Google SwiftShader/i.test(gpuName)) {
+        document.getElementById('mode-info').innerText = 'Программный рендеринг (CPU)';
+        document.getElementById('mode-info').style.color = '#ffcc00';
       } else {
-        batteryLevel.setAttribute('fill', '#38a169');
+        document.getElementById('mode-info').innerText = 'Аппаратное ускорение (GPU)';
+        document.getElementById('mode-info').style.color = '#00ff88';
+      }
+    } else {
+      document.getElementById('renderer-info').innerText = 'Неможливо определить';
+    }
+
+    // 5. Расчет FPS и Анимация
+    let frameCount = 0;
+    let lastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Вращение куба
+      cube.rotation.x += 0.01;
+      cube.rotation.y += 0.01;
+
+      renderer.render(scene, camera);
+
+      // Подсчет кадров в секунду
+      frameCount++;
+      const time = performance.now();
+      if (time >= lastTime + 1000) {
+        document.getElementById('fps').innerText = frameCount;
+        frameCount = 0;
+        lastTime = time;
       }
     }
 
-    function updateCircuitState() {
-      if (!isClosed) {
-        switchLever.setAttribute('x2', '75');
-        switchLever.setAttribute('y2', '-25');
-        
-        mainWire.classList.remove('charging');
-        ledWire.classList.remove('charging');
-        mainWire.style.stroke = '#4a5568';
-        ledWire.style.stroke = '#4a5568';
-        
-        ledBody.setAttribute('fill', '#2d3748');
-        ledBody.removeAttribute('filter');
-
-        circuitStatus.textContent = 'Разомкнута';
-        circuitStatus.style.color = '#a0aec0';
-        
-        ledStatusText.textContent = 'Выключен';
-        ledStatusText.style.color = '#a0aec0';
-        statusIndicatorDot.style.backgroundColor = '#4a5568';
-        statusIndicatorDot.style.boxShadow = 'none';
-
-        currentText.textContent = '0 mA';
-        currentText.style.color = '#a0aec0';
-
-        btnToggle.textContent = 'Замкнуть выключатель';
-        
-        clearInterval(chargeInterval);
-        return;
-      }
-
-      switchLever.setAttribute('x2', '80');
-      switchLever.setAttribute('y2', '0');
-      
-      mainWire.style.stroke = '#3182ce';
-      ledWire.style.stroke = '#3182ce';
-      
-      circuitStatus.textContent = 'Замкнута (Зарядка)';
-      circuitStatus.style.color = '#63b3ed';
-      btnToggle.textContent = 'Разомкнуть выключатель';
-
-      if (batteryCharge < 100) {
-        mainWire.classList.add('charging');
-        ledWire.classList.add('charging');
-
-        ledBody.setAttribute('fill', '#f56565');
-        ledBody.setAttribute('filter', 'url(#glow)');
-        
-        ledStatusText.textContent = 'Красный (Идёт зарядка)';
-        ledStatusText.style.color = '#f56565';
-        statusIndicatorDot.style.backgroundColor = '#f56565';
-        statusIndicatorDot.style.boxShadow = '0 0 8px #f56565';
-
-        const current = Math.round(500 * (1 - batteryCharge / 115));
-        currentText.textContent = `${current} mA`;
-        currentText.style.color = '#63b3ed';
-      } else {
-        mainWire.classList.remove('charging');
-        ledWire.classList.remove('charging');
-        
-        ledBody.setAttribute('fill', '#48bb78');
-        ledBody.setAttribute('filter', 'url(#glow)');
-        
-        ledStatusText.textContent = 'Зелёный (Заряжен)';
-        ledStatusText.style.color = '#48bb78';
-        statusIndicatorDot.style.backgroundColor = '#48bb78';
-        statusIndicatorDot.style.boxShadow = '0 0 8px #48bb78';
-
-        currentText.textContent = '0 mA (Заряжен)';
-        currentText.style.color = '#48bb78';
-      }
-    }
-
-    function startChargingSimulation() {
-      clearInterval(chargeInterval);
-      
-      chargeInterval = setInterval(() => {
-        if (isClosed && batteryCharge < 100) {
-          batteryCharge += 1.5;
-          if (batteryCharge > 100) batteryCharge = 100;
-          
-          updateBatteryUI();
-          updateCircuitState();
-        }
-      }, 200);
-    }
-
-    btnToggle.addEventListener('click', () => {
-      isClosed = !isClosed;
-      updateCircuitState();
-      if (isClosed) {
-        startChargingSimulation();
-      }
+    // Обработка изменения размера окна
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    btnReset.addEventListener('click', () => {
-      batteryCharge = 10;
-      updateBatteryUI();
-      updateCircuitState();
-      if (isClosed) {
-        startChargingSimulation();
-      }
-    });
-
-    updateBatteryUI();
-    updateCircuitState();
+    animate();
   </script>
 </body>
 </html>
