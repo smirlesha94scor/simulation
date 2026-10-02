@@ -146,48 +146,44 @@
                 </button>
             </div>
 
-            <!-- 2D Simulation View -->
+            <!-- 2D Simulation View (Вид сверху) -->
             <div class="relative flex-1 min-h-[280px] bg-gray-950 border-b border-gray-800 flex items-center justify-center p-4">
                 <!-- Scene 0 & 2: Conveyor -->
-                <div id="scene-conveyor" class="w-full h-full flex flex-col justify-between items-center relative overflow-hidden py-2">
+                <div id="scene-conveyor" class="w-full h-full flex flex-col justify-center items-center relative overflow-hidden">
                     
-                    <!-- PNEUMATIC PUSHER ASSEMBLY (Корпус неподвижен, выдвигается только поршень) -->
-                    <div id="sorter-arm" class="absolute z-30 flex flex-col items-center pointer-events-none hidden" style="top: 10px; left: 45%;">
-                        <!-- Cylinder Base / Housing (Зафиксирован) -->
-                        <div class="w-10 h-8 bg-gray-800 border-2 border-amber-500 rounded-t shadow-md flex items-center justify-center relative z-20">
+                    <!-- Корпус пневмоцилиндра (Над лентой) -->
+                    <div id="sorter-arm" class="absolute z-10 flex flex-col items-center pointer-events-none hidden" style="top: 20px; left: 45%;">
+                        <div class="w-10 h-8 bg-gray-800 border-2 border-amber-500 rounded-t shadow-md flex items-center justify-center">
                             <span class="text-[9px] font-mono text-amber-400 font-bold">Q0.1</span>
-                            <div class="absolute -top-2 w-3 h-2 bg-gray-600 rounded-t"></div>
-                        </div>
-                        
-                        <!-- Piston Assembly (Шток + Головка) - ДВИГАЕТСЯ ТОЛЬКО ЭТА ЧАСТЬ -->
-                        <div id="pusher-piston" class="flex flex-col items-center transition-transform duration-150 relative z-10" style="transform: translateY(0px);">
-                            <!-- Piston Rod -->
-                            <div id="pusher-rod" class="w-3 h-12 bg-gradient-to-r from-gray-300 via-gray-100 to-gray-400 border-x border-gray-500 shadow-inner -mt-1"></div>
-                            <!-- Pusher Head / Pad -->
-                            <div class="w-14 h-4 bg-amber-600 border-2 border-amber-300 rounded-sm shadow-lg flex items-center justify-center">
-                                <div class="w-10 h-1 bg-amber-400 rounded-full"></div>
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Conveyor Belt -->
-                    <div class="w-full h-10 bg-gray-700 rounded-lg relative flex items-center justify-around border-2 border-gray-600 shadow-inner z-10 mt-auto mb-14">
-                        <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin border border-gray-600"></div>
-                        <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin border border-gray-600"></div>
-                        <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin border border-gray-600"></div>
-                        <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin border border-gray-600"></div>
-                        <div class="w-3 h-3 rounded-full bg-gray-400 animate-spin border border-gray-600"></div>
+                    <!-- Выдвигающийся шток толкателя -->
+                    <div id="pusher-piston" class="absolute z-30 flex flex-col items-center pointer-events-none hidden transition-transform duration-150 ease-out" style="top: 50px; left: 45%; transform: translateY(0px);">
+                        <div class="w-3 h-10 bg-gradient-to-r from-gray-300 via-gray-100 to-gray-400 border-x border-gray-500 shadow-inner"></div>
+                        <div class="w-14 h-4 bg-amber-600 border-2 border-amber-300 rounded-sm shadow-lg flex items-center justify-center">
+                            <div class="w-10 h-1 bg-amber-400 rounded-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Конвейерная лента (Вид сверху) -->
+                    <div class="w-full h-16 bg-gray-700 rounded-lg relative flex items-center justify-around border-2 border-gray-600 shadow-inner z-20 my-8 overflow-visible">
+                        <div class="w-3 h-3 rounded-full bg-gray-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-gray-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-gray-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-gray-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-gray-500"></div>
                         
-                        <!-- Moving Box (Cube) -->
-                        <div id="conveyor-box" class="absolute -top-9 left-4 w-9 h-9 bg-amber-600 border-2 border-amber-400 rounded shadow-2xl transition-all duration-75 flex items-center justify-center z-20">
+                        <!-- Перемещаемая деталь (Находится строго НА ЛЕНТЕ) -->
+                        <div id="conveyor-box" class="absolute w-9 h-9 bg-amber-600 border-2 border-amber-400 rounded shadow-xl transition-all duration-75 flex items-center justify-center z-25" style="left: 5%; top: 14px;">
                             <div class="w-4 h-4 border border-amber-300/40 rounded-sm"></div>
                         </div>
                     </div>
 
-                    <!-- Diverted Chute / Bin Area -->
-                    <div id="sorter-chute" class="w-24 h-12 border-2 border-dashed border-amber-500/40 rounded-b-lg absolute bottom-1 flex flex-col items-center justify-end pb-1 bg-amber-950/20 z-0 hidden" style="left: 42%;">
-                        <span class="text-[10px] text-amber-400/80 font-semibold">Лоток сброса</span>
-                        <span class="text-[9px] text-gray-500">Сброшено: <b id="pushed-count" class="text-amber-300">0</b></span>
+                    <!-- Лоток сброса (Ниже ленты) -->
+                    <div id="sorter-chute" class="w-28 h-12 border-2 border-dashed border-amber-500/50 rounded-b-lg absolute bottom-4 flex flex-col items-center justify-center bg-amber-950/30 z-0 hidden" style="left: 43%;">
+                        <span class="text-[10px] text-amber-400 font-semibold">Лоток сброса</span>
+                        <span class="text-[9px] text-gray-400">Сброшено: <b id="pushed-count" class="text-amber-300">0</b></span>
                     </div>
                 </div>
 
@@ -195,7 +191,6 @@
                 <div id="scene-tank" class="w-full h-full flex flex-col items-center justify-center relative hidden">
                     <div class="w-36 h-48 border-4 border-gray-500 rounded-b-lg relative bg-gray-900/50 overflow-hidden flex flex-col justify-end shadow-2xl">
                         <div id="tank-water" class="w-full bg-blue-500/80 transition-all duration-100" style="height: 20%;"></div>
-                        <div class="absolute top-8 -right-1 w-4 h-3 bg-red-500 rounded-l border border-white"></div>
                     </div>
                 </div>
             </div>
@@ -241,11 +236,11 @@
                         <div class="flex gap-3">
                             <div class="flex flex-col items-center gap-1">
                                 <div id="lamp-q0" class="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 transition-all duration-200"></div>
-                                <span class="text-[10px] text-gray-400">Q0.0 (Привод/Насос)</span>
+                                <span class="text-[10px] text-gray-400">Q0.0 (Привод)</span>
                             </div>
                             <div class="flex flex-col items-center gap-1">
                                 <div id="lamp-q1" class="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 transition-all duration-200"></div>
-                                <span class="text-[10px] text-gray-400">Q0.1 (Клапан/Толкатель)</span>
+                                <span class="text-[10px] text-gray-400">Q0.1 (Толкатель)</span>
                             </div>
                         </div>
                     </div>
@@ -254,11 +249,11 @@
                 <div id="tab-io" class="p-3 flex-1 overflow-y-auto hidden">
                     <div class="grid grid-cols-2 gap-4 text-xs font-mono">
                         <div>
-                            <h4 class="font-bold text-blue-400 border-b border-gray-700 pb-1 mb-2">Входы ПЛК (Discrete Inputs)</h4>
+                            <h4 class="font-bold text-blue-400 border-b border-gray-700 pb-1 mb-2">Входы ПЛК</h4>
                             <div id="io-inputs-list" class="space-y-1"></div>
                         </div>
                         <div>
-                            <h4 class="font-bold text-emerald-400 border-b border-gray-700 pb-1 mb-2">Выходы и Маркеры (Outputs/Memory)</h4>
+                            <h4 class="font-bold text-emerald-400 border-b border-gray-700 pb-1 mb-2">Выходы и Маркеры</h4>
                             <div id="io-outputs-list" class="space-y-1"></div>
                         </div>
                     </div>
@@ -270,7 +265,7 @@
 
     </div>
 
-    <!-- Element Edit Pop-up Modal -->
+    <!-- Modals & Logic -->
     <div id="edit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
         <div class="bg-gray-800 border border-gray-700 rounded-lg max-w-sm w-full p-5 shadow-2xl flex flex-col gap-4">
             <div class="flex justify-between items-center border-b border-gray-700 pb-2">
@@ -285,7 +280,7 @@
             <div class="flex flex-col gap-3 text-xs">
                 <div id="modal-type-block" class="flex flex-col gap-1">
                     <label class="text-gray-400">Тип контакта:</label>
-                    <select id="modal-type" class="bg-gray-700 text-white border border-gray-600 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-500">
+                    <select id="modal-type" class="bg-gray-700 text-white border border-gray-600 rounded px-2.5 py-1.5 focus:outline-none">
                         <option value="NO">--[ ]-- Нормально Разомкнутый (NO)</option>
                         <option value="NC">--[/]-- Нормально Замкнутый (NC)</option>
                     </select>
@@ -293,52 +288,18 @@
 
                 <div class="flex flex-col gap-1">
                     <label class="text-gray-400">Адрес ПЛК:</label>
-                    <select id="modal-address" class="bg-gray-700 text-white border border-gray-600 rounded px-2.5 py-1.5 font-mono focus:outline-none focus:border-blue-500">
+                    <select id="modal-address" class="bg-gray-700 text-white border border-gray-600 rounded px-2.5 py-1.5 font-mono focus:outline-none">
                     </select>
                 </div>
             </div>
 
             <div class="flex justify-between items-center pt-2 border-t border-gray-700 mt-1">
-                <button id="modal-delete-btn" class="bg-red-600/80 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded transition">
-                    Удалить
-                </button>
-                <button id="modal-save-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-1.5 rounded transition">
-                    Применить
-                </button>
+                <button id="modal-delete-btn" class="bg-red-600/80 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded">Удалить</button>
+                <button id="modal-save-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-1.5 rounded">Применить</button>
             </div>
         </div>
     </div>
 
-    <!-- Theory Modal -->
-    <div id="theory-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-gray-800 border border-gray-700 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl">
-            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-850">
-                <h2 class="font-bold text-lg text-purple-400 flex items-center gap-2">
-                    <i data-lucide="book-open" class="w-5 h-5"></i> Учебник: Язык Релейных Диаграмм (Ladder Diagram)
-                </h2>
-                <button id="btn-close-theory" class="text-gray-400 hover:text-white p-1">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto space-y-6 text-sm leading-relaxed text-gray-200">
-                <section>
-                    <h3 class="text-base font-bold text-blue-300 mb-2 border-b border-gray-700 pb-1">1. Что такое Ladder Logic (LD)?</h3>
-                    <p>
-                        <strong>Ladder Diagram (LD)</strong> — графический язык программирования ПЛК, эмулирующий электрические схемы с реле.
-                    </p>
-                </section>
-            </div>
-
-            <div class="p-4 border-t border-gray-700 bg-gray-850 flex justify-end">
-                <button id="btn-close-theory-2" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs px-4 py-2 rounded">
-                    Понятно, к симулятору!
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Logic Script -->
     <script>
         const PLC = {
             running: false,
@@ -369,102 +330,32 @@
         let currentEditingTarget = null;
         const factoryState = { 
             boxX: 5, 
-            boxY: -36, 
+            boxY: 14, 
             isPushed: false, 
             pushedCount: 0, 
             tankLevel: 20 
         };
 
         const TUTORIAL_STEPS = [
-            {
-                title: "Урок 1: Запуск ПЛК (Режим RUN)",
-                desc: "Для работы программы нажмите зелёную кнопку 'RUN' вверху справа.",
-                targetEl: "btn-run",
-                sceneMode: 0,
-                taskTitle: "Задача 1: Включение контроллера",
-                taskDesc: "Запустите ПЛК нажатием RUN.",
-                validate: () => PLC.running
-            },
-            {
-                title: "Урок 2: Прямое управление мотором",
-                desc: "Удерживайте кнопку START (I0.0) на панели HMI снизу.",
-                targetEl: "btn-start-phys",
-                sceneMode: 0,
-                taskTitle: "Задача 2: Подача сигнала на привод",
-                taskDesc: "Удерживайте START (I0.0) для запуска конвейера Q0.0.",
-                validate: () => PLC.inputs['I0.0'] && PLC.outputs['Q0.0']
-            },
-            {
-                title: "Урок 3: Эффект Самоподхвата (Latching)",
-                desc: "Отпустите кнопку START. Мотор Q0.0 продолжит работать благодаря параллельному контакту Q0.0!",
-                targetEl: "ladder-container",
-                sceneMode: 0,
-                taskTitle: "Задача 3: Удержание питания",
-                taskDesc: "Убедитесь, что привод работает при отпущенной кнопке.",
-                validate: () => !PLC.inputs['I0.0'] && PLC.outputs['Q0.0']
-            },
-            {
-                title: "Урок 4: Аварийный Останов",
-                desc: "Нажмите STOP (I0.1) для снятия питания с катушки Q0.0.",
-                targetEl: "btn-stop-phys",
-                sceneMode: 0,
-                taskTitle: "Задача 4: Отключение нагрузки",
-                taskDesc: "Нажмите кнопку STOP для полного останова линии.",
-                validate: () => PLC.inputs['I0.1'] && !PLC.outputs['Q0.0']
-            },
-            {
-                title: "Урок 5: Наполнение резервуара (2 датчика)",
-                desc: "Нажмите START (I0.0) для запуска насоса Q0.0 и наполнения бака до 80%.",
-                targetEl: "btn-start-phys",
-                sceneMode: 1,
-                taskTitle: "Задача 5: Наполнение бака",
-                taskDesc: "Включите насос Q0.0 и наполните бак до срабатывания датчика I0.3.",
-                validate: () => factoryState.tankLevel >= 80
-            },
-            {
-                title: "Урок 6: Авто-отключение по Датчику",
-                desc: "Остановите ПЛК (кнопка STOP). Затем нажмите на 2-й контакт (I0.1) в схеме, измените его адрес на I0.3, нажмите 'Применить' и снова запустите RUN.",
-                targetEl: "btn-stop",
-                sceneMode: 1,
-                taskTitle: "Задача 6: Автоматизация наполнения",
-                taskDesc: "Остановите ПЛК, перенастройте контакт отключения на датчик I0.3 и запустите RUN.",
-                validate: () => factoryState.tankLevel >= 80 && !PLC.outputs['Q0.0']
-            },
-            {
-                title: "Урок 7: Сортировка коробок",
-                desc: "Запустите линию Q0.0. Включите датчик I0.2, чтобы проверить работу толкателя Q0.1 и сбросить коробку вниз.",
-                targetEl: "sens-1-toggle",
-                sceneMode: 2,
-                taskTitle: "Задача 7: Проверка толкателя",
-                taskDesc: "Активируйте толкатель Q0.1 для сброса куба в лоток.",
-                validate: () => PLC.inputs['I0.2'] && PLC.outputs['Q0.1']
-            },
-            {
-                title: "Урок 8: Завершение курса",
-                desc: "Поздравляем! Вы освоили базовое программирование ПЛК!",
-                targetEl: "btn-open-theory",
-                sceneMode: 2,
-                taskTitle: "Курс завершен!",
-                taskDesc: "Вы полностью прошли обучение и готовы к созданию собственных релейных схем.",
-                validate: () => false
-            }
+            { title: "Урок 1: Запуск ПЛК", desc: "Нажмите зелёную кнопку 'RUN'.", targetEl: "btn-run", sceneMode: 0, taskTitle: "Задача 1: Включение", taskDesc: "Запустите ПЛК.", validate: () => PLC.running },
+            { title: "Урок 2: Прямое управление", desc: "Удерживайте START (I0.0).", targetEl: "btn-start-phys", sceneMode: 0, taskTitle: "Задача 2: Подача сигнала", taskDesc: "Запустите конвейер Q0.0.", validate: () => PLC.inputs['I0.0'] && PLC.outputs['Q0.0'] },
+            { title: "Урок 3: Самоподхват", desc: "Отпустите START.", targetEl: "ladder-container", sceneMode: 0, taskTitle: "Задача 3: Удержание", taskDesc: "Привод работает при отпущенной кнопке.", validate: () => !PLC.inputs['I0.0'] && PLC.outputs['Q0.0'] },
+            { title: "Урок 4: Останов", desc: "Нажмите STOP (I0.1).", targetEl: "btn-stop-phys", sceneMode: 0, taskTitle: "Задача 4: Отключение", taskDesc: "Остановите линию.", validate: () => PLC.inputs['I0.1'] && !PLC.outputs['Q0.0'] },
+            { title: "Урок 5: Наполнение бака", desc: "Запустите насос Q0.0.", targetEl: "btn-start-phys", sceneMode: 1, taskTitle: "Задача 5: Бак", taskDesc: "Наполните бак до I0.3.", validate: () => factoryState.tankLevel >= 80 },
+            { title: "Урок 6: Автоматизация", desc: "Перенастройте контакт отключения на I0.3.", targetEl: "btn-stop", sceneMode: 1, taskTitle: "Задача 6: Авто-отключение", taskDesc: "Настройте автоматическое отключение.", validate: () => factoryState.tankLevel >= 80 && !PLC.outputs['Q0.0'] },
+            { title: "Урок 7: Сортировка", desc: "Включите I0.2 для активации толкателя Q0.1.", targetEl: "sens-1-toggle", sceneMode: 2, taskTitle: "Задача 7: Сброс детали", taskDesc: "Сбросьте деталь в лоток.", validate: () => PLC.inputs['I0.2'] && PLC.outputs['Q0.1'] },
+            { title: "Урок 8: Завершение", desc: "Курс завершен!", targetEl: "btn-open-theory", sceneMode: 2, taskTitle: "Готово!", taskDesc: "Вы успешно завершили курс.", validate: () => false }
         ];
 
         let currentTutStep = 0;
-
-        // --- LADDER EDITOR RENDERER ---
         const ladderContainer = document.getElementById('ladder-container');
 
         function renderLadder() {
             ladderContainer.innerHTML = '';
-
             PLC.rungs.forEach((rung) => {
                 const rungEl = document.createElement('div');
                 rungEl.className = "bg-gray-800 border border-gray-700 rounded-lg p-4 relative flex items-center min-h-[110px]";
-
-                let html = `<div class="w-2 bg-blue-500 self-stretch rounded-l"></div>`;
-                html += `<div class="flex-1 flex items-center px-4 relative">`;
-                html += `<div class="flex items-center gap-2 relative z-10 flex-1">`;
+                let html = `<div class="w-2 bg-blue-500 self-stretch rounded-l"></div><div class="flex-1 flex items-center px-4 relative"><div class="flex items-center gap-2 relative z-10 flex-1">`;
                 
                 rung.items.forEach((item, itemIdx) => {
                     const isActive = evaluateElementState(item);
@@ -473,17 +364,14 @@
                     if (itemIdx === 0 && rung.parallel) {
                         const isParActive = evaluateElementState(rung.parallel);
                         const parColor = PLC.running ? (isParActive ? 'text-emerald-400 border-emerald-500 bg-emerald-950/40' : 'text-gray-500 border-gray-700 bg-gray-850') : 'text-gray-300 border-gray-600 bg-gray-800';
-
                         html += `
                             <div class="relative flex flex-col items-center justify-center my-auto px-2">
                                 <div data-rung="${rung.id}" data-type="item" data-index="0" class="ladder-item cursor-pointer border-2 ${colorClass} px-3 py-1.5 rounded flex flex-col items-center hover:border-blue-400 transition min-w-[70px] z-10 bg-gray-800">
                                     <span class="text-[10px] font-mono font-bold text-gray-400 pointer-events-none">${item.addr}</span>
                                     <span class="font-mono font-extrabold text-sm pointer-events-none">${item.type === 'NO' ? '--[ ]--' : '--[/]--'}</span>
                                 </div>
-
                                 <div class="absolute inset-y-0 -left-1 w-2 border-l-2 border-t-2 border-b-2 border-gray-500 rounded-l my-3"></div>
                                 <div class="absolute inset-y-0 -right-1 w-2 border-r-2 border-t-2 border-b-2 border-gray-500 rounded-r my-3"></div>
-
                                 <div class="mt-4 z-10">
                                     <div data-rung="${rung.id}" data-type="parallel" data-index="0" class="ladder-item cursor-pointer border-2 ${parColor} px-3 py-1.5 rounded flex flex-col items-center hover:border-blue-400 min-w-[70px] bg-gray-800">
                                         <span class="text-[9px] font-mono font-bold text-gray-400 pointer-events-none">${rung.parallel.addr}</span>
@@ -506,20 +394,6 @@
                     }
                 });
 
-                html += `
-                    <button onclick="addSeriesContact(${rung.id})" class="text-gray-500 hover:text-gray-300 p-1 border border-dashed border-gray-600 rounded ml-1">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                    </button>
-                `;
-
-                if (!rung.parallel) {
-                    html += `
-                        <button onclick="addParallelBranch(${rung.id})" class="text-[10px] text-blue-400 hover:text-blue-300 bg-gray-900 px-1.5 py-0.5 rounded border border-gray-700 ml-1">
-                            + Параллель
-                        </button>
-                    `;
-                }
-
                 html += `<div class="h-0.5 flex-1 bg-gray-600"></div>`;
 
                 const isCoilActive = PLC.outputs[rung.coil.addr] || PLC.memory[rung.coil.addr];
@@ -533,22 +407,14 @@
                 `;
 
                 html += `</div><div class="w-2 bg-blue-500 self-stretch rounded-r"></div>`;
-
                 rungEl.innerHTML = html;
                 ladderContainer.appendChild(rungEl);
             });
 
-            // Блокировка открытия формы редактирования при активном RUN
             document.querySelectorAll('.ladder-item').forEach(el => {
                 el.addEventListener('click', () => {
-                    if (PLC.running) {
-                        alert("⚠️ Ошибка безопасности! Редактирование схемы запрещено при работающем ПЛК (RUN). Остановите контроллер (кнопка STOP).");
-                        return;
-                    }
-                    const rungId = parseInt(el.getAttribute('data-rung'));
-                    const targetType = el.getAttribute('data-type');
-                    const index = parseInt(el.getAttribute('data-index'));
-                    openEditModal(rungId, targetType, index);
+                    if (PLC.running) return alert("Остановите ПЛК (STOP) для редактирования!");
+                    openEditModal(parseInt(el.getAttribute('data-rung')), el.getAttribute('data-type'), parseInt(el.getAttribute('data-index')));
                 });
             });
 
@@ -556,7 +422,6 @@
             updateIOMonitor();
         }
 
-        // --- EDIT MODAL POP-UP LOGIC ---
         const editModal = document.getElementById('edit-modal');
         const modalAddress = document.getElementById('modal-address');
         const modalType = document.getElementById('modal-type');
@@ -566,10 +431,8 @@
             currentEditingTarget = { rungId, targetType, index };
             const rung = PLC.rungs.find(r => r.id === rungId);
             let item = targetType === 'item' ? rung.items[index] : (targetType === 'parallel' ? rung.parallel : rung.coil);
-
             if (!item) return;
 
-            // Заполнение селекта адресов
             modalAddress.innerHTML = '';
             ADDRESS_OPTIONS.forEach(grp => {
                 const optGroup = document.createElement('optgroup');
@@ -584,33 +447,24 @@
             });
 
             modalAddress.value = item.addr;
-
             if (targetType === 'coil') {
                 modalTypeBlock.classList.add('hidden');
             } else {
                 modalTypeBlock.classList.remove('hidden');
                 modalType.value = item.type;
             }
-
             editModal.classList.remove('hidden');
         }
 
-        document.getElementById('modal-close-btn').onclick = () => {
-            editModal.classList.add('hidden');
-        };
-
+        document.getElementById('modal-close-btn').onclick = () => editModal.classList.add('hidden');
         document.getElementById('modal-save-btn').onclick = () => {
             if (!currentEditingTarget) return;
             const rung = PLC.rungs.find(r => r.id === currentEditingTarget.rungId);
             let item = currentEditingTarget.targetType === 'item' ? rung.items[currentEditingTarget.index] : (currentEditingTarget.targetType === 'parallel' ? rung.parallel : rung.coil);
-
             if (item) {
                 item.addr = modalAddress.value;
-                if (currentEditingTarget.targetType !== 'coil') {
-                    item.type = modalType.value;
-                }
+                if (currentEditingTarget.targetType !== 'coil') item.type = modalType.value;
             }
-
             editModal.classList.add('hidden');
             renderLadder();
         };
@@ -618,13 +472,11 @@
         document.getElementById('modal-delete-btn').onclick = () => {
             if (!currentEditingTarget) return;
             const rung = PLC.rungs.find(r => r.id === currentEditingTarget.rungId);
-
             if (currentEditingTarget.targetType === 'item' && rung.items.length > 1) {
                 rung.items.splice(currentEditingTarget.index, 1);
             } else if (currentEditingTarget.targetType === 'parallel') {
                 rung.parallel = null;
             }
-
             editModal.classList.add('hidden');
             renderLadder();
         };
@@ -646,54 +498,13 @@
             return item.type === 'NO' ? val : !val;
         }
 
-        function addSeriesContact(rungId) {
-            if (PLC.running) {
-                alert("⚠️ Изменение состава схемы запрещено во время работы ПЛК!");
-                return;
-            }
-            const rung = PLC.rungs.find(r => r.id === rungId);
-            rung.items.push({ id: 'e' + Date.now(), type: 'NO', addr: 'I0.2' });
-            renderLadder();
-        }
-
-        function addParallelBranch(rungId) {
-            if (PLC.running) {
-                alert("⚠️ Изменение состава схемы запрещено во время работы ПЛК!");
-                return;
-            }
-            const rung = PLC.rungs.find(r => r.id === rungId);
-            rung.parallel = { type: 'NO', addr: 'Q0.0' };
-            renderLadder();
-        }
-
-        document.getElementById('btn-add-rung').onclick = () => {
-            if (PLC.running) {
-                alert("⚠️ Добавление новых цепей запрещено во время работы ПЛК!");
-                return;
-            }
-            const newId = PLC.rungs.length > 0 ? Math.max(...PLC.rungs.map(r => r.id)) + 1 : 1;
-            PLC.rungs.push({
-                id: newId,
-                items: [{ id: 'e' + Date.now(), type: 'NO', addr: 'I0.2' }],
-                parallel: null,
-                coil: { id: 'c' + Date.now(), type: 'COIL', addr: 'Q0.1' }
-            });
-            renderLadder();
-        };
-
-        // --- PLC SCAN ENGINE & PHYSICAL COLLISION SIMULATION ---
+        // --- SCAN ENGINE ---
         function plcScanCycle() {
             if (PLC.running) {
                 const startTime = performance.now();
 
                 PLC.rungs.forEach(rung => {
-                    let seriesState = true;
-                    rung.items.forEach(item => {
-                        if (!evaluateElementState(item)) seriesState = false;
-                    });
-
                     let parallelState = rung.parallel ? evaluateElementState(rung.parallel) : false;
-
                     let firstBlockState = rung.items.length > 0 ? evaluateElementState(rung.items[0]) : false;
                     if (rung.parallel) firstBlockState = firstBlockState || parallelState;
 
@@ -701,7 +512,6 @@
                     for (let i = 1; i < rung.items.length; i++) {
                         finalRungResult = finalRungResult && evaluateElementState(rung.items[i]);
                     }
-
                     if (rung.items.length === 0) finalRungResult = parallelState;
 
                     setValueByAddress(rung.coil.addr, finalRungResult);
@@ -718,45 +528,47 @@
                     const pusherPiston = document.getElementById('pusher-piston');
                     const sorterChute = document.getElementById('sorter-chute');
 
-                    // Выдвигается только сам поршень/шток (#pusher-piston), корпус Q0.1 остаётся на месте
                     const isPusherExtended = PLC.outputs['Q0.1'];
+
                     if (activeSceneMode === 2) {
                         sorterArm.classList.remove('hidden');
+                        pusherPiston.classList.remove('hidden');
                         sorterChute.classList.remove('hidden');
-                        pusherPiston.style.transform = isPusherExtended ? 'translateY(50px)' : 'translateY(0px)';
+
+                        // Шток выдвигается сверху вниз к ленте
+                        pusherPiston.style.transform = isPusherExtended ? 'translateY(28px)' : 'translateY(0px)';
                     } else {
                         sorterArm.classList.add('hidden');
+                        pusherPiston.classList.add('hidden');
                         sorterChute.classList.add('hidden');
                     }
 
-                    // Move Box on Conveyor (Q0.0)
+                    // Движение детали строго внутри границ ленты (Q0.0)
                     if (PLC.outputs['Q0.0'] && !factoryState.isPushed) {
-
-                        // КОЛЛИЗИЯ И СБРОС КУБА
-                        if (activeSceneMode === 2 && isPusherExtended && factoryState.boxX >= 38 && factoryState.boxX < 48) {
+                        // Сброс с ленты в лоток при касании толкателя Q0.1
+                        if (activeSceneMode === 2 && isPusherExtended && factoryState.boxX >= 42 && factoryState.boxX <= 50) {
                             factoryState.isPushed = true;
                             factoryState.pushedCount++;
                             document.getElementById('pushed-count').innerText = factoryState.pushedCount;
                         } else {
-                            // Обычное движение по конвейеру
                             factoryState.boxX += 1.2;
                         }
 
-                        if (factoryState.boxX > 88) {
+                        if (factoryState.boxX > 90) {
                             factoryState.boxX = 5;
-                            factoryState.boxY = -36;
+                            factoryState.boxY = 14;
                         }
                     }
 
-                    // Анимация сталкивания куба в лоток
+                    // Анимация сталкивания детали вниз за пределы ленты
                     if (factoryState.isPushed) {
                         factoryState.boxY += 2.5;
-                        if (factoryState.boxY >= 45) {
+                        if (factoryState.boxY >= 80) {
                             setTimeout(() => {
                                 factoryState.boxX = 5;
-                                factoryState.boxY = -36;
+                                factoryState.boxY = 14;
                                 factoryState.isPushed = false;
-                            }, 400);
+                            }, 300);
                         }
                     }
 
@@ -768,7 +580,6 @@
                         factoryState.tankLevel += 0.3;
                     }
                     document.getElementById('tank-water').style.height = factoryState.tankLevel + '%';
-                    
                     PLC.inputs['I0.3'] = factoryState.tankLevel >= 80;
                     document.getElementById('sens-2-toggle').checked = PLC.inputs['I0.3'];
                 }
@@ -788,7 +599,6 @@
         }
 
         function renderTutorialStep() {
-            document.getElementById('tut-auto-badge').classList.add('hidden');
             document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
 
             const step = TUTORIAL_STEPS[currentTutStep];
@@ -809,9 +619,7 @@
             }
 
             const target = document.getElementById(step.targetEl);
-            if (target) {
-                target.classList.add('tutorial-highlight');
-            }
+            if (target) target.classList.add('tutorial-highlight');
         }
 
         function checkTutorialProgress() {
@@ -825,43 +633,11 @@
             }
         }
 
-        document.getElementById('tut-next-btn').onclick = () => {
-            if (currentTutStep < TUTORIAL_STEPS.length - 1) {
-                currentTutStep++;
-                renderTutorialStep();
-            }
-        };
-
-        document.getElementById('tut-prev-btn').onclick = () => {
-            if (currentTutStep > 0) {
-                currentTutStep--;
-                renderTutorialStep();
-            }
-        };
-
-        document.getElementById('tut-close-btn').onclick = () => {
-            tutorialBar.classList.add('hidden');
-            document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
-        };
-
+        document.getElementById('tut-next-btn').onclick = () => { if (currentTutStep < TUTORIAL_STEPS.length - 1) { currentTutStep++; renderTutorialStep(); } };
+        document.getElementById('tut-prev-btn').onclick = () => { if (currentTutStep > 0) { currentTutStep--; renderTutorialStep(); } };
+        document.getElementById('tut-close-btn').onclick = () => { tutorialBar.classList.add('hidden'); document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight')); };
         document.getElementById('btn-start-tutorial').onclick = startTutorial;
 
-        document.getElementById('btn-check-task').onclick = () => {
-            const step = TUTORIAL_STEPS[currentTutStep];
-            if (step && step.validate()) {
-                alert("🎉 Отлично! Вы полностью выполнили условия текущей задачи.");
-            } else {
-                alert("❌ Условия ещё не выполнены. Проверьте запуск ПЛК (RUN) и положение кнопок/датчиков.");
-            }
-        };
-
-        // --- THEORY MODAL ---
-        const theoryModal = document.getElementById('theory-modal');
-        document.getElementById('btn-open-theory').onclick = () => { theoryModal.classList.remove('hidden'); };
-        document.getElementById('btn-close-theory').onclick = () => theoryModal.classList.add('hidden');
-        document.getElementById('btn-close-theory-2').onclick = () => theoryModal.classList.add('hidden');
-
-        // --- CONTROLS & EVENT LISTENERS ---
         document.getElementById('btn-run').onclick = () => {
             PLC.running = true;
             document.getElementById('plc-status-badge').className = "inline-flex items-center gap-1 text-xs font-bold text-emerald-400";
@@ -878,7 +654,7 @@
 
         document.getElementById('btn-reset').onclick = () => {
             factoryState.boxX = 5;
-            factoryState.boxY = -36;
+            factoryState.boxY = 14;
             factoryState.isPushed = false;
             factoryState.pushedCount = 0;
             factoryState.tankLevel = 20;
@@ -890,44 +666,25 @@
 
         const pressStart = () => { PLC.inputs['I0.0'] = true; renderLadder(); };
         const releaseStart = () => { PLC.inputs['I0.0'] = false; renderLadder(); };
-
         btnStartPhys.onmousedown = pressStart;
         btnStartPhys.onmouseup = releaseStart;
-        btnStartPhys.onmouseleave = releaseStart;
-        btnStartPhys.ontouchstart = (e) => { e.preventDefault(); pressStart(); };
-        btnStartPhys.ontouchend = (e) => { e.preventDefault(); releaseStart(); };
 
         const pressStop = () => { PLC.inputs['I0.1'] = true; renderLadder(); };
-        const releaseStop = () => { PLC.inputs['I0.1'] = false; renderStop(); };
-
+        const releaseStop = () => { PLC.inputs['I0.1'] = false; renderLadder(); };
         btnStopPhys.onmousedown = pressStop;
         btnStopPhys.onmouseup = releaseStop;
-        btnStopPhys.onmouseleave = releaseStop;
-        btnStopPhys.ontouchstart = (e) => { e.preventDefault(); pressStop(); };
-        btnStopPhys.ontouchend = (e) => { e.preventDefault(); releaseStop(); };
 
-        document.getElementById('sens-1-toggle').onchange = (e) => {
-            PLC.inputs['I0.2'] = e.target.checked;
-            renderLadder();
-        };
-
-        document.getElementById('sens-2-toggle').onchange = (e) => {
-            PLC.inputs['I0.3'] = e.target.checked;
-            renderLadder();
-        };
+        document.getElementById('sens-1-toggle').onchange = (e) => { PLC.inputs['I0.2'] = e.target.checked; renderLadder(); };
+        document.getElementById('sens-2-toggle').onchange = (e) => { PLC.inputs['I0.3'] = e.target.checked; renderLadder(); };
 
         document.getElementById('tab-hmi-btn').onclick = (e) => {
             document.getElementById('tab-hmi').classList.remove('hidden');
             document.getElementById('tab-io').classList.add('hidden');
-            e.target.className = "px-4 py-2 text-xs font-semibold border-b-2 border-blue-500 text-blue-400 bg-gray-800";
-            document.getElementById('tab-io-btn').className = "px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200";
         };
 
         document.getElementById('tab-io-btn').onclick = (e) => {
             document.getElementById('tab-hmi').classList.add('hidden');
             document.getElementById('tab-io').classList.remove('hidden');
-            e.target.className = "px-4 py-2 text-xs font-semibold border-b-2 border-blue-500 text-blue-400 bg-gray-800";
-            document.getElementById('tab-hmi-btn').className = "px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-gray-400 hover:text-gray-200";
         };
 
         function updateIOMonitor() {
@@ -946,7 +703,6 @@
             `).join('');
         }
 
-        // INITIALIZATION
         startTutorial();
         renderLadder();
         setInterval(plcScanCycle, 50);
