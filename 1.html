@@ -8,11 +8,6 @@
     :root {
       --bg: #121824;
       --card-bg: #1a2234;
-      --wire-off: #4a5568;
-      --wire-on: #3182ce;
-      --wire-glow: #63b3ed;
-      --red-led: #f56565;
-      --green-led: #48bb78;
       --text: #e2e8f0;
     }
 
@@ -50,24 +45,8 @@
     }
 
     /* Анимация тока */
-    .current-particle {
-      fill: #ebf8ff;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .active-circuit .current-particle {
-      opacity: 1;
-      animation: flow 2s linear infinite;
-    }
-
-    @keyframes flow {
-      from { stroke-dashoffset: 200; }
-      to { stroke-dashoffset: 0; }
-    }
-
     .wire-active {
-      stroke: var(--wire-on);
+      stroke: #3182ce;
       transition: stroke 0.3s;
     }
 
@@ -137,7 +116,6 @@
       height: 12px;
       border-radius: 50%;
       background-color: #4a5568;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
     }
   </style>
 </head>
@@ -146,7 +124,7 @@
   <div class="container">
     <h2>Схема зарядки аккумулятора</h2>
     
-    <svg id="circuit" viewBox="0 0 700 320">
+    <svg id="circuit" viewBox="0 0 700 340">
       <defs>
         <!-- Свечение индикатора -->
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -159,14 +137,15 @@
       </defs>
 
       <!-- ТРАССА ПРОВОДОВ -->
-      <!-- Основной контур -->
-      <path id="main-wire" class="wire-active" d="M 120 160 L 120 70 L 250 70 M 330 70 L 450 70 L 450 110 M 450 210 L 450 250 L 120 250 L 120 200" fill="none" stroke="#4a5568" stroke-width="4" stroke-linejoin="round"/>
+      <!-- Главный контур: Питание -> Ключ S1 -> АКБ -->
+      <path id="main-wire" class="wire-active" d="M 120 180 L 120 70 L 230 70 M 310 70 L 530 70 L 530 130 M 530 230 L 530 270 L 120 270 L 120 220" fill="none" stroke="#4a5568" stroke-width="4" stroke-linejoin="round"/>
       
-      <!-- Цепь индикатора (параллельно резистору и АКБ) -->
-      <path id="led-wire" d="M 330 70 L 330 140 L 400 140 M 400 180 L 330 180 L 330 250" fill="none" stroke="#4a5568" stroke-width="3" stroke-linejoin="round"/>
+      <!-- Ветка индикации (подключена параллельно АКБ после ключа S1) -->
+      <!-- Ток от верхней линии идет вниз через резистор R1, затем через LED на нижний провод (минус) -->
+      <path id="led-wire" d="M 380 70 L 380 120 M 380 170 L 380 180 M 380 220 L 380 270" fill="none" stroke="#4a5568" stroke-width="3" stroke-linejoin="round"/>
 
       <!-- ИСТОЧНИК ПИТАНИЯ (5V DC) -->
-      <g transform="translate(100, 160)">
+      <g transform="translate(100, 180)">
         <circle cx="20" cy="20" r="22" fill="#1a2234" stroke="#e2e8f0" stroke-width="2"/>
         <text x="20" y="15" fill="#e2e8f0" font-size="12" text-anchor="middle" font-weight="bold">DC 5V</text>
         <text x="20" y="32" fill="#e2e8f0" font-size="16" text-anchor="middle" font-weight="bold">+</text>
@@ -174,48 +153,47 @@
         <text x="20" y="55" fill="#e2e8f0" font-size="12" text-anchor="middle">-</text>
       </g>
 
-      <!-- ВЫКЛЮЧАТЕЛЬ -->
-      <g transform="translate(250, 70)">
+      <!-- ВЫКЛЮЧАТЕЛЬ S1 -->
+      <g transform="translate(230, 70)">
         <circle cx="0" cy="0" r="5" fill="#e2e8f0"/>
         <circle cx="80" cy="0" r="5" fill="#e2e8f0"/>
         <line id="switch-lever" x1="0" y1="0" x2="75" y2="-25" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round" style="transition: all 0.2s;"/>
-        <text x="40" y="-30" fill="#a0aec0" font-size="12" text-anchor="middle">S1 (Ключ)</text>
+        <text x="40" y="-20" fill="#a0aec0" font-size="12" text-anchor="middle">S1 (Ключ)</text>
       </g>
 
-      <!-- ОГРАНИЧИТЕЛЬНЫЙ РЕЗИСТОР -->
-      <g transform="translate(370, 70)">
-        <rect x="0" y="-12" width="50" height="24" fill="#1a2234" stroke="#e2e8f0" stroke-width="2" rx="3"/>
-        <text x="25" y="-18" fill="#a0aec0" font-size="12" text-anchor="middle">R1 (10 Ом)</text>
+      <!-- ОГРАНИЧИТЕЛЬНЫЙ РЕЗИСТОР R1 (ПОСЛЕДОВАТЕЛЬНО СО СВЕТОДИОДОМ) -->
+      <g transform="translate(380, 145)">
+        <rect x="-15" y="-25" width="30" height="50" fill="#1a2234" stroke="#e2e8f0" stroke-width="2" rx="3"/>
+        <text x="-25" y="5" fill="#a0aec0" font-size="12" text-anchor="end">R1 (220 Ом)</text>
         <!-- Полосы резистора -->
-        <line x1="10" y1="-12" x2="10" y2="12" stroke="#e53e3e" stroke-width="3"/>
-        <line x1="20" y1="-12" x2="20" y2="12" stroke="#e53e3e" stroke-width="3"/>
-        <line x1="30" y1="-12" x2="30" y2="12" stroke="#black" stroke-width="3"/>
+        <line x1="-15" y1="-10" x2="15" y2="-10" stroke="#e53e3e" stroke-width="3"/>
+        <line x1="-15" y1="0" x2="15" y2="0" stroke="#e53e3e" stroke-width="3"/>
+        <line x1="-15" y1="10" x2="15" y2="10" stroke="#a0aec0" stroke-width="3"/>
       </g>
 
       <!-- ДВУХЦВЕТНЫЙ СВЕТОДИОД (LED) -->
-      <g transform="translate(400, 160)">
-        <!-- Обозначение корпуса светодиода -->
+      <g transform="translate(380, 200)">
         <circle id="led-body" cx="0" cy="0" r="16" fill="#2d3748" stroke="#e2e8f0" stroke-width="2"/>
-        <!-- Треугольник диода -->
-        <polygon points="-8,8 8,8 0,-8" fill="none" stroke="#e2e8f0" stroke-width="2"/>
-        <line x1="-8" y1="-8" x2="8" y2="-8" stroke="#e2e8f0" stroke-width="2"/>
-        <text x="30" y="5" fill="#a0aec0" font-size="12">Индикатор</text>
+        <!-- Треугольник диода (вершиной вниз по направлению тока) -->
+        <polygon points="-8,-8 8,-8 0,8" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+        <line x1="-8" y1="8" x2="8" y2="8" stroke="#e2e8f0" stroke-width="2"/>
+        <text x="-25" y="5" fill="#a0aec0" font-size="12" text-anchor="end">Индикатор</text>
       </g>
 
       <!-- АККУМУЛЯТОР (BATTERY) -->
-      <g transform="translate(450, 160)">
+      <g transform="translate(530, 180)">
         <!-- Внешний корпус -->
-        <rect x="-25" y="-35" width="50" height="70" rx="6" fill="#1a2234" stroke="#e2e8f0" stroke-width="2"/>
+        <rect x="-25" y="-45" width="50" height="90" rx="6" fill="#1a2234" stroke="#e2e8f0" stroke-width="2"/>
         <!-- Плюс контакта -->
-        <rect x="-10" y="-42" width="20" height="7" rx="2" fill="#e2e8f0"/>
+        <rect x="-10" y="-52" width="20" height="7" rx="2" fill="#e2e8f0"/>
         
         <!-- Уровень заряда -->
-        <rect id="battery-level" x="-20" y="30" width="40" height="0" rx="3" fill="#e53e3e" style="transition: all 0.2s;"/>
+        <rect id="battery-level" x="-20" y="38" width="40" height="0" rx="3" fill="#e53e3e" style="transition: all 0.2s;"/>
         
         <!-- Текст процентов -->
         <text id="battery-text" x="0" y="5" fill="#ffffff" font-size="14" font-weight="bold" text-anchor="middle">0%</text>
         
-        <text x="40" y="5" fill="#a0aec0" font-size="12">АКБ (3.7V)</text>
+        <text x="35" y="5" fill="#a0aec0" font-size="12">АКБ (3.7V)</text>
       </g>
     </svg>
 
@@ -242,12 +220,10 @@
   </div>
 
   <script>
-    // Состояние системы
     let isClosed = false;
-    let batteryCharge = 10; // начальный заряд %
+    let batteryCharge = 10;
     let chargeInterval = null;
 
-    // DOM Элементы
     const switchLever = document.getElementById('switch-lever');
     const mainWire = document.getElementById('main-wire');
     const ledWire = document.getElementById('led-wire');
@@ -263,35 +239,31 @@
     const btnToggle = document.getElementById('btn-toggle');
     const btnReset = document.getElementById('btn-reset');
 
-    // Обновление отображения аккумулятора
     function updateBatteryUI() {
       batteryText.textContent = `${Math.round(batteryCharge)}%`;
       
-      // Высота заливки аккумулятора (макс. 60px)
-      const height = (batteryCharge / 100) * 60;
-      const yOffset = 30 - height;
+      const height = (batteryCharge / 100) * 80;
+      const yOffset = 38 - height;
       
       batteryLevel.setAttribute('height', height);
       batteryLevel.setAttribute('y', yOffset);
 
-      // Цвет индикатора на аккумуляторе
       if (batteryCharge < 20) {
-        batteryLevel.setAttribute('fill', '#e53e3e'); // Красный
+        batteryLevel.setAttribute('fill', '#e53e3e');
       } else if (batteryCharge < 80) {
-        batteryLevel.setAttribute('fill', '#dd6b20'); // Оранжевый
+        batteryLevel.setAttribute('fill', '#dd6b20');
       } else {
-        batteryLevel.setAttribute('fill', '#38a169'); // Зеленый
+        batteryLevel.setAttribute('fill', '#38a169');
       }
     }
 
-    // Состояние цепи и индикаторов
     function updateCircuitState() {
       if (!isClosed) {
-        // Выключатель разомкнут
         switchLever.setAttribute('x2', '75');
         switchLever.setAttribute('y2', '-25');
         
         mainWire.classList.remove('charging');
+        ledWire.classList.remove('charging');
         mainWire.style.stroke = '#4a5568';
         ledWire.style.stroke = '#4a5568';
         
@@ -315,11 +287,9 @@
         return;
       }
 
-      // Выключатель замкнут
       switchLever.setAttribute('x2', '80');
       switchLever.setAttribute('y2', '0');
       
-      mainWire.classList.add('charging');
       mainWire.style.stroke = '#3182ce';
       ledWire.style.stroke = '#3182ce';
       
@@ -328,7 +298,9 @@
       btnToggle.textContent = 'Разомкнуть выключатель';
 
       if (batteryCharge < 100) {
-        // Режим ЗАРЯДКИ — Красный индикатор
+        mainWire.classList.add('charging');
+        ledWire.classList.add('charging');
+
         ledBody.setAttribute('fill', '#f56565');
         ledBody.setAttribute('filter', 'url(#glow)');
         
@@ -337,13 +309,12 @@
         statusIndicatorDot.style.backgroundColor = '#f56565';
         statusIndicatorDot.style.boxShadow = '0 0 8px #f56565';
 
-        // Расчет тока (уменьшается по мере заряда)
-        const current = Math.round(450 * (1 - batteryCharge / 120));
+        const current = Math.round(500 * (1 - batteryCharge / 115));
         currentText.textContent = `${current} mA`;
         currentText.style.color = '#63b3ed';
       } else {
-        // Заряд ЗАВЕРШЕН — Зеленый индикатор
-        mainWire.classList.remove('charging'); // Анимация тока останавливается
+        mainWire.classList.remove('charging');
+        ledWire.classList.remove('charging');
         
         ledBody.setAttribute('fill', '#48bb78');
         ledBody.setAttribute('filter', 'url(#glow)');
@@ -353,18 +324,17 @@
         statusIndicatorDot.style.backgroundColor = '#48bb78';
         statusIndicatorDot.style.boxShadow = '0 0 8px #48bb78';
 
-        currentText.textContent = '5 mA (Подпитка)';
+        currentText.textContent = '0 mA (Заряжен)';
         currentText.style.color = '#48bb78';
       }
     }
 
-    // Симуляция процесса зарядки
     function startChargingSimulation() {
       clearInterval(chargeInterval);
       
       chargeInterval = setInterval(() => {
         if (isClosed && batteryCharge < 100) {
-          batteryCharge += 1.5; // Скорость зарядки
+          batteryCharge += 1.5;
           if (batteryCharge > 100) batteryCharge = 100;
           
           updateBatteryUI();
@@ -373,7 +343,6 @@
       }, 200);
     }
 
-    // Переключение ключа
     btnToggle.addEventListener('click', () => {
       isClosed = !isClosed;
       updateCircuitState();
@@ -382,7 +351,6 @@
       }
     });
 
-    // Сброс заряда
     btnReset.addEventListener('click', () => {
       batteryCharge = 10;
       updateBatteryUI();
@@ -392,7 +360,6 @@
       }
     });
 
-    // Инициализация при старте
     updateBatteryUI();
     updateCircuitState();
   </script>
