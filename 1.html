@@ -10,14 +10,17 @@
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: rgba(10, 15, 25, 0.88); backdrop-filter: blur(10px);
       padding: 16px 24px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12);
-      display: flex; gap: 20px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      display: flex; gap: 16px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      flex-wrap: wrap; justify-content: center;
     }
     .control-group { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-    input, button {
+    input, select, button {
       background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
       padding: 6px 12px; border-radius: 6px; outline: none; font-size: 13px;
     }
+    select option { background: #0f172a; color: #fff; }
     input[type=datetime-local] { color-scheme: dark; }
+    input[type=number] { width: 70px; }
     button { background: #2563eb; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
     button:hover { background: #1d4ed8; }
     
@@ -41,6 +44,7 @@
 <div id="compass">◄ ВОСТОК (E: 90°) &nbsp;&nbsp;&nbsp; • ЮГ (S: 180°) • &nbsp;&nbsp;&nbsp; ЗАПАД (W: 270°) ►</div>
 
 <div id="info-panel">
+  <div>Локация: <span id="locInfo" class="val">--</span></div>
   <div>Солнце (Высота / Азимут): <span id="sunInfo" class="val">--</span></div>
   <div>Луна (Высота / Азимут): <span id="moonInfo" class="val">--</span></div>
   <div>Фаза Луны: <span id="phaseInfo" class="val">--</span></div>
@@ -49,18 +53,45 @@
 
 <div id="ui">
   <div class="control-group">
-    <label for="datePicker">Дата и Время наблюдения:</label>
+    <label for="citySelect">Место наблюдения:</label>
+    <select id="citySelect">
+      <option value="50.45,30.52" selected>Киев (50.45° N, 30.52° E)</option>
+      <option value="55.75,37.61">Москва (55.75° N, 37.61° E)</option>
+      <option value="40.71,-74.00">Нью-Йорк (40.71° N, 74.00° W)</option>
+      <option value="51.50,-0.12">Лондон (51.50° N, 0.12° W)</option>
+      <option value="35.67,139.65">Токио (35.67° N, 139.65° E)</option>
+      <option value="-33.86,151.20">Сидней (33.86° S, 151.20° E)</option>
+      <option value="0.00,0.00">Экватор (0° N, 0° E)</option>
+      <option value="custom">Свои координаты...</option>
+    </select>
+  </div>
+
+  <div class="control-group" id="customCoords" style="display:none; flex-direction:row; gap:6px;">
+    <div>
+      <label>Широта °:</label>
+      <input type="number" id="latInput" value="50.45" step="0.1" min="-90" max="90">
+    </div>
+    <div>
+      <label>Долгота °:</label>
+      <input type="number" id="lonInput" value="30.52" step="0.1" min="-180" max="180">
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label for="datePicker">Дата и Время (Местное):</label>
     <input type="datetime-local" id="datePicker">
   </div>
+
   <div class="control-group">
-    <label for="speedSelect">Скорость времени:</label>
-    <select id="speedSelect" style="background: rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); padding:6px; border-radius:6px;">
+    <label for="speedSelect">Скорость:</label>
+    <select id="speedSelect">
       <option value="1">1 сек / сек</option>
       <option value="60">1 мин / сек</option>
       <option value="3600" selected>1 час / сек</option>
       <option value="86400">1 день / сек</option>
     </select>
   </div>
+
   <button id="playBtn">▶ Пуск</button>
 </div>
 
@@ -70,20 +101,25 @@
 const canvas = document.getElementById('sky');
 const ctx = canvas.getContext('2d');
 
+const citySelect = document.getElementById('citySelect');
+const customCoords = document.getElementById('customCoords');
+const latInput = document.getElementById('latInput');
+const lonInput = document.getElementById('lonInput');
 const datePicker = document.getElementById('datePicker');
 const speedSelect = document.getElementById('speedSelect');
 const playBtn = document.getElementById('playBtn');
 
-// Элементы инфопанели
+const locInfo = document.getElementById('locInfo');
 const sunInfo = document.getElementById('sunInfo');
 const moonInfo = document.getElementById('moonInfo');
 const phaseInfo = document.getElementById('phaseInfo');
 const statusInfo = document.getElementById('statusInfo');
 
 let isPlaying = false;
-let currentDate = new Date(); // Текущая дата
+let currentDate = new Date();
+let latitude = 50.45;
+let longitude = 30.52;
 
-// Инициализация поля даты
 function updateDatePicker() {
   const tzOffset = currentDate.getTimezoneOffset() * 60000;
   const localISOTime = (new Date(currentDate.getTime() - tzOffset)).toISOString().slice(0, 16);
@@ -91,7 +127,6 @@ function updateDatePicker() {
 }
 updateDatePicker();
 
-// Звёзды
 const stars = Array.from({ length: 400 }, () => ({
   x: Math.random(),
   y: Math.random() * 0.7,
@@ -106,19 +141,17 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// --- АСТРОНОМИЧЕСКИЙ МАТЕМАТИЧЕСКИЙ ДВИЖОК ---
-function getAstroPositions(date) {
-  // Юлианский день
+// --- АСТРОНОМИЧЕСКИЙ РАСЧЁТ С УЧЁТОМ ШИРОТЫ И ДОЛГОТЫ ---
+function getAstroPositions(date, latDeg, lonDeg) {
   const jd = (date.getTime() / 86400000) + 2440587.5;
-  const d = jd - 2451545.0; // Дней от эпохи J2000.0
+  const d = jd - 2451545.0;
 
-  // 1. Солнце (упрощенная орбитальная модель Кеплера)
-  const sunL = (280.460 + 0.9856474 * d) % 360; // Средняя долгота
-  const sung = ((357.528 + 0.9856003 * d) % 360) * Math.PI / 180; // Аномалия
+  // 1. Солнце
+  const sunL = (280.460 + 0.9856474 * d) % 360;
+  const sung = ((357.528 + 0.9856003 * d) % 360) * Math.PI / 180;
   const lambdaSun = (sunL + 1.915 * Math.sin(sung) + 0.020 * Math.sin(2 * sung)) * Math.PI / 180;
 
-  // Экваториальные координаты Солнца
-  const obliq = 23.439 * Math.PI / 180; // Наклон оси Земли
+  const obliq = 23.439 * Math.PI / 180;
   const sunRA = Math.atan2(Math.cos(obliq) * Math.sin(lambdaSun), Math.cos(lambdaSun));
   const sunDec = Math.asin(Math.sin(obliq) * Math.sin(lambdaSun));
 
@@ -128,21 +161,20 @@ function getAstroPositions(date) {
   const moonF = (93.272 + 13.229350 * d) % 360 * Math.PI / 180;
 
   const lambdaMoon = moonL + 0.109 * Math.sin(moonM);
-  const betaMoon = 0.089 * Math.sin(moonF); // Наклон орбиты Луны ~5 deg
+  const betaMoon = 0.089 * Math.sin(moonF);
 
   const moonRA = Math.atan2(Math.sin(lambdaMoon) * Math.cos(obliq) - Math.tan(betaMoon) * Math.sin(obliq), Math.cos(lambdaMoon));
   const moonDec = Math.asin(Math.sin(betaMoon) * Math.cos(obliq) + Math.cos(betaMoon) * Math.sin(obliq) * Math.sin(lambdaMoon));
 
-  // 3. Перевод в Горизонтальные координаты (Азимут / Высота)
-  // Для средних широт (Широта ~ 50° N)
-  const lat = 50 * Math.PI / 180;
-  const gmst = (18.697374558 + 24.06570982441908 * d) % 24; // Гринвичское звездное время
-  const lst = (gmst * 15 + 30) * Math.PI / 180; // Местное звездное время (Долгота ~ 30° E)
+  // 3. Учёт широты и долготы пользователя
+  const latRad = latDeg * Math.PI / 180;
+  const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
+  const lst = (gmst * 15 + lonDeg) * Math.PI / 180; // Местное звёздное время
 
   function toHorizontal(ra, dec) {
-    const ha = lst - ra; // Часовой угол
-    const alt = Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(ha));
-    let az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(lat) - Math.sin(lat) * Math.cos(ha));
+    const ha = lst - ra;
+    const alt = Math.asin(Math.sin(latRad) * Math.sin(dec) + Math.cos(latRad) * Math.cos(dec) * Math.cos(ha));
+    let az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(latRad) - Math.sin(latRad) * Math.cos(ha));
     az = (az * 180 / Math.PI + 360) % 360;
     return { alt: alt * 180 / Math.PI, az: az };
   }
@@ -150,23 +182,19 @@ function getAstroPositions(date) {
   const sunHor = toHorizontal(sunRA, sunDec);
   const moonHor = toHorizontal(moonRA, moonDec);
 
-  // Угол фазы Луны
   let phaseAngle = (lambdaMoon - lambdaSun) * 180 / Math.PI;
   phaseAngle = (phaseAngle + 360) % 360;
 
   return { sun: sunHor, moon: moonHor, phase: phaseAngle };
 }
 
-// --- ОТРИСОВКА 2D-ВИДА ---
 function render() {
   const w = canvas.width;
   const h = canvas.height;
   const horizonY = h * 0.75;
 
-  const astro = getAstroPositions(currentDate);
+  const astro = getAstroPositions(currentDate, latitude, longitude);
 
-  // Преобразование Азимута (90°..270°) в Экранную координату X
-  // 90° (Восток) = 0, 180° (Юг) = w/2, 270° (Запад) = w
   function azToX(az) {
     return ((az - 90) / 180) * w;
   }
@@ -182,7 +210,7 @@ function render() {
   const moonX = azToX(astro.moon.az);
   const moonY = altToY(astro.moon.alt);
 
-  // Обновление UI
+  locInfo.textContent = `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
   sunInfo.textContent = `${sunAlt.toFixed(1)}° / ${astro.sun.az.toFixed(1)}°`;
   moonInfo.textContent = `${astro.moon.alt.toFixed(1)}° / ${astro.moon.az.toFixed(1)}°`;
   
@@ -192,7 +220,7 @@ function render() {
   else if (astro.phase > 200 && astro.phase < 340) phaseName = "Убывающая Луна";
   phaseInfo.textContent = `${phaseName} (${(astro.phase).toFixed(0)}°)`;
 
-  // 1. АТМОСФЕРА И НЕБО
+  // 1. АТМОСФЕРА
   const normAlt = Math.max(-0.2, Math.min(1, sunAlt / 50));
   const opticalDepth = 1 / Math.max(0.04, normAlt);
 
@@ -259,7 +287,6 @@ function render() {
     ctx.arc(sunX, sunY, angularRadius * 8, 0, Math.PI * 2);
     ctx.fill();
 
-    // Корона
     if (isEclipse) {
       const coronaGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 3);
       coronaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
@@ -318,7 +345,30 @@ function render() {
   ctx.fillText('З (Запад 270°)', w - 100, horizonY + 30);
 }
 
-// Анимация времени
+// Обработчики селектора локации
+citySelect.addEventListener('change', () => {
+  if (citySelect.value === 'custom') {
+    customCoords.style.display = 'flex';
+  } else {
+    customCoords.style.display = 'none';
+    const [lat, lon] = citySelect.value.split(',').map(Number);
+    latitude = lat;
+    longitude = lon;
+    render();
+  }
+});
+
+latInput.addEventListener('input', () => {
+  latitude = parseFloat(latInput.value) || 0;
+  render();
+});
+
+lonInput.addEventListener('input', () => {
+  longitude = parseFloat(lonInput.value) || 0;
+  render();
+});
+
+// Анимация
 let lastTime = performance.now();
 function animate(now) {
   if (isPlaying) {
