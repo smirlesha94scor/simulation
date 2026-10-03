@@ -2,23 +2,37 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Физическое рассеивание света</title>
+  <title>Реалистичный вид неба с Земли</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: #fff; }
     canvas { display: block; }
-    #controls {
+    #ui {
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.7); color: #fff; padding: 12px 24px; border-radius: 8px;
-      display: flex; gap: 15px; align-items: center;
+      background: rgba(10, 15, 25, 0.85); backdrop-filter: blur(8px);
+      padding: 15px 25px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+      display: flex; gap: 20px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
-    input[type=range] { width: 200px; }
+    .control-group { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+    input[type=range] { width: 160px; }
+    button {
+      background: #2563eb; color: white; border: none; padding: 8px 16px;
+      border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;
+    }
+    button:hover { background: #1d4ed8; }
   </style>
 </head>
 <body>
 
-<div id="controls">
-  <label for="sunAngle">Высота Солнца (Закат / День):</label>
-  <input type="range" id="sunAngle" min="-0.1" max="1.2" step="0.005" value="0.2">
+<div id="ui">
+  <div class="control-group">
+    <label for="timeSlider">Время суток (Высота Солнца):</label>
+    <input type="range" id="timeSlider" min="0" max="360" value="80">
+  </div>
+  <div class="control-group">
+    <label for="moonOrbitSlider">Положение Луны на орбите:</label>
+    <input type="range" id="moonOrbitSlider" min="0" max="360" value="80">
+  </div>
+  <button id="playBtn">▶ Анимация</button>
 </div>
 
 <canvas id="sky"></canvas>
@@ -26,7 +40,20 @@
 <script>
 const canvas = document.getElementById('sky');
 const ctx = canvas.getContext('2d');
-const slider = document.getElementById('sunAngle');
+
+const timeSlider = document.getElementById('timeSlider');
+const moonOrbitSlider = document.getElementById('moonOrbitSlider');
+const playBtn = document.getElementById('playBtn');
+
+let isPlaying = false;
+
+// Генерируем случайные звезды для ночного неба
+const stars = Array.from({ length: 300 }, () => ({
+  x: Math.random(),
+  y: Math.random() * 0.7, // Только выше горизонта
+  size: Math.random() * 1.5 + 0.5,
+  alpha: Math.random() * 0.8 + 0.2
+}));
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -35,70 +62,158 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Цвета спектра (RGB коэффициенты рассеивания)
-const rayleighRGB = { r: 0.15, g: 0.45, b: 1.0 }; // Синий рассеивается сильнее всего
-
 function render() {
-  const width = canvas.width;
-  const height = canvas.height;
-  const horizonY = height * 0.7;
+  const w = canvas.width;
+  const h = canvas.height;
+  const horizonY = h * 0.72;
 
-  // Высота солнца над горизонтом (от -0.1 до 1.2)
-  const sunAlt = parseFloat(slider.value);
-  
-  // Координаты Солнца
-  const sunX = width / 2;
-  const sunY = horizonY - sunAlt * (height * 0.6);
+  // 1. РАСЧЕТ 3D ПОЛОЖЕНИЙ И УГЛОВ
+  const sunAngleRad = (parseFloat(timeSlider.value) * Math.PI) / 180;
+  const moonAngleRad = (parseFloat(moonOrbitSlider.value) * Math.PI) / 180;
 
-  // 1. Расчет толщины атмосферы (Optical Depth)
-  // Чем ниже Солнце к горизонту, тем больше толщина воздуха (opticalDepth)
-  const opticalDepth = 1 / Math.max(0.05, Math.sin(Math.max(0.01, sunAlt)));
+  // Высота и позиция Солнца (3D проекция на небосвод)
+  const sunY = horizonY - Math.sin(sunAngleRad) * (h * 0.55);
+  const sunX = w / 2 + Math.cos(sunAngleRad) * (w * 0.4);
+  const sunAlt = Math.sin(sunAngleRad); // Высота над горизонтом (-1 до 1)
 
-  // 2. Расчет цвета неба (Рэлеем)
-  // Синий цвет ослабляется при увеличении opticalDepth
-  const skyR = Math.min(255, Math.floor(255 * (1 - Math.exp(-0.08 * opticalDepth)) + 10));
-  const skyG = Math.min(255, Math.floor(200 * Math.exp(-0.15 * opticalDepth * 0.5) + 20));
-  const skyB = Math.min(255, Math.floor(255 * Math.exp(-0.35 * opticalDepth)));
+  // Позиция Луны (с учетом небольшого наклона орбиты)
+  const moonY = horizonY - Math.sin(moonAngleRad) * (h * 0.53);
+  const moonX = w / 2 + Math.cos(moonAngleRad) * (w * 0.38);
 
-  // Градиент неба от зенита к горизонту
-  const skyGradient = ctx.createLinearGradient(0, 0, 0, horizonY);
-  skyGradient.addColorStop(0, `rgb(${Math.floor(skyR*0.3)}, ${Math.floor(skyG*0.4)}, ${Math.floor(skyB*0.8)})`);
-  skyGradient.addColorStop(1, `rgb(${skyR}, ${skyG}, ${skyB})`);
+  // 2. ФИЗИЧЕСКАЯ МОДЕЛЬ АТМОСФЕРЫ (Рассеивание Рэлея)
+  // Optical Depth (оптическая толщина слоя воздуха)
+  const opticalDepth = 1 / Math.max(0.03, sunAlt > 0 ? sunAlt : -sunAlt * 0.2);
 
-  ctx.fillStyle = skyGradient;
-  ctx.fillRect(0, 0, width, horizonY);
+  let r, g, b;
+  if (sunAlt > 0.1) {
+    // Дневное небо (синий свет рассеивается)
+    r = Math.floor(135 - opticalDepth * 2);
+    g = Math.floor(206 - opticalDepth * 5);
+    b = Math.floor(250 - opticalDepth * 2);
+  } else if (sunAlt > -0.15) {
+    // Рассвет / Закат (Красные и оранжевые тона)
+    const t = (sunAlt + 0.15) / 0.25;
+    r = Math.floor(255 * (1 - t * 0.5));
+    g = Math.floor(100 * t + 30);
+    b = Math.floor(180 * t);
+  } else {
+    // Ночь (Глубокий темный синий)
+    r = 5; g = 8; b = 20;
+  }
 
-  // 3. Земля / Горизонт
-  ctx.fillStyle = '#080c10';
-  ctx.fillRect(0, horizonY, width, height - horizonY);
+  // Градиент неба (Зенит темнее, Горизонт светлее/ярче)
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+  skyGrad.addColorStop(0, `rgb(${Math.max(2, r - 40)}, ${Math.max(4, g - 40)}, ${Math.max(10, b - 30)})`);
+  skyGrad.addColorStop(1, `rgb(${Math.max(10, r)}, ${Math.max(15, g)}, ${Math.max(25, b)})`);
 
-  // 4. Солнечный ореол (Рассеивание Ми — Mie Scattering)
-  if (sunY < horizonY + 50) {
-    // Цвет диска Солнца краснеет у горизонта
-    const sunColorR = 255;
-    const sunColorG = Math.min(255, Math.floor(240 * Math.exp(-0.2 * opticalDepth)));
-    const sunColorB = Math.max(0, Math.floor(200 * Math.exp(-0.8 * opticalDepth)));
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, w, horizonY);
 
-    // Ореол
-    const halo = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 300);
-    halo.addColorStop(0, `rgba(${sunColorR}, ${sunColorG}, ${sunColorB}, 0.9)`);
-    halo.addColorStop(0.2, `rgba(${sunColorR}, ${sunColorG}, ${sunColorB}, 0.3)`);
-    halo.addColorStop(1, 'rgba(0,0,0,0)');
+  // 3. ЗВЕЗДЫ (Проявляются ночью и в сумерках)
+  const starVisibility = Math.max(0, Math.min(1, (-sunAlt - 0.05) * 4));
+  if (starVisibility > 0) {
+    ctx.save();
+    stars.forEach(s => {
+      ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha * starVisibility})`;
+      ctx.beginPath();
+      ctx.arc(s.x * w, s.y * h, s.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
 
-    ctx.fillStyle = halo;
+  // Угловой радиус объектов (в реальной жизни они одинакового углового размера ~0.5 deg)
+  const angularRadius = Math.min(w, h) * 0.035;
+
+  // Проверка на Затмение (перекрытие дисков)
+  const distSunMoon = Math.hypot(sunX - moonX, sunY - moonY);
+  const isEclipse = distSunMoon < angularRadius * 1.5 && sunY < horizonY;
+
+  // 4. ОТРИСОВКА СОЛНЦАИ СОЛНЕЧНОЙ КОРОНЫ
+  if (sunY < horizonY + angularRadius * 2) {
+    // Ореол Ми (Mie Scattering)
+    const haloGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 8);
+    const haloColor = sunAlt < 0.1 ? 'rgba(255, 120, 50,' : 'rgba(255, 245, 200,';
+    haloGrad.addColorStop(0, `${haloColor} ${Math.max(0, sunAlt + 0.2) * 0.6})`);
+    haloGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    ctx.fillStyle = haloGrad;
     ctx.beginPath();
-    ctx.arc(sunX, sunY, 300, 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, angularRadius * 8, 0, Math.PI * 2);
     ctx.fill();
+
+    // Солнечная корона (видима при полном затмении)
+    if (isEclipse && distSunMoon < angularRadius * 0.3) {
+      const coronaGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 3);
+      coronaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+      coronaGrad.addColorStop(0.5, 'rgba(200, 220, 255, 0.4)');
+      coronaGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = coronaGrad;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, angularRadius * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Солнечный диск
-    ctx.fillStyle = `rgb(${sunColorR}, ${sunColorG}, ${sunColorB})`;
+    ctx.fillStyle = sunAlt < 0.05 ? '#ff4500' : '#ffffff';
     ctx.beginPath();
-    ctx.arc(sunX, sunY, 20, 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, angularRadius, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // 5. ОТРИСОВКА ЛУНЫ И ЕЕ ФАЗ
+  if (moonY < horizonY + angularRadius * 2) {
+    ctx.save();
+    
+    // Базовый темный диск Луны (пепельный свет)
+    ctx.fillStyle = 'rgba(30, 35, 45, 0.95)';
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, angularRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Освещенная Солнцем часть (фаза)
+    const dx = sunX - moonX;
+    const dy = sunY - moonY;
+    const sunMoonAngle = Math.atan2(dy, dx);
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, angularRadius, sunMoonAngle - Math.PI / 2, sunMoonAngle + Math.PI / 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // 6. ГОРИЗОНТ И РЕЛЬЕФ (Силуэт Земли)
+  ctx.fillStyle = '#050811';
+  ctx.beginPath();
+  ctx.moveTo(0, horizonY);
+  // Легкий холмистый силуэт
+  for (let x = 0; x <= w; x += 50) {
+    const hillHeight = Math.sin(x * 0.005) * 15 + Math.cos(x * 0.01) * 10;
+    ctx.lineTo(x, horizonY + hillHeight);
+  }
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fill();
+
+  if (isPlaying) {
+    timeSlider.value = (parseFloat(timeSlider.value) + 0.2) % 360;
+    moonOrbitSlider.value = (parseFloat(moonOrbitSlider.value) + 0.25) % 360;
+    requestAnimationFrame(render);
   }
 }
 
-slider.addEventListener('input', render);
+timeSlider.addEventListener('input', render);
+moonOrbitSlider.addEventListener('input', render);
+
+playBtn.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  playBtn.textContent = isPlaying ? '⏸ Пауза' : '▶ Анимация';
+  if (isPlaying) render();
+});
+
 render();
 </script>
 </body>
