@@ -2,99 +2,306 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js CPU Wave Test</title>
+  <title>Three.js 3D Room CPU Test</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #0a0a10; font-family: monospace; }
-    #ui {
-      position: absolute; top: 10px; left: 10px;
-      color: #00ffcc; background: rgba(0,0,0,0.8);
-      padding: 12px; border: 1px solid #00ffcc; border-radius: 6px;
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #050508;
+      font-family: 'Segoe UI', Tahoma, monospace;
     }
-    button { background: #1a2636; color: #00ffcc; border: 1px solid #00ffcc; padding: 6px 10px; cursor: pointer; margin-top: 5px; }
+    #ui-container {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #00ffcc;
+      background: rgba(10, 10, 20, 0.85);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      max-width: 360px;
+      user-select: none;
+    }
+    .info-line {
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .fps-counter {
+      font-size: 20px;
+      font-weight: bold;
+      color: #00ff88;
+    }
+    .controls {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    button {
+      background: #1a2636;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #00ffcc;
+      color: #000;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <div id="ui">
-    <div><b>FPS:</b> <span id="fps">0</span></div>
-    <div><b>Сегменты сетки:</b> <span id="grid-size">50x50</span></div>
-    <div><b>Всего вершин:</b> <span id="vertex-count">2601</span></div>
-    <button id="toggle-grid">Изменить разрешение сетки</button>
+
+  <div id="ui-container">
+    <div class="info-line"><b>FPS:</b> <span id="fps" class="fps-counter">0</span></div>
+    <div class="info-line"><b>Всего полигонов:</b> <span id="poly-count" style="color: #fff;">0</span></div>
+    <div class="info-line"><b>Материал:</b> <span id="mat-type" style="color: #ffcc00;">MeshLambertMaterial</span></div>
+    <div class="info-line"><b>Тени:</b> <span id="shadow-status" style="color: #ff4444;">ВЫКЛ</span></div>
+    <hr style="border-color: rgba(0,255,204,0.2); margin: 8px 0;">
+    <div class="info-line" style="font-size: 11px; word-break: break-all;">
+      <b>Рендерер:</b> <span id="renderer-info" style="color: #aaa;">Загрузка...</span>
+    </div>
+
+    <div class="controls">
+      <button id="toggle-material">🎨 Сменить материал (Basic / Lambert)</button>
+      <button id="toggle-shadows">💡 Включить / Выключить Тени</button>
+      <button id="toggle-rotation">🔄 Вращение камеры (Вкл/Выкл)</button>
+    </div>
   </div>
 
   <script>
+    // 1. Инициализация сцены, камеры и рендерера
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 20, 25);
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(12, 10, 15);
+    camera.lookAt(0, 1.5, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setPixelRatio(1);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    // Размеры сетки
-    let segments = 50;
-    let geometry = new THREE.PlaneGeometry(30, 30, segments, segments);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true });
-    let terrain = new THREE.Mesh(geometry, material);
-    terrain.rotation.x = -Math.PI / 2;
-    scene.add(terrain);
+    // 2. Источники света
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
 
-    function updateGrid(newSegments) {
-      scene.remove(terrain);
-      geometry.dispose();
-      segments = newSegments;
-      geometry = new THREE.PlaneGeometry(30, 30, segments, segments);
-      terrain = new THREE.Mesh(geometry, material);
-      terrain.rotation.x = -Math.PI / 2;
-      scene.add(terrain);
+    // Свет от люстры / окна
+    const roomLight = new THREE.PointLight(0xfffaed, 0.9, 30);
+    roomLight.position.set(0, 7, 0);
+    roomLight.castShadow = true;
+    roomLight.shadow.mapSize.width = 512;
+    roomLight.shadow.mapSize.height = 512;
+    scene.add(roomLight);
 
-      const count = (segments + 1) * (segments + 1);
-      document.getElementById('grid-size').innerText = `${segments}x${segments}`;
-      document.getElementById('vertex-count').innerText = count;
+    // 3. Переменные материалов
+    let useBasicMaterial = false;
+    const materialsList = [];
+
+    function createMat(color, isEmissive = false) {
+      const mat = useBasicMaterial 
+        ? new THREE.MeshBasicMaterial({ color: color })
+        : new THREE.MeshLambertMaterial({ color: color });
+      materialsList.push({ mat: mat, color: color });
+      return mat;
     }
 
-    document.getElementById('toggle-grid').onclick = () => {
-      if (segments === 30) updateGrid(50);
-      else if (segments === 50) updateGrid(80);
-      else updateGrid(30);
+    // Группа для всей комнаты
+    const roomGroup = new THREE.Group();
+
+    // --- СТЕНЫ И ПОЛ ---
+    const wallMat = createMat(0x3a3d52);
+    const floorMat = createMat(0x5c4033);
+    const ceilingMat = createMat(0x22222b);
+
+    // Пол
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.2, 10), floorMat);
+    floor.position.y = -0.1;
+    floor.receiveShadow = true;
+    roomGroup.add(floor);
+
+    // Задняя wall
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 0.2), wallMat);
+    backWall.position.set(0, 4, -5);
+    backWall.receiveShadow = true;
+    roomGroup.add(backWall);
+
+    // Левая wall
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 8, 10), wallMat);
+    leftWall.position.set(-5, 4, 0);
+    leftWall.receiveShadow = true;
+    roomGroup.add(leftWall);
+
+    // --- МЕБЕЛЬ ---
+    const woodMat = createMat(0x8b5a2b);
+    const metalMat = createMat(0x2a2a2a);
+    const screenMat = createMat(0x00ffcc);
+
+    // Стол (Столешница + 4 ножки)
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(4, 0.2, 2), woodMat);
+    tableTop.position.set(-2.5, 2.5, -3.5);
+    tableTop.castShadow = true;
+    tableTop.receiveShadow = true;
+    roomGroup.add(tableTop);
+
+    const legGeo = new THREE.BoxGeometry(0.2, 2.5, 0.2);
+    const legPositions = [
+      [-4.3, 1.25, -4.3],
+      [-0.7, 1.25, -4.3],
+      [-4.3, 1.25, -2.7],
+      [-0.7, 1.25, -2.7]
+    ];
+    legPositions.forEach(pos => {
+      const leg = new THREE.Mesh(legGeo, metalMat);
+      leg.position.set(...pos);
+      leg.castShadow = true;
+      roomGroup.add(leg);
+    });
+
+    // Монитор
+    const monitorBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.6), metalMat);
+    monitorBase.position.set(-2.5, 2.65, -3.5);
+    roomGroup.add(monitorBase);
+
+    const monitorStand = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), metalMat);
+    monitorStand.position.set(-2.5, 2.9, -3.7);
+    roomGroup.add(monitorStand);
+
+    const monitorScreen = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 0.1), screenMat);
+    monitorScreen.position.set(-2.5, 3.6, -3.7);
+    monitorScreen.castShadow = true;
+    roomGroup.add(monitorScreen);
+
+    // Шкаф
+    const wardrobe = new THREE.Mesh(new THREE.BoxGeometry(2.5, 6, 2), woodMat);
+    wardrobe.position.set(3.2, 3, -3.8);
+    wardrobe.castShadow = true;
+    wardrobe.receiveShadow = true;
+    roomGroup.add(wardrobe);
+
+    // Кровать
+    const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, 5), woodMat);
+    bedFrame.position.set(2.5, 0.4, 2);
+    bedFrame.castShadow = true;
+    bedFrame.receiveShadow = true;
+    roomGroup.add(bedFrame);
+
+    const mattressMat = createMat(0xe0e0e0);
+    const mattress = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.5, 4.6), mattressMat);
+    mattress.position.set(2.5, 0.9, 2);
+    mattress.castShadow = true;
+    roomGroup.add(mattress);
+
+    scene.add(roomGroup);
+
+    // Подсчет полигонов в сцене
+    function countPolygons() {
+      let polys = 0;
+      scene.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          const geom = child.geometry;
+          if (geom.index) {
+            polys += geom.index.count / 3;
+          } else if (geom.attributes.position) {
+            polys += geom.attributes.position.count / 3;
+          }
+        }
+      });
+      document.getElementById('poly-count').innerText = polys.toLocaleString();
+    }
+    countPolygons();
+
+    // 4. Определение видеокарты / CPU
+    const gl = renderer.getContext();
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) {
+      document.getElementById('renderer-info').innerText = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+    }
+
+    // 5. Логика вращения камеры
+    let isRotating = true;
+    let angle = 0.8;
+
+    // 6. Кнопки управления
+    document.getElementById('toggle-material').onclick = () => {
+      useBasicMaterial = !useBasicMaterial;
+      document.getElementById('mat-type').innerText = useBasicMaterial ? 'MeshBasicMaterial (Без света)' : 'MeshLambertMaterial';
+      
+      // Пересобираем материалы
+      scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+          const oldColor = child.material.color.getHex();
+          child.material.dispose();
+          child.material = useBasicMaterial 
+            ? new THREE.MeshBasicMaterial({ color: oldColor })
+            : new THREE.MeshLambertMaterial({ color: oldColor });
+        }
+      });
     };
 
-    // Анимация волн на CPU
-    let clock = new THREE.Clock();
+    document.getElementById('toggle-shadows').onclick = () => {
+      renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
+      scene.traverse((child) => {
+        if (child.material) child.material.needsUpdate = true;
+      });
+      
+      const statusEl = document.getElementById('shadow-status');
+      if (renderer.shadowMap.enabled) {
+        statusEl.innerText = "ВКЛ";
+        statusEl.style.color = "#00ff88";
+      } else {
+        statusEl.innerText = "ВЫКЛ";
+        statusEl.style.color = "#ff4444";
+      }
+    };
+
+    document.getElementById('toggle-rotation').onclick = () => {
+      isRotating = !isRotating;
+    };
+
+    // 7. Анимация и FPS
     let frameCount = 0;
     let lastTime = performance.now();
 
     function animate() {
       requestAnimationFrame(animate);
 
-      const time = clock.getElapsedTime() * 3;
-      const positionAttribute = geometry.attributes.position;
-
-      // Пересчитываем высоту Z для каждой вершины
-      for (let i = 0; i < positionAttribute.count; i++) {
-        const x = positionAttribute.getX(i);
-        const y = positionAttribute.getY(i);
-        const z = Math.sin(x * 0.5 + time) * Math.cos(y * 0.5 + time) * 1.5;
-        positionAttribute.setZ(i, z);
+      // Вращение камеры вокруг комнаты
+      if (isRotating) {
+        angle += 0.005;
+        camera.position.x = Math.sin(angle) * 16;
+        camera.position.z = Math.cos(angle) * 16;
+        camera.lookAt(0, 2, 0);
       }
-      
-      // Сигнализируем Three.js о том, что буфер вершин изменился на CPU
-      positionAttribute.needsUpdate = true;
 
       renderer.render(scene, camera);
 
       frameCount++;
-      const now = performance.now();
-      if (now >= lastTime + 1000) {
-        document.getElementById('fps').innerText = frameCount;
+      const time = performance.now();
+      if (time >= lastTime + 1000) {
+        const fpsEl = document.getElementById('fps');
+        fpsEl.innerText = frameCount;
+        
+        if (frameCount >= 30) fpsEl.style.color = "#00ff88";
+        else if (frameCount >= 15) fpsEl.style.color = "#ffcc00";
+        else fpsEl.style.color = "#ff4444";
+
         frameCount = 0;
-        lastTime = now;
+        lastTime = time;
       }
     }
 
     animate();
+
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
