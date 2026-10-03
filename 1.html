@@ -2,113 +2,252 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js CPU Test</title>
+  <title>Three.js Stress Test (CPU vs GPU)</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      background-color: #111;
-      font-family: monospace;
+      background-color: #0d0d11;
+      font-family: 'Segoe UI', Tahoma, monospace;
     }
-    #info {
+    #ui-container {
       position: absolute;
       top: 10px;
       left: 10px;
       color: #00ffcc;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 12px;
-      border-radius: 6px;
+      background: rgba(15, 15, 25, 0.85);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      max-width: 380px;
+      user-select: none;
+    }
+    .info-line {
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .fps-counter {
+      font-size: 20px;
+      font-weight: bold;
+      color: #00ff88;
+    }
+    .warning {
+      color: #ff4444;
+    }
+    .controls {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    button {
+      background: #1a2636;
+      color: #00ffcc;
       border: 1px solid #00ffcc;
-      pointer-events: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #00ffcc;
+      color: #000;
+    }
+    button:active {
+      transform: scale(0.98);
     }
   </style>
-  <!-- Подключаем Three.js через CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-  <div id="info">
-    <div><b>FPS:</b> <span id="fps">0</span></div>
-    <div><b>Рендерер:</b> <span id="renderer-info">Загрузка...</span></div>
-    <div><b>Режим:</b> <span id="mode-info">...</span></div>
+  <div id="ui-container">
+    <div class="info-line"><b>FPS:</b> <span id="fps" class="fps-counter">0</span></div>
+    <div class="info-line"><b>Всего полигонов (треугольников):</b> <span id="poly-count" style="color: #fff;">0</span></div>
+    <div class="info-line"><b>Всего объектов:</b> <span id="object-count" style="color: #fff;">0</span></div>
+    <div class="info-line"><b>Динамические тени:</b> <span id="shadow-status" style="color: #ff4444;">ВЫКЛ</span></div>
+    <hr style="border-color: rgba(0,255,204,0.2); margin: 8px 0;">
+    <div class="info-line" style="font-size: 11px; word-break: break-all;">
+      <b>Рендерер:</b> <span id="renderer-info" style="color: #aaa;">Загрузка...</span>
+    </div>
+
+    <div class="controls">
+      <button id="add-objs">+ Добавить 50 сфер (+48 000 полигонов)</button>
+      <button id="remove-objs">- Удалить 50 сфер</button>
+      <button id="toggle-shadows">Включить / Выключить Тени</button>
+      <button id="reset-scene">Сбросить сцену</button>
+    </div>
   </div>
 
   <script>
-    // 1. Создание сцены, камеры и рендерера
+    // 1. Инициализация сцены и камеры
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 3;
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 15, 30);
+    camera.lookAt(0, 0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false }); // Отключаем сглаживание для экономии ресурсов CPU
-    renderer.setPixelRatio(1); // Заживаем разрешение 1:1
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setPixelRatio(1);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = false; // По умолчанию тени выключены
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    // 2. Добавление 3D-объекта (Куб)
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshPhongMaterial({ color: 0x00ff88, wireframe: false });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-
-    // 3. Добавление источников света
-    const ambientLight = new THREE.AmbientLight(0x404040);
+    // 2. Источники света (с поддержкой теней)
+    const ambientLight = new THREE.AmbientLight(0x333333);
     scene.add(ambientLight);
 
-    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-    pointLight.position.set(5, 5, 5);
-    scene.add(pointLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(20, 40, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;  // Разрешение карты теней
+    dirLight.shadow.mapSize.height = 1024;
+    scene.add(dirLight);
 
-    // 4. Определение видеокарты / эмулятора CPU
-    const gl = renderer.getContext();
-    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    
-    if (debugInfo) {
-      const gpuName = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-      document.getElementById('renderer-info').innerText = gpuName;
+    // 3. Плоскость-пол (для отображения теней)
+    const floorGeo = new THREE.PlaneGeometry(100, 100);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -5;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-      // Если в названии рендерера есть SwiftShader, LLVMpipe или Software — это CPU
-      if (/SwiftShader|Software|LLVMpipe|Google SwiftShader/i.test(gpuName)) {
-        document.getElementById('mode-info').innerText = 'Программный рендеринг (CPU)';
-        document.getElementById('mode-info').style.color = '#ffcc00';
-      } else {
-        document.getElementById('mode-info').innerText = 'Аппаратное ускорение (GPU)';
-        document.getElementById('mode-info').style.color = '#00ff88';
+    // Массив для хранения добавляемых 3D-объектов
+    const objects = [];
+    // Высокополигональная геометрия сферы (960 треугольников на 1 сферу)
+    const sphereGeo = new THREE.SphereGeometry(1, 32, 16); 
+
+    // Функция добавления объектов
+    function addObjects(count) {
+      for (let i = 0; i < count; i++) {
+        const material = new THREE.MeshStandardMaterial({
+          color: Math.random() * 0xffffff,
+          roughness: 0.4,
+          metalness: 0.2
+        });
+        const mesh = new THREE.Mesh(sphereGeo, material);
+        
+        // Рандомная позиция
+        mesh.position.set(
+          (Math.random() - 0.5) * 40,
+          Math.random() * 15,
+          (Math.random() - 0.5) * 40
+        );
+        
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        // Рандомная скорость вращения
+        mesh.userData = {
+          rotX: (Math.random() - 0.5) * 0.05,
+          rotY: (Math.random() - 0.5) * 0.05
+        };
+
+        scene.add(mesh);
+        objects.push(mesh);
       }
-    } else {
-      document.getElementById('renderer-info').innerText = 'Неможливо определить';
+      updateStats();
     }
 
-    // 5. Расчет FPS и Анимация
+    // Функция удаления объектов
+    function removeObjects(count) {
+      const toRemove = Math.min(count, objects.length);
+      for (let i = 0; i < toRemove; i++) {
+        const obj = objects.pop();
+        scene.remove(obj);
+        obj.geometry.dispose();
+        obj.material.dispose();
+      }
+      updateStats();
+    }
+
+    // Обновление счетчиков в UI
+    function updateStats() {
+      const polyPerSphere = 960; // Количество треугольников в SphereGeometry(1, 32, 16)
+      const totalPolys = (objects.length * polyPerSphere) + 2; // +2 от плоскости пола
+      document.getElementById('poly-count').innerText = totalPolys.toLocaleString();
+      document.getElementById('object-count').innerText = objects.length;
+    }
+
+    // 4. Определение видеокарты / CPU
+    const gl = renderer.getContext();
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) {
+      document.getElementById('renderer-info').innerText = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+    }
+
+    // 5. Обработчики кнопок
+    document.getElementById('add-objs').onclick = () => addObjects(50);
+    document.getElementById('remove-objs').onclick = () => removeObjects(50);
+    
+    document.getElementById('toggle-shadows').onclick = () => {
+      renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
+      // При изменении режима теней пересобираем материалы
+      scene.traverse((child) => {
+        if (child.material) child.material.needsUpdate = true;
+      });
+      
+      const statusEl = document.getElementById('shadow-status');
+      if (renderer.shadowMap.enabled) {
+        statusEl.innerText = "ВКЛ";
+        statusEl.style.color = "#00ff88";
+      } else {
+        statusEl.innerText = "ВЫКЛ";
+        statusEl.style.color = "#ff4444";
+      }
+    };
+
+    document.getElementById('reset-scene').onclick = () => {
+      removeObjects(objects.length);
+      renderer.shadowMap.enabled = false;
+      document.getElementById('shadow-status').innerText = "ВЫКЛ";
+      document.getElementById('shadow-status').style.color = "#ff4444";
+    };
+
+    // 6. Анимация и подсчет FPS
     let frameCount = 0;
     let lastTime = performance.now();
 
     function animate() {
       requestAnimationFrame(animate);
 
-      // Вращение куба
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
+      // Вращаем все добавленные сферы
+      for (let i = 0; i < objects.length; i++) {
+        objects[i].rotation.x += objects[i].userData.rotX;
+        objects[i].rotation.y += objects[i].userData.rotY;
+      }
 
       renderer.render(scene, camera);
 
-      // Подсчет кадров в секунду
+      // Расчет FPS
       frameCount++;
       const time = performance.now();
       if (time >= lastTime + 1000) {
-        document.getElementById('fps').innerText = frameCount;
+        const fpsEl = document.getElementById('fps');
+        fpsEl.innerText = frameCount;
+        
+        // Меняем цвет FPS в зависимости от плавности
+        if (frameCount >= 30) fpsEl.style.color = "#00ff88"; // Хорошо
+        else if (frameCount >= 15) fpsEl.style.color = "#ffcc00"; // Пошли просадки
+        else fpsEl.style.color = "#ff4444"; // Сильный лаг
+
         frameCount = 0;
         lastTime = time;
       }
     }
 
-    // Обработка изменения размера окна
+    // Добавляем первые 50 сфер при старте
+    addObjects(50);
+    animate();
+
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
-    animate();
   </script>
 </body>
 </html>
