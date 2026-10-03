@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js Optimized Movement Test</title>
+  <title>Three.js Low-Poly Motion Test (CPU)</title>
   <style>
     body {
       margin: 0;
@@ -62,6 +62,7 @@
 
   <div id="ui-container">
     <div class="info-line"><b>FPS:</b> <span id="fps" class="fps-counter">0</span></div>
+    <div class="info-line"><b>Полигонов на сферу:</b> <span id="poly-per-sphere" style="color: #00ffcc;">96</span></div>
     <div class="info-line"><b>Всего полигонов:</b> <span id="poly-count" style="color: #fff;">0</span></div>
     <div class="info-line"><b>Всего объектов:</b> <span id="object-count" style="color: #fff;">0</span></div>
     <div class="info-line"><b>Динамические тени:</b> <span id="shadow-status" style="color: #ff4444;">ВЫКЛ</span></div>
@@ -71,15 +72,16 @@
     </div>
 
     <div class="controls">
-      <button id="add-objs">+ Добавить 50 сфер (+9 600 полигонов)</button>
-      <button id="remove-objs">- Удалить 50 сфер</button>
+      <button id="add-objs">+ Добавить 100 сфер</button>
+      <button id="remove-objs">- Удалить 100 сфер</button>
+      <button id="reduce-poly">🔻 Уменьшить детализацию сфер (LOD)</button>
       <button id="toggle-shadows">Включить / Выключить Тени</button>
       <button id="reset-scene">Сбросить сцену</button>
     </div>
   </div>
 
   <script>
-    // 1. Сцена и Камера
+    // 1. Инициализация сцены и камеры
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 15, 35);
@@ -92,37 +94,42 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    // 2. Освещение
-    const ambientLight = new THREE.AmbientLight(0x555555);
+    // 2. Источники света
+    const ambientLight = new THREE.AmbientLight(0x666666);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
     dirLight.position.set(20, 40, 20);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 512; // Оптимизированный размер карты теней
+    dirLight.shadow.mapSize.width = 512;
     dirLight.shadow.mapSize.height = 512;
     scene.add(dirLight);
 
-    // 3. Пол
+    // 3. Плоскость пола
     const floorGeo = new THREE.PlaneGeometry(60, 60);
-    const floorMat = new THREE.MeshPhongMaterial({ color: 0x1f1f2e });
+    const floorMat = new THREE.MeshLambertMaterial({ color: 0x1f1f2e });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -10;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // 4. Оптимизированная геометрия сферы (всего 192 полигона)
-    const sphereGeo = new THREE.SphereGeometry(1, 14, 8); 
+    // 4. Настройки уровней детализации (LOD)
+    const lodLevels = [
+      { w: 10, h: 6, polys: 96 }, // Высокая
+      { w: 8,  h: 4, polys: 48 }, // Средняя
+      { w: 6,  h: 3, polys: 24 }  // Низкая (Ultra Low)
+    ];
+    let currentLodIndex = 0;
+    let sphereGeo = new THREE.SphereGeometry(1, lodLevels[0].w, lodLevels[0].h);
+
     const objects = [];
-    const BOUNDS = 20; // Границы летания сфер
+    const BOUNDS = 20;
 
     function addObjects(count) {
       for (let i = 0; i < count; i++) {
-        // Легкий материал MeshPhongMaterial
-        const material = new THREE.MeshPhongMaterial({
-          color: Math.random() * 0xffffff,
-          shininess: 30
+        const material = new THREE.MeshLambertMaterial({
+          color: Math.random() * 0xffffff
         });
         const mesh = new THREE.Mesh(sphereGeo, material);
         
@@ -135,13 +142,10 @@
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
-        // Вектор скорости для движения в 3D
         mesh.userData = {
           vx: (Math.random() - 0.5) * 0.2,
           vy: (Math.random() - 0.5) * 0.2,
-          vz: (Math.random() - 0.5) * 0.2,
-          rotX: (Math.random() - 0.5) * 0.05,
-          rotY: (Math.random() - 0.5) * 0.05
+          vz: (Math.random() - 0.5) * 0.2
         };
 
         scene.add(mesh);
@@ -161,45 +165,58 @@
       updateStats();
     }
 
+    // Изменение детализации сфер на лету
+    function changePolyCount() {
+      currentLodIndex = (currentLodIndex + 1) % lodLevels.length;
+      const lod = lodLevels[currentLodIndex];
+      
+      // Заменяем общую геометрию
+      sphereGeo.dispose();
+      sphereGeo = new THREE.SphereGeometry(1, lod.w, lod.h);
+
+      // Применяем новую геометрию ко всем существующим сферам
+      for (let i = 0; i < objects.length; i++) {
+        objects[i].geometry = sphereGeo;
+      }
+      
+      document.getElementById('poly-per-sphere').innerText = lod.polys;
+      updateStats();
+    }
+
     function updateStats() {
-      const polyPerSphere = 192; // 14 * 8 * 2
+      const polyPerSphere = lodLevels[currentLodIndex].polys;
       const totalPolys = (objects.length * polyPerSphere) + 2;
       document.getElementById('poly-count').innerText = totalPolys.toLocaleString();
       document.getElementById('object-count').innerText = objects.length;
     }
 
-    // 5. Движение и анимация
+    // 5. Физика перемещения
     function updatePhysics() {
       for (let i = 0; i < objects.length; i++) {
         const obj = objects[i];
         const data = obj.userData;
 
-        // Движение по оси X, Y, Z
         obj.position.x += data.vx;
         obj.position.y += data.vy;
         obj.position.z += data.vz;
 
-        // Вращение
-        obj.rotation.x += data.rotX;
-        obj.rotation.y += data.rotY;
-
-        // Отскок от виртуальных стен
         if (Math.abs(obj.position.x) > BOUNDS) data.vx *= -1;
         if (obj.position.y > BOUNDS || obj.position.y < -9) data.vy *= -1;
         if (Math.abs(obj.position.z) > BOUNDS) data.vz *= -1;
       }
     }
 
-    // 6. Драйвер / Инфо
+    // 6. Вывод инфо о рендерере
     const gl = renderer.getContext();
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
     if (debugInfo) {
       document.getElementById('renderer-info').innerText = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
     }
 
-    // 7. Кнопки
-    document.getElementById('add-objs').onclick = () => addObjects(50);
-    document.getElementById('remove-objs').onclick = () => removeObjects(50);
+    // 7. Обработчики кнопок
+    document.getElementById('add-objs').onclick = () => addObjects(100);
+    document.getElementById('remove-objs').onclick = () => removeObjects(100);
+    document.getElementById('reduce-poly').onclick = () => changePolyCount();
     
     document.getElementById('toggle-shadows').onclick = () => {
       renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
@@ -224,7 +241,7 @@
       document.getElementById('shadow-status').style.color = "#ff4444";
     };
 
-    // 8. Главный цикл
+    // 8. Анимационный цикл
     let frameCount = 0;
     let lastTime = performance.now();
 
@@ -249,7 +266,7 @@
       }
     }
 
-    addObjects(50); // Старт с 50 оптимизированных летающих сфер
+    addObjects(100);
     animate();
 
     window.addEventListener('resize', () => {
