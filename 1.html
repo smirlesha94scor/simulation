@@ -2,45 +2,66 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Реалистичный вид неба на ЮГ</title>
+  <title>Астрономический симулятор: Взгляд на ЮГ</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; color: #fff; }
+    body { margin: 0; overflow: hidden; background: #000; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
     canvas { display: block; }
     #ui {
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(10, 15, 25, 0.85); backdrop-filter: blur(8px);
-      padding: 15px 25px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
-      display: flex; gap: 20px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      background: rgba(10, 15, 25, 0.88); backdrop-filter: blur(10px);
+      padding: 16px 24px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12);
+      display: flex; gap: 20px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
-    .control-group { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
-    input[type=range] { width: 160px; }
-    button {
-      background: #2563eb; color: white; border: none; padding: 8px 16px;
-      border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;
+    .control-group { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+    input, button {
+      background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+      padding: 6px 12px; border-radius: 6px; outline: none; font-size: 13px;
     }
+    input[type=datetime-local] { color-scheme: dark; }
+    button { background: #2563eb; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
     button:hover { background: #1d4ed8; }
+    
+    #info-panel {
+      position: absolute; top: 15px; left: 15px;
+      background: rgba(10, 15, 25, 0.8); backdrop-filter: blur(8px);
+      padding: 12px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+      font-size: 13px; line-height: 1.6;
+    }
     #compass {
       position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.6); padding: 6px 18px; border-radius: 20px;
-      font-size: 14px; letter-spacing: 2px; font-weight: bold; color: #60a5fa;
-      border: 1px solid rgba(96, 165, 250, 0.3);
+      font-size: 13px; letter-spacing: 2px; font-weight: bold; color: #60a5fa;
+      border: 1px solid rgba(96, 165, 250, 0.3); pointer-events: none;
     }
+    .val { color: #38bdf8; font-weight: bold; }
   </style>
 </head>
 <body>
 
-<div id="compass">◄ ВОСТОК (E) &nbsp;&nbsp;&nbsp; • ЮГ (S) • &nbsp;&nbsp;&nbsp; ЗАПАД (W) ►</div>
+<div id="compass">◄ ВОСТОК (E: 90°) &nbsp;&nbsp;&nbsp; • ЮГ (S: 180°) • &nbsp;&nbsp;&nbsp; ЗАПАД (W: 270°) ►</div>
+
+<div id="info-panel">
+  <div>Солнце (Высота / Азимут): <span id="sunInfo" class="val">--</span></div>
+  <div>Луна (Высота / Азимут): <span id="moonInfo" class="val">--</span></div>
+  <div>Фаза Луны: <span id="phaseInfo" class="val">--</span></div>
+  <div>Статус: <span id="statusInfo" class="val">Обычный день</span></div>
+</div>
 
 <div id="ui">
   <div class="control-group">
-    <label for="timeSlider">Положение Солнца (Восток ➔ Запад):</label>
-    <input type="range" id="timeSlider" min="0" max="180" value="90">
+    <label for="datePicker">Дата и Время наблюдения:</label>
+    <input type="datetime-local" id="datePicker">
   </div>
   <div class="control-group">
-    <label for="moonOrbitSlider">Положение Луны на небе:</label>
-    <input type="range" id="moonOrbitSlider" min="0" max="180" value="95">
+    <label for="speedSelect">Скорость времени:</label>
+    <select id="speedSelect" style="background: rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2); padding:6px; border-radius:6px;">
+      <option value="1">1 сек / сек</option>
+      <option value="60">1 мин / сек</option>
+      <option value="3600" selected>1 час / сек</option>
+      <option value="86400">1 день / сек</option>
+    </select>
   </div>
-  <button id="playBtn">▶ Суточный ход</button>
+  <button id="playBtn">▶ Пуск</button>
 </div>
 
 <canvas id="sky"></canvas>
@@ -49,14 +70,29 @@
 const canvas = document.getElementById('sky');
 const ctx = canvas.getContext('2d');
 
-const timeSlider = document.getElementById('timeSlider');
-const moonOrbitSlider = document.getElementById('moonOrbitSlider');
+const datePicker = document.getElementById('datePicker');
+const speedSelect = document.getElementById('speedSelect');
 const playBtn = document.getElementById('playBtn');
 
-let isPlaying = false;
+// Элементы инфопанели
+const sunInfo = document.getElementById('sunInfo');
+const moonInfo = document.getElementById('moonInfo');
+const phaseInfo = document.getElementById('phaseInfo');
+const statusInfo = document.getElementById('statusInfo');
 
-// Звезды
-const stars = Array.from({ length: 350 }, () => ({
+let isPlaying = false;
+let currentDate = new Date(); // Текущая дата
+
+// Инициализация поля даты
+function updateDatePicker() {
+  const tzOffset = currentDate.getTimezoneOffset() * 60000;
+  const localISOTime = (new Date(currentDate.getTime() - tzOffset)).toISOString().slice(0, 16);
+  datePicker.value = localISOTime;
+}
+updateDatePicker();
+
+// Звёзды
+const stars = Array.from({ length: 400 }, () => ({
   x: Math.random(),
   y: Math.random() * 0.7,
   size: Math.random() * 1.5 + 0.5,
@@ -70,62 +106,119 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// --- АСТРОНОМИЧЕСКИЙ МАТЕМАТИЧЕСКИЙ ДВИЖОК ---
+function getAstroPositions(date) {
+  // Юлианский день
+  const jd = (date.getTime() / 86400000) + 2440587.5;
+  const d = jd - 2451545.0; // Дней от эпохи J2000.0
+
+  // 1. Солнце (упрощенная орбитальная модель Кеплера)
+  const sunL = (280.460 + 0.9856474 * d) % 360; // Средняя долгота
+  const sung = ((357.528 + 0.9856003 * d) % 360) * Math.PI / 180; // Аномалия
+  const lambdaSun = (sunL + 1.915 * Math.sin(sung) + 0.020 * Math.sin(2 * sung)) * Math.PI / 180;
+
+  // Экваториальные координаты Солнца
+  const obliq = 23.439 * Math.PI / 180; // Наклон оси Земли
+  const sunRA = Math.atan2(Math.cos(obliq) * Math.sin(lambdaSun), Math.cos(lambdaSun));
+  const sunDec = Math.asin(Math.sin(obliq) * Math.sin(lambdaSun));
+
+  // 2. Луна
+  const moonL = (218.316 + 13.176396 * d) % 360 * Math.PI / 180;
+  const moonM = (134.963 + 13.064993 * d) % 360 * Math.PI / 180;
+  const moonF = (93.272 + 13.229350 * d) % 360 * Math.PI / 180;
+
+  const lambdaMoon = moonL + 0.109 * Math.sin(moonM);
+  const betaMoon = 0.089 * Math.sin(moonF); // Наклон орбиты Луны ~5 deg
+
+  const moonRA = Math.atan2(Math.sin(lambdaMoon) * Math.cos(obliq) - Math.tan(betaMoon) * Math.sin(obliq), Math.cos(lambdaMoon));
+  const moonDec = Math.asin(Math.sin(betaMoon) * Math.cos(obliq) + Math.cos(betaMoon) * Math.sin(obliq) * Math.sin(lambdaMoon));
+
+  // 3. Перевод в Горизонтальные координаты (Азимут / Высота)
+  // Для средних широт (Широта ~ 50° N)
+  const lat = 50 * Math.PI / 180;
+  const gmst = (18.697374558 + 24.06570982441908 * d) % 24; // Гринвичское звездное время
+  const lst = (gmst * 15 + 30) * Math.PI / 180; // Местное звездное время (Долгота ~ 30° E)
+
+  function toHorizontal(ra, dec) {
+    const ha = lst - ra; // Часовой угол
+    const alt = Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(ha));
+    let az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(lat) - Math.sin(lat) * Math.cos(ha));
+    az = (az * 180 / Math.PI + 360) % 360;
+    return { alt: alt * 180 / Math.PI, az: az };
+  }
+
+  const sunHor = toHorizontal(sunRA, sunDec);
+  const moonHor = toHorizontal(moonRA, moonDec);
+
+  // Угол фазы Луны
+  let phaseAngle = (lambdaMoon - lambdaSun) * 180 / Math.PI;
+  phaseAngle = (phaseAngle + 360) % 360;
+
+  return { sun: sunHor, moon: moonHor, phase: phaseAngle };
+}
+
+// --- ОТРИСОВКА 2D-ВИДА ---
 function render() {
   const w = canvas.width;
   const h = canvas.height;
   const horizonY = h * 0.75;
 
-  // --- 1. АСТРОНОМИЧЕСКИЙ РАСЧЕТ ДВИЖЕНИЯ ПО ДУГЕ НА ЮГ ---
-  // 0 deg = Восток (слева), 90 deg = Юг (центр), 180 deg = Запад (справа)
-  const sunDeg = parseFloat(timeSlider.value);
-  const sunRad = (sunDeg * Math.PI) / 180;
+  const astro = getAstroPositions(currentDate);
 
-  const moonDeg = parseFloat(moonOrbitSlider.value);
-  const moonRad = (moonDeg * Math.PI) / 180;
-
-  // Максимальная высота подъема над горизонтом (на Юге)
-  const maxAltitude = h * 0.45;
-
-  // Координаты Солнца: X от 0 до w, Y очерчивает параболу/дугу
-  const sunX = (sunDeg / 180) * w;
-  const sunAlt = Math.sin(sunRad); // Высота над горизонтом (0..1)
-  const sunY = horizonY - sunAlt * maxAltitude;
-
-  // Координаты Луны (с учетом небольшого наклона орбиты в 5 градусов)
-  const moonX = (moonDeg / 180) * w;
-  const moonAlt = Math.sin(moonRad);
-  const moonY = horizonY - moonAlt * (maxAltitude * 0.92);
-
-  // --- 2. РАССЕИВАНИЕ СВЕТА В АТМОСФЕРЕ ---
-  const opticalDepth = 1 / Math.max(0.04, sunAlt);
-
-  let r, g, b;
-  if (sunAlt > 0.12) {
-    // День (голубое небо)
-    r = Math.floor(120 - opticalDepth * 2);
-    g = Math.floor(190 - opticalDepth * 4);
-    b = Math.floor(250 - opticalDepth * 1.5);
-  } else if (sunAlt > -0.05) {
-    // Закат (справа) / Рассвет (слева)
-    const t = (sunAlt + 0.05) / 0.17;
-    r = Math.floor(255 * (1 - t * 0.5));
-    g = Math.floor(110 * t + 20);
-    b = Math.floor(180 * t);
-  } else {
-    // Ночь
-    r = 4; g = 7; b = 18;
+  // Преобразование Азимута (90°..270°) в Экранную координату X
+  // 90° (Восток) = 0, 180° (Юг) = w/2, 270° (Запад) = w
+  function azToX(az) {
+    return ((az - 90) / 180) * w;
   }
 
-  // Градиент неба
+  function altToY(alt) {
+    return horizonY - (alt / 90) * (h * 0.65);
+  }
+
+  const sunX = azToX(astro.sun.az);
+  const sunY = altToY(astro.sun.alt);
+  const sunAlt = astro.sun.alt;
+
+  const moonX = azToX(astro.moon.az);
+  const moonY = altToY(astro.moon.alt);
+
+  // Обновление UI
+  sunInfo.textContent = `${sunAlt.toFixed(1)}° / ${astro.sun.az.toFixed(1)}°`;
+  moonInfo.textContent = `${astro.moon.alt.toFixed(1)}° / ${astro.moon.az.toFixed(1)}°`;
+  
+  let phaseName = "Новолуние";
+  if (astro.phase > 20 && astro.phase < 160) phaseName = "Растущая Луна";
+  else if (astro.phase >= 160 && astro.phase <= 200) phaseName = "Полнолуние";
+  else if (astro.phase > 200 && astro.phase < 340) phaseName = "Убывающая Луна";
+  phaseInfo.textContent = `${phaseName} (${(astro.phase).toFixed(0)}°)`;
+
+  // 1. АТМОСФЕРА И НЕБО
+  const normAlt = Math.max(-0.2, Math.min(1, sunAlt / 50));
+  const opticalDepth = 1 / Math.max(0.04, normAlt);
+
+  let r, g, b;
+  if (sunAlt > 5) {
+    r = Math.floor(110 - opticalDepth * 2);
+    g = Math.floor(180 - opticalDepth * 4);
+    b = Math.floor(250 - opticalDepth * 1.5);
+  } else if (sunAlt > -6) {
+    const t = (sunAlt + 6) / 11;
+    r = Math.floor(255 * (1 - t * 0.5));
+    g = Math.floor(110 * t + 15);
+    b = Math.floor(170 * t);
+  } else {
+    r = 3; g = 6; b = 16;
+  }
+
   const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
-  skyGrad.addColorStop(0, `rgb(${Math.max(2, r - 35)}, ${Math.max(4, g - 35)}, ${Math.max(10, b - 25)})`);
+  skyGrad.addColorStop(0, `rgb(${Math.max(2, r - 30)}, ${Math.max(4, g - 30)}, ${Math.max(10, b - 20)})`);
   skyGrad.addColorStop(1, `rgb(${Math.max(10, r)}, ${Math.max(15, g)}, ${Math.max(25, b)})`);
 
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, w, horizonY);
 
-  // --- 3. ЗВЕЗДЫ ---
-  const starVisibility = Math.max(0, Math.min(1, (-sunAlt - 0.02) * 5));
+  // 2. ЗВЕЗДЫ
+  const starVisibility = Math.max(0, Math.min(1, (-sunAlt - 2) / 10));
   if (starVisibility > 0) {
     ctx.save();
     stars.forEach(s => {
@@ -139,25 +232,35 @@ function render() {
 
   const angularRadius = Math.min(w, h) * 0.032;
 
-  // Проверка Затмения
+  // Проверка Затмений
   const distSunMoon = Math.hypot(sunX - moonX, sunY - moonY);
-  const isEclipse = distSunMoon < angularRadius * 1.2 && sunAlt > -0.05;
+  const isEclipse = distSunMoon < angularRadius * 1.1 && sunAlt > -2;
 
-  // --- 4. СОЛНЦЕ ---
-  if (sunY < horizonY + angularRadius * 2) {
-    // Ореол Ми (Mie)
-    const haloGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 7);
-    const haloColor = sunAlt < 0.1 ? 'rgba(255, 100, 30,' : 'rgba(255, 245, 210,';
-    haloGrad.addColorStop(0, `${haloColor} ${Math.max(0, sunAlt + 0.1) * 0.7})`);
+  if (isEclipse && distSunMoon < angularRadius * 0.4) {
+    statusInfo.textContent = "🔥 ПОЛНОЕ СОЛНЕЧНОЕ ЗАТМЕНИЕ!";
+    statusInfo.style.color = "#f43f5e";
+  } else if (isEclipse) {
+    statusInfo.textContent = "Частное солнечное затмение";
+    statusInfo.style.color = "#fbbf24";
+  } else {
+    statusInfo.textContent = "Обычный день";
+    statusInfo.style.color = "#38bdf8";
+  }
+
+  // 3. СОЛНЦЕ
+  if (sunY < horizonY + angularRadius * 2 && sunX >= -50 && sunX <= w + 50) {
+    const haloGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 8);
+    const haloColor = sunAlt < 5 ? 'rgba(255, 90, 20,' : 'rgba(255, 245, 210,';
+    haloGrad.addColorStop(0, `${haloColor} ${Math.max(0, normAlt + 0.1) * 0.7})`);
     haloGrad.addColorStop(1, 'rgba(0,0,0,0)');
 
     ctx.fillStyle = haloGrad;
     ctx.beginPath();
-    ctx.arc(sunX, sunY, angularRadius * 7, 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, angularRadius * 8, 0, Math.PI * 2);
     ctx.fill();
 
-    // Корона при затмении
-    if (isEclipse && distSunMoon < angularRadius * 0.3) {
+    // Корона
+    if (isEclipse) {
       const coronaGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 3);
       coronaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
       coronaGrad.addColorStop(0.5, 'rgba(180, 210, 255, 0.4)');
@@ -168,29 +271,25 @@ function render() {
       ctx.fill();
     }
 
-    // Солнечный диск
-    ctx.fillStyle = sunAlt < 0.05 ? '#ff3300' : '#ffffff';
+    ctx.fillStyle = sunAlt < 2 ? '#ff3300' : '#ffffff';
     ctx.beginPath();
     ctx.arc(sunX, sunY, angularRadius, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // --- 5. ЛУНА И ФАЗЫ ---
-  if (moonY < horizonY + angularRadius * 2) {
+  // 4. ЛУНА
+  if (moonY < horizonY + angularRadius * 2 && moonX >= -50 && moonX <= w + 50) {
     ctx.save();
     
-    // Темная сторона
-    ctx.fillStyle = 'rgba(25, 30, 40, 0.96)';
+    ctx.fillStyle = 'rgba(20, 25, 35, 0.95)';
     ctx.beginPath();
     ctx.arc(moonX, moonY, angularRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Направление на Солнце в 2D пространстве неба
     const dx = sunX - moonX;
     const dy = sunY - moonY;
     const angleToSun = Math.atan2(dy, dx);
 
-    // Освещенная сторона
     ctx.fillStyle = '#f1f5f9';
     ctx.beginPath();
     ctx.arc(moonX, moonY, angularRadius, angleToSun - Math.PI / 2, angleToSun + Math.PI / 2);
@@ -199,7 +298,7 @@ function render() {
     ctx.restore();
   }
 
-  // --- 6. ЛАНДШАФТ (Южный горизонт) ---
+  // 5. РЕЛЬЕФ
   ctx.fillStyle = '#040711';
   ctx.beginPath();
   ctx.moveTo(0, horizonY);
@@ -212,36 +311,38 @@ function render() {
   ctx.closePath();
   ctx.fill();
 
-  // Метки сторон света у горизонта
   ctx.fillStyle = '#475569';
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillText('В (Восток)', 20, horizonY + 30);
-  ctx.fillText('ЮГ', w / 2 - 10, horizonY + 30);
-  ctx.fillText('З (Запад)', w - 80, horizonY + 30);
-
-  if (isPlaying) {
-    let nextSun = (parseFloat(timeSlider.value) + 0.15);
-    if (nextSun > 180) nextSun = 0;
-    timeSlider.value = nextSun;
-
-    let nextMoon = (parseFloat(moonOrbitSlider.value) + 0.18);
-    if (nextMoon > 180) nextMoon = 0;
-    moonOrbitSlider.value = nextMoon;
-
-    requestAnimationFrame(render);
-  }
+  ctx.fillText('В (Восток 90°)', 20, horizonY + 30);
+  ctx.fillText('ЮГ (180°)', w / 2 - 25, horizonY + 30);
+  ctx.fillText('З (Запад 270°)', w - 100, horizonY + 30);
 }
 
-timeSlider.addEventListener('input', render);
-moonOrbitSlider.addEventListener('input', render);
+// Анимация времени
+let lastTime = performance.now();
+function animate(now) {
+  if (isPlaying) {
+    const dt = (now - lastTime) / 1000;
+    const speed = parseFloat(speedSelect.value);
+    currentDate = new Date(currentDate.getTime() + dt * speed * 1000);
+    updateDatePicker();
+  }
+  lastTime = now;
+  render();
+  requestAnimationFrame(animate);
+}
+
+datePicker.addEventListener('change', () => {
+  currentDate = new Date(datePicker.value);
+  render();
+});
 
 playBtn.addEventListener('click', () => {
   isPlaying = !isPlaying;
-  playBtn.textContent = isPlaying ? '⏸ Пауза' : '▶ Суточный ход';
-  if (isPlaying) render();
+  playBtn.textContent = isPlaying ? '⏸ Пауза' : '▶ Пуск';
 });
 
-render();
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>
