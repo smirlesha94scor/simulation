@@ -14,7 +14,6 @@
             margin: 0;
             padding: 0;
         }
-        /* Стили для панели поиска поверх карты */
         .search-container {
             position: absolute;
             top: 15px;
@@ -53,7 +52,7 @@
 
     <!-- Панель поиска -->
     <div class="search-container">
-        <input type="text" id="roadSearchInput" placeholder="Улица или шоссе (напр. Олекси Тихого)..." />
+        <input type="text" id="roadSearchInput" placeholder="Например: Стуса или Олекси..." />
         <button id="searchBtn">Найти</button>
     </div>
 
@@ -67,27 +66,24 @@
         // Инициализация карты (центр — Краматорск)
         const map = L.map('map').setView([48.7394, 37.5822], 13);
 
-        // Добавляем слой OpenStreetMap
+        // Добавляем слой OpenStreetMap (без слова contributors)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // Слой для хранения найденной дороги (чтобы очищать при новом поиске)
+        // Слой для хранения найденной дороги
         let searchLayer = L.layerGroup().addTo(map);
 
-        // Функция поиска дороги через Overpass API
         async function searchRoad() {
             const queryText = document.getElementById('roadSearchInput').value.trim();
             if (!queryText) return;
 
-            // Очищаем предыдущие результаты
             searchLayer.clearLayers();
 
-            // Ограничиваем область поиска рамкой вокруг Краматорска (bbox)
             const bbox = "48.65,37.45,48.85,37.75";
             
-            // Формируем запрос к OpenStreetMap Overpass API
+            // Запрос ищет любое совпадение по части строки в теге name
             const overpassQuery = `
                 [out:json][timeout:25];
                 (
@@ -102,48 +98,48 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
-                if (data.elements.length === 0) {
-                    alert("Дорога не найдена в пределах Краматорска.");
+                console.log("Ответ от Overpass API:", data);
+
+                if (!data.elements || data.elements.length === 0) {
+                    alert("Улица или шоссе не найдены. Попробуйте ввести ключевое слово короче (например, 'Стуса' вместо полного имени).");
                     return;
                 }
 
                 let bounds = L.latLngBounds();
+                let addedAny = false;
 
-                // Обрабатываем найденные линии дорог
                 data.elements.forEach(element => {
-                    if (element.geometry) {
-                        // Преобразуем точки геометрии в формат Leaflet
+                    if (element.geometry && element.geometry.length > 0) {
                         const latLngs = element.geometry.map(pt => [pt.lat, pt.lon]);
 
-                        // Рисуем дорогу с измененным цветом (например, ярко-красная линия)
                         const roadLine = L.polyline(latLngs, {
-                            color: '#FF3B30', // Измененный цвет дороги
-                            weight: 6,         // Толщина линии
+                            color: '#FF3B30',
+                            weight: 6,
                             opacity: 0.8
                         });
 
-                        // Добавляем название во всплывающую подсказку
                         if (element.tags && element.tags.name) {
                             roadLine.bindPopup(`<b>${element.tags.name}</b>`);
                         }
 
                         searchLayer.addLayer(roadLine);
                         bounds.extend(roadLine.getBounds());
+                        addedAny = true;
                     }
                 });
 
-                // Приближаем карту к найденному объекту
-                if (bounds.isValid()) {
+                if (addedAny && bounds.isValid()) {
                     map.fitBounds(bounds, { padding: [50, 50] });
+                } else {
+                    alert("Найдены объекты, но у них отсутствуют линии на карте.");
                 }
 
             } catch (error) {
                 console.error("Ошибка при запросе к API:", error);
-                alert("Произошла ошибка при поиске.");
+                alert("Произошла ошибка при сетевом запросе.");
             }
         }
 
-        // Обработчики клика и нажатия Enter
         document.getElementById('searchBtn').addEventListener('click', searchRoad);
         document.getElementById('roadSearchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
