@@ -1,398 +1,156 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Астрономический симулятор: Взгляд на ЮГ</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: system-ui, -apple-system, sans-serif; color: #fff; }
-    canvas { display: block; }
-    #ui {
-      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(10, 15, 25, 0.88); backdrop-filter: blur(10px);
-      padding: 16px 24px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12);
-      display: flex; gap: 16px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      flex-wrap: wrap; justify-content: center;
-    }
-    .control-group { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-    input, select, button {
-      background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
-      padding: 6px 12px; border-radius: 6px; outline: none; font-size: 13px;
-    }
-    select option { background: #0f172a; color: #fff; }
-    input[type=datetime-local] { color-scheme: dark; }
-    input[type=number] { width: 70px; }
-    button { background: #2563eb; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
-    button:hover { background: #1d4ed8; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск дорог в Краматорске - Leaflet.js</title>
     
-    #info-panel {
-      position: absolute; top: 15px; left: 15px;
-      background: rgba(10, 15, 25, 0.8); backdrop-filter: blur(8px);
-      padding: 12px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-      font-size: 13px; line-height: 1.6;
-    }
-    #compass {
-      position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6); padding: 6px 18px; border-radius: 20px;
-      font-size: 13px; letter-spacing: 2px; font-weight: bold; color: #60a5fa;
-      border: 1px solid rgba(96, 165, 250, 0.3); pointer-events: none;
-    }
-    .val { color: #38bdf8; font-weight: bold; }
-  </style>
+    <!-- Подключаем Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <style>
+        html, body, #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        /* Стили для панели поиска поверх карты */
+        .search-container {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 8px;
+        }
+        .search-container input {
+            padding: 6px 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 220px;
+            outline: none;
+        }
+        .search-container button {
+            padding: 6px 12px;
+            background-color: #0078D7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .search-container button:hover {
+            background-color: #005fa3;
+        }
+    </style>
 </head>
 <body>
 
-<div id="compass">◄ ВОСТОК (E: 90°) &nbsp;&nbsp;&nbsp; • ЮГ (S: 180°) • &nbsp;&nbsp;&nbsp; ЗАПАД (W: 270°) ►</div>
-
-<div id="info-panel">
-  <div>Локация: <span id="locInfo" class="val">--</span></div>
-  <div>Солнце (Высота / Азимут): <span id="sunInfo" class="val">--</span></div>
-  <div>Луна (Высота / Азимут): <span id="moonInfo" class="val">--</span></div>
-  <div>Фаза Луны: <span id="phaseInfo" class="val">--</span></div>
-  <div>Статус: <span id="statusInfo" class="val">Обычный день</span></div>
-</div>
-
-<div id="ui">
-  <div class="control-group">
-    <label for="citySelect">Место наблюдения:</label>
-    <select id="citySelect">
-      <option value="50.45,30.52" selected>Киев (50.45° N, 30.52° E)</option>
-      <option value="55.75,37.61">Москва (55.75° N, 37.61° E)</option>
-      <option value="40.71,-74.00">Нью-Йорк (40.71° N, 74.00° W)</option>
-      <option value="51.50,-0.12">Лондон (51.50° N, 0.12° W)</option>
-      <option value="35.67,139.65">Токио (35.67° N, 139.65° E)</option>
-      <option value="-33.86,151.20">Сидней (33.86° S, 151.20° E)</option>
-      <option value="0.00,0.00">Экватор (0° N, 0° E)</option>
-      <option value="custom">Свои координаты...</option>
-    </select>
-  </div>
-
-  <div class="control-group" id="customCoords" style="display:none; flex-direction:row; gap:6px;">
-    <div>
-      <label>Широта °:</label>
-      <input type="number" id="latInput" value="50.45" step="0.1" min="-90" max="90">
+    <!-- Панель поиска -->
+    <div class="search-container">
+        <input type="text" id="roadSearchInput" placeholder="Улица или шоссе (напр. Олекси Тихого)..." />
+        <button id="searchBtn">Найти</button>
     </div>
-    <div>
-      <label>Долгота °:</label>
-      <input type="number" id="lonInput" value="30.52" step="0.1" min="-180" max="180">
-    </div>
-  </div>
 
-  <div class="control-group">
-    <label for="datePicker">Дата и Время (Местное):</label>
-    <input type="datetime-local" id="datePicker">
-  </div>
+    <!-- Контейнер карты -->
+    <div id="map"></div>
 
-  <div class="control-group">
-    <label for="speedSelect">Скорость:</label>
-    <select id="speedSelect">
-      <option value="1">1 сек / сек</option>
-      <option value="60">1 мин / сек</option>
-      <option value="3600" selected>1 час / сек</option>
-      <option value="86400">1 день / сек</option>
-    </select>
-  </div>
+    <!-- Подключаем Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-  <button id="playBtn">▶ Пуск</button>
-</div>
+    <script>
+        // Инициализация карты (центр — Краматорск)
+        const map = L.map('map').setView([48.7394, 37.5822], 13);
 
-<canvas id="sky"></canvas>
+        // Добавляем слой OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-<script>
-const canvas = document.getElementById('sky');
-const ctx = canvas.getContext('2d');
+        // Слой для хранения найденной дороги (чтобы очищать при новом поиске)
+        let searchLayer = L.layerGroup().addTo(map);
 
-const citySelect = document.getElementById('citySelect');
-const customCoords = document.getElementById('customCoords');
-const latInput = document.getElementById('latInput');
-const lonInput = document.getElementById('lonInput');
-const datePicker = document.getElementById('datePicker');
-const speedSelect = document.getElementById('speedSelect');
-const playBtn = document.getElementById('playBtn');
+        // Функция поиска дороги через Overpass API
+        async function searchRoad() {
+            const queryText = document.getElementById('roadSearchInput').value.trim();
+            if (!queryText) return;
 
-const locInfo = document.getElementById('locInfo');
-const sunInfo = document.getElementById('sunInfo');
-const moonInfo = document.getElementById('moonInfo');
-const phaseInfo = document.getElementById('phaseInfo');
-const statusInfo = document.getElementById('statusInfo');
+            // Очищаем предыдущие результаты
+            searchLayer.clearLayers();
 
-let isPlaying = false;
-let currentDate = new Date();
-let latitude = 50.45;
-let longitude = 30.52;
+            // Ограничиваем область поиска рамкой вокруг Краматорска (bbox)
+            const bbox = "48.65,37.45,48.85,37.75";
+            
+            // Формируем запрос к OpenStreetMap Overpass API
+            const overpassQuery = `
+                [out:json][timeout:25];
+                (
+                  way(${bbox})["highway"]["name"~"${queryText}", i];
+                );
+                out geom;
+            `;
 
-function updateDatePicker() {
-  const tzOffset = currentDate.getTimezoneOffset() * 60000;
-  const localISOTime = (new Date(currentDate.getTime() - tzOffset)).toISOString().slice(0, 16);
-  datePicker.value = localISOTime;
-}
-updateDatePicker();
+            const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(overpassQuery);
 
-const stars = Array.from({ length: 400 }, () => ({
-  x: Math.random(),
-  y: Math.random() * 0.7,
-  size: Math.random() * 1.5 + 0.5,
-  alpha: Math.random() * 0.8 + 0.2
-}));
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
+                if (data.elements.length === 0) {
+                    alert("Дорога не найдена в пределах Краматорска.");
+                    return;
+                }
 
-// --- АСТРОНОМИЧЕСКИЙ РАСЧЁТ С УЧЁТОМ ШИРОТЫ И ДОЛГОТЫ ---
-function getAstroPositions(date, latDeg, lonDeg) {
-  const jd = (date.getTime() / 86400000) + 2440587.5;
-  const d = jd - 2451545.0;
+                let bounds = L.latLngBounds();
 
-  // 1. Солнце
-  const sunL = (280.460 + 0.9856474 * d) % 360;
-  const sung = ((357.528 + 0.9856003 * d) % 360) * Math.PI / 180;
-  const lambdaSun = (sunL + 1.915 * Math.sin(sung) + 0.020 * Math.sin(2 * sung)) * Math.PI / 180;
+                // Обрабатываем найденные линии дорог
+                data.elements.forEach(element => {
+                    if (element.geometry) {
+                        // Преобразуем точки геометрии в формат Leaflet
+                        const latLngs = element.geometry.map(pt => [pt.lat, pt.lon]);
 
-  const obliq = 23.439 * Math.PI / 180;
-  const sunRA = Math.atan2(Math.cos(obliq) * Math.sin(lambdaSun), Math.cos(lambdaSun));
-  const sunDec = Math.asin(Math.sin(obliq) * Math.sin(lambdaSun));
+                        // Рисуем дорогу с измененным цветом (например, ярко-красная линия)
+                        const roadLine = L.polyline(latLngs, {
+                            color: '#FF3B30', // Измененный цвет дороги
+                            weight: 6,         // Толщина линии
+                            opacity: 0.8
+                        });
 
-  // 2. Луна
-  const moonL = (218.316 + 13.176396 * d) % 360 * Math.PI / 180;
-  const moonM = (134.963 + 13.064993 * d) % 360 * Math.PI / 180;
-  const moonF = (93.272 + 13.229350 * d) % 360 * Math.PI / 180;
+                        // Добавляем название во всплывающую подсказку
+                        if (element.tags && element.tags.name) {
+                            roadLine.bindPopup(`<b>${element.tags.name}</b>`);
+                        }
 
-  const lambdaMoon = moonL + 0.109 * Math.sin(moonM);
-  const betaMoon = 0.089 * Math.sin(moonF);
+                        searchLayer.addLayer(roadLine);
+                        bounds.extend(roadLine.getBounds());
+                    }
+                });
 
-  const moonRA = Math.atan2(Math.sin(lambdaMoon) * Math.cos(obliq) - Math.tan(betaMoon) * Math.sin(obliq), Math.cos(lambdaMoon));
-  const moonDec = Math.asin(Math.sin(betaMoon) * Math.cos(obliq) + Math.cos(betaMoon) * Math.sin(obliq) * Math.sin(lambdaMoon));
+                // Приближаем карту к найденному объекту
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
 
-  // 3. Учёт широты и долготы пользователя
-  const latRad = latDeg * Math.PI / 180;
-  const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
-  const lst = (gmst * 15 + lonDeg) * Math.PI / 180; // Местное звёздное время
+            } catch (error) {
+                console.error("Ошибка при запросе к API:", error);
+                alert("Произошла ошибка при поиске.");
+            }
+        }
 
-  function toHorizontal(ra, dec) {
-    const ha = lst - ra;
-    const alt = Math.asin(Math.sin(latRad) * Math.sin(dec) + Math.cos(latRad) * Math.cos(dec) * Math.cos(ha));
-    let az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(latRad) - Math.sin(latRad) * Math.cos(ha));
-    az = (az * 180 / Math.PI + 360) % 360;
-    return { alt: alt * 180 / Math.PI, az: az };
-  }
+        // Обработчики клика и нажатия Enter
+        document.getElementById('searchBtn').addEventListener('click', searchRoad);
+        document.getElementById('roadSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchRoad();
+            }
+        });
+    </script>
 
-  const sunHor = toHorizontal(sunRA, sunDec);
-  const moonHor = toHorizontal(moonRA, moonDec);
-
-  let phaseAngle = (lambdaMoon - lambdaSun) * 180 / Math.PI;
-  phaseAngle = (phaseAngle + 360) % 360;
-
-  return { sun: sunHor, moon: moonHor, phase: phaseAngle };
-}
-
-function render() {
-  const w = canvas.width;
-  const h = canvas.height;
-  const horizonY = h * 0.75;
-
-  const astro = getAstroPositions(currentDate, latitude, longitude);
-
-  function azToX(az) {
-    return ((az - 90) / 180) * w;
-  }
-
-  function altToY(alt) {
-    return horizonY - (alt / 90) * (h * 0.65);
-  }
-
-  const sunX = azToX(astro.sun.az);
-  const sunY = altToY(astro.sun.alt);
-  const sunAlt = astro.sun.alt;
-
-  const moonX = azToX(astro.moon.az);
-  const moonY = altToY(astro.moon.alt);
-
-  locInfo.textContent = `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
-  sunInfo.textContent = `${sunAlt.toFixed(1)}° / ${astro.sun.az.toFixed(1)}°`;
-  moonInfo.textContent = `${astro.moon.alt.toFixed(1)}° / ${astro.moon.az.toFixed(1)}°`;
-  
-  let phaseName = "Новолуние";
-  if (astro.phase > 20 && astro.phase < 160) phaseName = "Растущая Луна";
-  else if (astro.phase >= 160 && astro.phase <= 200) phaseName = "Полнолуние";
-  else if (astro.phase > 200 && astro.phase < 340) phaseName = "Убывающая Луна";
-  phaseInfo.textContent = `${phaseName} (${(astro.phase).toFixed(0)}°)`;
-
-  // 1. АТМОСФЕРА
-  const normAlt = Math.max(-0.2, Math.min(1, sunAlt / 50));
-  const opticalDepth = 1 / Math.max(0.04, normAlt);
-
-  let r, g, b;
-  if (sunAlt > 5) {
-    r = Math.floor(110 - opticalDepth * 2);
-    g = Math.floor(180 - opticalDepth * 4);
-    b = Math.floor(250 - opticalDepth * 1.5);
-  } else if (sunAlt > -6) {
-    const t = (sunAlt + 6) / 11;
-    r = Math.floor(255 * (1 - t * 0.5));
-    g = Math.floor(110 * t + 15);
-    b = Math.floor(170 * t);
-  } else {
-    r = 3; g = 6; b = 16;
-  }
-
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
-  skyGrad.addColorStop(0, `rgb(${Math.max(2, r - 30)}, ${Math.max(4, g - 30)}, ${Math.max(10, b - 20)})`);
-  skyGrad.addColorStop(1, `rgb(${Math.max(10, r)}, ${Math.max(15, g)}, ${Math.max(25, b)})`);
-
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, w, horizonY);
-
-  // 2. ЗВЕЗДЫ
-  const starVisibility = Math.max(0, Math.min(1, (-sunAlt - 2) / 10));
-  if (starVisibility > 0) {
-    ctx.save();
-    stars.forEach(s => {
-      ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha * starVisibility})`;
-      ctx.beginPath();
-      ctx.arc(s.x * w, s.y * horizonY, s.size, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.restore();
-  }
-
-  const angularRadius = Math.min(w, h) * 0.032;
-
-  // Проверка Затмений
-  const distSunMoon = Math.hypot(sunX - moonX, sunY - moonY);
-  const isEclipse = distSunMoon < angularRadius * 1.1 && sunAlt > -2;
-
-  if (isEclipse && distSunMoon < angularRadius * 0.4) {
-    statusInfo.textContent = "🔥 ПОЛНОЕ СОЛНЕЧНОЕ ЗАТМЕНИЕ!";
-    statusInfo.style.color = "#f43f5e";
-  } else if (isEclipse) {
-    statusInfo.textContent = "Частное солнечное затмение";
-    statusInfo.style.color = "#fbbf24";
-  } else {
-    statusInfo.textContent = "Обычный день";
-    statusInfo.style.color = "#38bdf8";
-  }
-
-  // 3. СОЛНЦЕ
-  if (sunY < horizonY + angularRadius * 2 && sunX >= -50 && sunX <= w + 50) {
-    const haloGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 8);
-    const haloColor = sunAlt < 5 ? 'rgba(255, 90, 20,' : 'rgba(255, 245, 210,';
-    haloGrad.addColorStop(0, `${haloColor} ${Math.max(0, normAlt + 0.1) * 0.7})`);
-    haloGrad.addColorStop(1, 'rgba(0,0,0,0)');
-
-    ctx.fillStyle = haloGrad;
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, angularRadius * 8, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (isEclipse) {
-      const coronaGrad = ctx.createRadialGradient(sunX, sunY, angularRadius, sunX, sunY, angularRadius * 3);
-      coronaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      coronaGrad.addColorStop(0.5, 'rgba(180, 210, 255, 0.4)');
-      coronaGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = coronaGrad;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, angularRadius * 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = sunAlt < 2 ? '#ff3300' : '#ffffff';
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, angularRadius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // 4. ЛУНА
-  if (moonY < horizonY + angularRadius * 2 && moonX >= -50 && moonX <= w + 50) {
-    ctx.save();
-    
-    ctx.fillStyle = 'rgba(20, 25, 35, 0.95)';
-    ctx.beginPath();
-    ctx.arc(moonX, moonY, angularRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    const dx = sunX - moonX;
-    const dy = sunY - moonY;
-    const angleToSun = Math.atan2(dy, dx);
-
-    ctx.fillStyle = '#f1f5f9';
-    ctx.beginPath();
-    ctx.arc(moonX, moonY, angularRadius, angleToSun - Math.PI / 2, angleToSun + Math.PI / 2);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  // 5. РЕЛЬЕФ
-  ctx.fillStyle = '#040711';
-  ctx.beginPath();
-  ctx.moveTo(0, horizonY);
-  for (let x = 0; x <= w; x += 40) {
-    const hill = Math.sin(x * 0.004) * 12 + Math.cos(x * 0.008) * 8;
-    ctx.lineTo(x, horizonY + hill);
-  }
-  ctx.lineTo(w, h);
-  ctx.lineTo(0, h);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = '#475569';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.fillText('В (Восток 90°)', 20, horizonY + 30);
-  ctx.fillText('ЮГ (180°)', w / 2 - 25, horizonY + 30);
-  ctx.fillText('З (Запад 270°)', w - 100, horizonY + 30);
-}
-
-// Обработчики селектора локации
-citySelect.addEventListener('change', () => {
-  if (citySelect.value === 'custom') {
-    customCoords.style.display = 'flex';
-  } else {
-    customCoords.style.display = 'none';
-    const [lat, lon] = citySelect.value.split(',').map(Number);
-    latitude = lat;
-    longitude = lon;
-    render();
-  }
-});
-
-latInput.addEventListener('input', () => {
-  latitude = parseFloat(latInput.value) || 0;
-  render();
-});
-
-lonInput.addEventListener('input', () => {
-  longitude = parseFloat(lonInput.value) || 0;
-  render();
-});
-
-// Анимация
-let lastTime = performance.now();
-function animate(now) {
-  if (isPlaying) {
-    const dt = (now - lastTime) / 1000;
-    const speed = parseFloat(speedSelect.value);
-    currentDate = new Date(currentDate.getTime() + dt * speed * 1000);
-    updateDatePicker();
-  }
-  lastTime = now;
-  render();
-  requestAnimationFrame(animate);
-}
-
-datePicker.addEventListener('change', () => {
-  currentDate = new Date(datePicker.value);
-  render();
-});
-
-playBtn.addEventListener('click', () => {
-  isPlaying = !isPlaying;
-  playBtn.textContent = isPlaying ? '⏸ Пауза' : '▶ Пуск';
-});
-
-requestAnimationFrame(animate);
-</script>
 </body>
 </html>
