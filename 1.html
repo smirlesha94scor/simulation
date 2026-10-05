@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Все улицы Краматорска - MapLibre GL</title>
+    <title>Все улицы Краматорска - Leaflet</title>
     
-    <!-- Подключаем стили MapLibre GL -->
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
+    <!-- Подключаем Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         html, body, #map {
@@ -28,7 +28,7 @@
             font-size: 14px;
         }
         .control-panel button {
-            margin-top: 8px;
+            margin-top: 6px;
             padding: 6px 12px;
             background-color: #0078D7;
             color: white;
@@ -40,53 +40,108 @@
         .control-panel button:hover {
             background-color: #005fa3;
         }
+        #status {
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <label>Изменить цвет дорог:</label><br>
-        <button onclick="changeRoadColor('#FF3B30')">Сделать красными</button>
-        <button onclick="changeRoadColor('#34C759')">Сделать зелеными</button>
-        <button onclick="resetRoadColor()">Вернуть исходные</button>
+        <div id="status">Загрузка улиц...</div>
+        <button onclick="changeColor('#FF3B30')">Красные дороги</button>
+        <button onclick="changeColor('#34C759')">Зеленые дороги</button>
+        <button onclick="changeColor('#0078D7')">Синие дороги</button>
     </div>
 
     <!-- Контейнер карты -->
     <div id="map"></div>
 
-    <!-- Подключаем скрипт MapLibre GL -->
-    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <!-- Подключаем Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // Инициализация карты с векторными тайлами (все улицы загружаются автоматически)
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: 'https://demotiles.maplibre.org/style.json', // Стандартный векторный стиль
-            center: [37.5822, 48.7394], // Долгота, широта для Краматорска
-            zoom: 13
-        });
+        // Инициализация карты (центр — Краматорск)
+        const map = L.map('map').setView([48.7394, 37.5822], 13);
 
-        // Функция изменения цвета всех дорог на карте
-        function changeRoadColor(color) {
-            // Проверяем, загружена ли карта
-            if (!map.isStyleLoaded()) return;
+        // Добавляем фоновую карту OpenStreetMap (без слова contributors)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
 
-            // Находим слои дорог в векторном стиле и меняем их цвет
-            const layers = map.getStyle().layers;
-            layers.forEach(layer => {
-                if (layer.id.includes('road') || layer.id.includes('street') || layer.id.includes('highway')) {
-                    if (layer.type === 'line') {
-                        map.setPaintProperty(layer.id, 'line-color', color);
-                    }
+        let streetsLayer = null;
+        let currentColor = '#0078D7';
+
+        // Автоматическая загрузка всех улиц Краматорска при запуске
+        async function loadAllStreets() {
+            const bbox = "48.65,37.45,48.85,37.75";
+            const query = `[out:json][timeout:25];way(${bbox})["highway"];out geom;`;
+            const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!data.elements || data.elements.length === 0) {
+                    document.getElementById('status').innerText = 'Улицы не найдены';
+                    return;
                 }
-            });
+
+                // Преобразуем данные в формат GeoJSON
+                const features = [];
+                data.elements.forEach(element => {
+                    if (element.geometry && element.geometry.length > 0) {
+                        const coords = element.geometry.map(pt => [pt.lon, pt.lat]);
+                        features.push({
+                            type: "Feature",
+                            properties: element.tags || {},
+                            geometry: {
+                                type: "LineString",
+                                coordinates: coords
+                            }
+                        });
+                    }
+                });
+
+                const geojsonCollection = {
+                    type: "FeatureCollection",
+                    features: features
+                };
+
+                // Отрисовываем все дороги на карте
+                streetsLayer = L.geoJSON(geojsonCollection, {
+                    style: function() {
+                        return { color: currentColor, weight: 3, opacity: 0.8 };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        if (feature.properties && feature.properties.name) {
+                            layer.bindPopup(`<b>${feature.properties.name}</b>`);
+                        }
+                    }
+                }).addTo(map);
+
+                document.getElementById('status').innerText = `Загружено улиц: ${features.length}`;
+
+            } --> catch (error) {
+                console.error(error);
+                document.getElementById('status').innerText = 'Ошибка загрузки улиц';
+            }
         }
 
-        // Сброс цветов к стандартным (перезагрузка стиля)
-        function resetRoadColor() {
-            map.setStyle('https://demotiles.maplibre.org/style.json');
+        // Функция изменения цвета всех дорог по клику на кнопку
+        function changeColor(color) {
+            currentColor = color;
+            if (streetsLayer) {
+                streetsLayer.setStyle({ color: color });
+            }
         }
+
+        loadAllStreets();
     </script>
 
 </body>
