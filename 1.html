@@ -127,7 +127,7 @@
 
                 document.getElementById('status').innerText = `Загружено улиц: ${features.length}`;
 
-            } --> catch (error) {
+            }  catch (error) {
                 console.error(error);
                 document.getElementById('status').innerText = 'Ошибка загрузки улиц';
             }
