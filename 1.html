@@ -59,7 +59,7 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status">Загрузка улиц Краматорска...</div>
+        <div id="status">Инициализация карты...</div>
         <select id="streetSelect" disabled>
             <option value="">-- Выберите улицу --</option>
         </select>
@@ -87,22 +87,43 @@
 
         let streetsData = [];
 
-        map.on('load', async function() {
-            // Уменьшенный bbox строго по центральной и жилой части Краматорска для быстрого ответа сервера
-            const bbox = "48.70,37.52,48.78,37.64";
+        // Список серверов (зеркал) Overpass API по порядку приоритета
+        const overpassServers = [
+            'https://overpass.kumi.systems/api/interpreter',
+            'https://overpass-api.de/api/interpreter',
+            'https://z.overpass-api.de/api/interpreter'
+        ];
+
+        // Функция автоматического перебора серверов при ошибках или тайм-аутах
+        async function fetchWithFallback(query) {
+            const encodedQuery = encodeURIComponent(query);
             
-            // Оптимизированный запрос без геометрии (загружает только узлы и имена мгновенно)
-            const query = `[out:json][timeout:15];way(${bbox})["highway"]["name"];out geom;`;
-            const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+            for (let i = 0; i < overpassServers.length; i++) {
+                const serverUrl = `${overpassServers[i]}?data=${encodedQuery}`;
+                try {
+                    document.getElementById('status').innerText = `Подключение к серверу ${i + 1}/${overpassServers.length}...`;
+                    
+                    const response = await fetch(serverUrl);
+                    if (!response.ok) {
+                        throw new Error(`Сервер вернул ошибку: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    return data; // Если успешно, возвращаем данные
+                } catch (error) {
+                    console.warn(`Сервер ${overpassServers[i]} недоступен:`, error);
+                    // Переходим к следующему серверу в цикле
+                }
+            }
+            throw new Error("Все серверы перегружены или недоступны.");
+        }
+
+        map.on('load', async function() {
+            const bbox = "48.70,37.52,48.78,37.64";
+            const query = `[out:json][timeout:25];way(${bbox})["highway"]["name"];out geom;`;
 
             try {
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error("Сервер перегружен, попробуйте позже");
-                }
-
-                const data = await response.json();
+                const data = await fetchWithFallback(query);
 
                 if (!data.elements || data.elements.length === 0) {
                     document.getElementById('status').innerText = 'Улицы не найдены';
@@ -138,7 +159,7 @@
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('status').innerText = 'Ошибка загрузки (тайм-аут)';
+                document.getElementById('status').innerText = 'Ошибка: все серверы заняты';
             }
         });
 
