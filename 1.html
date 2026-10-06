@@ -50,13 +50,24 @@
             font-size: 13px;
             margin-bottom: 5px;
         }
+        /* Анимация точек для индикатора загрузки */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
     </style>
 </head>
 <body>
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status">Загрузка дорог Москвы и МО...</div>
+        <div id="status" class="loading-dots">Загрузка данных региона</div>
         <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
         <label style="font-size: 13px; color: #555;">Цвет подсветки дорог:</label>
         <button onclick="changeColor('#FF3B30')" style="background-color: #FF3B30;">Красный</button>
@@ -86,7 +97,6 @@
             'https://z.overpass-api.de/api/interpreter'
         ];
 
-        // Увеличили лимит ожидания до 60 секунд, так как регион большой
         async function fetchWithTimeout(url, timeout = 60000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeout);
@@ -105,12 +115,18 @@
             for (let i = 0; i < overpassServers.length; i++) {
                 const serverUrl = `${overpassServers[i]}?data=${encodedQuery}`;
                 try {
-                    document.getElementById('status').innerText = `Подключение к серверу ${i + 1}/${overpassServers.length}...`;
+                    const statusEl = document.getElementById('status');
+                    statusEl.className = "loading-dots";
+                    statusEl.innerText = `Запрос к серверу ${i + 1}/${overpassServers.length}`;
+                    
                     const response = await fetchWithTimeout(serverUrl, 60000);
                     if (!response.ok) throw new Error(`HTTP: ${response.status}`);
+                    
+                    statusEl.className = "";
+                    statusEl.innerText = "Обработка данных...";
                     return await response.json();
                 } catch (error) {
-                    console.warn(`Сервер ${overpassServers[i]} недоступен или превышено время ожидания:`, error);
+                    console.warn(`Сервер ${overpassServers[i]} недоступен:`, error);
                 }
             }
             throw new Error("Все серверы перегружены.");
@@ -133,7 +149,9 @@
                 const data = await fetchWithFallback(query);
 
                 if (!data.elements || data.elements.length === 0) {
-                    document.getElementById('status').innerText = 'Дороги не найдены';
+                    const statusEl = document.getElementById('status');
+                    statusEl.className = "";
+                    statusEl.innerText = 'Дороги не найдены';
                     return;
                 }
 
@@ -172,11 +190,15 @@
                     }
                 });
 
-                document.getElementById('status').innerText = `Дорог загружено: ${features.length}`;
+                const statusEl = document.getElementById('status');
+                statusEl.className = "";
+                statusEl.innerText = `Загружено дорог: ${features.length}`;
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('status').innerText = 'Ошибка загрузки региона';
+                const statusEl = document.getElementById('status');
+                statusEl.className = "";
+                statusEl.innerText = 'Ошибка: серверы перегружены';
             }
         });
 
