@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Все улицы Краматорска в списке - Leaflet</title>
+    <title>Улицы Краматорска - MapLibre</title>
     
-    <!-- Подключаем Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Подключаем MapLibre GL CSS -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     
     <style>
         html, body, #map {
@@ -14,34 +14,44 @@
             margin: 0;
             padding: 0;
         }
-        /* Панель с выпадающим списком */
+        /* Панель управления */
         .control-panel {
             position: absolute;
             top: 15px;
             right: 15px;
             z-index: 1000;
             background: white;
-            padding: 12px;
+            padding: 15px;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             font-family: Arial, sans-serif;
             font-size: 14px;
+            width: 280px;
         }
-        .control-panel select {
-            width: 250px;
-            padding: 6px;
-            margin-top: 6px;
+        .control-panel select, .control-panel button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
             outline: none;
+            box-sizing: border-box;
             background: white;
             cursor: pointer;
+        }
+        .control-panel button {
+            background-color: #0078D7;
+            color: white;
+            border: none;
+        }
+        .control-panel button:hover {
+            background-color: #005fa3;
         }
         #status {
             font-weight: bold;
             color: #333;
             font-size: 13px;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -49,34 +59,40 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status">Загрузка улиц города...</div>
+        <div id="status">Загрузка улиц Краматорска...</div>
         <select id="streetSelect" disabled>
             <option value="">-- Выберите улицу --</option>
         </select>
+        <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
+        <label style="font-size: 13px; color: #555;">Цвет выбранной улицы:</label>
+        <button onclick="changeSelectedColor('#FF3B30')">Красный</button>
+        <button onclick="changeSelectedColor('#34C759')">Зеленый</button>
+        <button onclick="changeSelectedColor('#0078D7')">Синий</button>
     </div>
 
     <!-- Контейнер карты -->
     <div id="map"></div>
 
-    <!-- Подключаем Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Подключаем MapLibre GL JS -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
     <script>
-        // Инициализация карты (центр — Краматорск)
-        const map = L.map('map').setView([48.7394, 37.5822], 13);
+        // Инициализация векторной карты (центр — Краматорск)
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://tiles.openfreemap.org/styles/liberty',
+            center: [37.5822, 48.7394],
+            zoom: 13
+        });
 
-        // Добавляем фоновую карту OpenStreetMap (без слова contributors)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }).addTo(map);
-
-        let searchLayer = L.layerGroup().addTo(map);
         let streetsData = [];
 
-        // Автоматическая загрузка всех улиц города через Overpass API
-        async function loadAllStreets() {
-            const bbox = "48.65,37.45,48.85,37.75";
+        // Загрузка улиц строго по границам Краматорска
+        map.on('load', async function() {
+            // Точный ограничивающий прямоугольник (bbox) для городского района Краматорска
+            const bbox = "48.68,37.50,48.80,37.68";
+            
+            // Запрос ищет только дороги с именами внутри заданного квадрата города
             const query = `[out:json][timeout:25];way(${bbox})["highway"]["name"];out geom;`;
             const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
 
@@ -89,12 +105,13 @@
                     return;
                 }
 
-                // Собираем уникальные улицы по их названию
+                // Группируем сегменты по названиям улиц
                 const streetsMap = new Map();
-
                 data.elements.forEach(element => {
                     if (element.tags && element.tags.name && element.geometry) {
                         const name = element.tags.name;
+                        
+                        // Дополнительная фильтрация: исключаем возможные загородные трассы по тегам, если нужно
                         if (!streetsMap.has(name)) {
                             streetsMap.set(name, []);
                         }
@@ -102,7 +119,6 @@
                     }
                 });
 
-                // Превращаем в массив и сортируем по алфавиту
                 streetsData = Array.from(streetsMap.entries()).map(([name, elements]) => ({
                     name: name,
                     elements: elements
@@ -117,45 +133,67 @@
                     selectElement.appendChild(option);
                 });
 
-                document.getElementById('status').innerText = `Загружено улиц: ${streetsData.length}`;
+                document.getElementById('status').innerText = `Улиц в Краматорске: ${streetsData.length}`;
                 selectElement.disabled = false;
 
             } catch (error) {
                 console.error(error);
                 document.getElementById('status').innerText = 'Ошибка загрузки улиц';
             }
-        }
+        });
 
         // Обработка выбора улицы из списка
         document.getElementById('streetSelect').addEventListener('change', function() {
-            searchLayer.clearLayers();
             const index = this.value;
+            
+            if (map.getLayer('selected-street-layer')) {
+                map.removeLayer('selected-street-layer');
+                map.removeSource('selected-street-source');
+            }
+
             if (index === "") return;
 
             const street = streetsData[index];
-            let bounds = L.latLngBounds();
 
-            // Отрисовываем все сегменты выбранной улицы
-            street.elements.forEach(element => {
-                const latLngs = element.geometry.map(pt => [pt.lat, pt.lon]);
-                const roadLine = L.polyline(latLngs, {
-                    color: '#FF3B30', // Ярко-красный цвет
-                    weight: 6,         // Толщина линии
-                    opacity: 0.8
-                });
+            const features = street.elements.map(el => ({
+                type: "Feature",
+                geometry: {
+                    type: "LineString",
+                    coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
+                }
+            }));
 
-                roadLine.bindPopup(`<b>${street.name}</b>`);
-                searchLayer.addLayer(roadLine);
-                bounds.extend(roadLine.getBounds());
+            map.addSource('selected-street-source', {
+                type: 'geojson',
+                data: {
+                    type: "FeatureCollection",
+                    features: features
+                }
             });
 
-            // Приближаем карту к выбранной улице
-            if (bounds.isValid()) {
-                map.fitBounds(bounds, { padding: [50, 50] });
-            }
+            map.addLayer({
+                id: 'selected-street-layer',
+                type: 'line',
+                source: 'selected-street-source',
+                paint: {
+                    'line-color': '#FF3B30',
+                    'line-width': 6,
+                    'line-opacity': 0.85
+                }
+            });
+
+            const bounds = new maplibregl.LngLatBounds();
+            features.forEach(f => {
+                f.geometry.coordinates.forEach(coord => bounds.extend(coord));
+            });
+            map.fitBounds(bounds, { padding: 60, maxZoom: 16 });
         });
 
-        loadAllStreets();
+        function changeSelectedColor(color) {
+            if (map.getLayer('selected-street-layer')) {
+                map.setPaintProperty('selected-street-layer', 'line-color', color);
+            }
+        }
     </script>
 
 </body>
