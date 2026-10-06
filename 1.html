@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Все улицы Краматорска - Leaflet</title>
+    <title>Все улицы Краматорска в списке - Leaflet</title>
     
     <!-- Подключаем Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,7 +14,7 @@
             margin: 0;
             padding: 0;
         }
-        /* Панель управления цветом */
+        /* Панель с выпадающим списком */
         .control-panel {
             position: absolute;
             top: 15px;
@@ -27,24 +27,21 @@
             font-family: Arial, sans-serif;
             font-size: 14px;
         }
-        .control-panel button {
+        .control-panel select {
+            width: 250px;
+            padding: 6px;
             margin-top: 6px;
-            padding: 6px 12px;
-            background-color: #0078D7;
-            color: white;
-            border: none;
+            border: 1px solid #ccc;
             border-radius: 4px;
+            outline: none;
+            background: white;
             cursor: pointer;
-            width: 100%;
-        }
-        .control-panel button:hover {
-            background-color: #005fa3;
         }
         #status {
-            margin-bottom: 8px;
             font-weight: bold;
             color: #333;
             font-size: 13px;
+            margin-bottom: 4px;
         }
     </style>
 </head>
@@ -52,10 +49,10 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status">Загрузка улиц...</div>
-        <button onclick="changeColor('#FF3B30')">Красные дороги</button>
-        <button onclick="changeColor('#34C759')">Зеленые дороги</button>
-        <button onclick="changeColor('#0078D7')">Синие дороги</button>
+        <div id="status">Загрузка улиц города...</div>
+        <select id="streetSelect" disabled>
+            <option value="">-- Выберите улицу --</option>
+        </select>
     </div>
 
     <!-- Контейнер карты -->
@@ -74,13 +71,13 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        let streetsLayer = null;
-        let currentColor = '#0078D7';
+        let searchLayer = L.layerGroup().addTo(map);
+        let streetsData = [];
 
-        // Автоматическая загрузка всех улиц Краматорска при запуске
+        // Автоматическая загрузка всех улиц города через Overpass API
         async function loadAllStreets() {
             const bbox = "48.65,37.45,48.85,37.75";
-            const query = `[out:json][timeout:25];way(${bbox})["highway"];out geom;`;
+            const query = `[out:json][timeout:25];way(${bbox})["highway"]["name"];out geom;`;
             const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
 
             try {
@@ -92,54 +89,71 @@
                     return;
                 }
 
-                // Преобразуем данные в формат GeoJSON
-                const features = [];
+                // Собираем уникальные улицы по их названию
+                const streetsMap = new Map();
+
                 data.elements.forEach(element => {
-                    if (element.geometry && element.geometry.length > 0) {
-                        const coords = element.geometry.map(pt => [pt.lon, pt.lat]);
-                        features.push({
-                            type: "Feature",
-                            properties: element.tags || {},
-                            geometry: {
-                                type: "LineString",
-                                coordinates: coords
-                            }
-                        });
+                    if (element.tags && element.tags.name && element.geometry) {
+                        const name = element.tags.name;
+                        if (!streetsMap.has(name)) {
+                            streetsMap.set(name, []);
+                        }
+                        streetsMap.get(name).push(element);
                     }
                 });
 
-                const geojsonCollection = {
-                    type: "FeatureCollection",
-                    features: features
-                };
+                // Превращаем в массив и сортируем по алфавиту
+                streetsData = Array.from(streetsMap.entries()).map(([name, elements]) => ({
+                    name: name,
+                    elements: elements
+                })).sort((a, b) => a.name.localeCompare(b.name));
 
-                // Отрисовываем все дороги на карте
-                streetsLayer = L.geoJSON(geojsonCollection, {
-                    style: function() {
-                        return { color: currentColor, weight: 3, opacity: 0.8 };
-                    },
-                    onEachFeature: function (feature, layer) {
-                        if (feature.properties && feature.properties.name) {
-                            layer.bindPopup(`<b>${feature.properties.name}</b>`);
-                        }
-                    }
-                }).addTo(map);
+                // Заполняем выпадающий список
+                const selectElement = document.getElementById('streetSelect');
+                streetsData.forEach((street, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = street.name;
+                    selectElement.appendChild(option);
+                });
 
-                document.getElementById('status').innerText = `Загружено улиц: ${features.length}`;
+                document.getElementById('status').innerText = `Загружено улиц: ${streetsData.length}`;
+                selectElement.disabled = false;
 
-            }  catch (error) {
+            } catch (error) {
                 console.error(error);
                 document.getElementById('status').innerText = 'Ошибка загрузки улиц';
             }
         }
 
-        // Функция изменения цвета всех дорог по клику на кнопку
-        function changeColor(color) {
-            currentColor = color;
-            if (streetsLayer) {
-                streetsLayer.setStyle({ color: color });
+        // Обработка выбора улицы из списка
+        document.getElementById('streetSelect').addEventListener('change', function() {
+            searchLayer.clearLayers();
+            const index = this.value;
+            if (index === "") return;
+
+            const street = streetsData[index];
+            let bounds = L.latLngBounds();
+
+            // Отрисовываем все сегменты выбранной улицы
+            street.elements.forEach(element => {
+                const latLngs = element.geometry.map(pt => [pt.lat, pt.lon]);
+                const roadLine = L.polyline(latLngs, {
+                    color: '#FF3B30', // Ярко-красный цвет
+                    weight: 6,         // Толщина линии
+                    opacity: 0.8
+                });
+
+                roadLine.bindPopup(`<b>${street.name}</b>`);
+                searchLayer.addLayer(roadLine);
+                bounds.extend(roadLine.getBounds());
+            });
+
+            // Приближаем карту к выбранной улице
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [50, 50] });
             }
-        }
+        });
 
         loadAllStreets();
     </script>
