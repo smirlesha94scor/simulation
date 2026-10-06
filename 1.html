@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Улицы Краматорска - MapLibre</title>
+    <title>Региональные дороги Москвы и МО - MapLibre</title>
     
     <!-- Подключаем MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -28,7 +28,7 @@
             font-size: 14px;
             width: 280px;
         }
-        .control-panel select, .control-panel button {
+        .control-panel button {
             width: 100%;
             padding: 8px;
             margin-top: 8px;
@@ -38,14 +38,11 @@
             box-sizing: border-box;
             background: white;
             cursor: pointer;
-        }
-        .control-panel button {
-            background-color: #0078D7;
             color: white;
             border: none;
         }
         .control-panel button:hover {
-            background-color: #005fa3;
+            opacity: 0.9;
         }
         #status {
             font-weight: bold;
@@ -59,15 +56,12 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status">Инициализация карты...</div>
-        <select id="streetSelect" disabled>
-            <option value="">-- Выберите улицу --</option>
-        </select>
+        <div id="status">Загрузка дорог Москвы и МО...</div>
         <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
-        <label style="font-size: 13px; color: #555;">Цвет выбранной улицы:</label>
-        <button onclick="changeSelectedColor('#FF3B30')">Красный</button>
-        <button onclick="changeSelectedColor('#34C759')">Зеленый</button>
-        <button onclick="changeSelectedColor('#0078D7')">Синий</button>
+        <label style="font-size: 13px; color: #555;">Цвет подсветки дорог:</label>
+        <button onclick="changeColor('#FF3B30')" style="background-color: #FF3B30;">Красный</button>
+        <button onclick="changeColor('#34C759')" style="background-color: #34C759;">Зеленый</button>
+        <button onclick="changeColor('#0078D7')" style="background-color: #0078D7;">Синий</button>
     </div>
 
     <!-- Контейнер карты -->
@@ -77,25 +71,22 @@
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
     <script>
-        // Инициализация векторной карты (центр — Краматорск)
+        // Инициализация векторной карты (центр — Москва)
         const map = new maplibregl.Map({
             container: 'map',
             style: 'https://tiles.openfreemap.org/styles/liberty',
-            center: [37.5822, 48.7394],
-            zoom: 13
+            center: [37.6173, 55.7558],
+            zoom: 9
         });
 
-        let streetsData = [];
-
-        // Список серверов (зеркал) Overpass API
+        // Надежные зеркала Overpass API
         const overpassServers = [
             'https://overpass.kumi.systems/api/interpreter',
             'https://overpass-api.de/api/interpreter',
             'https://z.overpass-api.de/api/interpreter'
         ];
 
-        // Функция fetch с ограничением по времени (таймаут 6 секунд на каждый сервер)
-        async function fetchWithTimeout(url, timeout = 6000) {
+        async function fetchWithTimeout(url, timeout = 10000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeout);
             try {
@@ -108,125 +99,87 @@
             }
         }
 
-        // Автоматический перебор серверов с защитой от зависания
         async function fetchWithFallback(query) {
             const encodedQuery = encodeURIComponent(query);
-            
             for (let i = 0; i < overpassServers.length; i++) {
                 const serverUrl = `${overpassServers[i]}?data=${encodedQuery}`;
                 try {
                     document.getElementById('status').innerText = `Подключение к серверу ${i + 1}/${overpassServers.length}...`;
-                    
-                    const response = await fetchWithTimeout(serverUrl, 6000);
-                    if (!response.ok) {
-                        throw new Error(`Ошибка HTTP: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    return data; // Успешно получили данные
+                    const response = await fetchWithTimeout(serverUrl, 10000);
+                    if (!response.ok) throw new Error(`HTTP: ${response.status}`);
+                    return await response.json();
                 } catch (error) {
-                    console.warn(`Сервер ${overpassServers[i]} не ответил вовремя или недоступен:`, error);
-                    // Идем дальше по циклу к следующему серверу
+                    console.warn(`Сервер ${overpassServers[i]} недоступен:`, error);
                 }
             }
-            throw new Error("Все серверы не отвечают.");
+            throw new Error("Все серверы перегружены.");
         }
 
         map.on('load', async function() {
-            const bbox = "48.70,37.52,48.78,37.64";
-            const query = `[out:json][timeout:25];way(${bbox})["highway"]["name"];out geom;`;
+            // Охватывающий bbox для Москвы и Московской области
+            const bbox = "54.8,35.1,56.7,39.9";
+            
+            // Запрос на региональные и основные дороги (primary, secondary)
+            const query = `[out:json][timeout:45];way(${bbox})["highway"~"primary|secondary"];out geom;`;
 
             try {
                 const data = await fetchWithFallback(query);
 
                 if (!data.elements || data.elements.length === 0) {
-                    document.getElementById('status').innerText = 'Улицы не найдены';
+                    document.getElementById('status').innerText = 'Дороги не найдены';
                     return;
                 }
 
-                const streetsMap = new Map();
-                data.elements.forEach(element => {
-                    if (element.tags && element.tags.name && element.geometry) {
-                        const name = element.tags.name;
-                        if (!streetsMap.has(name)) {
-                            streetsMap.set(name, []);
-                        }
-                        streetsMap.get(name).push(element);
+                // Превращаем полученные сегменты в GeoJSON Features
+                const features = [];
+                data.elements.forEach(el => {
+                    if (el.geometry) {
+                        features.push({
+                            type: "Feature",
+                            geometry: {
+                                type: "LineString",
+                                coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
+                            },
+                            properties: {
+                                name: el.tags.name || "Региональная дорога"
+                            }
+                        });
                     }
                 });
 
-                streetsData = Array.from(streetsMap.entries()).map(([name, elements]) => ({
-                    name: name,
-                    elements: elements
-                })).sort((a, b) => a.name.localeCompare(b.name));
-
-                const selectElement = document.getElementById('streetSelect');
-                streetsData.forEach((street, index) => {
-                    const option = document.createElement('option');
-                    option.value = index;
-                    option.textContent = street.name;
-                    selectElement.appendChild(option);
+                // Добавляем общий источник данных на карту
+                map.addSource('regional-roads-source', {
+                    type: 'geojson',
+                    data: {
+                        type: "FeatureCollection",
+                        features: features
+                    }
                 });
 
-                document.getElementById('status').innerText = `Улиц в списке: ${streetsData.length}`;
-                selectElement.disabled = false;
+                // Создаем слой для отображения всех региональных дорог разом
+                map.addLayer({
+                    id: 'regional-roads-layer',
+                    type: 'line',
+                    source: 'regional-roads-source',
+                    paint: {
+                        'line-color': '#FF3B30', // Красный по умолчанию
+                        'line-width': 4,
+                        'line-opacity': 0.8
+                    }
+                });
+
+                document.getElementById('status').innerText = `Дорог загружено: ${features.length}`;
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('status').innerText = 'Ошибка: нет связи с серверами';
+                document.getElementById('status').innerText = 'Ошибка загрузки региона';
             }
         });
 
-        // Выбор улицы из списка
-        document.getElementById('streetSelect').addEventListener('change', function() {
-            const index = this.value;
-            
-            if (map.getLayer('selected-street-layer')) {
-                map.removeLayer('selected-street-layer');
-                map.removeSource('selected-street-source');
-            }
-
-            if (index === "") return;
-
-            const street = streetsData[index];
-
-            const features = street.elements.map(el => ({
-                type: "Feature",
-                geometry: {
-                    type: "LineString",
-                    coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
-                }
-            }));
-
-            map.addSource('selected-street-source', {
-                type: 'geojson',
-                data: {
-                    type: "FeatureCollection",
-                    features: features
-                }
-            });
-
-            map.addLayer({
-                id: 'selected-street-layer',
-                type: 'line',
-                source: 'selected-street-source',
-                paint: {
-                    'line-color': '#FF3B30',
-                    'line-width': 6,
-                    'line-opacity': 0.85
-                }
-            });
-
-            const bounds = new maplibregl.LngLatBounds();
-            features.forEach(f => {
-                f.geometry.coordinates.forEach(coord => bounds.extend(coord));
-            });
-            map.fitBounds(bounds, { padding: 60, maxZoom: 16 });
-        });
-
-        function changeSelectedColor(color) {
-            if (map.getLayer('selected-street-layer')) {
-                map.setPaintProperty('selected-street-layer', 'line-color', color);
+        // Функция изменения цвета всех выделенных дорог
+        function changeColor(color) {
+            if (map.getLayer('regional-roads-layer')) {
+                map.setPaintProperty('regional-roads-layer', 'line-color', color);
             }
         }
     </script>
