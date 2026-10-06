@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Дороги Москвы в пределах МКАД - MapLibre</title>
+    <title>Дороги Москвы с чекбоксами - MapLibre</title>
     
     <!-- Подключаем MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -26,16 +26,18 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             font-family: Arial, sans-serif;
             font-size: 14px;
-            width: 280px;
+            width: 310px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
         }
         .control-panel button {
             width: 100%;
             padding: 8px;
-            margin-top: 8px;
+            margin-top: 6px;
             border-radius: 4px;
             outline: none;
             box-sizing: border-box;
-            background: white;
             cursor: pointer;
             color: white;
             border: none;
@@ -48,6 +50,26 @@
             color: #333;
             font-size: 13px;
             margin-bottom: 5px;
+        }
+        /* Блок со списком дорог (прокручиваемый) */
+        #roads-list {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 8px;
+            border: 1px solid #eee;
+            padding: 6px;
+            border-radius: 4px;
+        }
+        .road-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            margin-bottom: 4px;
+            cursor: pointer;
+        }
+        .road-item input {
+            cursor: pointer;
         }
         /* Анимация точек для индикатора загрузки */
         .loading-dots::after {
@@ -67,8 +89,17 @@
     <!-- Панель управления -->
     <div class="control-panel">
         <div id="status" class="loading-dots">Загрузка дорог Москвы</div>
-        <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
-        <label style="font-size: 13px; color: #555;">Цвет подсветки дорог:</label>
+        
+        <div style="margin-top: 10px;">
+            <label style="font-size: 13px; color: #555; font-weight: bold;">Список дорог:</label>
+            <div id="roads-list">
+                <span style="font-size: 12px; color: #888;">Загрузка списка...</span>
+            </div>
+        </div>
+
+        <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee; width: 100%;">
+        
+        <label style="font-size: 13px; color: #555;">Цвет подсветки линий:</label>
         <button onclick="changeColor('#FF3B30')" style="background-color: #FF3B30;">Красный</button>
         <button onclick="changeColor('#34C759')" style="background-color: #34C759;">Зеленый</button>
         <button onclick="changeColor('#0078D7')" style="background-color: #0078D7;">Синий</button>
@@ -81,7 +112,6 @@
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
     <script>
-        // Инициализация векторной карты (центр — Москва)
         const map = new maplibregl.Map({
             container: 'map',
             style: 'https://tiles.openfreemap.org/styles/liberty',
@@ -89,12 +119,13 @@
             zoom: 11
         });
 
-        // Надежные зеркала Overpass API
         const overpassServers = [
             'https://overpass.kumi.systems/api/interpreter',
             'https://overpass-api.de/api/interpreter',
             'https://z.overpass-api.de/api/interpreter'
         ];
+
+        let selectedNames = new Set();
 
         async function fetchWithTimeout(url, timeout = 60000) {
             const controller = new AbortController();
@@ -132,10 +163,8 @@
         }
 
         map.on('load', async function() {
-            // Строгий bbox (юг, запад, север, восток), охватывающий Москву в пределах МКАД и ближайших районов
+            // Ограничение по квадрату Москвы (в пределах МКАД и ближайших окрестностей)
             const bbox = "55.55,37.33,55.92,37.88";
-            
-            // Запрос основных магистралей и улиц строго внутри этого квадрата
             const query = `
                 [out:json][timeout:60];
                 way(${bbox})["highway"~"motorway|trunk|primary"];
@@ -146,15 +175,17 @@
                 const data = await fetchWithFallback(query);
 
                 if (!data.elements || data.elements.length === 0) {
-                    const statusEl = document.getElementById('status');
-                    statusEl.className = "";
-                    statusEl.innerText = 'Дороги не найдены';
+                    document.getElementById('status').className = "";
+                    document.getElementById('status').innerText = 'Дороги не найдены';
                     return;
                 }
 
                 const features = [];
+                const uniqueNames = new Set();
+
                 data.elements.forEach(el => {
-                    if (el.geometry) {
+                    if (el.geometry && el.tags.name) {
+                        uniqueNames.add(el.tags.name);
                         features.push({
                             type: "Feature",
                             geometry: {
@@ -162,11 +193,14 @@
                                 coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
                             },
                             properties: {
-                                name: el.tags.name || "Дорога"
+                                name: el.tags.name
                             }
                         });
                     }
                 });
+
+                // По умолчанию выбираем все найденные названия
+                selectedNames = new Set(uniqueNames);
 
                 map.addSource('moscow-city-source', {
                     type: 'geojson',
@@ -187,22 +221,66 @@
                     }
                 });
 
+                // Строим интерактивный список чекбоксов
+                const listContainer = document.getElementById('roads-list');
+                listContainer.innerHTML = '';
+
+                const sortedNames = Array.from(uniqueNames).sort();
+                sortedNames.forEach(name => {
+                    const label = document.createElement('label');
+                    label.className = 'road-item';
+                    label.innerHTML = `
+                        <input type="checkbox" checked value="${escapeHtml(name)}" onchange="toggleRoadFilter(this)">
+                        <span title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                    `;
+                    listContainer.appendChild(label);
+                });
+
                 const statusEl = document.getElementById('status');
                 statusEl.className = "";
-                statusEl.innerText = `Дорог загружено: ${features.length}`;
+                statusEl.innerText = `Уникальных трасс: ${sortedNames.length}`;
 
             } catch (error) {
                 console.error(error);
                 const statusEl = document.getElementById('status');
                 statusEl.className = "";
-                statusEl.innerText = 'Ошибка: серверы перегружены';
+                statusEl.innerText = 'Ошибка загрузки';
             }
         });
+
+        // Функция переключения видимости дороги по чекбоксу
+        function toggleRoadFilter(checkbox) {
+            const roadName = checkbox.value;
+            if (checkbox.checked) {
+                selectedNames.add(roadName);
+            } else {
+                selectedNames.delete(roadName);
+            }
+
+            // Формируем фильтр для MapLibre
+            if (selectedNames.size > 0) {
+                // ['in', ['get', 'name'], 'Трасса 1', 'Трасса 2', ...]
+                const filter = ['in', ['get', 'name'], ...Array.from(selectedNames)];
+                map.setFilter('moscow-city-layer', filter);
+            } else {
+                // Если ничего не выбрано, скрываем всё
+                map.setFilter('moscow-city-layer', ['==', ['get', 'name'], '']);
+            }
+        }
 
         function changeColor(color) {
             if (map.getLayer('moscow-city-layer')) {
                 map.setPaintProperty('moscow-city-layer', 'line-color', color);
             }
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
     </script>
 
