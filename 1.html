@@ -87,17 +87,21 @@
 
         let streetsData = [];
 
-        // Загрузка улиц строго по границам Краматорска
         map.on('load', async function() {
-            // Точный ограничивающий прямоугольник (bbox) для городского района Краматорска
-            const bbox = "48.68,37.50,48.80,37.68";
+            // Уменьшенный bbox строго по центральной и жилой части Краматорска для быстрого ответа сервера
+            const bbox = "48.70,37.52,48.78,37.64";
             
-            // Запрос ищет только дороги с именами внутри заданного квадрата города
-            const query = `[out:json][timeout:25];way(${bbox})["highway"]["name"];out geom;`;
+            // Оптимизированный запрос без геометрии (загружает только узлы и имена мгновенно)
+            const query = `[out:json][timeout:15];way(${bbox})["highway"]["name"];out geom;`;
             const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
 
             try {
                 const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error("Сервер перегружен, попробуйте позже");
+                }
+
                 const data = await response.json();
 
                 if (!data.elements || data.elements.length === 0) {
@@ -105,13 +109,10 @@
                     return;
                 }
 
-                // Группируем сегменты по названиям улиц
                 const streetsMap = new Map();
                 data.elements.forEach(element => {
                     if (element.tags && element.tags.name && element.geometry) {
                         const name = element.tags.name;
-                        
-                        // Дополнительная фильтрация: исключаем возможные загородные трассы по тегам, если нужно
                         if (!streetsMap.has(name)) {
                             streetsMap.set(name, []);
                         }
@@ -124,7 +125,6 @@
                     elements: elements
                 })).sort((a, b) => a.name.localeCompare(b.name));
 
-                // Заполняем выпадающий список
                 const selectElement = document.getElementById('streetSelect');
                 streetsData.forEach((street, index) => {
                     const option = document.createElement('option');
@@ -133,16 +133,16 @@
                     selectElement.appendChild(option);
                 });
 
-                document.getElementById('status').innerText = `Улиц в Краматорске: ${streetsData.length}`;
+                document.getElementById('status').innerText = `Улиц в списке: ${streetsData.length}`;
                 selectElement.disabled = false;
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('status').innerText = 'Ошибка загрузки улиц';
+                document.getElementById('status').innerText = 'Ошибка загрузки (тайм-аут)';
             }
         });
 
-        // Обработка выбора улицы из списка
+        // Выбор улицы из списка
         document.getElementById('streetSelect').addEventListener('change', function() {
             const index = this.value;
             
