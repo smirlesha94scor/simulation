@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Федеральные трассы в Москве - MapLibre</title>
+    <title>Трассы и дороги в Москве - MapLibre</title>
     
     <!-- Подключаем MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -66,9 +66,9 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status" class="loading-dots">Загрузка трасс Москвы</div>
+        <div id="status" class="loading-dots">Загрузка дорог Москвы</div>
         <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
-        <label style="font-size: 13px; color: #555;">Цвет подсветки трасс:</label>
+        <label style="font-size: 13px; color: #555;">Цвет подсветки дорог:</label>
         <button onclick="changeColor('#FF3B30')" style="background-color: #FF3B30;">Красный</button>
         <button onclick="changeColor('#34C759')" style="background-color: #34C759;">Зеленый</button>
         <button onclick="changeColor('#0078D7')" style="background-color: #0078D7;">Синий</button>
@@ -86,7 +86,7 @@
             container: 'map',
             style: 'https://tiles.openfreemap.org/styles/liberty',
             center: [37.6173, 55.7558],
-            zoom: 10
+            zoom: 11
         });
 
         // Надежные зеркала Overpass API
@@ -132,12 +132,12 @@
         }
 
         map.on('load', async function() {
-            // Запрос только для административной зоны Москвы (федеральные трассы и автомагистрали)
+            // Запрос включает motorway, trunk (магистрали) и primary (основные улицы внутри города) для Москвы
             const query = `
                 [out:json][timeout:60];
                 (
                   area["name"="Москва"]["admin_level"="4"]->.a;
-                  way(area.a)["highway"~"motorway|trunk"];
+                  way(area.a)["highway"~"motorway|trunk|primary"];
                 );
                 out geom;
             `;
@@ -148,7 +148,7 @@
                 if (!data.elements || data.elements.length === 0) {
                     const statusEl = document.getElementById('status');
                     statusEl.className = "";
-                    statusEl.innerText = 'Трассы не найдены';
+                    statusEl.innerText = 'Дороги не найдены';
                     return;
                 }
 
@@ -162,13 +162,13 @@
                                 coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
                             },
                             properties: {
-                                name: el.tags.name || "Федеральная трасса"
+                                name: el.tags.name || "Дорога"
                             }
                         });
                     }
                 });
 
-                map.addSource('moscow-federal-source', {
+                map.addSource('moscow-center-source', {
                     type: 'geojson',
                     data: {
                         type: "FeatureCollection",
@@ -177,19 +177,19 @@
                 });
 
                 map.addLayer({
-                    id: 'moscow-federal-layer',
+                    id: 'moscow-center-layer',
                     type: 'line',
-                    source: 'moscow-federal-source',
+                    source: 'moscow-center-source',
                     paint: {
                         'line-color': '#FF3B30',
-                        'line-width': 5,
+                        'line-width': 4,
                         'line-opacity': 0.85
                     }
                 });
 
                 const statusEl = document.getElementById('status');
                 statusEl.className = "";
-                statusEl.innerText = `Трасс загружено: ${features.length}`;
+                statusEl.innerText = `Дорог загружено: ${features.length}`;
 
             } catch (error) {
                 console.error(error);
@@ -200,8 +200,8 @@
         });
 
         function changeColor(color) {
-            if (map.getLayer('moscow-federal-layer')) {
-                map.setPaintProperty('moscow-federal-layer', 'line-color', color);
+            if (map.getLayer('moscow-center-layer')) {
+                map.setPaintProperty('moscow-center-layer', 'line-color', color);
             }
         }
     </script>
