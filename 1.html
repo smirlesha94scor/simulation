@@ -86,7 +86,8 @@
             'https://z.overpass-api.de/api/interpreter'
         ];
 
-        async function fetchWithTimeout(url, timeout = 25000) {
+        // Увеличили лимит ожидания до 60 секунд, так как регион большой
+        async function fetchWithTimeout(url, timeout = 60000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeout);
             try {
@@ -105,22 +106,22 @@
                 const serverUrl = `${overpassServers[i]}?data=${encodedQuery}`;
                 try {
                     document.getElementById('status').innerText = `Подключение к серверу ${i + 1}/${overpassServers.length}...`;
-                    const response = await fetchWithTimeout(serverUrl, 25000);
+                    const response = await fetchWithTimeout(serverUrl, 60000);
                     if (!response.ok) throw new Error(`HTTP: ${response.status}`);
                     return await response.json();
                 } catch (error) {
-                    console.warn(`Сервер ${overpassServers[i]} недоступен:`, error);
+                    console.warn(`Сервер ${overpassServers[i]} недоступен или превышено время ожидания:`, error);
                 }
             }
             throw new Error("Все серверы перегружены.");
         }
 
         map.on('load', async function() {
-            // Оптимизированный запрос по административным границам Москвы и Московской области
+            // Запрос по административным границам Москвы и Московской области
             const query = `
                 [out:json][timeout:60];
                 (
-                  area["name"="Москва"]["admin_level"="4"]->.a;
+                  area["name"~"Москва"]["admin_level"="4"]->.a;
                   way(area.a)["highway"~"primary|secondary"];
                   area["name"="Московская область"]["admin_level"="4"]->.b;
                   way(area.b)["highway"~"primary|secondary"];
