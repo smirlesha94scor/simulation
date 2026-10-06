@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Трассы и дороги в Москве - MapLibre</title>
+    <title>Дороги Москвы в пределах МКАД - MapLibre</title>
     
     <!-- Подключаем MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -132,13 +132,13 @@
         }
 
         map.on('load', async function() {
-            // Запрос включает motorway, trunk (магистрали) и primary (основные улицы внутри города) для Москвы
+            // Строгий bbox (юг, запад, север, восток), охватывающий Москву в пределах МКАД и ближайших районов
+            const bbox = "55.55,37.33,55.92,37.88";
+            
+            // Запрос основных магистралей и улиц строго внутри этого квадрата
             const query = `
                 [out:json][timeout:60];
-                (
-                  area["name"="Москва"]["admin_level"="4"]->.a;
-                  way(area.a)["highway"~"motorway|trunk|primary"];
-                );
+                way(${bbox})["highway"~"motorway|trunk|primary"];
                 out geom;
             `;
 
@@ -168,7 +168,7 @@
                     }
                 });
 
-                map.addSource('moscow-center-source', {
+                map.addSource('moscow-city-source', {
                     type: 'geojson',
                     data: {
                         type: "FeatureCollection",
@@ -177,9 +177,9 @@
                 });
 
                 map.addLayer({
-                    id: 'moscow-center-layer',
+                    id: 'moscow-city-layer',
                     type: 'line',
-                    source: 'moscow-center-source',
+                    source: 'moscow-city-source',
                     paint: {
                         'line-color': '#FF3B30',
                         'line-width': 4,
@@ -200,8 +200,8 @@
         });
 
         function changeColor(color) {
-            if (map.getLayer('moscow-center-layer')) {
-                map.setPaintProperty('moscow-center-layer', 'line-color', color);
+            if (map.getLayer('moscow-city-layer')) {
+                map.setPaintProperty('moscow-city-layer', 'line-color', color);
             }
         }
     </script>
