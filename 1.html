@@ -86,7 +86,7 @@
             'https://z.overpass-api.de/api/interpreter'
         ];
 
-        async function fetchWithTimeout(url, timeout = 10000) {
+        async function fetchWithTimeout(url, timeout = 25000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeout);
             try {
@@ -105,7 +105,7 @@
                 const serverUrl = `${overpassServers[i]}?data=${encodedQuery}`;
                 try {
                     document.getElementById('status').innerText = `Подключение к серверу ${i + 1}/${overpassServers.length}...`;
-                    const response = await fetchWithTimeout(serverUrl, 10000);
+                    const response = await fetchWithTimeout(serverUrl, 25000);
                     if (!response.ok) throw new Error(`HTTP: ${response.status}`);
                     return await response.json();
                 } catch (error) {
@@ -116,11 +116,17 @@
         }
 
         map.on('load', async function() {
-            // Охватывающий bbox для Москвы и Московской области
-            const bbox = "54.8,35.1,56.7,39.9";
-            
-            // Запрос на региональные и основные дороги (primary, secondary)
-            const query = `[out:json][timeout:45];way(${bbox})["highway"~"primary|secondary"];out geom;`;
+            // Оптимизированный запрос по административным границам Москвы и Московской области
+            const query = `
+                [out:json][timeout:60];
+                (
+                  area["name"="Москва"]["admin_level"="4"]->.a;
+                  way(area.a)["highway"~"primary|secondary"];
+                  area["name"="Московская область"]["admin_level"="4"]->.b;
+                  way(area.b)["highway"~"primary|secondary"];
+                );
+                out geom;
+            `;
 
             try {
                 const data = await fetchWithFallback(query);
@@ -130,7 +136,6 @@
                     return;
                 }
 
-                // Превращаем полученные сегменты в GeoJSON Features
                 const features = [];
                 data.elements.forEach(el => {
                     if (el.geometry) {
@@ -147,7 +152,6 @@
                     }
                 });
 
-                // Добавляем общий источник данных на карту
                 map.addSource('regional-roads-source', {
                     type: 'geojson',
                     data: {
@@ -156,13 +160,12 @@
                     }
                 });
 
-                // Создаем слой для отображения всех региональных дорог разом
                 map.addLayer({
                     id: 'regional-roads-layer',
                     type: 'line',
                     source: 'regional-roads-source',
                     paint: {
-                        'line-color': '#FF3B30', // Красный по умолчанию
+                        'line-color': '#FF3B30',
                         'line-width': 4,
                         'line-opacity': 0.8
                     }
@@ -176,7 +179,6 @@
             }
         });
 
-        // Функция изменения цвета всех выделенных дорог
         function changeColor(color) {
             if (map.getLayer('regional-roads-layer')) {
                 map.setPaintProperty('regional-roads-layer', 'line-color', color);
