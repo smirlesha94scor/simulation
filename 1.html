@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Региональные дороги Москвы и МО - MapLibre</title>
+    <title>Федеральные трассы Москвы и МО - MapLibre</title>
     
     <!-- Подключаем MapLibre GL CSS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -67,9 +67,9 @@
 
     <!-- Панель управления -->
     <div class="control-panel">
-        <div id="status" class="loading-dots">Загрузка данных региона</div>
+        <div id="status" class="loading-dots">Загрузка федеральных трасс</div>
         <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
-        <label style="font-size: 13px; color: #555;">Цвет подсветки дорог:</label>
+        <label style="font-size: 13px; color: #555;">Цвет подсветки трасс:</label>
         <button onclick="changeColor('#FF3B30')" style="background-color: #FF3B30;">Красный</button>
         <button onclick="changeColor('#34C759')" style="background-color: #34C759;">Зеленый</button>
         <button onclick="changeColor('#0078D7')" style="background-color: #0078D7;">Синий</button>
@@ -87,7 +87,7 @@
             container: 'map',
             style: 'https://tiles.openfreemap.org/styles/liberty',
             center: [37.6173, 55.7558],
-            zoom: 9
+            zoom: 8
         });
 
         // Надежные зеркала Overpass API
@@ -133,14 +133,14 @@
         }
 
         map.on('load', async function() {
-            // Запрос по административным границам Москвы и Московской области
+            // Запрос только федеральных трасс (motorway, trunk) для Москвы и Московской области
             const query = `
                 [out:json][timeout:60];
                 (
                   area["name"~"Москва"]["admin_level"="4"]->.a;
-                  way(area.a)["highway"~"primary|secondary"];
+                  way(area.a)["highway"~"motorway|trunk"];
                   area["name"="Московская область"]["admin_level"="4"]->.b;
-                  way(area.b)["highway"~"primary|secondary"];
+                  way(area.b)["highway"~"motorway|trunk"];
                 );
                 out geom;
             `;
@@ -151,7 +151,7 @@
                 if (!data.elements || data.elements.length === 0) {
                     const statusEl = document.getElementById('status');
                     statusEl.className = "";
-                    statusEl.innerText = 'Дороги не найдены';
+                    statusEl.innerText = 'Трассы не найдены';
                     return;
                 }
 
@@ -165,13 +165,13 @@
                                 coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
                             },
                             properties: {
-                                name: el.tags.name || "Региональная дорога"
+                                name: el.tags.name || "Федеральная трасса"
                             }
                         });
                     }
                 });
 
-                map.addSource('regional-roads-source', {
+                map.addSource('federal-roads-source', {
                     type: 'geojson',
                     data: {
                         type: "FeatureCollection",
@@ -180,19 +180,19 @@
                 });
 
                 map.addLayer({
-                    id: 'regional-roads-layer',
+                    id: 'federal-roads-layer',
                     type: 'line',
-                    source: 'regional-roads-source',
+                    source: 'federal-roads-source',
                     paint: {
                         'line-color': '#FF3B30',
-                        'line-width': 4,
-                        'line-opacity': 0.8
+                        'line-width': 5, // Сделаем линии чуть толще для удобства просмотра
+                        'line-opacity': 0.85
                     }
                 });
 
                 const statusEl = document.getElementById('status');
                 statusEl.className = "";
-                statusEl.innerText = `Загружено дорог: ${features.length}`;
+                statusEl.innerText = `Трасс загружено: ${features.length}`;
 
             } catch (error) {
                 console.error(error);
@@ -203,8 +203,8 @@
         });
 
         function changeColor(color) {
-            if (map.getLayer('regional-roads-layer')) {
-                map.setPaintProperty('regional-roads-layer', 'line-color', color);
+            if (map.getLayer('federal-roads-layer')) {
+                map.setPaintProperty('federal-roads-layer', 'line-color', color);
             }
         }
     </script>
