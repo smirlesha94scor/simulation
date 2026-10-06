@@ -87,14 +87,28 @@
 
         let streetsData = [];
 
-        // Список серверов (зеркал) Overpass API по порядку приоритета
+        // Список серверов (зеркал) Overpass API
         const overpassServers = [
             'https://overpass.kumi.systems/api/interpreter',
             'https://overpass-api.de/api/interpreter',
             'https://z.overpass-api.de/api/interpreter'
         ];
 
-        // Функция автоматического перебора серверов при ошибках или тайм-аутах
+        // Функция fetch с ограничением по времени (таймаут 6 секунд на каждый сервер)
+        async function fetchWithTimeout(url, timeout = 6000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timer);
+                return response;
+            } catch (error) {
+                clearTimeout(timer);
+                throw error;
+            }
+        }
+
+        // Автоматический перебор серверов с защитой от зависания
         async function fetchWithFallback(query) {
             const encodedQuery = encodeURIComponent(query);
             
@@ -103,19 +117,19 @@
                 try {
                     document.getElementById('status').innerText = `Подключение к серверу ${i + 1}/${overpassServers.length}...`;
                     
-                    const response = await fetch(serverUrl);
+                    const response = await fetchWithTimeout(serverUrl, 6000);
                     if (!response.ok) {
-                        throw new Error(`Сервер вернул ошибку: ${response.status}`);
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
                     }
                     
                     const data = await response.json();
-                    return data; // Если успешно, возвращаем данные
+                    return data; // Успешно получили данные
                 } catch (error) {
-                    console.warn(`Сервер ${overpassServers[i]} недоступен:`, error);
-                    // Переходим к следующему серверу в цикле
+                    console.warn(`Сервер ${overpassServers[i]} не ответил вовремя или недоступен:`, error);
+                    // Идем дальше по циклу к следующему серверу
                 }
             }
-            throw new Error("Все серверы перегружены или недоступны.");
+            throw new Error("Все серверы не отвечают.");
         }
 
         map.on('load', async function() {
@@ -159,7 +173,7 @@
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('status').innerText = 'Ошибка: все серверы заняты';
+                document.getElementById('status').innerText = 'Ошибка: нет связи с серверами';
             }
         });
 
