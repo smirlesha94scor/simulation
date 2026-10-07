@@ -209,7 +209,7 @@
             font-size: 8px;
             text-align: center;
             z-index: 2;
-            width: 90px;
+            width: 85px;
         }
         .el-node.active {
             border-color: var(--success);
@@ -325,42 +325,44 @@
             <h2>⚡ Электросхема (Внутренний и Внешний блоки)</h2>
             <div class="schema-canvas">
                 <!-- Контуры рамок блоков -->
-                <div class="zone-box" style="top: 8px; left: 8px; width: 245px; height: 240px;">Внутренний блок (Indoor Unit)</div>
-                <div class="zone-box" style="top: 8px; left: 265px; width: 310px; height: 240px;">Внешний блок (Outdoor Unit)</div>
+                <div class="zone-box" style="top: 8px; left: 8px; width: 235px; height: 240px;">Внутренний блок (Indoor Unit)</div>
+                <div class="zone-box" style="top: 8px; left: 255px; width: 320px; height: 240px;">Внешний блок (Outdoor Unit)</div>
 
-                <!-- SVG межблочные и внутренние соединения (без разрывов) -->
+                <!-- SVG межблочные и внутренние соединения -->
                 <svg style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 1;">
                     <!-- Внутренний блок -->
-                    <line id="ew-in-ac" class="svg-wire" x1="110" y1="35" x2="135" y2="35" />
-                    <line id="ew-in-fan" class="svg-wire" x1="85" y1="65" x2="85" y2="120" />
+                    <line id="ew-in-ac" class="svg-wire" x1="100" y1="35" x2="135" y2="35" />
+                    <line id="ew-in-fan" class="svg-wire" x1="80" y1="65" x2="80" y2="120" />
 
-                    <!-- Межблочный кабель (соединяет плату вн. блока и диодный мост внешнего) -->
-                    <line id="ew-inter-1" class="svg-wire dc" x1="225" y1="35" x2="295" y2="35" />
+                    <!-- Межблочный кабель -->
+                    <line id="ew-inter-1" class="svg-wire dc" x1="220" y1="35" x2="275" y2="35" />
 
                     <!-- Внешний блок -->
-                    <line id="ew-out-bridge" class="svg-wire" x1="390" y1="35" x2="425" y2="35" />
-                    <line id="ew-out-dc" class="svg-wire dc" x1="520" y1="35" x2="540" y2="35" />
+                    <line id="ew-out-bridge" class="svg-wire" x1="360" y1="35" x2="415" y2="35" />
+                    <line id="ew-out-dc" class="svg-wire dc" x1="500" y1="35" x2="530" y2="35" />
                     
-                    <line id="ew-out-fout" class="svg-wire" x1="475" y1="65" x2="475" y2="135" />
-                    <line id="ew-out-sol" class="svg-wire" x1="475" y1="65" x2="475" y2="195" />
+                    <!-- Шины от инвертора к исполнительным элементам -->
+                    <line id="ew-to-comp" class="svg-wire dc" x1="530" y1="50" x2="530" y2="85" />
+                    <line id="ew-to-fan" class="svg-wire" x1="475" y1="50" x2="475" y2="140" />
+                    <line id="ew-to-sol" class="svg-wire" x1="475" y1="50" x2="475" y2="195" />
 
-                    <line id="ew-to-fout" class="svg-wire" x1="475" y1="135" x2="540" y2="135" />
-                    <line id="ew-to-sol" class="svg-wire" x1="475" y1="195" x2="540" y2="195" />
+                    <line id="ew-real-fan" class="svg-wire" x1="475" y1="140" x2="530" y2="140" />
+                    <line id="ew-real-sol" class="svg-wire" x1="475" y1="195" x2="530" y2="195" />
                 </svg>
 
                 <!-- Элементы внутреннего блока -->
-                <div class="el-node" style="top: 22px; left: 18px;" id="el-in-power">Сеть ~220В</div>
+                <div class="el-node" style="top: 22px; left: 15px;" id="el-in-power">Сеть ~220В</div>
                 <div class="el-node" style="top: 22px; left: 135px;" id="el-mcu">MCU (Плата вн.)</div>
-                <div class="el-node" style="top: 120px; left: 40px;" id="el-in-fan">Вент. внутр.</div>
+                <div class="el-node" style="top: 120px; left: 38px;" id="el-in-fan">Вент. внутр.</div>
 
                 <!-- Элементы внешнего блока -->
-                <div class="el-node" style="top: 22px; left: 295px;" id="el-bridge">Диодный мост</div>
-                <div class="el-node" style="top: 22px; left: 425px;" id="el-caps">DC-Bus (Конденс.)</div>
-                <div class="el-node" style="top: 22px; left: 540px;" id="el-inverter">IPM Инвертор</div>
+                <div class="el-node" style="top: 22px; left: 275px;" id="el-bridge">Диодный мост</div>
+                <div class="el-node" style="top: 22px; left: 415px;" id="el-caps">DC-Bus (Конденс.)</div>
+                <div class="el-node" style="top: 22px; left: 530px;" id="el-inverter">IPM Инвертор</div>
                 
-                <div class="el-node" style="top: 75px; left: 540px;" id="el-compmotor">Компрессор</div>
-                <div class="el-node" style="top: 135px; left: 540px;" id="el-v-out">Вент. внеш.</div>
-                <div class="el-node" style="top: 195px; left: 540px;" id="el-sol">Соленоид 4Х</div>
+                <div class="el-node" style="top: 85px; left: 530px;" id="el-compmotor">Компрессор</div>
+                <div class="el-node" style="top: 140px; left: 530px;" id="el-v-out">Вент. внеш.</div>
+                <div class="el-node" style="top: 195px; left: 530px;" id="el-sol">Соленоид 4Х</div>
             </div>
         </div>
 
@@ -489,10 +491,11 @@
             const ewInter1 = document.getElementById('ew-inter-1');
             const ewOutBridge = document.getElementById('ew-out-bridge');
             const ewOutDc = document.getElementById('ew-out-dc');
-            const ewOutFout = document.getElementById('ew-out-fout');
-            const ewOutSol = document.getElementById('ew-out-sol');
-            const ewToFout = document.getElementById('ew-to-fout');
+            const ewToComp = document.getElementById('ew-to-comp');
+            const ewToFan = document.getElementById('ew-to-fan');
             const ewToSol = document.getElementById('ew-to-sol');
+            const ewRealFan = document.getElementById('ew-real-fan');
+            const ewRealSol = document.getElementById('ew-real-sol');
 
             let sPressLow = document.getElementById('sens-press-low');
             let sPressHigh = document.getElementById('sens-press-high');
@@ -504,7 +507,7 @@
 
             if (!powered) {
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elInPower, elMcu, elInFan, elBridge, elCaps, elInverter, elCompMotor, elVout, elSol].forEach(el => el.classList.remove('active'));
-                [ewInAc, ewInFan, ewInter1, ewOutBridge, ewOutDc, ewOutFout, ewOutSol, ewToFout, ewToSol].forEach(el => { el.classList.remove('powered'); el.classList.remove('dc'); });
+                [ewInAc, ewInFan, ewInter1, ewOutBridge, ewOutDc, ewToComp, ewToFan, ewToSol, ewRealFan, ewRealSol].forEach(el => { el.classList.remove('powered'); el.classList.remove('dc'); });
                 [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
 
                 compState.textContent = "Стоп";
@@ -543,7 +546,7 @@
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elInverter, elCompMotor, elVout].forEach(el => el.classList.add('active'));
                 if (mode === 'heat') elSol.classList.add('active');
 
-                [ewOutFout, ewOutSol, ewToFout, ewToSol].forEach(el => el.classList.add('powered'));
+                [ewToComp, ewToFan, ewToSol, ewRealFan, ewRealSol].forEach(el => el.classList.add('powered'));
                 compState.textContent = "Инвертор (65 Гц)";
 
                 let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0;
