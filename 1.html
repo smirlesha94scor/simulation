@@ -45,6 +45,18 @@
         .control-panel button:hover {
             opacity: 0.9;
         }
+        /* Кнопки управления списком */
+        .list-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .list-buttons button {
+            margin-top: 0;
+            background-color: #6c757d;
+            font-size: 12px;
+            padding: 6px;
+        }
         #status {
             font-weight: bold;
             color: #333;
@@ -53,7 +65,7 @@
         }
         /* Блок со списком дорог (прокручиваемый) */
         #roads-list {
-            max-height: 250px;
+            max-height: 220px;
             overflow-y: auto;
             margin-top: 8px;
             border: 1px solid #eee;
@@ -91,7 +103,16 @@
         <div id="status" class="loading-dots">Загрузка дорог Москвы</div>
         
         <div style="margin-top: 10px;">
-            <label style="font-size: 13px; color: #555; font-weight: bold;">Список дорог:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-size: 13px; color: #555; font-weight: bold;">Список дорог:</label>
+            </div>
+            
+            <!-- Кнопки массового выбора/снятия -->
+            <div class="list-buttons">
+                <button onclick="setAllCheckboxes(true)">Выбрать все</button>
+                <button onclick="setAllCheckboxes(false)">Снять все</button>
+            </div>
+
             <div id="roads-list">
                 <span style="font-size: 12px; color: #888;">Загрузка списка...</span>
             </div>
@@ -126,6 +147,7 @@
         ];
 
         let selectedNames = new Set();
+        let allUniqueNames = [];
 
         async function fetchWithTimeout(url, timeout = 60000) {
             const controller = new AbortController();
@@ -163,7 +185,6 @@
         }
 
         map.on('load', async function() {
-            // Ограничение по квадрату Москвы (в пределах МКАД и ближайших окрестностей)
             const bbox = "55.55,37.33,55.92,37.88";
             const query = `
                 [out:json][timeout:60];
@@ -199,8 +220,8 @@
                     }
                 });
 
-                // По умолчанию выбираем все найденные названия
-                selectedNames = new Set(uniqueNames);
+                allUniqueNames = Array.from(uniqueNames).sort();
+                selectedNames = new Set(allUniqueNames);
 
                 map.addSource('moscow-city-source', {
                     type: 'geojson',
@@ -221,24 +242,11 @@
                     }
                 });
 
-                // Строим интерактивный список чекбоксов
-                const listContainer = document.getElementById('roads-list');
-                listContainer.innerHTML = '';
-
-                const sortedNames = Array.from(uniqueNames).sort();
-                sortedNames.forEach(name => {
-                    const label = document.createElement('label');
-                    label.className = 'road-item';
-                    label.innerHTML = `
-                        <input type="checkbox" checked value="${escapeHtml(name)}" onchange="toggleRoadFilter(this)">
-                        <span title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-                    `;
-                    listContainer.appendChild(label);
-                });
+                renderCheckboxes();
 
                 const statusEl = document.getElementById('status');
                 statusEl.className = "";
-                statusEl.innerText = `Уникальных трасс: ${sortedNames.length}`;
+                statusEl.innerText = `Уникальных трасс: ${allUniqueNames.length}`;
 
             } catch (error) {
                 console.error(error);
@@ -248,7 +256,23 @@
             }
         });
 
-        // Функция переключения видимости дороги по чекбоксу
+        function renderCheckboxes() {
+            const listContainer = document.getElementById('roads-list');
+            listContainer.innerHTML = '';
+
+            allUniqueNames.forEach(name => {
+                const label = document.createElement('label');
+                label.className = 'road-item';
+                const isChecked = selectedNames.has(name) ? 'checked' : '';
+                label.innerHTML = `
+                    <input type="checkbox" ${isChecked} value="${escapeHtml(name)}" onchange="toggleRoadFilter(this)">
+                    <span title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                `;
+                listContainer.appendChild(label);
+            });
+        }
+
+        // Функция переключения отдельного чекбокса
         function toggleRoadFilter(checkbox) {
             const roadName = checkbox.value;
             if (checkbox.checked) {
@@ -256,14 +280,30 @@
             } else {
                 selectedNames.delete(roadName);
             }
+            updateMapFilter();
+        }
 
-            // Формируем фильтр для MapLibre
+        // Массовое включение/выключение всех чекбоксов
+        function setAllCheckboxes(checked) {
+            if (checked) {
+                selectedNames = new Set(allUniqueNames);
+            } else {
+                selectedNames.clear();
+            }
+
+            // Обновляем визуальное состояние инпутов в DOM
+            const checkboxes = document.querySelectorAll('#roads-list input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = checked);
+
+            updateMapFilter();
+        }
+
+        // Применение фильтра к карте
+        function updateMapFilter() {
             if (selectedNames.size > 0) {
-                // ['in', ['get', 'name'], 'Трасса 1', 'Трасса 2', ...]
                 const filter = ['in', ['get', 'name'], ...Array.from(selectedNames)];
                 map.setFilter('moscow-city-layer', filter);
             } else {
-                // Если ничего не выбрано, скрываем всё
                 map.setFilter('moscow-city-layer', ['==', ['get', 'name'], '']);
             }
         }
