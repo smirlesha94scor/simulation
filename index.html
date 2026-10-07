@@ -24,26 +24,32 @@
             transition: all 0.25s ease;
         }
 
+        html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Убираем вертикальную прокрутку */
+        }
+
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-dark);
             color: var(--text-light);
-            margin: 0;
-            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
+            justify-content: space-between;
+            padding: 10px 20px;
         }
 
         header {
             text-align: center;
-            margin-bottom: 20px;
+            flex-shrink: 0;
         }
 
         h1 {
-            margin: 0 0 5px 0;
-            font-size: 26px;
+            margin: 0 0 2px 0;
+            font-size: 22px;
             font-weight: 700;
             background: linear-gradient(90deg, #60a5fa, #34d399);
             -webkit-background-clip: text;
@@ -53,35 +59,35 @@
         p.subtitle {
             color: var(--text-muted);
             margin: 0;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         /* Панель управления */
         .controls {
             background: var(--panel-bg);
-            padding: 15px 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
+            padding: 8px 20px;
+            border-radius: 10px;
             display: flex;
-            gap: 25px;
+            gap: 20px;
             align-items: center;
             flex-wrap: wrap;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border-color);
             max-width: 1400px;
             width: 100%;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         button {
-            padding: 10px 20px;
+            padding: 7px 16px;
             background-color: var(--primary);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         }
 
@@ -96,14 +102,14 @@
 
         button.active {
             background-color: var(--success);
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
         }
 
         .control-group {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 14px;
+            gap: 8px;
+            font-size: 13px;
             color: var(--text-muted);
         }
 
@@ -116,24 +122,28 @@
             background: var(--card-bg);
             color: #fff;
             border: 1px solid var(--border-color);
-            padding: 6px 10px;
+            padding: 4px 8px;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             outline: none;
         }
 
         input[type="range"] {
             cursor: pointer;
             accent-color: var(--primary);
+            height: 5px;
         }
 
         /* Дашборд */
         .dashboard {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 15px;
             width: 100%;
             max-width: 1400px;
+            flex-grow: 1;
+            align-content: center;
+            min-height: 0; /* Важно для Grid, чтобы дочерние элементы сжимались */
         }
 
         @media (max-width: 1100px) {
@@ -142,9 +152,9 @@
 
         .view-container {
             background: var(--panel-bg);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 12px 15px;
+            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
@@ -152,20 +162,20 @@
         }
 
         h2 {
-            font-size: 16px;
+            font-size: 14px;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            margin: 0 0 15px 0;
+            padding-bottom: 6px;
+            margin: 0 0 10px 0;
             color: #60a5fa;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         /* Холсты схем */
         .schema-canvas {
             width: 100%;
-            height: 360px;
+            height: 250px;
             background: #090d16;
             border-radius: 8px;
             position: relative;
@@ -178,19 +188,19 @@
             position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--border-color);
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 12px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
             text-align: center;
-            width: 120px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            width: 110px;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
             z-index: 2;
         }
 
         .schema-block.active {
             border-color: var(--success);
             background: #064e3b;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
         }
 
         /* Трубопровод */
@@ -201,11 +211,11 @@
         }
         .pipe.hot {
             background: linear-gradient(90deg, #ef4444, #f97316);
-            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
         }
         .pipe.cold {
             background: linear-gradient(90deg, #3b82f6, #06b6d4);
-            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
         }
 
         /* Электрические провода */
@@ -215,16 +225,16 @@
         }
         .wire.powered {
             background: var(--warning);
-            box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
         }
 
         .el-node {
             position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--border-color);
-            padding: 6px 10px;
+            padding: 5px 8px;
             border-radius: 6px;
-            font-size: 11px;
+            font-size: 10px;
             text-align: center;
             z-index: 2;
         }
@@ -232,23 +242,23 @@
             border-color: var(--success);
             background: #064e3b;
             color: #fff;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
         }
 
         /* Телеметрия */
         .full-width { grid-column: 1 / -1; }
         .telemetry-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
         }
         .telemetry-card {
             background: #090d16;
-            padding: 12px 15px;
-            border-radius: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
             border-left: 4px solid var(--primary);
             font-family: 'Courier New', Courier, monospace;
-            font-size: 13px;
+            font-size: 12px;
             border-top: 1px solid var(--border-color);
             border-right: 1px solid var(--border-color);
             border-bottom: 1px solid var(--border-color);
@@ -256,20 +266,20 @@
         .telemetry-card span {
             font-weight: bold;
             color: var(--warning);
-            font-size: 15px;
+            font-size: 14px;
         }
 
         .status-dot {
-            height: 8px;
-            width: 8px;
+            height: 7px;
+            width: 7px;
             background-color: var(--text-muted);
             border-radius: 50%;
             display: inline-block;
-            margin-right: 6px;
+            margin-right: 5px;
         }
         .active .status-dot {
             background-color: var(--success);
-            box-shadow: 0 0 8px var(--success);
+            box-shadow: 0 0 6px var(--success);
         }
     </style>
 </head>
@@ -286,9 +296,9 @@
         <div class="control-group">
             <label>Режим:</label>
             <select id="modeSelect" onchange="updateSystem()">
-                <option value="cool">❄️ Охлаждение (Cool)</option>
-                <option value="heat">🔥 Обогрев (Heat)</option>
-                <option value="dry">💧 Осушение (Dry)</option>
+                <option value="cool">❄️ Охлаждение</option>
+                <option value="heat">🔥 Обогрев</option>
+                <option value="dry">💧 Осушение</option>
             </select>
         </div>
 
@@ -308,31 +318,31 @@
         <div class="view-container">
             <h2>🌡️ Холодильный контур (Термодинамика)</h2>
             <div class="schema-canvas">
-                <div class="schema-block" style="top: 25px; left: 20px;" id="ref-compressor">
-                    <span class="status-dot"></span>Компрессор<br><span id="comp-state" style="font-size:10px; color:var(--text-muted);">Стоп</span>
+                <div class="schema-block" style="top: 20px; left: 20px;" id="ref-compressor">
+                    <span class="status-dot"></span>Компрессор<br><span id="comp-state" style="font-size:9px; color:var(--text-muted);">Стоп</span>
                 </div>
-                <div class="schema-block" style="top: 145px; left: 20px;" id="ref-valves">
+                <div class="schema-block" style="top: 105px; left: 20px;" id="ref-valves">
                     <span class="status-dot"></span>4-х ходовой кл.
                 </div>
-                <div class="schema-block" style="top: 255px; left: 20px;" id="ref-condenser">
+                <div class="schema-block" style="top: 185px; left: 20px;" id="ref-condenser">
                     <span class="status-dot"></span>Конденсатор
                 </div>
                 
-                <div class="schema-block" style="top: 255px; left: 260px;" id="ref-dryer">
+                <div class="schema-block" style="top: 185px; left: 260px;" id="ref-dryer">
                     <span class="status-dot"></span>Фильтр-осушитель
                 </div>
-                <div class="schema-block" style="top: 145px; left: 260px;" id="ref-eev">
+                <div class="schema-block" style="top: 105px; left: 260px;" id="ref-eev">
                     <span class="status-dot"></span>ТРВ / Дроссель
                 </div>
-                <div class="schema-block" style="top: 25px; left: 260px;" id="ref-evaporator">
+                <div class="schema-block" style="top: 20px; left: 260px;" id="ref-evaporator">
                     <span class="status-dot"></span>Испаритель
                 </div>
 
                 <!-- Трубы -->
-                <div class="pipe" id="pipe-1" style="top: 60px; left: 142px; width: 118px; height: 4px;"></div>
-                <div class="pipe" id="pipe-2" style="top: 60px; left: 318px; width: 4px; height: 85px;"></div>
-                <div class="pipe" id="pipe-3" style="top: 270px; left: 142px; width: 118px; height: 4px;"></div>
-                <div class="pipe" id="pipe-4" style="top: 180px; left: 78px; width: 4px; height: 75px;"></div>
+                <div class="pipe" id="pipe-1" style="top: 50px; left: 132px; width: 128px; height: 3px;"></div>
+                <div class="pipe" id="pipe-2" style="top: 50px; left: 315px; width: 3px; height: 55px;"></div>
+                <div class="pipe" id="pipe-3" style="top: 200px; left: 132px; width: 128px; height: 3px;"></div>
+                <div class="pipe" id="pipe-4" style="top: 135px; left: 72px; width: 3px; height: 50px;"></div>
             </div>
         </div>
 
@@ -340,21 +350,21 @@
         <div class="view-container">
             <h2>⚡ Электрическая принципиальная схема</h2>
             <div class="schema-canvas">
-                <div class="wire" id="ew-main" style="top: 45px; left: 25px; width: 85px; height: 3px;"></div>
-                <div class="wire" id="ew-board-line" style="top: 45px; left: 195px; width: 55px; height: 3px;"></div>
-                <div class="wire" id="ew-comp" style="top: 45px; left: 335px; width: 120px; height: 3px;"></div>
-                <div class="wire" id="ew-fan1" style="top: 135px; left: 250px; width: 205px; height: 3px;"></div>
-                <div class="wire" id="ew-fan2" style="top: 225px; left: 250px; width: 205px; height: 3px;"></div>
-                <div class="wire" id="ew-valve" style="top: 310px; left: 250px; width: 205px; height: 3px;"></div>
-                <div class="wire" id="ew-neutral" style="top: 335px; left: 25px; width: 430px; height: 3px;"></div>
+                <div class="wire" id="ew-main" style="top: 35px; left: 20px; width: 75px; height: 2px;"></div>
+                <div class="wire" id="ew-board-line" style="top: 35px; left: 175px; width: 75px; height: 2px;"></div>
+                <div class="wire" id="ew-comp" style="top: 35px; left: 330px; width: 130px; height: 2px;"></div>
+                <div class="wire" id="ew-fan1" style="top: 105px; left: 250px; width: 210px; height: 2px;"></div>
+                <div class="wire" id="ew-fan2" style="top: 170px; left: 250px; width: 210px; height: 2px;"></div>
+                <div class="wire" id="ew-valve" style="top: 225px; left: 250px; width: 210px; height: 2px;"></div>
+                <div class="wire" id="ew-neutral" style="top: 240px; left: 20px; width: 440px; height: 2px;"></div>
 
-                <div class="el-node" style="top: 30px; left: 25px;" id="el-ac">Сеть ~220В</div>
-                <div class="el-node" style="top: 30px; left: 110px;" id="el-fuse">EMI / Защита</div>
-                <div class="el-node" style="top: 30px; left: 250px;" id="el-mcu">MCU (Плата)</div>
-                <div class="el-node" style="top: 30px; left: 455px;" id="el-comp-motor">Инвертор комп.</div>
-                <div class="el-node" style="top: 120px; left: 455px;" id="el-in-fan">Вент. внутр.</div>
-                <div class="el-node" style="top: 210px; left: 455px;" id="el-out-fan">Вент. внеш.</div>
-                <div class="el-node" style="top: 295px; left: 455px;" id="el-valves-el">Соленоид 4Х</div>
+                <div class="el-node" style="top: 22px; left: 20px;" id="el-ac">Сеть ~220В</div>
+                <div class="el-node" style="top: 22px; left: 95px;" id="el-fuse">EMI / Защита</div>
+                <div class="el-node" style="top: 22px; left: 250px;" id="el-mcu">MCU (Плата)</div>
+                <div class="el-node" style="top: 22px; left: 460px;" id="el-comp-motor">Инвертор комп.</div>
+                <div class="el-node" style="top: 92px; left: 460px;" id="el-in-fan">Вент. внутр.</div>
+                <div class="el-node" style="top: 157px; left: 460px;" id="el-out-fan">Вент. внеш.</div>
+                <div class="el-node" style="top: 212px; left: 460px;" id="el-valves-el">Соленоид 4Х</div>
             </div>
         </div>
 
@@ -363,10 +373,7 @@
             <h2>📊 Система мониторинга и телеметрия</h2>
             <div class="telemetry-grid">
                 <div class="telemetry-card">
-                    Давление всасывания:<br><span id="sens-press-low">0.0</span> бар
-                </div>
-                <div class="telemetry-card">
-                    Давление нагнетания:<br><span id="sens-press-high">0.0</span> бар
+                    Давление всас/нагн:<br><span id="sens-press-low">0.0</span> / <span id="sens-press-high">0.0</span> бар
                 </div>
                 <div class="telemetry-card">
                     Темп. испарителя:<br><span id="sens-evap">22.0</span> °C
