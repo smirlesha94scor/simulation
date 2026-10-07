@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Инженерный симулятор кондиционера (С физ. моделью)</title>
+    <title>Инженерный симулятор кондиционера (Полная электросхема)</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -49,7 +49,7 @@
 
         h1 {
             margin: 0 0 2px 0;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             background: linear-gradient(90deg, #60a5fa, #34d399);
             -webkit-background-clip: text;
@@ -59,16 +59,15 @@
         p.subtitle {
             color: var(--text-muted);
             margin: 0;
-            font-size: 12px;
+            font-size: 11px;
         }
 
-        /* Панель управления */
         .controls {
             background: var(--panel-bg);
-            padding: 8px 20px;
-            border-radius: 10px;
+            padding: 6px 15px;
+            border-radius: 8px;
             display: flex;
-            gap: 20px;
+            gap: 15px;
             align-items: center;
             flex-wrap: wrap;
             box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.3);
@@ -80,65 +79,45 @@
         }
 
         button {
-            padding: 7px 16px;
+            padding: 6px 14px;
             background-color: var(--primary);
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 13px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            font-size: 12px;
         }
 
-        button:hover {
-            background-color: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        button.active {
-            background-color: var(--success);
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
-        }
+        button:hover { background-color: var(--primary-hover); }
+        button.active { background-color: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
 
         .control-group {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
+            gap: 6px;
+            font-size: 12px;
             color: var(--text-muted);
         }
 
-        .control-group span {
-            color: var(--text-light);
-            font-weight: 600;
-        }
+        .control-group span { color: var(--text-light); font-weight: 600; }
 
         select, input[type="range"] {
             background: var(--card-bg);
             color: #fff;
             border: 1px solid var(--border-color);
-            padding: 4px 8px;
+            padding: 3px 6px;
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             outline: none;
         }
 
-        input[type="range"] {
-            cursor: pointer;
-            accent-color: var(--primary);
-            height: 5px;
-        }
+        input[type="range"] { cursor: pointer; accent-color: var(--primary); height: 4px; }
 
-        /* Дашборд */
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 12px;
             width: 100%;
             max-width: 1400px;
             flex-grow: 1;
@@ -152,8 +131,8 @@
 
         .view-container {
             background: var(--panel-bg);
-            border-radius: 10px;
-            padding: 12px 15px;
+            border-radius: 8px;
+            padding: 10px 12px;
             box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border-color);
             display: flex;
@@ -162,132 +141,108 @@
         }
 
         h2 {
-            font-size: 14px;
+            font-size: 13px;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 6px;
-            margin: 0 0 10px 0;
+            padding-bottom: 4px;
+            margin: 0 0 8px 0;
             color: #60a5fa;
             display: flex;
             align-items: center;
             gap: 6px;
         }
 
-        /* Холсты схем */
         .schema-canvas {
             width: 100%;
-            height: 250px;
+            height: 240px;
             background: #090d16;
-            border-radius: 8px;
+            border-radius: 6px;
             position: relative;
             overflow: hidden;
             border: 1px solid var(--border-color);
         }
 
-        /* Блоки схемы */
         .schema-block {
             position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--border-color);
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 11px;
+            padding: 5px 6px;
+            border-radius: 5px;
+            font-size: 9px;
             text-align: center;
-            width: 110px;
-            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+            width: 95px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             z-index: 2;
         }
 
         .schema-block.active {
             border-color: var(--success);
             background: #064e3b;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
         }
 
-        /* Трубопровод */
         .pipe {
             position: absolute;
             background: var(--border-color);
             border-radius: 2px;
         }
-        .pipe.hot {
-            background: linear-gradient(90deg, #ef4444, #f97316);
-            box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
-        }
-        .pipe.cold {
-            background: linear-gradient(90deg, #3b82f6, #06b6d4);
-            box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
-        }
+        .pipe.hot { background: linear-gradient(90deg, #ef4444, #f97316); box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+        .pipe.cold { background: linear-gradient(90deg, #3b82f6, #06b6d4); box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
 
-        /* Электрические провода */
         .wire {
             position: absolute;
             background: var(--border-color);
         }
-        .wire.powered {
-            background: var(--warning);
-            box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
-        }
+        .wire.powered { background: var(--warning); box-shadow: 0 0 5px rgba(245, 158, 11, 0.6); }
+        .wire.dc { background: #ec4899; box-shadow: 0 0 5px rgba(236, 72, 153, 0.6); } /* Розовый для постоянного тока DC-Bus */
 
         .el-node {
             position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--border-color);
-            padding: 5px 8px;
-            border-radius: 6px;
-            font-size: 10px;
+            padding: 4px 5px;
+            border-radius: 5px;
+            font-size: 8px;
             text-align: center;
             z-index: 2;
+            width: 85px;
         }
         .el-node.active {
             border-color: var(--success);
             background: #064e3b;
             color: #fff;
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);
         }
 
-        /* Телеметрия */
         .full-width { grid-column: 1 / -1; }
         .telemetry-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 8px;
         }
         .telemetry-card {
             background: #090d16;
-            padding: 8px 12px;
-            border-radius: 6px;
-            border-left: 4px solid var(--primary);
+            padding: 6px 10px;
+            border-radius: 5px;
+            border-left: 3px solid var(--primary);
             font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
+            font-size: 11px;
             border-top: 1px solid var(--border-color);
             border-right: 1px solid var(--border-color);
             border-bottom: 1px solid var(--border-color);
         }
-        .telemetry-card span {
-            font-weight: bold;
-            color: var(--warning);
-            font-size: 14px;
-        }
+        .telemetry-card span { font-weight: bold; color: var(--warning); font-size: 13px; }
 
         .status-dot {
-            height: 7px;
-            width: 7px;
-            background-color: var(--text-muted);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
+            height: 6px; width: 6px; background-color: var(--text-muted); border-radius: 50%; display: inline-block; margin-right: 4px;
         }
-        .active .status-dot {
-            background-color: var(--success);
-            box-shadow: 0 0 6px var(--success);
-        }
+        .active .status-dot { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Интерактивный инженерный симулятор кондиционера</h1>
-        <p class="subtitle">Динамическая математическая модель теплообмена, силовой электрики и телеметрии</p>
+        <h1>Инженерный симулятор кондиционера</h1>
+        <p class="subtitle">Полная принципиальная электрическая схема инверторной системы и термодинамический контур</p>
     </header>
 
     <div class="controls">
@@ -316,54 +271,64 @@
     <div class="dashboard">
         <!-- 1. Холодильный контур -->
         <div class="view-container">
-            <h2>🌡️ Холодильный контур (Термодинамика)</h2>
+            <h2>🌡️ Холодильный контур</h2>
             <div class="schema-canvas">
-                <div class="schema-block" style="top: 20px; left: 20px;" id="ref-compressor">
-                    <span class="status-dot"></span>Компрессор<br><span id="comp-state" style="font-size:9px; color:var(--text-muted);">Стоп</span>
+                <div class="schema-block" style="top: 15px; left: 15px;" id="ref-compressor">
+                    <span class="status-dot"></span>Компрессор<br><span id="comp-state" style="font-size:8px; color:var(--text-muted);">Стоп</span>
                 </div>
-                <div class="schema-block" style="top: 105px; left: 20px;" id="ref-valves">
+                <div class="schema-block" style="top: 95px; left: 15px;" id="ref-valves">
                     <span class="status-dot"></span>4-х ходовой кл.
                 </div>
-                <div class="schema-block" style="top: 185px; left: 20px;" id="ref-condenser">
+                <div class="schema-block" style="top: 175px; left: 15px;" id="ref-condenser">
                     <span class="status-dot"></span>Конденсатор
                 </div>
                 
-                <div class="schema-block" style="top: 185px; left: 260px;" id="ref-dryer">
-                    <span class="status-dot"></span>Фильтр-осушитель
+                <div class="schema-block" style="top: 175px; left: 215px;" id="ref-dryer">
+                    <span class="status-dot"></span>Фильтр-осуш.
                 </div>
-                <div class="schema-block" style="top: 105px; left: 260px;" id="ref-eev">
+                <div class="schema-block" style="top: 95px; left: 215px;" id="ref-eev">
                     <span class="status-dot"></span>ТРВ / Дроссель
                 </div>
-                <div class="schema-block" style="top: 20px; left: 260px;" id="ref-evaporator">
+                <div class="schema-block" style="top: 15px; left: 215px;" id="ref-evaporator">
                     <span class="status-dot"></span>Испаритель
                 </div>
 
-                <div class="pipe" id="pipe-1" style="top: 50px; left: 132px; width: 128px; height: 3px;"></div>
-                <div class="pipe" id="pipe-2" style="top: 50px; left: 315px; width: 3px; height: 55px;"></div>
-                <div class="pipe" id="pipe-3" style="top: 200px; left: 132px; width: 128px; height: 3px;"></div>
-                <div class="pipe" id="pipe-4" style="top: 135px; left: 72px; width: 3px; height: 50px;"></div>
+                <div class="pipe" id="pipe-1" style="top: 40px; left: 112px; width: 103px; height: 2px;"></div>
+                <div class="pipe" id="pipe-2" style="top: 40px; left: 213px; width: 2px; height: 57px;"></div>
+                <div class="pipe" id="pipe-3" style="top: 187px; left: 112px; width: 103px; height: 2px;"></div>
+                <div class="pipe" id="pipe-4" style="top: 120px; left: 58px; width: 2px; height: 57px;"></div>
             </div>
         </div>
 
-        <!-- 2. Электрическая схема -->
+        <!-- 2. Полная электрическая принципиальная схема -->
         <div class="view-container">
-            <h2>⚡ Электрическая принципиальная схема</h2>
+            <h2>⚡ Полная силовеая электросхема инвертора</h2>
             <div class="schema-canvas">
-                <div class="wire" id="ew-main" style="top: 35px; left: 20px; width: 75px; height: 2px;"></div>
-                <div class="wire" id="ew-board-line" style="top: 35px; left: 175px; width: 75px; height: 2px;"></div>
-                <div class="wire" id="ew-comp" style="top: 35px; left: 330px; width: 130px; height: 2px;"></div>
-                <div class="wire" id="ew-fan1" style="top: 105px; left: 250px; width: 210px; height: 2px;"></div>
-                <div class="wire" id="ew-fan2" style="top: 170px; left: 250px; width: 210px; height: 2px;"></div>
-                <div class="wire" id="ew-valve" style="top: 225px; left: 250px; width: 210px; height: 2px;"></div>
-                <div class="wire" id="ew-neutral" style="top: 240px; left: 20px; width: 440px; height: 2px;"></div>
+                <!-- Провода переменного тока ~220В (желтые) -->
+                <div class="wire" id="ew-ac" style="top: 30px; left: 15px; width: 55px; height: 2px;"></div>
+                <div class="wire" id="ew-emi" style="top: 30px; left: 155px; width: 55px; height: 2px;"></div>
+                
+                <!-- Шина постоянного тока DC-Bus 310В (розовая) -->
+                <div class="wire dc" id="ew-dcbus" style="top: 30px; left: 295px; width: 75px; height: 2px;"></div>
 
-                <div class="el-node" style="top: 22px; left: 20px;" id="el-ac">Сеть ~220В</div>
-                <div class="el-node" style="top: 22px; left: 95px;" id="el-fuse">EMI / Защита</div>
-                <div class="el-node" style="top: 22px; left: 250px;" id="el-mcu">MCU (Плата)</div>
-                <div class="el-node" style="top: 22px; left: 460px;" id="el-comp-motor">Инвертор комп.</div>
-                <div class="el-node" style="top: 92px; left: 460px;" id="el-in-fan">Вент. внутр.</div>
-                <div class="el-node" style="top: 157px; left: 460px;" id="el-out-fan">Вент. внеш.</div>
-                <div class="el-node" style="top: 212px; left: 460px;" id="el-valves-el">Соленоид 4Х</div>
+                <!-- Провода от платы к исполнительным элементам -->
+                <div class="wire" id="ew-ipm" style="top: 30px; left: 470px; width: 60px; height: 2px;"></div>
+                <div class="wire" id="ew-fanin" style="top: 95px; left: 395px; width: 135px; height: 2px;"></div>
+                <div class="wire" id="ew-fanout" style="top: 145px; left: 395px; width: 135px; height: 2px;"></div>
+                <div class="wire" id="ew-sol" style="top: 195px; left: 395px; width: 135px; height: 2px;"></div>
+                <div class="wire" id="ew-neut" style="top: 225px; left: 15px; width: 515px; height: 2px;"></div>
+
+                <!-- Элементы полной схемы -->
+                <div class="el-node" style="top: 18px; left: 15px;" id="el-ac">Сеть ~220В</div>
+                <div class="el-node" style="top: 18px; left: 70px;" id="el-fuse">EMI-фильтр / Предохр.</div>
+                <div class="el-node" style="top: 18px; left: 210px;" id="el-bridge">Диодный мост</div>
+                <div class="el-node" style="top: 18px; left: 370px;" id="el-caps">DC-Bus (Конденсатор)</div>
+                <div class="el-node" style="top: 18px; left: 530px;" id="el-inverter">IPM Инвертор (Модуль)</div>
+                
+                <div class="el-node" style="top: 82px; left: 530px;" id="el-compmotor">Компрессор (BLDC)</div>
+                <div class="el-node" style="top: 132px; left: 530px;" id="el-v-in">Вент. внутр. блока</div>
+                <div class="el-node" style="top: 182px; left: 530px;" id="el-v-out">Вент. внеш. блока</div>
+                <div class="el-node" style="top: 212px; left: 310px;" id="el-mcu">MCU (Плата управления)</div>
             </div>
         </div>
 
@@ -379,6 +344,9 @@
                 </div>
                 <div class="telemetry-card">
                     Темп. конденсатора:<br><span id="sens-cond">22.0</span> °C
+                </div>
+                <div class="telemetry-card">
+                    Напряжение DC-Bus:<br><span id="sens-dc">0</span> В
                 </div>
                 <div class="telemetry-card">
                     Потребляемый ток:<br><span id="sens-current">0.0</span> А
@@ -424,6 +392,7 @@
         function updateSystem() {
             mode = document.getElementById('modeSelect').value;
 
+            // Ссылки на элементы термоконтура
             const refComp = document.getElementById('ref-compressor');
             const refValves = document.getElementById('ref-valves');
             const refCond = document.getElementById('ref-condenser');
@@ -437,38 +406,47 @@
             const pipe3 = document.getElementById('pipe-3');
             const pipe4 = document.getElementById('pipe-4');
 
+            // Ссылки на электронику
             const elAc = document.getElementById('el-ac');
             const elFuse = document.getElementById('el-fuse');
+            const elBridge = document.getElementById('el-bridge');
+            const elCaps = document.getElementById('el-caps');
+            const elInverter = document.getElementById('el-inverter');
+            const elCompMotor = document.getElementById('el-compmotor');
+            const elVin = document.getElementById('el-v-in');
+            const elVout = document.getElementById('el-v-out');
             const elMcu = document.getElementById('el-mcu');
-            const elCompMotor = document.getElementById('el-comp-motor');
-            const elInFan = document.getElementById('el-in-fan');
-            const elOutFan = document.getElementById('el-out-fan');
-            const elValvesEl = document.getElementById('el-valves-el');
 
-            const ewMain = document.getElementById('ew-main');
-            const ewBoardLine = document.getElementById('ew-board-line');
-            const ewComp = document.getElementById('ew-comp');
-            const ewFan1 = document.getElementById('ew-fan1');
-            const ewFan2 = document.getElementById('ew-fan2');
-            const ewValve = document.getElementById('ew-valve');
-            const ewNeutral = document.getElementById('ew-neutral');
+            const ewAc = document.getElementById('ew-ac');
+            const ewEmi = document.getElementById('ew-emi');
+            const ewDcBus = document.getElementById('ew-dcbus');
+            const ewIpm = document.getElementById('ew-ipm');
+            const ewFanIn = document.getElementById('ew-fanin');
+            const ewFanOut = document.getElementById('ew-fanout');
+            const ewSol = document.getElementById('ew-sol');
+            const ewNeut = document.getElementById('ew-neut');
 
             let sPressLow = document.getElementById('sens-press-low');
             let sPressHigh = document.getElementById('sens-press-high');
             let sEvap = document.getElementById('sens-evap');
             let sCond = document.getElementById('sens-cond');
+            let sDc = document.getElementById('sens-dc');
             let sCurrent = document.getElementById('sens-current');
             let sSafety = document.getElementById('sens-safety');
 
             if (isPowerOn) {
-                [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elMcu, elCompMotor, elInFan, elOutFan, elValvesEl].forEach(el => el.classList.add('active'));
-                [ewMain, ewBoardLine, ewComp, ewFan1, ewFan2, ewValve, ewNeutral].forEach(el => el.classList.add('powered'));
+                // Активация термоконтура
+                [refComp, refValves, refCond, refDryer, refEev, refEvap].forEach(el => el.classList.add('active'));
+                
+                // Активация полной электрики
+                [elAc, elFuse, elBridge, elCaps, elInverter, elCompMotor, elVin, elVout, elMcu].forEach(el => el.classList.add('active'));
+                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewNeut].forEach(el => el.classList.add('powered'));
+                ewDcBus.classList.add('dc'); // Розовая шина постоянного тока
 
-                compState.textContent = "Работа (Инвертор)";
+                compState.textContent = "Инвертор (65 Гц)";
 
-                let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0;
+                let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0, dcVolts = 310;
 
-                // ДИНАМИЧЕСКАЯ ФИЗИЧЕСКАЯ МОДЕЛЬ
                 if (mode === 'cool') {
                     pipe1.className = "pipe hot";
                     pipe2.className = "pipe hot";
@@ -493,7 +471,7 @@
                     lowP = 2.2 + (outdoorTemp * 0.03);
                     cur = 4.5 + Math.max(0, (20 - outdoorTemp) * 0.09);
 
-                } else { // dry (осушение)
+                } else { 
                     pipe1.className = "pipe hot";
                     pipe2.className = "pipe hot";
                     pipe3.className = "pipe cold";
@@ -506,16 +484,15 @@
                     cur = 3.5 + (outdoorTemp * 0.04);
                 }
 
-                // Вывод рассчитанных значений в телеметрию
                 sPressLow.textContent = lowP.toFixed(1);
                 sPressHigh.textContent = highP.toFixed(1);
                 sEvap.textContent = evapT.toFixed(1);
                 sCond.textContent = condT.toFixed(1);
+                sDc.textContent = dcVolts;
                 sCurrent.textContent = cur.toFixed(1);
 
-                // Индикатор аварий/защиты при экстремальных температурах
                 if (outdoorTemp > 40 && mode === 'cool') {
-                    sSafety.textContent = "Внимание: Высокое давление!";
+                    sSafety.textContent = "Предупреждение: IPM перегрев";
                     sSafety.style.color = "var(--warning)";
                 } else {
                     sSafety.textContent = "Штатный режим";
@@ -523,8 +500,9 @@
                 }
 
             } else {
-                [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elMcu, elCompMotor, elInFan, elOutFan, elValvesEl].forEach(el => el.classList.remove('active'));
-                [ewMain, ewBoardLine, ewComp, ewFan1, ewFan2, ewValve, ewNeutral].forEach(el => el.classList.remove('powered'));
+                [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elBridge, elCaps, elInverter, elCompMotor, elVin, elVout, elMcu].forEach(el => el.classList.remove('active'));
+                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewNeut].forEach(el => el.classList.remove('powered'));
+                ewDcBus.classList.remove('dc');
                 [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
 
                 compState.textContent = "Стоп";
@@ -532,6 +510,7 @@
                 sPressHigh.textContent = "0.0";
                 sEvap.textContent = outdoorTemp.toFixed(1);
                 sCond.textContent = outdoorTemp.toFixed(1);
+                sDc.textContent = "0";
                 sCurrent.textContent = "0.0";
                 sSafety.textContent = "Обесточено";
                 sSafety.style.color = "var(--warning)";
