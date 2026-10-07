@@ -328,14 +328,14 @@
                 <div class="zone-box" style="top: 8px; left: 8px; width: 245px; height: 240px;">Внутренний блок (Indoor Unit)</div>
                 <div class="zone-box" style="top: 8px; left: 265px; width: 310px; height: 240px;">Внешний блок (Outdoor Unit)</div>
 
-                <!-- SVG межблочные и внутренние соединения -->
+                <!-- SVG межблочные и внутренние соединения (без разрывов) -->
                 <svg style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 1;">
                     <!-- Внутренний блок -->
                     <line id="ew-in-ac" class="svg-wire" x1="110" y1="35" x2="135" y2="35" />
                     <line id="ew-in-fan" class="svg-wire" x1="85" y1="65" x2="85" y2="120" />
 
-                    <!-- Межблочный кабель (Линия связи / Питание компрессора) -->
-                    <line id="ew-inter-1" class="svg-wire dc" x1="220" y1="35" x2="295" y2="35" />
+                    <!-- Межблочный кабель (соединяет плату вн. блока и диодный мост внешнего) -->
+                    <line id="ew-inter-1" class="svg-wire dc" x1="225" y1="35" x2="295" y2="35" />
 
                     <!-- Внешний блок -->
                     <line id="ew-out-bridge" class="svg-wire" x1="390" y1="35" x2="425" y2="35" />
@@ -401,7 +401,6 @@
             isPowerOn = !isPowerOn;
             const btn = document.getElementById('powerBtn');
             
-            // Очищаем старые таймеры пуска при выключении
             startupTimeouts.forEach(t => clearTimeout(t));
             startupTimeouts = [];
 
@@ -412,14 +411,14 @@
             } else {
                 btn.textContent = "Питание: ВЫКЛ";
                 btn.classList.remove('active');
-                updateSystemState(false, 0); // Полное отключение
+                updateSystemState(false, 0);
             }
         }
 
         function updateTemp(val) {
             targetTemp = parseInt(val);
             document.getElementById('tempVal').textContent = val;
-            if (isPowerOn) updateSystemState(true, 4); // Если включено, пересчет параметров
+            if (isPowerOn) updateSystemState(true, 4);
         }
 
         function updateOutdoorTemp(val) {
@@ -428,30 +427,25 @@
             if (isPowerOn) updateSystemState(true, 4);
         }
 
-        // Реалистичный последовательный запуск узлов
         function runRealStartupSequence() {
             let sSafety = document.getElementById('sens-safety');
 
-            // Шаг 1: Подача 220В и старт платы MCU (0 сек)
             sSafety.textContent = "Шаг 1: Загрузка платы MCU...";
             sSafety.style.color = "var(--warning)";
             updateSystemState(true, 1);
 
-            // Шаг 2: Заряд DC-Bus во внешнем блоке (+0.6 сек)
             startupTimeouts.push(setTimeout(() => {
                 if (!isPowerOn) return;
                 sSafety.textContent = "Шаг 2: Плавный заряд DC-Bus...";
                 updateSystemState(true, 2);
             }, 600));
 
-            // Шаг 3: Запуск внутреннего вентилятора и опрос датчиков (+1.4 сек)
             startupTimeouts.push(setTimeout(() => {
                 if (!isPowerOn) return;
                 sSafety.textContent = "Шаг 3: Старт вн. блока и датчиков...";
                 updateSystemState(true, 3);
             }, 1400));
 
-            // Шаг 4: Защитная задержка компрессора и полный запуск (+3.0 сек)
             startupTimeouts.push(setTimeout(() => {
                 if (!isPowerOn) return;
                 sSafety.textContent = "Штатный режим (Работа)";
@@ -464,7 +458,6 @@
             if (isPowerOn) updateSystemState(true, 4);
         }
 
-        // Управление состояниями питания элементов по шагам
         function updateSystemState(powered, stage) {
             mode = document.getElementById('modeSelect').value;
 
@@ -481,7 +474,6 @@
             const pipe3 = document.getElementById('pipe-3');
             const pipe4 = document.getElementById('pipe-4');
 
-            // Электрические узлы
             const elInPower = document.getElementById('el-in-power');
             const elMcu = document.getElementById('el-mcu');
             const elInFan = document.getElementById('el-in-fan');
@@ -492,7 +484,6 @@
             const elVout = document.getElementById('el-v-out');
             const elSol = document.getElementById('el-sol');
 
-            // Провода
             const ewInAc = document.getElementById('ew-in-ac');
             const ewInFan = document.getElementById('ew-in-fan');
             const ewInter1 = document.getElementById('ew-inter-1');
@@ -512,7 +503,6 @@
             let sSafety = document.getElementById('sens-safety');
 
             if (!powered) {
-                // Сброс всего
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elInPower, elMcu, elInFan, elBridge, elCaps, elInverter, elCompMotor, elVout, elSol].forEach(el => el.classList.remove('active'));
                 [ewInAc, ewInFan, ewInter1, ewOutBridge, ewOutDc, ewOutFout, ewOutSol, ewToFout, ewToSol].forEach(el => { el.classList.remove('powered'); el.classList.remove('dc'); });
                 [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
@@ -529,14 +519,13 @@
                 return;
             }
 
-            // Логика по этапам загрузки
-            if (stage >= 1) { // Шаг 1: Питание вн. блока и MCU
+            if (stage >= 1) {
                 elInPower.classList.add('active');
                 elMcu.classList.add('active');
                 ewInAc.classList.add('powered');
             }
 
-            if (stage >= 2) { // Шаг 2: Межблочное питание и заряд DC-Bus
+            if (stage >= 2) {
                 ewInter1.classList.add('dc');
                 elBridge.classList.add('active');
                 elCaps.classList.add('active');
@@ -545,12 +534,12 @@
                 sDc.textContent = "310";
             }
 
-            if (stage >= 3) { // Шаг 3: Вентилятор внутренний
+            if (stage >= 3) {
                 elInFan.classList.add('active');
                 ewInFan.classList.add('powered');
             }
 
-            if (stage >= 4) { // Шаг 4: Полный запуск компрессора и внешнего блока
+            if (stage >= 4) {
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elInverter, elCompMotor, elVout].forEach(el => el.classList.add('active'));
                 if (mode === 'heat') elSol.classList.add('active');
 
