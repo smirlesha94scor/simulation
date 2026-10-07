@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Инженерный симулятор кондиционера (Полная электросхема)</title>
+    <title>Инженерный симулятор кондиционера (SVG Электрика)</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -21,7 +21,7 @@
 
         * {
             box-sizing: border-box;
-            transition: all 0.25s ease;
+            transition: all 0.2s ease;
         }
 
         html, body {
@@ -116,7 +116,7 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 1.2fr;
+            grid-template-columns: 1fr 1.3fr;
             gap: 12px;
             width: 100%;
             max-width: 1400px;
@@ -153,7 +153,7 @@
 
         .schema-canvas {
             width: 100%;
-            height: 240px;
+            height: 250px;
             background: #090d16;
             border-radius: 6px;
             position: relative;
@@ -188,29 +188,38 @@
         .pipe.hot { background: linear-gradient(90deg, #ef4444, #f97316); box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
         .pipe.cold { background: linear-gradient(90deg, #3b82f6, #06b6d4); box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
 
-        .wire {
-            position: absolute;
-            background: var(--border-color);
-        }
-        .wire.powered { background: var(--warning); box-shadow: 0 0 5px rgba(245, 158, 11, 0.6); }
-        .wire.dc { background: #ec4899; box-shadow: 0 0 5px rgba(236, 72, 153, 0.6); } /* Розовый для постоянного тока DC-Bus */
-
+        /* Элементы электрики */
         .el-node {
             position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--border-color);
-            padding: 4px 5px;
+            padding: 4px 6px;
             border-radius: 5px;
-            font-size: 8px;
+            font-size: 9px;
             text-align: center;
             z-index: 2;
-            width: 85px;
+            width: 95px;
         }
         .el-node.active {
             border-color: var(--success);
             background: #064e3b;
             color: #fff;
             box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);
+        }
+
+        /* SVG линии проводов */
+        .svg-wire {
+            stroke: var(--border-color);
+            stroke-width: 2.5;
+            fill: none;
+        }
+        .svg-wire.powered {
+            stroke: var(--warning);
+            filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.7));
+        }
+        .svg-wire.dc {
+            stroke: #ec4899;
+            filter: drop-shadow(0 0 4px rgba(236, 72, 153, 0.7));
         }
 
         .full-width { grid-column: 1 / -1; }
@@ -242,7 +251,7 @@
 
     <header>
         <h1>Инженерный симулятор кондиционера</h1>
-        <p class="subtitle">Полная принципиальная электрическая схема инверторной системы и термодинамический контур</p>
+        <p class="subtitle">Полная электрическая схема инверторной системы (SVG-связи)</p>
     </header>
 
     <div class="controls">
@@ -283,52 +292,54 @@
                     <span class="status-dot"></span>Конденсатор
                 </div>
                 
-                <div class="schema-block" style="top: 175px; left: 215px;" id="ref-dryer">
+                <div class="schema-block" style="top: 175px; left: 220px;" id="ref-dryer">
                     <span class="status-dot"></span>Фильтр-осуш.
                 </div>
-                <div class="schema-block" style="top: 95px; left: 215px;" id="ref-eev">
+                <div class="schema-block" style="top: 95px; left: 220px;" id="ref-eev">
                     <span class="status-dot"></span>ТРВ / Дроссель
                 </div>
-                <div class="schema-block" style="top: 15px; left: 215px;" id="ref-evaporator">
+                <div class="schema-block" style="top: 15px; left: 220px;" id="ref-evaporator">
                     <span class="status-dot"></span>Испаритель
                 </div>
 
-                <div class="pipe" id="pipe-1" style="top: 40px; left: 112px; width: 103px; height: 2px;"></div>
-                <div class="pipe" id="pipe-2" style="top: 40px; left: 213px; width: 2px; height: 57px;"></div>
-                <div class="pipe" id="pipe-3" style="top: 187px; left: 112px; width: 103px; height: 2px;"></div>
-                <div class="pipe" id="pipe-4" style="top: 120px; left: 58px; width: 2px; height: 57px;"></div>
+                <div class="pipe" id="pipe-1" style="top: 38px; left: 112px; width: 108px; height: 2px;"></div>
+                <div class="pipe" id="pipe-2" style="top: 38px; left: 218px; width: 2px; height: 57px;"></div>
+                <div class="pipe" id="pipe-3" style="top: 185px; left: 112px; width: 108px; height: 2px;"></div>
+                <div class="pipe" id="pipe-4" style="top: 120px; left: 58px; width: 2px; height: 55px;"></div>
             </div>
         </div>
 
-        <!-- 2. Полная электрическая принципиальная схема -->
+        <!-- 2. Полная электрическая схема на SVG -->
         <div class="view-container">
-            <h2>⚡ Полная силовеая электросхема инвертора</h2>
+            <h2>⚡ Полная силовая электросхема инвертора</h2>
             <div class="schema-canvas">
-                <!-- Провода переменного тока ~220В (желтые) -->
-                <div class="wire" id="ew-ac" style="top: 30px; left: 15px; width: 55px; height: 2px;"></div>
-                <div class="wire" id="ew-emi" style="top: 30px; left: 155px; width: 55px; height: 2px;"></div>
-                
-                <!-- Шина постоянного тока DC-Bus 310В (розовая) -->
-                <div class="wire dc" id="ew-dcbus" style="top: 30px; left: 295px; width: 75px; height: 2px;"></div>
+                <!-- SVG-контекст для идеальных линий без разрывов -->
+                <svg style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 1;">
+                    <line id="ew-ac" class="svg-wire" x1="110" y1="35" x2="135" y2="35" />
+                    <line id="ew-emi" class="svg-wire" x1="230" y1="35" x2="265" y2="35" />
+                    <line id="ew-dcbus" class="svg-wire dc" x1="360" y1="35" x2="395" y2="35" />
+                    <line id="ew-ipm" class="svg-wire" x1="490" y1="35" x2="525" y2="35" />
+                    
+                    <line id="ew-fanin" class="svg-wire" x1="345" y1="65" x2="345" y2="95" />
+                    <line id="ew-fanout" class="svg-wire" x1="345" y1="65" x2="345" y2="155" />
+                    <line id="ew-sol" class="svg-wire" x1="345" y1="65" x2="345" y2="215" />
 
-                <!-- Провода от платы к исполнительным элементам -->
-                <div class="wire" id="ew-ipm" style="top: 30px; left: 470px; width: 60px; height: 2px;"></div>
-                <div class="wire" id="ew-fanin" style="top: 95px; left: 395px; width: 135px; height: 2px;"></div>
-                <div class="wire" id="ew-fanout" style="top: 145px; left: 395px; width: 135px; height: 2px;"></div>
-                <div class="wire" id="ew-sol" style="top: 195px; left: 395px; width: 135px; height: 2px;"></div>
-                <div class="wire" id="ew-neut" style="top: 225px; left: 15px; width: 515px; height: 2px;"></div>
+                    <line id="ew-to-fin" class="svg-wire" x1="345" y1="95" x2="525" y2="95" />
+                    <line id="ew-to-fout" class="svg-wire" x1="345" y1="155" x2="525" y2="155" />
+                    <line id="ew-to-sol" class="svg-wire" x1="345" y1="215" x2="525" y2="215" />
+                </svg>
 
-                <!-- Элементы полной схемы -->
-                <div class="el-node" style="top: 18px; left: 15px;" id="el-ac">Сеть ~220В</div>
-                <div class="el-node" style="top: 18px; left: 70px;" id="el-fuse">EMI-фильтр / Предохр.</div>
-                <div class="el-node" style="top: 18px; left: 210px;" id="el-bridge">Диодный мост</div>
-                <div class="el-node" style="top: 18px; left: 370px;" id="el-caps">DC-Bus (Конденсатор)</div>
-                <div class="el-node" style="top: 18px; left: 530px;" id="el-inverter">IPM Инвертор (Модуль)</div>
+                <!-- Элементы электрики -->
+                <div class="el-node" style="top: 20px; left: 15px;" id="el-ac">Сеть ~220В</div>
+                <div class="el-node" style="top: 20px; left: 135px;" id="el-fuse">EMI / Предохр.</div>
+                <div class="el-node" style="top: 20px; left: 265px;" id="el-bridge">Диодный мост</div>
+                <div class="el-node" style="top: 20px; left: 395px;" id="el-caps">DC-Bus (Конденсатор)</div>
+                <div class="el-node" style="top: 20px; left: 525px;" id="el-inverter">IPM Инвертор</div>
                 
-                <div class="el-node" style="top: 82px; left: 530px;" id="el-compmotor">Компрессор (BLDC)</div>
-                <div class="el-node" style="top: 132px; left: 530px;" id="el-v-in">Вент. внутр. блока</div>
-                <div class="el-node" style="top: 182px; left: 530px;" id="el-v-out">Вент. внеш. блока</div>
-                <div class="el-node" style="top: 212px; left: 310px;" id="el-mcu">MCU (Плата управления)</div>
+                <div class="el-node" style="top: 80px; left: 525px;" id="el-compmotor">Компрессор (BLDC)</div>
+                <div class="el-node" style="top: 140px; left: 525px;" id="el-v-in">Вент. внутр.</div>
+                <div class="el-node" style="top: 200px; left: 525px;" id="el-v-out">Вент. внеш.</div>
+                <div class="el-node" style="top: 50px; left: 295px; width: 100px;" id="el-mcu">MCU (Плата)</div>
             </div>
         </div>
 
@@ -392,7 +403,6 @@
         function updateSystem() {
             mode = document.getElementById('modeSelect').value;
 
-            // Ссылки на элементы термоконтура
             const refComp = document.getElementById('ref-compressor');
             const refValves = document.getElementById('ref-valves');
             const refCond = document.getElementById('ref-condenser');
@@ -406,7 +416,6 @@
             const pipe3 = document.getElementById('pipe-3');
             const pipe4 = document.getElementById('pipe-4');
 
-            // Ссылки на электронику
             const elAc = document.getElementById('el-ac');
             const elFuse = document.getElementById('el-fuse');
             const elBridge = document.getElementById('el-bridge');
@@ -424,7 +433,9 @@
             const ewFanIn = document.getElementById('ew-fanin');
             const ewFanOut = document.getElementById('ew-fanout');
             const ewSol = document.getElementById('ew-sol');
-            const ewNeut = document.getElementById('ew-neut');
+            const ewToFin = document.getElementById('ew-to-fin');
+            const ewToFout = document.getElementById('ew-to-fout');
+            const ewToSol = document.getElementById('ew-to-sol');
 
             let sPressLow = document.getElementById('sens-press-low');
             let sPressHigh = document.getElementById('sens-press-high');
@@ -435,13 +446,11 @@
             let sSafety = document.getElementById('sens-safety');
 
             if (isPowerOn) {
-                // Активация термоконтура
                 [refComp, refValves, refCond, refDryer, refEev, refEvap].forEach(el => el.classList.add('active'));
-                
-                // Активация полной электрики
                 [elAc, elFuse, elBridge, elCaps, elInverter, elCompMotor, elVin, elVout, elMcu].forEach(el => el.classList.add('active'));
-                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewNeut].forEach(el => el.classList.add('powered'));
-                ewDcBus.classList.add('dc'); // Розовая шина постоянного тока
+                
+                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewToFin, ewToFout, ewToSol].forEach(el => el.classList.add('powered'));
+                ewDcBus.classList.add('dc');
 
                 compState.textContent = "Инвертор (65 Гц)";
 
@@ -501,7 +510,7 @@
 
             } else {
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elBridge, elCaps, elInverter, elCompMotor, elVin, elVout, elMcu].forEach(el => el.classList.remove('active'));
-                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewNeut].forEach(el => el.classList.remove('powered'));
+                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewToFin, ewToFout, ewToSol].forEach(el => el.classList.remove('powered'));
                 ewDcBus.classList.remove('dc');
                 [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
 
