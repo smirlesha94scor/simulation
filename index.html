@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Инженерный симулятор кондиционера (SVG Электрика)</title>
+    <title>Инженерный симулятор кондиционера (Реальный пуск и раздельные блоки)</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -116,7 +116,7 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 1.3fr;
+            grid-template-columns: 1fr 1.4fr;
             gap: 12px;
             width: 100%;
             max-width: 1400px;
@@ -153,7 +153,7 @@
 
         .schema-canvas {
             width: 100%;
-            height: 250px;
+            height: 260px;
             background: #090d16;
             border-radius: 6px;
             position: relative;
@@ -188,17 +188,28 @@
         .pipe.hot { background: linear-gradient(90deg, #ef4444, #f97316); box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
         .pipe.cold { background: linear-gradient(90deg, #3b82f6, #06b6d4); box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
 
-        /* Элементы электрики */
+        /* Зоны блоков на электрической схеме */
+        .zone-box {
+            position: absolute;
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.4);
+            font-size: 9px;
+            color: var(--text-muted);
+            padding: 4px;
+            z-index: 1;
+        }
+
         .el-node {
             position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--border-color);
             padding: 4px 6px;
             border-radius: 5px;
-            font-size: 9px;
+            font-size: 8px;
             text-align: center;
             z-index: 2;
-            width: 95px;
+            width: 90px;
         }
         .el-node.active {
             border-color: var(--success);
@@ -207,19 +218,19 @@
             box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);
         }
 
-        /* SVG линии проводов */
+        /* SVG провода */
         .svg-wire {
             stroke: var(--border-color);
-            stroke-width: 2.5;
+            stroke-width: 2;
             fill: none;
         }
         .svg-wire.powered {
             stroke: var(--warning);
-            filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.7));
+            filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.7));
         }
         .svg-wire.dc {
             stroke: #ec4899;
-            filter: drop-shadow(0 0 4px rgba(236, 72, 153, 0.7));
+            filter: drop-shadow(0 0 3px rgba(236, 72, 153, 0.7));
         }
 
         .full-width { grid-column: 1 / -1; }
@@ -251,7 +262,7 @@
 
     <header>
         <h1>Инженерный симулятор кондиционера</h1>
-        <p class="subtitle">Полная электрическая схема инверторной системы (SVG-связи)</p>
+        <p class="subtitle">Раздельные блоки (Внутренний / Внешний) и поэтапный реальный запуск</p>
     </header>
 
     <div class="controls">
@@ -309,37 +320,47 @@
             </div>
         </div>
 
-        <!-- 2. Полная электрическая схема на SVG -->
+        <!-- 2. Электрическая схема с разделением на блоки -->
         <div class="view-container">
-            <h2>⚡ Полная силовая электросхема инвертора</h2>
+            <h2>⚡ Электросхема (Внутренний и Внешний блоки)</h2>
             <div class="schema-canvas">
-                <!-- SVG-контекст для идеальных линий без разрывов -->
-                <svg style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 1;">
-                    <line id="ew-ac" class="svg-wire" x1="110" y1="35" x2="135" y2="35" />
-                    <line id="ew-emi" class="svg-wire" x1="230" y1="35" x2="265" y2="35" />
-                    <line id="ew-dcbus" class="svg-wire dc" x1="360" y1="35" x2="395" y2="35" />
-                    <line id="ew-ipm" class="svg-wire" x1="490" y1="35" x2="525" y2="35" />
-                    
-                    <line id="ew-fanin" class="svg-wire" x1="345" y1="65" x2="345" y2="95" />
-                    <line id="ew-fanout" class="svg-wire" x1="345" y1="65" x2="345" y2="155" />
-                    <line id="ew-sol" class="svg-wire" x1="345" y1="65" x2="345" y2="215" />
+                <!-- Контуры рамок блоков -->
+                <div class="zone-box" style="top: 8px; left: 8px; width: 245px; height: 240px;">Внутренний блок (Indoor Unit)</div>
+                <div class="zone-box" style="top: 8px; left: 265px; width: 310px; height: 240px;">Внешний блок (Outdoor Unit)</div>
 
-                    <line id="ew-to-fin" class="svg-wire" x1="345" y1="95" x2="525" y2="95" />
-                    <line id="ew-to-fout" class="svg-wire" x1="345" y1="155" x2="525" y2="155" />
-                    <line id="ew-to-sol" class="svg-wire" x1="345" y1="215" x2="525" y2="215" />
+                <!-- SVG межблочные и внутренние соединения -->
+                <svg style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 1;">
+                    <!-- Внутренний блок -->
+                    <line id="ew-in-ac" class="svg-wire" x1="110" y1="35" x2="135" y2="35" />
+                    <line id="ew-in-fan" class="svg-wire" x1="85" y1="65" x2="85" y2="120" />
+
+                    <!-- Межблочный кабель (Линия связи / Питание компрессора) -->
+                    <line id="ew-inter-1" class="svg-wire dc" x1="220" y1="35" x2="295" y2="35" />
+
+                    <!-- Внешний блок -->
+                    <line id="ew-out-bridge" class="svg-wire" x1="390" y1="35" x2="425" y2="35" />
+                    <line id="ew-out-dc" class="svg-wire dc" x1="520" y1="35" x2="540" y2="35" />
+                    
+                    <line id="ew-out-fout" class="svg-wire" x1="475" y1="65" x2="475" y2="135" />
+                    <line id="ew-out-sol" class="svg-wire" x1="475" y1="65" x2="475" y2="195" />
+
+                    <line id="ew-to-fout" class="svg-wire" x1="475" y1="135" x2="540" y2="135" />
+                    <line id="ew-to-sol" class="svg-wire" x1="475" y1="195" x2="540" y2="195" />
                 </svg>
 
-                <!-- Элементы электрики -->
-                <div class="el-node" style="top: 20px; left: 15px;" id="el-ac">Сеть ~220В</div>
-                <div class="el-node" style="top: 20px; left: 135px;" id="el-fuse">EMI / Предохр.</div>
-                <div class="el-node" style="top: 20px; left: 265px;" id="el-bridge">Диодный мост</div>
-                <div class="el-node" style="top: 20px; left: 395px;" id="el-caps">DC-Bus (Конденсатор)</div>
-                <div class="el-node" style="top: 20px; left: 525px;" id="el-inverter">IPM Инвертор</div>
+                <!-- Элементы внутреннего блока -->
+                <div class="el-node" style="top: 22px; left: 18px;" id="el-in-power">Сеть ~220В</div>
+                <div class="el-node" style="top: 22px; left: 135px;" id="el-mcu">MCU (Плата вн.)</div>
+                <div class="el-node" style="top: 120px; left: 40px;" id="el-in-fan">Вент. внутр.</div>
+
+                <!-- Элементы внешнего блока -->
+                <div class="el-node" style="top: 22px; left: 295px;" id="el-bridge">Диодный мост</div>
+                <div class="el-node" style="top: 22px; left: 425px;" id="el-caps">DC-Bus (Конденс.)</div>
+                <div class="el-node" style="top: 22px; left: 540px;" id="el-inverter">IPM Инвертор</div>
                 
-                <div class="el-node" style="top: 80px; left: 525px;" id="el-compmotor">Компрессор (BLDC)</div>
-                <div class="el-node" style="top: 140px; left: 525px;" id="el-v-in">Вент. внутр.</div>
-                <div class="el-node" style="top: 200px; left: 525px;" id="el-v-out">Вент. внеш.</div>
-                <div class="el-node" style="top: 50px; left: 295px; width: 100px;" id="el-mcu">MCU (Плата)</div>
+                <div class="el-node" style="top: 75px; left: 540px;" id="el-compmotor">Компрессор</div>
+                <div class="el-node" style="top: 135px; left: 540px;" id="el-v-out">Вент. внеш.</div>
+                <div class="el-node" style="top: 195px; left: 540px;" id="el-sol">Соленоид 4Х</div>
             </div>
         </div>
 
@@ -363,7 +384,7 @@
                     Потребляемый ток:<br><span id="sens-current">0.0</span> А
                 </div>
                 <div class="telemetry-card">
-                    Статус защиты:<br><span id="sens-safety" style="color: var(--success);">Норма</span>
+                    Статус защиты:<br><span id="sens-safety" style="color: var(--success);">Обесточено</span>
                 </div>
             </div>
         </div>
@@ -374,33 +395,77 @@
         let mode = 'cool';
         let targetTemp = 22;
         let outdoorTemp = 32;
+        let startupTimeouts = [];
 
         function togglePower() {
             isPowerOn = !isPowerOn;
             const btn = document.getElementById('powerBtn');
+            
+            // Очищаем старые таймеры пуска при выключении
+            startupTimeouts.forEach(t => clearTimeout(t));
+            startupTimeouts = [];
+
             if (isPowerOn) {
                 btn.textContent = "Питание: ВКЛ";
                 btn.classList.add('active');
+                runRealStartupSequence();
             } else {
                 btn.textContent = "Питание: ВЫКЛ";
                 btn.classList.remove('active');
+                updateSystemState(false, 0); // Полное отключение
             }
-            updateSystem();
         }
 
         function updateTemp(val) {
             targetTemp = parseInt(val);
             document.getElementById('tempVal').textContent = val;
-            updateSystem();
+            if (isPowerOn) updateSystemState(true, 4); // Если включено, пересчет параметров
         }
 
         function updateOutdoorTemp(val) {
             outdoorTemp = parseInt(val);
             document.getElementById('outdoorTempVal').textContent = val;
-            updateSystem();
+            if (isPowerOn) updateSystemState(true, 4);
+        }
+
+        // Реалистичный последовательный запуск узлов
+        function runRealStartupSequence() {
+            let sSafety = document.getElementById('sens-safety');
+
+            // Шаг 1: Подача 220В и старт платы MCU (0 сек)
+            sSafety.textContent = "Шаг 1: Загрузка платы MCU...";
+            sSafety.style.color = "var(--warning)";
+            updateSystemState(true, 1);
+
+            // Шаг 2: Заряд DC-Bus во внешнем блоке (+0.6 сек)
+            startupTimeouts.push(setTimeout(() => {
+                if (!isPowerOn) return;
+                sSafety.textContent = "Шаг 2: Плавный заряд DC-Bus...";
+                updateSystemState(true, 2);
+            }, 600));
+
+            // Шаг 3: Запуск внутреннего вентилятора и опрос датчиков (+1.4 сек)
+            startupTimeouts.push(setTimeout(() => {
+                if (!isPowerOn) return;
+                sSafety.textContent = "Шаг 3: Старт вн. блока и датчиков...";
+                updateSystemState(true, 3);
+            }, 1400));
+
+            // Шаг 4: Защитная задержка компрессора и полный запуск (+3.0 сек)
+            startupTimeouts.push(setTimeout(() => {
+                if (!isPowerOn) return;
+                sSafety.textContent = "Штатный режим (Работа)";
+                sSafety.style.color = "var(--success)";
+                updateSystemState(true, 4);
+            }, 3000));
         }
 
         function updateSystem() {
+            if (isPowerOn) updateSystemState(true, 4);
+        }
+
+        // Управление состояниями питания элементов по шагам
+        function updateSystemState(powered, stage) {
             mode = document.getElementById('modeSelect').value;
 
             const refComp = document.getElementById('ref-compressor');
@@ -416,24 +481,25 @@
             const pipe3 = document.getElementById('pipe-3');
             const pipe4 = document.getElementById('pipe-4');
 
-            const elAc = document.getElementById('el-ac');
-            const elFuse = document.getElementById('el-fuse');
+            // Электрические узлы
+            const elInPower = document.getElementById('el-in-power');
+            const elMcu = document.getElementById('el-mcu');
+            const elInFan = document.getElementById('el-in-fan');
             const elBridge = document.getElementById('el-bridge');
             const elCaps = document.getElementById('el-caps');
             const elInverter = document.getElementById('el-inverter');
             const elCompMotor = document.getElementById('el-compmotor');
-            const elVin = document.getElementById('el-v-in');
             const elVout = document.getElementById('el-v-out');
-            const elMcu = document.getElementById('el-mcu');
+            const elSol = document.getElementById('el-sol');
 
-            const ewAc = document.getElementById('ew-ac');
-            const ewEmi = document.getElementById('ew-emi');
-            const ewDcBus = document.getElementById('ew-dcbus');
-            const ewIpm = document.getElementById('ew-ipm');
-            const ewFanIn = document.getElementById('ew-fanin');
-            const ewFanOut = document.getElementById('ew-fanout');
-            const ewSol = document.getElementById('ew-sol');
-            const ewToFin = document.getElementById('ew-to-fin');
+            // Провода
+            const ewInAc = document.getElementById('ew-in-ac');
+            const ewInFan = document.getElementById('ew-in-fan');
+            const ewInter1 = document.getElementById('ew-inter-1');
+            const ewOutBridge = document.getElementById('ew-out-bridge');
+            const ewOutDc = document.getElementById('ew-out-dc');
+            const ewOutFout = document.getElementById('ew-out-fout');
+            const ewOutSol = document.getElementById('ew-out-sol');
             const ewToFout = document.getElementById('ew-to-fout');
             const ewToSol = document.getElementById('ew-to-sol');
 
@@ -445,16 +511,53 @@
             let sCurrent = document.getElementById('sens-current');
             let sSafety = document.getElementById('sens-safety');
 
-            if (isPowerOn) {
-                [refComp, refValves, refCond, refDryer, refEev, refEvap].forEach(el => el.classList.add('active'));
-                [elAc, elFuse, elBridge, elCaps, elInverter, elCompMotor, elVin, elVout, elMcu].forEach(el => el.classList.add('active'));
-                
-                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewToFin, ewToFout, ewToSol].forEach(el => el.classList.add('powered'));
-                ewDcBus.classList.add('dc');
+            if (!powered) {
+                // Сброс всего
+                [refComp, refValves, refCond, refDryer, refEev, refEvap, elInPower, elMcu, elInFan, elBridge, elCaps, elInverter, elCompMotor, elVout, elSol].forEach(el => el.classList.remove('active'));
+                [ewInAc, ewInFan, ewInter1, ewOutBridge, ewOutDc, ewOutFout, ewOutSol, ewToFout, ewToSol].forEach(el => { el.classList.remove('powered'); el.classList.remove('dc'); });
+                [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
 
+                compState.textContent = "Стоп";
+                sPressLow.textContent = "0.0";
+                sPressHigh.textContent = "0.0";
+                sEvap.textContent = outdoorTemp.toFixed(1);
+                sCond.textContent = outdoorTemp.toFixed(1);
+                sDc.textContent = "0";
+                sCurrent.textContent = "0.0";
+                sSafety.textContent = "Обесточено";
+                sSafety.style.color = "var(--warning)";
+                return;
+            }
+
+            // Логика по этапам загрузки
+            if (stage >= 1) { // Шаг 1: Питание вн. блока и MCU
+                elInPower.classList.add('active');
+                elMcu.classList.add('active');
+                ewInAc.classList.add('powered');
+            }
+
+            if (stage >= 2) { // Шаг 2: Межблочное питание и заряд DC-Bus
+                ewInter1.classList.add('dc');
+                elBridge.classList.add('active');
+                elCaps.classList.add('active');
+                ewOutBridge.classList.add('powered');
+                ewOutDc.classList.add('dc');
+                sDc.textContent = "310";
+            }
+
+            if (stage >= 3) { // Шаг 3: Вентилятор внутренний
+                elInFan.classList.add('active');
+                ewInFan.classList.add('powered');
+            }
+
+            if (stage >= 4) { // Шаг 4: Полный запуск компрессора и внешнего блока
+                [refComp, refValves, refCond, refDryer, refEev, refEvap, elInverter, elCompMotor, elVout].forEach(el => el.classList.add('active'));
+                if (mode === 'heat') elSol.classList.add('active');
+
+                [ewOutFout, ewOutSol, ewToFout, ewToSol].forEach(el => el.classList.add('powered'));
                 compState.textContent = "Инвертор (65 Гц)";
 
-                let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0, dcVolts = 310;
+                let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0;
 
                 if (mode === 'cool') {
                     pipe1.className = "pipe hot";
@@ -497,32 +600,7 @@
                 sPressHigh.textContent = highP.toFixed(1);
                 sEvap.textContent = evapT.toFixed(1);
                 sCond.textContent = condT.toFixed(1);
-                sDc.textContent = dcVolts;
                 sCurrent.textContent = cur.toFixed(1);
-
-                if (outdoorTemp > 40 && mode === 'cool') {
-                    sSafety.textContent = "Предупреждение: IPM перегрев";
-                    sSafety.style.color = "var(--warning)";
-                } else {
-                    sSafety.textContent = "Штатный режим";
-                    sSafety.style.color = "var(--success)";
-                }
-
-            } else {
-                [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elBridge, elCaps, elInverter, elCompMotor, elVin, elVout, elMcu].forEach(el => el.classList.remove('active'));
-                [ewAc, ewEmi, ewIpm, ewFanIn, ewFanOut, ewSol, ewToFin, ewToFout, ewToSol].forEach(el => el.classList.remove('powered'));
-                ewDcBus.classList.remove('dc');
-                [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
-
-                compState.textContent = "Стоп";
-                sPressLow.textContent = "0.0";
-                sPressHigh.textContent = "0.0";
-                sEvap.textContent = outdoorTemp.toFixed(1);
-                sCond.textContent = outdoorTemp.toFixed(1);
-                sDc.textContent = "0";
-                sCurrent.textContent = "0.0";
-                sSafety.textContent = "Обесточено";
-                sSafety.style.color = "var(--warning)";
             }
         }
     </script>
