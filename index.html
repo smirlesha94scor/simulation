@@ -1,188 +1,517 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Twitch Streaks Dashboard</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #0e0e10;
-      color: #efeff1;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инженерный симулятор кондиционера</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --card-bg: #334155;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #475569;
+        }
 
-    .container {
-      max-width: 600px;
-      width: 100%;
-    }
+        * {
+            box-sizing: border-box;
+            transition: all 0.25s ease;
+        }
 
-    header {
-      background: #18181b;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-      text-align: center;
-    }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
 
-    h1 {
-      margin: 0 0 10px 0;
-      font-size: 22px;
-      color: #a970ff;
-    }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
 
-    .timer-box {
-      font-size: 14px;
-      color: #adadb8;
-    }
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 26px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-    .timer-box span {
-      font-size: 18px;
-      font-weight: bold;
-      color: #00f59b;
-    }
+        p.subtitle {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 14px;
+        }
 
-    .channel-card {
-      background: #1f1f23;
-      margin-bottom: 12px;
-      padding: 16px;
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
+        /* Панель управления */
+        .controls {
+            background: var(--panel-bg);
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            gap: 25px;
+            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            max-width: 1400px;
+            width: 100%;
+            justify-content: center;
+        }
 
-    .channel-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+        button {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
 
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      background-color: #eb0400;
-      border-radius: 50%;
-      box-shadow: 0 0 8px #eb0400;
-    }
+        button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
 
-    .channel-name {
-      font-size: 16px;
-      font-weight: 600;
-      color: #efeff1;
-      text-decoration: none;
-    }
+        button:active {
+            transform: translateY(1px);
+        }
 
-    .channel-name:hover {
-      color: #a970ff;
-    }
+        button.active {
+            background-color: var(--success);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
 
-    .streak-badge {
-      background: #26262c;
-      border: 1px solid #a970ff;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: bold;
-      color: #a970ff;
-    }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
 
-    .updated-at {
-      margin-top: 15px;
-      font-size: 12px;
-      color: #adadb8;
-      text-align: center;
-    }
-  </style>
+        .control-group span {
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        select, input[type="range"] {
+            background: var(--card-bg);
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input[type="range"] {
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        /* Дашборд */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard { grid-template-columns: 1fr; }
+        }
+
+        .view-container {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        h2 {
+            font-size: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin: 0 0 15px 0;
+            color: #60a5fa;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Холсты схем */
+        .schema-canvas {
+            width: 100%;
+            height: 360px;
+            background: #090d16;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Блоки схемы */
+        .schema-block {
+            position: absolute;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+            width: 120px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+
+        .schema-block.active {
+            border-color: var(--success);
+            background: #064e3b;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Трубопровод */
+        .pipe {
+            position: absolute;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+        .pipe.hot {
+            background: linear-gradient(90deg, #ef4444, #f97316);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+        }
+        .pipe.cold {
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Электрические провода */
+        .wire {
+            position: absolute;
+            background: var(--border-color);
+        }
+        .wire.powered {
+            background: var(--warning);
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+        }
+
+        .el-node {
+            position: absolute;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            text-align: center;
+            z-index: 2;
+        }
+        .el-node.active {
+            border-color: var(--success);
+            background: #064e3b;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Телеметрия */
+        .full-width { grid-column: 1 / -1; }
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .telemetry-card {
+            background: #090d16;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            border-top: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .telemetry-card span {
+            font-weight: bold;
+            color: var(--warning);
+            font-size: 15px;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .active .status-dot {
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+    </style>
 </head>
 <body>
 
-  <div class="container">
     <header>
-      <h1>Отслеживание серий Twitch</h1>
-      <div class="timer-box">
-        До следующего обновления: <span id="timer">--:--</span>
-      </div>
+        <h1>Интерактивный инженерный симулятор кондиционера</h1>
+        <p class="subtitle">Термодинамический контур хладагента, силовая электрика и цифровая телеметрия в реальном времени</p>
     </header>
 
-    <div id="channels-list">Загрузка данных...</div>
-    <div id="last-updated" class="updated-at"></div>
-  </div>
+    <div class="controls">
+        <button id="powerBtn" onclick="togglePower()">Питание: ВЫКЛ</button>
+        
+        <div class="control-group">
+            <label>Режим:</label>
+            <select id="modeSelect" onchange="updateSystem()">
+                <option value="cool">❄️ Охлаждение (Cool)</option>
+                <option value="heat">🔥 Обогрев (Heat)</option>
+                <option value="dry">💧 Осушение (Dry)</option>
+            </select>
+        </div>
 
-  <script>
-    // Интервал запуска вашей Action в минутах (соответствует cron или таймауту)
-    const UPDATE_INTERVAL_MINUTES = 10; 
+        <div class="control-group">
+            <label>Цель: <span id="tempVal">22</span>°C</label>
+            <input type="range" id="tempRange" min="16" max="30" value="22" oninput="updateTemp(this.value)">
+        </div>
 
-    async function initDashboard() {
-      try {
-        // Отключаем кэш браузера с помощью ?t=...
-        const response = await fetch('data.json?t=' + new Date().getTime());
-        if (!response.ok) throw new Error("Не удалось загрузить data.json");
+        <div class="control-group">
+            <label>Улица: <span id="outdoorTempVal">32</span>°C</label>
+            <input type="range" id="outdoorTempRange" min="-10" max="45" value="32" oninput="updateOutdoorTemp(this.value)">
+        </div>
+    </div>
 
-        const data = await response.json();
+    <div class="dashboard">
+        <!-- 1. Холодильный контур -->
+        <div class="view-container">
+            <h2>🌡️ Холодильный контур (Термодинамика)</h2>
+            <div class="schema-canvas">
+                <div class="schema-block" style="top: 25px; left: 20px;" id="ref-compressor">
+                    <span class="status-dot"></span>Компрессор<br><span id="comp-state" style="font-size:10px; color:var(--text-muted);">Стоп</span>
+                </div>
+                <div class="schema-block" style="top: 145px; left: 20px;" id="ref-valves">
+                    <span class="status-dot"></span>4-х ходовой кл.
+                </div>
+                <div class="schema-block" style="top: 255px; left: 20px;" id="ref-condenser">
+                    <span class="status-dot"></span>Конденсатор
+                </div>
+                
+                <div class="schema-block" style="top: 255px; left: 260px;" id="ref-dryer">
+                    <span class="status-dot"></span>Фильтр-осушитель
+                </div>
+                <div class="schema-block" style="top: 145px; left: 260px;" id="ref-eev">
+                    <span class="status-dot"></span>ТРВ / Дроссель
+                </div>
+                <div class="schema-block" style="top: 25px; left: 260px;" id="ref-evaporator">
+                    <span class="status-dot"></span>Испаритель
+                </div>
 
-        // 1. Отображаем список каналов
-        const listContainer = document.getElementById('channels-list');
-        listContainer.innerHTML = '';
+                <!-- Трубы -->
+                <div class="pipe" id="pipe-1" style="top: 60px; left: 142px; width: 118px; height: 4px;"></div>
+                <div class="pipe" id="pipe-2" style="top: 60px; left: 318px; width: 4px; height: 85px;"></div>
+                <div class="pipe" id="pipe-3" style="top: 270px; left: 142px; width: 118px; height: 4px;"></div>
+                <div class="pipe" id="pipe-4" style="top: 180px; left: 78px; width: 4px; height: 75px;"></div>
+            </div>
+        </div>
 
-        if (!data.channels || data.channels.length === 0) {
-          listContainer.innerHTML = '<div>Нет активных стримов</div>';
-        } else {
-          data.channels.forEach(ch => {
-            const card = document.createElement('div');
-            card.className = 'channel-card';
-            card.innerHTML = `
-              <div class="channel-info">
-                <div class="status-dot"></div>
-                <a class="channel-name" href="https://twitch.tv/${ch.username}" target="_blank">${ch.name}</a>
-              </div>
-              <div class="streak-badge">🔥 Серия: ${ch.streak}</div>
-            `;
-            listContainer.appendChild(card);
-          });
+        <!-- 2. Электрическая схема -->
+        <div class="view-container">
+            <h2>⚡ Электрическая принципиальная схема</h2>
+            <div class="schema-canvas">
+                <div class="wire" id="ew-main" style="top: 45px; left: 25px; width: 85px; height: 3px;"></div>
+                <div class="wire" id="ew-board-line" style="top: 45px; left: 195px; width: 55px; height: 3px;"></div>
+                <div class="wire" id="ew-comp" style="top: 45px; left: 335px; width: 120px; height: 3px;"></div>
+                <div class="wire" id="ew-fan1" style="top: 135px; left: 250px; width: 205px; height: 3px;"></div>
+                <div class="wire" id="ew-fan2" style="top: 225px; left: 250px; width: 205px; height: 3px;"></div>
+                <div class="wire" id="ew-valve" style="top: 310px; left: 250px; width: 205px; height: 3px;"></div>
+                <div class="wire" id="ew-neutral" style="top: 335px; left: 25px; width: 430px; height: 3px;"></div>
+
+                <div class="el-node" style="top: 30px; left: 25px;" id="el-ac">Сеть ~220В</div>
+                <div class="el-node" style="top: 30px; left: 110px;" id="el-fuse">EMI / Защита</div>
+                <div class="el-node" style="top: 30px; left: 250px;" id="el-mcu">MCU (Плата)</div>
+                <div class="el-node" style="top: 30px; left: 455px;" id="el-comp-motor">Инвертор комп.</div>
+                <div class="el-node" style="top: 120px; left: 455px;" id="el-in-fan">Вент. внутр.</div>
+                <div class="el-node" style="top: 210px; left: 455px;" id="el-out-fan">Вент. внеш.</div>
+                <div class="el-node" style="top: 295px; left: 455px;" id="el-valves-el">Соленоид 4Х</div>
+            </div>
+        </div>
+
+        <!-- 3. Телеметрия -->
+        <div class="view-container full-width">
+            <h2>📊 Система мониторинга и телеметрия</h2>
+            <div class="telemetry-grid">
+                <div class="telemetry-card">
+                    Давление всасывания:<br><span id="sens-press-low">0.0</span> бар
+                </div>
+                <div class="telemetry-card">
+                    Давление нагнетания:<br><span id="sens-press-high">0.0</span> бар
+                </div>
+                <div class="telemetry-card">
+                    Темп. испарителя:<br><span id="sens-evap">22.0</span> °C
+                </div>
+                <div class="telemetry-card">
+                    Темп. конденсатора:<br><span id="sens-cond">22.0</span> °C
+                </div>
+                <div class="telemetry-card">
+                    Потребляемый ток:<br><span id="sens-current">0.0</span> А
+                </div>
+                <div class="telemetry-card">
+                    Статус защиты:<br><span id="sens-safety" style="color: var(--success);">Норма</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isPowerOn = false;
+        let mode = 'cool';
+        let targetTemp = 22;
+        let outdoorTemp = 32;
+
+        function togglePower() {
+            isPowerOn = !isPowerOn;
+            const btn = document.getElementById('powerBtn');
+            if (isPowerOn) {
+                btn.textContent = "Питание: ВКЛ";
+                btn.classList.add('active');
+            } else {
+                btn.textContent = "Питание: ВЫКЛ";
+                btn.classList.remove('active');
+            }
+            updateSystem();
         }
 
-        document.getElementById('last-updated').innerText = `Обновлено: ${data.updatedAt}`;
-
-        // 2. Расчет и запуск таймера от даты из data.json
-        const lastUpdateUtc = new Date(data.updatedAt.replace(' UTC', 'Z'));
-        const nextUpdate = new Date(lastUpdateUtc.getTime() + UPDATE_INTERVAL_MINUTES * 60 * 1000);
-
-        function tick() {
-          const now = new Date();
-          const diffMs = nextUpdate - now;
-
-          if (diffMs <= 0) {
-            document.getElementById('timer').innerText = "00:00 (Обновление...)";
-            return;
-          }
-
-          const totalSeconds = Math.floor(diffMs / 1000);
-          const minutes = Math.floor(totalSeconds / 60);
-          const seconds = totalSeconds % 60;
-
-          const formattedMin = String(minutes).padStart(2, '0');
-          const formattedSec = String(seconds).padStart(2, '0');
-
-          document.getElementById('timer').innerText = `${formattedMin}:${formattedSec}`;
+        function updateTemp(val) {
+            targetTemp = val;
+            document.getElementById('tempVal').textContent = val;
+            updateSystem();
         }
 
-        tick();
-        setInterval(tick, 1000);
+        function updateOutdoorTemp(val) {
+            outdoorTemp = parseInt(val);
+            document.getElementById('outdoorTempVal').textContent = val;
+            updateSystem();
+        }
 
-      } catch (error) {
-        console.error("Ошибка:", error);
-        document.getElementById('channels-list').innerText = "Ошибка при загрузке данных.";
-      }
-    }
+        function updateSystem() {
+            mode = document.getElementById('modeSelect').value;
 
-    initDashboard();
-  </script>
+            const refComp = document.getElementById('ref-compressor');
+            const refValves = document.getElementById('ref-valves');
+            const refCond = document.getElementById('ref-condenser');
+            const refDryer = document.getElementById('ref-dryer');
+            const refEev = document.getElementById('ref-eev');
+            const refEvap = document.getElementById('ref-evaporator');
+            const compState = document.getElementById('comp-state');
+
+            const pipe1 = document.getElementById('pipe-1');
+            const pipe2 = document.getElementById('pipe-2');
+            const pipe3 = document.getElementById('pipe-3');
+            const pipe4 = document.getElementById('pipe-4');
+
+            const elAc = document.getElementById('el-ac');
+            const elFuse = document.getElementById('el-fuse');
+            const elMcu = document.getElementById('el-mcu');
+            const elCompMotor = document.getElementById('el-comp-motor');
+            const elInFan = document.getElementById('el-in-fan');
+            const elOutFan = document.getElementById('el-out-fan');
+            const elValvesEl = document.getElementById('el-valves-el');
+
+            const ewMain = document.getElementById('ew-main');
+            const ewBoardLine = document.getElementById('ew-board-line');
+            const ewComp = document.getElementById('ew-comp');
+            const ewFan1 = document.getElementById('ew-fan1');
+            const ewFan2 = document.getElementById('ew-fan2');
+            const ewValve = document.getElementById('ew-valve');
+            const ewNeutral = document.getElementById('ew-neutral');
+
+            let sPressLow = document.getElementById('sens-press-low');
+            let sPressHigh = document.getElementById('sens-press-high');
+            let sEvap = document.getElementById('sens-evap');
+            let sCond = document.getElementById('sens-cond');
+            let sCurrent = document.getElementById('sens-current');
+            let sSafety = document.getElementById('sens-safety');
+
+            if (isPowerOn) {
+                [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elMcu, elCompMotor, elInFan, elOutFan, elValvesEl].forEach(el => el.classList.add('active'));
+                [ewMain, ewBoardLine, ewComp, ewFan1, ewFan2, ewValve, ewNeutral].forEach(el => el.classList.add('powered'));
+
+                compState.textContent = "Работа (65 Гц)";
+
+                if (mode === 'cool') {
+                    pipe1.className = "pipe hot";
+                    pipe2.className = "pipe hot";
+                    pipe3.className = "pipe cold";
+                    pipe4.className = "pipe cold";
+
+                    sPressLow.textContent = "4.2";
+                    sPressHigh.textContent = "18.5";
+                    sEvap.textContent = "7.5";
+                    sCond.textContent = (outdoorTemp + 12).toFixed(1);
+                    sCurrent.textContent = "5.8";
+                } else if (mode === 'heat') {
+                    pipe1.className = "pipe hot";
+                    pipe2.className = "pipe cold";
+                    pipe3.className = "pipe hot";
+                    pipe4.className = "pipe hot";
+
+                    sPressLow.textContent = "3.1";
+                    sPressHigh.textContent = "22.0";
+                    sEvap.textContent = "-2.0";
+                    sCond.textContent = "45.0";
+                    sCurrent.textContent = "6.5";
+                } else { // dry
+                    pipe1.className = "pipe hot";
+                    pipe2.className = "pipe hot";
+                    pipe3.className = "pipe cold";
+                    pipe4.className = "pipe cold";
+
+                    sPressLow.textContent = "4.8";
+                    sPressHigh.textContent = "16.0";
+                    sEvap.textContent = "5.0";
+                    sCond.textContent = (outdoorTemp + 10).toFixed(1);
+                    sCurrent.textContent = "4.5";
+                }
+                sSafety.textContent = "Штатный режим";
+                sSafety.style.color = "var(--success)";
+
+            } else {
+                [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elMcu, elCompMotor, elInFan, elOutFan, elValvesEl].forEach(el => el.classList.remove('active'));
+                [ewMain, ewBoardLine, ewComp, ewFan1, ewFan2, ewValve, ewNeutral].forEach(el => el.classList.remove('powered'));
+                [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
+
+                compState.textContent = "Стоп";
+                sPressLow.textContent = "0.0";
+                sPressHigh.textContent = "0.0";
+                sEvap.textContent = outdoorTemp.toFixed(1);
+                sCond.textContent = outdoorTemp.toFixed(1);
+                sCurrent.textContent = "0.0";
+                sSafety.textContent = "Обесточено";
+                sSafety.style.color = "var(--warning)";
+            }
+        }
+    </script>
 </body>
 </html>
