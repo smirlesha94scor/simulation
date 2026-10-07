@@ -272,7 +272,6 @@
             });
         }
 
-        // Функция переключения отдельного чекбокса
         function toggleRoadFilter(checkbox) {
             const roadName = checkbox.value;
             if (checkbox.checked) {
@@ -283,7 +282,6 @@
             updateMapFilter();
         }
 
-        // Массовое включение/выключение всех чекбоксов
         function setAllCheckboxes(checked) {
             if (checked) {
                 selectedNames = new Set(allUniqueNames);
@@ -291,20 +289,22 @@
                 selectedNames.clear();
             }
 
-            // Обновляем визуальное состояние инпутов в DOM
             const checkboxes = document.querySelectorAll('#roads-list input[type="checkbox"]');
             checkboxes.forEach(cb => cb.checked = checked);
 
             updateMapFilter();
         }
 
-        // Применение фильтра к карте
+        // Исправленная функция формирования фильтра для карты
         function updateMapFilter() {
-            if (selectedNames.size > 0) {
-                const filter = ['in', ['get', 'name'], ...Array.from(selectedNames)];
-                map.setFilter('moscow-city-layer', filter);
+            if (selectedNames.size === 0) {
+                // Если ничего не выбрано — скрываем всё
+                map.setFilter('moscow-city-layer', ['==', ['get', 'name'], '___none___']);
             } else {
-                map.setFilter('moscow-city-layer', ['==', ['get', 'name'], '']);
+                // Используем правильный синтаксис выражения `in` с литеральным массивом
+                const namesArray = Array.from(selectedNames);
+                const filter = ['in', ['get', 'name'], ['literal', namesArray]];
+                map.setFilter('moscow-city-layer', filter);
             }
         }
 
