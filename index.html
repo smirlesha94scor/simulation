@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Инженерный симулятор кондиционера</title>
+    <title>Инженерный симулятор кондиционера (С физ. моделью)</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -28,7 +28,7 @@
             height: 100vh;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Убираем вертикальную прокрутку */
+            overflow: hidden;
         }
 
         body {
@@ -143,7 +143,7 @@
             max-width: 1400px;
             flex-grow: 1;
             align-content: center;
-            min-height: 0; /* Важно для Grid, чтобы дочерние элементы сжимались */
+            min-height: 0;
         }
 
         @media (max-width: 1100px) {
@@ -287,7 +287,7 @@
 
     <header>
         <h1>Интерактивный инженерный симулятор кондиционера</h1>
-        <p class="subtitle">Термодинамический контур хладагента, силовая электрика и цифровая телеметрия в реальном времени</p>
+        <p class="subtitle">Динамическая математическая модель теплообмена, силовой электрики и телеметрии</p>
     </header>
 
     <div class="controls">
@@ -338,7 +338,6 @@
                     <span class="status-dot"></span>Испаритель
                 </div>
 
-                <!-- Трубы -->
                 <div class="pipe" id="pipe-1" style="top: 50px; left: 132px; width: 128px; height: 3px;"></div>
                 <div class="pipe" id="pipe-2" style="top: 50px; left: 315px; width: 3px; height: 55px;"></div>
                 <div class="pipe" id="pipe-3" style="top: 200px; left: 132px; width: 128px; height: 3px;"></div>
@@ -411,7 +410,7 @@
         }
 
         function updateTemp(val) {
-            targetTemp = val;
+            targetTemp = parseInt(val);
             document.getElementById('tempVal').textContent = val;
             updateSystem();
         }
@@ -465,44 +464,63 @@
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elMcu, elCompMotor, elInFan, elOutFan, elValvesEl].forEach(el => el.classList.add('active'));
                 [ewMain, ewBoardLine, ewComp, ewFan1, ewFan2, ewValve, ewNeutral].forEach(el => el.classList.add('powered'));
 
-                compState.textContent = "Работа (65 Гц)";
+                compState.textContent = "Работа (Инвертор)";
 
+                let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0;
+
+                // ДИНАМИЧЕСКАЯ ФИЗИЧЕСКАЯ МОДЕЛЬ
                 if (mode === 'cool') {
                     pipe1.className = "pipe hot";
                     pipe2.className = "pipe hot";
                     pipe3.className = "pipe cold";
                     pipe4.className = "pipe cold";
 
-                    sPressLow.textContent = "4.2";
-                    sPressHigh.textContent = "18.5";
-                    sEvap.textContent = "7.5";
-                    sCond.textContent = (outdoorTemp + 12).toFixed(1);
-                    sCurrent.textContent = "5.8";
+                    condT = outdoorTemp + 12;
+                    evapT = 6.0 + (targetTemp - 22) * 0.3;
+                    highP = 10.0 + (outdoorTemp * 0.25);
+                    lowP = 3.5 + (evapT * 0.08);
+                    cur = 3.8 + (outdoorTemp * 0.05) + Math.max(0, (24 - targetTemp) * 0.08);
+
                 } else if (mode === 'heat') {
                     pipe1.className = "pipe hot";
                     pipe2.className = "pipe cold";
                     pipe3.className = "pipe hot";
                     pipe4.className = "pipe hot";
 
-                    sPressLow.textContent = "3.1";
-                    sPressHigh.textContent = "22.0";
-                    sEvap.textContent = "-2.0";
-                    sCond.textContent = "45.0";
-                    sCurrent.textContent = "6.5";
-                } else { // dry
+                    condT = 45.0 + Math.max(0, (20 - outdoorTemp) * 0.2);
+                    evapT = outdoorTemp - 8;
+                    highP = 18.0 + Math.max(0, (20 - outdoorTemp) * 0.2);
+                    lowP = 2.2 + (outdoorTemp * 0.03);
+                    cur = 4.5 + Math.max(0, (20 - outdoorTemp) * 0.09);
+
+                } else { // dry (осушение)
                     pipe1.className = "pipe hot";
                     pipe2.className = "pipe hot";
                     pipe3.className = "pipe cold";
                     pipe4.className = "pipe cold";
 
-                    sPressLow.textContent = "4.8";
-                    sPressHigh.textContent = "16.0";
-                    sEvap.textContent = "5.0";
-                    sCond.textContent = (outdoorTemp + 10).toFixed(1);
-                    sCurrent.textContent = "4.5";
+                    condT = outdoorTemp + 10;
+                    evapT = 4.0;
+                    highP = 11.0 + (outdoorTemp * 0.2);
+                    lowP = 3.2;
+                    cur = 3.5 + (outdoorTemp * 0.04);
                 }
-                sSafety.textContent = "Штатный режим";
-                sSafety.style.color = "var(--success)";
+
+                // Вывод рассчитанных значений в телеметрию
+                sPressLow.textContent = lowP.toFixed(1);
+                sPressHigh.textContent = highP.toFixed(1);
+                sEvap.textContent = evapT.toFixed(1);
+                sCond.textContent = condT.toFixed(1);
+                sCurrent.textContent = cur.toFixed(1);
+
+                // Индикатор аварий/защиты при экстремальных температурах
+                if (outdoorTemp > 40 && mode === 'cool') {
+                    sSafety.textContent = "Внимание: Высокое давление!";
+                    sSafety.style.color = "var(--warning)";
+                } else {
+                    sSafety.textContent = "Штатный режим";
+                    sSafety.style.color = "var(--success)";
+                }
 
             } else {
                 [refComp, refValves, refCond, refDryer, refEev, refEvap, elAc, elFuse, elMcu, elCompMotor, elInFan, elOutFan, elValvesEl].forEach(el => el.classList.remove('active'));
