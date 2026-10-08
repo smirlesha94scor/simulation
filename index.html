@@ -2,599 +2,234 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Инженерный симулятор кондиционера (Реальный пуск и раздельные блоки)</title>
+    <title>Простой SVG Редактор Схем</title>
     <style>
-        :root {
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --bg-dark: #0f172a;
-            --panel-bg: #1e293b;
-            --card-bg: #334155;
-            --text-light: #f8fafc;
-            --text-muted: #94a3b8;
-            --border-color: #475569;
-        }
-
-        * {
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-        }
-
-        html, body {
-            height: 100vh;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 20px;
-        }
-
-        header {
-            text-align: center;
-            flex-shrink: 0;
-        }
-
-        h1 {
-            margin: 0 0 2px 0;
-            font-size: 20px;
-            font-weight: 700;
-            background: linear-gradient(90deg, #60a5fa, #34d399);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        p.subtitle {
-            color: var(--text-muted);
-            margin: 0;
-            font-size: 11px;
-        }
-
-        .controls {
-            background: var(--panel-bg);
-            padding: 6px 15px;
-            border-radius: 8px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-color);
-            max-width: 1400px;
-            width: 100%;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        button {
-            padding: 6px 14px;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 12px;
-        }
-
-        button:hover { background-color: var(--primary-hover); }
-        button.active { background-color: var(--success); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
-
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .control-group span { color: var(--text-light); font-weight: 600; }
-
-        select, input[type="range"] {
-            background: var(--card-bg);
-            color: #fff;
-            border: 1px solid var(--border-color);
-            padding: 3px 6px;
-            border-radius: 6px;
-            font-size: 12px;
-            outline: none;
-        }
-
-        input[type="range"] { cursor: pointer; accent-color: var(--primary); height: 4px; }
-
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 1.4fr;
-            gap: 12px;
-            width: 100%;
-            max-width: 1400px;
-            flex-grow: 1;
-            align-content: center;
-            min-height: 0;
-        }
-
-        @media (max-width: 1100px) {
-            .dashboard { grid-template-columns: 1fr; }
-        }
-
-        .view-container {
-            background: var(--panel-bg);
-            border-radius: 8px;
-            padding: 10px 12px;
-            box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
-
-        h2 {
-            font-size: 13px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 4px;
-            margin: 0 0 8px 0;
-            color: #60a5fa;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .schema-canvas {
-            width: 100%;
-            height: 260px;
-            background: #090d16;
-            border-radius: 6px;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-        }
-
-        .schema-block {
-            position: absolute;
-            background: var(--card-bg);
-            border: 2px solid var(--border-color);
-            padding: 5px 6px;
-            border-radius: 5px;
-            font-size: 9px;
-            text-align: center;
-            width: 95px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            z-index: 2;
-        }
-
-        .schema-block.active {
-            border-color: var(--success);
-            background: #064e3b;
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
-        }
-
-        .pipe {
-            position: absolute;
-            background: var(--border-color);
-            border-radius: 2px;
-        }
-        .pipe.hot { background: linear-gradient(90deg, #ef4444, #f97316); box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
-        .pipe.cold { background: linear-gradient(90deg, #3b82f6, #06b6d4); box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
-
-        /* Зоны блоков на электрической схеме */
-        .zone-box {
-            position: absolute;
-            border: 1px dashed var(--border-color);
-            border-radius: 6px;
-            background: rgba(15, 23, 42, 0.4);
-            font-size: 9px;
-            color: var(--text-muted);
-            padding: 4px;
-            z-index: 1;
-        }
-
-        .el-node {
-            position: absolute;
-            background: var(--card-bg);
-            border: 2px solid var(--border-color);
-            padding: 4px 6px;
-            border-radius: 5px;
-            font-size: 8px;
-            text-align: center;
-            z-index: 2;
-            width: 85px;
-        }
-        .el-node.active {
-            border-color: var(--success);
-            background: #064e3b;
-            color: #fff;
-            box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);
-        }
-
-        /* SVG провода */
-        .svg-wire {
-            stroke: var(--border-color);
-            stroke-width: 2;
-            fill: none;
-        }
-        .svg-wire.powered {
-            stroke: var(--warning);
-            filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.7));
-        }
-        .svg-wire.dc {
-            stroke: #ec4899;
-            filter: drop-shadow(0 0 3px rgba(236, 72, 153, 0.7));
-        }
-
-        .full-width { grid-column: 1 / -1; }
-        .telemetry-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 8px;
-        }
-        .telemetry-card {
-            background: #090d16;
-            padding: 6px 10px;
-            border-radius: 5px;
-            border-left: 3px solid var(--primary);
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            border-top: 1px solid var(--border-color);
-            border-right: 1px solid var(--border-color);
-            border-bottom: 1px solid var(--border-color);
-        }
-        .telemetry-card span { font-weight: bold; color: var(--warning); font-size: 13px; }
-
-        .status-dot {
-            height: 6px; width: 6px; background-color: var(--text-muted); border-radius: 50%; display: inline-block; margin-right: 4px;
-        }
-        .active .status-dot { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
+        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; background: #f0f0f0; }
+        #sidebar { width: 320px; background: #fff; border-right: 1px solid #ccc; padding: 15px; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; overflow-y: auto; }
+        #canvas-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; background: #e5e5e5; }
+        svg { background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); cursor: crosshair; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 14px; font-weight: bold; color: #333; }
+        input, select, button { padding: 8px; font-size: 14px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        button.secondary { background: #6c757d; }
+        button.secondary:hover { background: #5a6268; }
+        textarea { width: 100%; height: 150px; font-family: monospace; font-size: 12px; resize: vertical; }
+        #bg-image { pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Инженерный симулятор кондиционера</h1>
-        <p class="subtitle">Раздельные блоки (Внутренний / Внешний) и поэтапный реальный запуск</p>
-    </header>
-
-    <div class="controls">
-        <button id="powerBtn" onclick="togglePower()">Питание: ВЫКЛ</button>
+    <div id="sidebar">
+        <h3>SVG Редактор схем</h3>
         
         <div class="control-group">
-            <label>Режим:</label>
-            <select id="modeSelect" onchange="updateSystem()">
-                <option value="cool">❄️ Охлаждение</option>
-                <option value="heat">🔥 Обогрев</option>
-                <option value="dry">💧 Осушение</option>
+            <label>1. Загрузить подложку (картинку):</label>
+            <input type="file" id="imageLoader" accept="image/*">
+            <label>Прозрачность подложки: <span id="opacityVal">0.5</span></label>
+            <input type="range" id="opacityRange" min="0" max="1" step="0.05" value="0.5">
+        </div>
+
+        <hr style="width:100%; border:0; border-top:1px solid #ddd;">
+
+        <div class="control-group">
+            <label>2. Инструмент рисования:</label>
+            <select id="toolSelect">
+                <option value="line">Линия</option>
+                <option value="rect">Прямоугольник (компонент)</option>
+                <option value="circle">Точка соединения (узел)</option>
+                <option value="text">Текст (надпись)</option>
             </select>
         </div>
 
-        <div class="control-group">
-            <label>Цель: <span id="tempVal">22</span>°C</label>
-            <input type="range" id="tempRange" min="16" max="30" value="22" oninput="updateTemp(this.value)">
+        <div class="control-group" id="textSettings" style="display:none;">
+            <label>Текст надписи:</label>
+            <input type="text" id="textContent" value="R1">
         </div>
 
         <div class="control-group">
-            <label>Улица: <span id="outdoorTempVal">32</span>°C</label>
-            <input type="range" id="outdoorTempRange" min="-10" max="45" value="32" oninput="updateOutdoorTemp(this.value)">
+            <label>Толщина линий:</label>
+            <input type="number" id="strokeWidth" value="3" min="1" max="10">
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button class="secondary" id="undoBtn" style="flex:1;">Отменить</button>
+            <button class="secondary" id="clearBtn" style="flex:1;">Очистить</button>
+        </div>
+
+        <hr style="width:100%; border:0; border-top:1px solid #ddd;">
+
+        <div class="control-group">
+            <label>Готовый SVG код:</label>
+            <textarea id="svgCodeOutput" readonly></textarea>
+            <button id="copyBtn">Скопировать код</button>
         </div>
     </div>
 
-    <div class="dashboard">
-        <!-- 1. Холодильный контур -->
-        <div class="view-container">
-            <h2>🌡️ Холодильный контур</h2>
-            <div class="schema-canvas">
-                <div class="schema-block" style="top: 15px; left: 15px;" id="ref-compressor">
-                    <span class="status-dot"></span>Компрессор<br><span id="comp-state" style="font-size:8px; color:var(--text-muted);">Стоп</span>
-                </div>
-                <div class="schema-block" style="top: 95px; left: 15px;" id="ref-valves">
-                    <span class="status-dot"></span>4-х ходовой кл.
-                </div>
-                <div class="schema-block" style="top: 175px; left: 15px;" id="ref-condenser">
-                    <span class="status-dot"></span>Конденсатор
-                </div>
-                
-                <div class="schema-block" style="top: 175px; left: 220px;" id="ref-dryer">
-                    <span class="status-dot"></span>Фильтр-осуш.
-                </div>
-                <div class="schema-block" style="top: 95px; left: 220px;" id="ref-eev">
-                    <span class="status-dot"></span>ТРВ / Дроссель
-                </div>
-                <div class="schema-block" style="top: 15px; left: 220px;" id="ref-evaporator">
-                    <span class="status-dot"></span>Испаритель
-                </div>
-
-                <div class="pipe" id="pipe-1" style="top: 38px; left: 112px; width: 108px; height: 2px;"></div>
-                <div class="pipe" id="pipe-2" style="top: 38px; left: 218px; width: 2px; height: 57px;"></div>
-                <div class="pipe" id="pipe-3" style="top: 185px; left: 112px; width: 108px; height: 2px;"></div>
-                <div class="pipe" id="pipe-4" style="top: 120px; left: 58px; width: 2px; height: 55px;"></div>
-            </div>
-        </div>
-
-        <!-- 2. Электрическая схема с разделением на блоки -->
-        <div class="view-container">
-            <h2>⚡ Электросхема (Внутренний и Внешний блоки)</h2>
-            <div class="schema-canvas">
-                <!-- Контуры рамок блоков -->
-                <div class="zone-box" style="top: 8px; left: 8px; width: 235px; height: 240px;">Внутренний блок (Indoor Unit)</div>
-                <div class="zone-box" style="top: 8px; left: 255px; width: 320px; height: 240px;">Внешний блок (Outdoor Unit)</div>
-
-                <!-- SVG межблочные и внутренние соединения -->
-                <svg style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 1;">
-                    <!-- Внутренний блок -->
-                    <line id="ew-in-ac" class="svg-wire" x1="100" y1="35" x2="135" y2="35" />
-                    <line id="ew-in-fan" class="svg-wire" x1="80" y1="65" x2="80" y2="120" />
-
-                    <!-- Межблочный кабель -->
-                    <line id="ew-inter-1" class="svg-wire dc" x1="220" y1="35" x2="275" y2="35" />
-
-                    <!-- Внешний блок -->
-                    <line id="ew-out-bridge" class="svg-wire" x1="360" y1="35" x2="415" y2="35" />
-                    <line id="ew-out-dc" class="svg-wire dc" x1="500" y1="35" x2="530" y2="35" />
-                    
-                    <!-- Шины от инвертора к исполнительным элементам -->
-                    <line id="ew-to-comp" class="svg-wire dc" x1="530" y1="50" x2="530" y2="85" />
-                    <line id="ew-to-fan" class="svg-wire" x1="475" y1="50" x2="475" y2="140" />
-                    <line id="ew-to-sol" class="svg-wire" x1="475" y1="50" x2="475" y2="195" />
-
-                    <line id="ew-real-fan" class="svg-wire" x1="475" y1="140" x2="530" y2="140" />
-                    <line id="ew-real-sol" class="svg-wire" x1="475" y1="195" x2="530" y2="195" />
-                </svg>
-
-                <!-- Элементы внутреннего блока -->
-                <div class="el-node" style="top: 22px; left: 15px;" id="el-in-power">Сеть ~220В</div>
-                <div class="el-node" style="top: 22px; left: 135px;" id="el-mcu">MCU (Плата вн.)</div>
-                <div class="el-node" style="top: 120px; left: 38px;" id="el-in-fan">Вент. внутр.</div>
-
-                <!-- Элементы внешнего блока -->
-                <div class="el-node" style="top: 22px; left: 275px;" id="el-bridge">Диодный мост</div>
-                <div class="el-node" style="top: 22px; left: 415px;" id="el-caps">DC-Bus (Конденс.)</div>
-                <div class="el-node" style="top: 22px; left: 530px;" id="el-inverter">IPM Инвертор</div>
-                
-                <div class="el-node" style="top: 85px; left: 530px;" id="el-compmotor">Компрессор</div>
-                <div class="el-node" style="top: 140px; left: 530px;" id="el-v-out">Вент. внеш.</div>
-                <div class="el-node" style="top: 195px; left: 530px;" id="el-sol">Соленоид 4Х</div>
-            </div>
-        </div>
-
-        <!-- 3. Телеметрия -->
-        <div class="view-container full-width">
-            <h2>📊 Система мониторинга и телеметрия</h2>
-            <div class="telemetry-grid">
-                <div class="telemetry-card">
-                    Давление всас/нагн:<br><span id="sens-press-low">0.0</span> / <span id="sens-press-high">0.0</span> бар
-                </div>
-                <div class="telemetry-card">
-                    Темп. испарителя:<br><span id="sens-evap">22.0</span> °C
-                </div>
-                <div class="telemetry-card">
-                    Темп. конденсатора:<br><span id="sens-cond">22.0</span> °C
-                </div>
-                <div class="telemetry-card">
-                    Напряжение DC-Bus:<br><span id="sens-dc">0</span> В
-                </div>
-                <div class="telemetry-card">
-                    Потребляемый ток:<br><span id="sens-current">0.0</span> А
-                </div>
-                <div class="telemetry-card">
-                    Статус защиты:<br><span id="sens-safety" style="color: var(--success);">Обесточено</span>
-                </div>
-            </div>
-        </div>
+    <div id="canvas-container">
+        <svg id="drawingCanvas" width="850" height="650" viewBox="0 0 850 650">
+            <image id="bg-image" href="" width="850" height="650" opacity="0.5" preserveAspectRatio="none" />
+            <g id="elementsGroup"></g>
+        </svg>
     </div>
 
     <script>
-        let isPowerOn = false;
-        let mode = 'cool';
-        let targetTemp = 22;
-        let outdoorTemp = 32;
-        let startupTimeouts = [];
+        const imageLoader = document.getElementById('imageLoader');
+        const bgImage = document.getElementById('bg-image');
+        const opacityRange = document.getElementById('opacityRange');
+        const opacityVal = document.getElementById('opacityVal');
+        const canvas = document.getElementById('drawingCanvas');
+        const elementsGroup = document.getElementById('elementsGroup');
+        const toolSelect = document.getElementById('toolSelect');
+        const textSettings = document.getElementById('textSettings');
+        const textContentInput = document.getElementById('textContent');
+        const strokeWidthInput = document.getElementById('strokeWidth');
+        const undoBtn = document.getElementById('undoBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const svgCodeOutput = document.getElementById('svgCodeOutput');
+        const copyBtn = document.getElementById('copyBtn');
 
-        function togglePower() {
-            isPowerOn = !isPowerOn;
-            const btn = document.getElementById('powerBtn');
-            
-            startupTimeouts.forEach(t => clearTimeout(t));
-            startupTimeouts = [];
+        let isDrawing = false;
+        let startX, startY;
+        let actionHistory = [];
 
-            if (isPowerOn) {
-                btn.textContent = "Питание: ВКЛ";
-                btn.classList.add('active');
-                runRealStartupSequence();
-            } else {
-                btn.textContent = "Питание: ВЫКЛ";
-                btn.classList.remove('active');
-                updateSystemState(false, 0);
-            }
-        }
+        // Управление видимостью настроек текста
+        toolSelect.addEventListener('change', (e) => {
+            textSettings.style.display = e.target.value === 'text' ? 'flex' : 'none';
+        });
 
-        function updateTemp(val) {
-            targetTemp = parseInt(val);
-            document.getElementById('tempVal').textContent = val;
-            if (isPowerOn) updateSystemState(true, 4);
-        }
-
-        function updateOutdoorTemp(val) {
-            outdoorTemp = parseInt(val);
-            document.getElementById('outdoorTempVal').textContent = val;
-            if (isPowerOn) updateSystemState(true, 4);
-        }
-
-        function runRealStartupSequence() {
-            let sSafety = document.getElementById('sens-safety');
-
-            sSafety.textContent = "Шаг 1: Загрузка платы MCU...";
-            sSafety.style.color = "var(--warning)";
-            updateSystemState(true, 1);
-
-            startupTimeouts.push(setTimeout(() => {
-                if (!isPowerOn) return;
-                sSafety.textContent = "Шаг 2: Плавный заряд DC-Bus...";
-                updateSystemState(true, 2);
-            }, 600));
-
-            startupTimeouts.push(setTimeout(() => {
-                if (!isPowerOn) return;
-                sSafety.textContent = "Шаг 3: Старт вн. блока и датчиков...";
-                updateSystemState(true, 3);
-            }, 1400));
-
-            startupTimeouts.push(setTimeout(() => {
-                if (!isPowerOn) return;
-                sSafety.textContent = "Штатный режим (Работа)";
-                sSafety.style.color = "var(--success)";
-                updateSystemState(true, 4);
-            }, 3000));
-        }
-
-        function updateSystem() {
-            if (isPowerOn) updateSystemState(true, 4);
-        }
-
-        function updateSystemState(powered, stage) {
-            mode = document.getElementById('modeSelect').value;
-
-            const refComp = document.getElementById('ref-compressor');
-            const refValves = document.getElementById('ref-valves');
-            const refCond = document.getElementById('ref-condenser');
-            const refDryer = document.getElementById('ref-dryer');
-            const refEev = document.getElementById('ref-eev');
-            const refEvap = document.getElementById('ref-evaporator');
-            const compState = document.getElementById('comp-state');
-
-            const pipe1 = document.getElementById('pipe-1');
-            const pipe2 = document.getElementById('pipe-2');
-            const pipe3 = document.getElementById('pipe-3');
-            const pipe4 = document.getElementById('pipe-4');
-
-            const elInPower = document.getElementById('el-in-power');
-            const elMcu = document.getElementById('el-mcu');
-            const elInFan = document.getElementById('el-in-fan');
-            const elBridge = document.getElementById('el-bridge');
-            const elCaps = document.getElementById('el-caps');
-            const elInverter = document.getElementById('el-inverter');
-            const elCompMotor = document.getElementById('el-compmotor');
-            const elVout = document.getElementById('el-v-out');
-            const elSol = document.getElementById('el-sol');
-
-            const ewInAc = document.getElementById('ew-in-ac');
-            const ewInFan = document.getElementById('ew-in-fan');
-            const ewInter1 = document.getElementById('ew-inter-1');
-            const ewOutBridge = document.getElementById('ew-out-bridge');
-            const ewOutDc = document.getElementById('ew-out-dc');
-            const ewToComp = document.getElementById('ew-to-comp');
-            const ewToFan = document.getElementById('ew-to-fan');
-            const ewToSol = document.getElementById('ew-to-sol');
-            const ewRealFan = document.getElementById('ew-real-fan');
-            const ewRealSol = document.getElementById('ew-real-sol');
-
-            let sPressLow = document.getElementById('sens-press-low');
-            let sPressHigh = document.getElementById('sens-press-high');
-            let sEvap = document.getElementById('sens-evap');
-            let sCond = document.getElementById('sens-cond');
-            let sDc = document.getElementById('sens-dc');
-            let sCurrent = document.getElementById('sens-current');
-            let sSafety = document.getElementById('sens-safety');
-
-            if (!powered) {
-                [refComp, refValves, refCond, refDryer, refEev, refEvap, elInPower, elMcu, elInFan, elBridge, elCaps, elInverter, elCompMotor, elVout, elSol].forEach(el => el.classList.remove('active'));
-                [ewInAc, ewInFan, ewInter1, ewOutBridge, ewOutDc, ewToComp, ewToFan, ewToSol, ewRealFan, ewRealSol].forEach(el => { el.classList.remove('powered'); el.classList.remove('dc'); });
-                [pipe1, pipe2, pipe3, pipe4].forEach(el => el.className = "pipe");
-
-                compState.textContent = "Стоп";
-                sPressLow.textContent = "0.0";
-                sPressHigh.textContent = "0.0";
-                sEvap.textContent = outdoorTemp.toFixed(1);
-                sCond.textContent = outdoorTemp.toFixed(1);
-                sDc.textContent = "0";
-                sCurrent.textContent = "0.0";
-                sSafety.textContent = "Обесточено";
-                sSafety.style.color = "var(--warning)";
-                return;
-            }
-
-            if (stage >= 1) {
-                elInPower.classList.add('active');
-                elMcu.classList.add('active');
-                ewInAc.classList.add('powered');
-            }
-
-            if (stage >= 2) {
-                ewInter1.classList.add('dc');
-                elBridge.classList.add('active');
-                elCaps.classList.add('active');
-                ewOutBridge.classList.add('powered');
-                ewOutDc.classList.add('dc');
-                sDc.textContent = "310";
-            }
-
-            if (stage >= 3) {
-                elInFan.classList.add('active');
-                ewInFan.classList.add('powered');
-            }
-
-            if (stage >= 4) {
-                [refComp, refValves, refCond, refDryer, refEev, refEvap, elInverter, elCompMotor, elVout].forEach(el => el.classList.add('active'));
-                if (mode === 'heat') elSol.classList.add('active');
-
-                [ewToComp, ewToFan, ewToSol, ewRealFan, ewRealSol].forEach(el => el.classList.add('powered'));
-                compState.textContent = "Инвертор (65 Гц)";
-
-                let lowP = 0, highP = 0, evapT = 0, condT = 0, cur = 0;
-
-                if (mode === 'cool') {
-                    pipe1.className = "pipe hot";
-                    pipe2.className = "pipe hot";
-                    pipe3.className = "pipe cold";
-                    pipe4.className = "pipe cold";
-
-                    condT = outdoorTemp + 12;
-                    evapT = 6.0 + (targetTemp - 22) * 0.3;
-                    highP = 10.0 + (outdoorTemp * 0.25);
-                    lowP = 3.5 + (evapT * 0.08);
-                    cur = 3.8 + (outdoorTemp * 0.05) + Math.max(0, (24 - targetTemp) * 0.08);
-
-                } else if (mode === 'heat') {
-                    pipe1.className = "pipe hot";
-                    pipe2.className = "pipe cold";
-                    pipe3.className = "pipe hot";
-                    pipe4.className = "pipe hot";
-
-                    condT = 45.0 + Math.max(0, (20 - outdoorTemp) * 0.2);
-                    evapT = outdoorTemp - 8;
-                    highP = 18.0 + Math.max(0, (20 - outdoorTemp) * 0.2);
-                    lowP = 2.2 + (outdoorTemp * 0.03);
-                    cur = 4.5 + Math.max(0, (20 - outdoorTemp) * 0.09);
-
-                } else { 
-                    pipe1.className = "pipe hot";
-                    pipe2.className = "pipe hot";
-                    pipe3.className = "pipe cold";
-                    pipe4.className = "pipe cold";
-
-                    condT = outdoorTemp + 10;
-                    evapT = 4.0;
-                    highP = 11.0 + (outdoorTemp * 0.2);
-                    lowP = 3.2;
-                    cur = 3.5 + (outdoorTemp * 0.04);
+        // Загрузка подложки
+        imageLoader.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    bgImage.setAttribute('href', event.target.result);
                 }
-
-                sPressLow.textContent = lowP.toFixed(1);
-                sPressHigh.textContent = highP.toFixed(1);
-                sEvap.textContent = evapT.toFixed(1);
-                sCond.textContent = condT.toFixed(1);
-                sCurrent.textContent = cur.toFixed(1);
+                reader.readAsDataURL(file);
             }
+        });
+
+        // Изменение прозрачности подложки
+        opacityRange.addEventListener('input', (e) => {
+            const val = e.target.value;
+            bgImage.setAttribute('opacity', val);
+            opacityVal.textContent = val;
+        });
+
+        // Получение координат клика внутри SVG с учетом масштаба
+        function getSVGPoint(evt) {
+            const pt = canvas.createSVGPoint();
+            pt.x = evt.clientX;
+            pt.y = evt.clientY;
+            return pt.matrixTransform(canvas.getScreenCTM().inverse());
         }
+
+        // Начало рисования
+        canvas.addEventListener('mousedown', (e) => {
+            const pt = getSVGPoint(e);
+            isDrawing = true;
+            startX = Math.round(pt.x);
+            startY = Math.round(pt.y);
+        });
+
+        // Конец рисования / создание элементов
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            const pt = getSVGPoint(e);
+            const endX = Math.round(pt.x);
+            const endY = Math.round(pt.y);
+
+            const tool = toolSelect.value;
+            const sw = strokeWidthInput.value;
+            let newElement = null;
+
+            if (tool === 'line') {
+                if (Math.abs(endX - startX) < 2 && Math.abs(endY - startY) < 2) return; // случайный клик
+                newElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                newElement.setAttribute('x1', startX);
+                newElement.setAttribute('y1', startY);
+                newElement.setAttribute('x2', endX);
+                newElement.setAttribute('y2', endY);
+                newElement.setAttribute('stroke', '#000');
+                newElement.setAttribute('stroke-width', sw);
+                newElement.setAttribute('stroke-linecap', 'square');
+            } else if (tool === 'rect') {
+                const x = Math.min(startX, endX);
+                const y = Math.min(startY, endY);
+                const w = Math.abs(endX - startX) || 40;
+                const h = Math.abs(endY - startY) || 20;
+                newElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                newElement.setAttribute('x', x);
+                newElement.setAttribute('y', y);
+                newElement.setAttribute('width', w);
+                newElement.setAttribute('height', h);
+                newElement.setAttribute('stroke', '#000');
+                newElement.setAttribute('stroke-width', sw);
+                newElement.setAttribute('fill', 'none');
+            } else if (tool === 'circle') {
+                newElement = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                newElement.setAttribute('cx', startX);
+                newElement.setAttribute('cy', startY);
+                newElement.setAttribute('r', 4);
+                newElement.setAttribute('fill', '#000');
+            } else if (tool === 'text') {
+                newElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                newElement.setAttribute('x', startX);
+                newElement.setAttribute('y', startY);
+                newElement.setAttribute('fill', '#000');
+                newElement.setAttribute('font-family', 'monospace');
+                newElement.setAttribute('font-size', '16');
+                newElement.setAttribute('font-weight', 'bold');
+                newElement.textContent = textContentInput.value;
+            }
+
+            if (newElement) {
+                elementsGroup.appendChild(newElement);
+                actionHistory.push(newElement);
+                updateOutputCode();
+            }
+        });
+
+        // Кнопка Отменить
+        undoBtn.addEventListener('click', () => {
+            if (actionHistory.length > 0) {
+                const el = actionHistory.pop();
+                el.remove();
+                updateOutputCode();
+            }
+        });
+
+        // Кнопка Очистить
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Очистить все нарисованные элементы?')) {
+                elementsGroup.innerHTML = '';
+                actionHistory = [];
+                updateOutputCode();
+            }
+        });
+
+        // Генерация и обновление текста SVG кода
+        function updateOutputCode() {
+            // Создаем чистый клон svg без подложки для кода
+            const svgClone = canvas.cloneNode(true);
+            const bgInClone = svgClone.querySelector('#bg-image');
+            if (bgInClone) bgInClone.remove(); // удаляем картинку-подложку из итогового кода
+            
+            svgCodeOutput.value = svgClone.outerHTML;
+        }
+
+        // Копирование в буфер
+        copyBtn.addEventListener('click', () => {
+            svgCodeOutput.select();
+            document.execCommand('copy');
+            alert('SVG код скопирован в буфер обмена!');
+        });
+
+        // Первичная инициализация кода
+        updateOutputCode();
     </script>
 </body>
 </html>
