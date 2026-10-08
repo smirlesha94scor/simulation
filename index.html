@@ -28,7 +28,6 @@
         button.danger { background: #a12c2c; }
         button.danger:hover { background: #c53838; }
 
-        /* Палитра элементов */
         .components-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
         .comp-btn {
             background: #333333; border: 1px solid #4f4f4f; color: #fff; padding: 8px; border-radius: 4px; cursor: pointer; text-align: left; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
@@ -49,9 +48,8 @@
 
     <div id="sidebar">
         <h3>SVG Редактор Схем</h3>
-        <div class="hint">Поддержка подложки, предпросмотра при вставке и стандартных радиодеталей.</div>
+        <div class="hint">Макс. толщина линии 20, резистор любой ширины по вашему протягиванию мыши.</div>
 
-        <!-- Подложка -->
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
             <input type="file" id="imageLoader" accept="image/*">
@@ -62,7 +60,6 @@
             <input type="range" id="opacityRange" min="0" max="1" step="0.05" value="0.5">
         </div>
 
-        <!-- Инструменты и Компоненты -->
         <div class="section">
             <label>2. Выберите элемент или инструмент:</label>
             <div class="components-grid">
@@ -78,7 +75,6 @@
             </div>
         </div>
 
-        <!-- Параметры выбранного элемента -->
         <div class="section" id="paramsSection">
             <label>Параметры элемента:</label>
             <div id="textParamContainer" style="display:none; flex-direction:column; gap:4px;">
@@ -86,18 +82,16 @@
                 <input type="text" id="textContent" value="R1 750k">
             </div>
             <div class="flex-row">
-                <label style="font-weight:normal;">Толщина линий:</label>
+                <label style="font-weight:normal;">Толщина линий (до 20):</label>
                 <input type="number" id="strokeWidth" value="3" min="1" max="20" style="width: 80px;">
             </div>
         </div>
 
-        <!-- Управление историей -->
         <div class="btn-group">
             <button class="secondary" id="undoBtn">↩ Отменить</button>
             <button class="danger" id="clearBtn">🗑 Очистить всё</button>
         </div>
 
-        <!-- Вывод кода -->
         <div class="section" style="flex-grow:1; display:flex; flex-direction:column;">
             <label>Итоговый SVG Код:</label>
             <textarea id="svgCodeOutput" readonly></textarea>
@@ -109,7 +103,6 @@
         <svg id="drawingCanvas" width="850" height="650" viewBox="0 0 850 650">
             <image id="bg-image" href="" width="850" height="650" opacity="0.5" preserveAspectRatio="none" />
             <g id="elementsGroup"></g>
-            <!-- Группа для интерактивного превью при движении мыши -->
             <g id="previewGroup" style="pointer-events: none; opacity: 0.6;"></g>
         </svg>
     </div>
@@ -138,7 +131,6 @@
         let startX, startY;
         let actionHistory = [];
 
-        // Переключение инструментов по кнопкам
         document.querySelectorAll('.comp-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.comp-btn').forEach(b => b.classList.remove('active'));
@@ -149,7 +141,6 @@
             });
         });
 
-        // Загрузка фонового изображения
         imageLoader.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -167,6 +158,13 @@
             opacityVal.textContent = val;
         });
 
+        // Ограничение ввода толщины до 20
+        strokeWidthInput.addEventListener('input', () => {
+            let val = parseInt(strokeWidthInput.value);
+            if (val > 20) strokeWidthInput.value = 20;
+            if (val < 1) strokeWidthInput.value = 1;
+        });
+
         function getSVGPoint(evt) {
             const pt = canvas.createSVGPoint();
             pt.x = evt.clientX;
@@ -174,16 +172,14 @@
             return pt.matrixTransform(canvas.getScreenCTM().inverse());
         }
 
-        // Очистка превью
         function clearPreview() {
             previewGroup.innerHTML = '';
         }
 
-        // Генерация SVG-разметки для превью или добавления элемента
         function createComponentXML(tool, x1, y1, x2, y2, sw, textVal) {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             const stroke = '#000000';
-            const width = sw || 3;
+            const width = Math.min(Math.max(parseInt(sw) || 3, 1), 20);
 
             if (tool === 'line') {
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -202,10 +198,11 @@
                 group.appendChild(circ);
             }
             else if (tool === 'resistor') {
-                // Прямоугольник резистора по координатам начала/конца
+                // Резистор тянется мышкой на любую ширину между start и end
                 const rx = Math.min(x1, x2);
                 const ry = Math.min(y1, y2);
-                const rw = Math.max(Math.abs(x2 - x1), 50);
+                const totalDist = Math.abs(x2 - x1);
+                const rw = Math.max(totalDist, 20); // минимум 20 пикселей ширина прямоугольника
                 const rh = 25;
                 
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -214,14 +211,20 @@
                 rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width', width);
                 rect.setAttribute('fill', 'none');
                 
-                // Входные/выходные хвостики
+                // Левый и правый выводы
                 const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                l1.setAttribute('x1', x1 < x2 ? rx : rx + rw); l1.setAttribute('y1', ry);
-                l1.setAttribute('x2', x1); l1.setAttribute('y2', y1);
+                l1.setAttribute('x1', x1); l1.setAttribute('y1', y1);
+                l1.setAttribute('x2', rx); l1.setAttribute('y2', ry);
                 l1.setAttribute('stroke', stroke); l1.setAttribute('stroke-width', width);
+
+                const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l2.setAttribute('x1', rx + rw); l2.setAttribute('y1', ry);
+                l2.setAttribute('x2', Math.max(x1, x2)); l2.setAttribute('y2', y2);
+                l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
 
                 group.appendChild(rect);
                 group.appendChild(l1);
+                group.appendChild(l2);
             }
             else if (tool === 'capacitor') {
                 const cx = (x1 + x2) / 2;
@@ -281,7 +284,6 @@
                 circ.setAttribute('stroke', stroke); circ.setAttribute('stroke-width', width);
                 circ.setAttribute('fill', 'none');
 
-                // База
                 const baseLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 baseLine.setAttribute('x1', 0); baseLine.setAttribute('y1', 30);
                 baseLine.setAttribute('x2', 18); baseLine.setAttribute('y2', 30);
@@ -290,15 +292,13 @@
                 const baseBar = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 baseBar.setAttribute('x1', 18); baseBar.setAttribute('y1', 12);
                 baseBar.setAttribute('x2', 18); baseBar.setAttribute('y2', 48);
-                baseBar.setAttribute('stroke', stroke); baseBar.setAttribute('stroke-width', 4);
+                baseBar.setAttribute('stroke', stroke); baseBar.setAttribute('stroke-width', Math.max(width, 3));
 
-                // Коллектор
                 const colLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 colLine.setAttribute('x1', 18); colLine.setAttribute('y1', 18);
                 colLine.setAttribute('x2', 45); colLine.setAttribute('y2', 0);
                 colLine.setAttribute('stroke', stroke); colLine.setAttribute('stroke-width', width);
 
-                // Эмиттер со стрелкой
                 const emLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 emLine.setAttribute('x1', 18); emLine.setAttribute('y1', 42);
                 emLine.setAttribute('x2', 45); emLine.setAttribute('y2', 60);
@@ -306,9 +306,9 @@
 
                 const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 if (tool === 'npn') {
-                    arrow.setAttribute('points', '45,60 33,52 38,44'); // наружу
+                    arrow.setAttribute('points', '45,60 33,52 38,44');
                 } else {
-                    arrow.setAttribute('points', '28,35 38,44 33,52'); // внутрь для pnp
+                    arrow.setAttribute('points', '28,35 38,44 33,52');
                 }
                 arrow.setAttribute('fill', stroke);
 
@@ -332,7 +332,7 @@
                 const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 p2.setAttribute('x1', 12); p2.setAttribute('y1', 35);
                 p2.setAttribute('x2', 28); p2.setAttribute('y2', 35);
-                p2.setAttribute('stroke', stroke); p2.setAttribute('stroke-width', 4);
+                p2.setAttribute('stroke', stroke); p2.setAttribute('stroke-width', Math.max(width, 3));
 
                 const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 l2.setAttribute('x1', 20); l2.setAttribute('y1', 35);
@@ -355,7 +355,6 @@
             return group;
         }
 
-        // События мыши для интерактивного рисования с предпросмотром
         canvas.addEventListener('mousedown', (e) => {
             const pt = getSVGPoint(e);
             isDrawing = true;
@@ -387,7 +386,6 @@
 
             clearPreview();
 
-            // Для кликабельных объектов без протяжки (узел, транзистор, батарея) фиксируем точку
             let finalX2 = endX;
             let finalY2 = endY;
             if (['node', 'npn', 'pnp', 'battery', 'diode', 'text'].includes(currentTool)) {
@@ -403,7 +401,6 @@
             }
         });
 
-        // Отмена действия
         undoBtn.addEventListener('click', () => {
             if (actionHistory.length > 0) {
                 const el = actionHistory.pop();
@@ -412,7 +409,6 @@
             }
         });
 
-        // Очистка холста
         clearBtn.addEventListener('click', () => {
             if (confirm('Очистить все элементы схемы?')) {
                 elementsGroup.innerHTML = '';
@@ -421,18 +417,16 @@
             }
         });
 
-        // Генерация кода SVG
         function updateOutputCode() {
             const clone = canvas.cloneNode(true);
             const bg = clone.querySelector('#bg-image');
-            if (bg) bg.remove(); // Убираем подложку из итогового кода
+            if (bg) bg.remove();
             const preview = clone.querySelector('#previewGroup');
-            if (preview) preview.remove(); // Убираем превью
+            if (preview) preview.remove();
             
             svgCodeOutput.value = clone.outerHTML;
         }
 
-        // Копирование в буфер
         copyBtn.addEventListener('click', () => {
             svgCodeOutput.select();
             document.execCommand('copy');
