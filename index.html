@@ -48,7 +48,7 @@
 
     <div id="sidebar">
         <h3>SVG Редактор Схем</h3>
-        <div class="hint">Добавлена настройка радиуса узла, высота и расстояние между пластинами конденсатора увеличены на 3 пикселя.</div>
+        <div class="hint">При добавлении элементов автоматически проставляются служебные точки соединения по их краям. В итоговый код они не попадают.</div>
 
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
@@ -64,7 +64,7 @@
             <label>2. Выберите элемент или инструмент:</label>
             <div class="components-grid">
                 <button class="comp-btn active" data-tool="line">✏️ Линия (провод)</button>
-                <button class="comp-btn" data-tool="node">⏺ Узел (точка)</button>
+                <button class="comp-btn" data-tool="node">⏺ Точка соединения</button>
                 <button class="comp-btn" data-tool="resistor">⚡ Резистор</button>
                 <button class="comp-btn" data-tool="capacitor">🔋 Конденсатор</button>
                 <button class="comp-btn" data-tool="diode">▶ Диод</button>
@@ -86,7 +86,7 @@
                 <input type="number" id="strokeWidth" value="3" min="1" max="20" style="width: 80px;">
             </div>
             <div class="flex-row" style="margin-top: 4px;">
-                <label style="font-weight:normal;">Радиус узла (точка):</label>
+                <label style="font-weight:normal;">Радиус точки (на холсте):</label>
                 <input type="number" id="nodeRadius" value="4" min="1" max="15" style="width: 80px;">
             </div>
         </div>
@@ -186,7 +186,7 @@
             previewGroup.innerHTML = '';
         }
 
-        function createComponentXML(tool, x1, y1, x2, y2, sw, textVal, nodeR) {
+        function createComponentXML(tool, x1, y1, x2, y2, sw, textVal, nodeR, isForPreview = false) {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             const stroke = '#000000';
             const width = Math.min(Math.max(parseInt(sw) || 3, 1), 20);
@@ -206,6 +206,9 @@
                 circ.setAttribute('cx', x1); circ.setAttribute('cy', y1);
                 circ.setAttribute('r', rVal);
                 circ.setAttribute('fill', stroke);
+                if (!isForPreview) {
+                    group.setAttribute('data-helper', 'true');
+                }
                 group.appendChild(circ);
             }
             else if (tool === 'resistor') {
@@ -239,8 +242,6 @@
                 const cx = (x1 + x2) / 2;
                 const cy = (y1 + y2) / 2;
                 
-                // Высота увеличена на 3px (было 15, стало 18)
-                // Расстояние между линиями увеличено на 3px (было +/-3, стало +/-4.5 или отступы от центра)
                 const halfHeight = 18; 
                 const gapOffset = 4.5; 
 
@@ -386,7 +387,7 @@
             const nodeR = nodeRadiusInput.value;
 
             clearPreview();
-            const previewEl = createComponentXML(currentTool, startX, startY, currentX, currentY, sw, textVal, nodeR);
+            const previewEl = createComponentXML(currentTool, startX, startY, currentX, currentY, sw, textVal, nodeR, true);
             previewGroup.appendChild(previewEl);
         });
 
@@ -409,18 +410,37 @@
                 finalY2 = startY;
             }
 
-            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, textVal, nodeR);
+            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, textVal, nodeR, false);
             if (newElement) {
                 elementsGroup.appendChild(newElement);
-                actionHistory.push(newElement);
+
+                // Автоматически добавляем служебные точки соединения по краям элемента
+                const helperNodes = [];
+                if (currentTool !== 'node') {
+                    // Точка в начале (startX, startY)
+                    const startNode = createComponentXML('node', startX, startY, startX, startY, sw, textVal, nodeR, false);
+                    elementsGroup.appendChild(startNode);
+                    helperNodes.push(startNode);
+
+                    // Если инструмент растягиваемый (линия, резистор, конденсатор), добавляем точку и в конце (finalX2, finalY2)
+                    if (['line', 'resistor', 'capacitor'].includes(currentTool)) {
+                        const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, textVal, nodeR, false);
+                        elementsGroup.appendChild(endNode);
+                        helperNodes.push(endNode);
+                    }
+                }
+
+                // Сохраняем в историю элемент и связанные с ним служебные точки для корректного отката
+                actionHistory.push({ element: newElement, helpers: helperNodes });
                 updateOutputCode();
             }
         });
 
         undoBtn.addEventListener('click', () => {
             if (actionHistory.length > 0) {
-                const el = actionHistory.pop();
-                el.remove();
+                const action = actionHistory.pop();
+                action.element.remove();
+                action.helpers.forEach(h => h.remove());
                 updateOutputCode();
             }
         });
@@ -440,6 +460,10 @@
             const preview = clone.querySelector('#previewGroup');
             if (preview) preview.remove();
             
+            // Удаляем все служебные точки соединения из итогового кода
+            const helpers = clone.querySelectorAll('[data-helper="true"]');
+            helpers.forEach(h => h.remove());
+
             svgCodeOutput.value = clone.outerHTML;
         }
 
