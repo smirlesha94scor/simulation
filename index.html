@@ -48,7 +48,7 @@
 
     <div id="sidebar">
         <h3>SVG Редактор Схем</h3>
-        <div class="hint">Макс. толщина линии 20, резистор любой ширины по вашему протягиванию мыши.</div>
+        <div class="hint">Добавлена настройка радиуса узла, высота и расстояние между пластинами конденсатора увеличены на 3 пикселя.</div>
 
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
@@ -76,7 +76,7 @@
         </div>
 
         <div class="section" id="paramsSection">
-            <label>Параметры элемента:</label>
+            <label>Параметры элементов:</label>
             <div id="textParamContainer" style="display:none; flex-direction:column; gap:4px;">
                 <label style="font-weight:normal;">Текст надписи:</label>
                 <input type="text" id="textContent" value="R1 750k">
@@ -84,6 +84,10 @@
             <div class="flex-row">
                 <label style="font-weight:normal;">Толщина линий (до 20):</label>
                 <input type="number" id="strokeWidth" value="3" min="1" max="20" style="width: 80px;">
+            </div>
+            <div class="flex-row" style="margin-top: 4px;">
+                <label style="font-weight:normal;">Радиус узла (точка):</label>
+                <input type="number" id="nodeRadius" value="4" min="1" max="15" style="width: 80px;">
             </div>
         </div>
 
@@ -120,6 +124,7 @@
         const textParamContainer = document.getElementById('textParamContainer');
         const textContentInput = document.getElementById('textContent');
         const strokeWidthInput = document.getElementById('strokeWidth');
+        const nodeRadiusInput = document.getElementById('nodeRadius');
         
         const undoBtn = document.getElementById('undoBtn');
         const clearBtn = document.getElementById('clearBtn');
@@ -158,11 +163,16 @@
             opacityVal.textContent = val;
         });
 
-        // Ограничение ввода толщины до 20
         strokeWidthInput.addEventListener('input', () => {
             let val = parseInt(strokeWidthInput.value);
             if (val > 20) strokeWidthInput.value = 20;
             if (val < 1) strokeWidthInput.value = 1;
+        });
+
+        nodeRadiusInput.addEventListener('input', () => {
+            let val = parseInt(nodeRadiusInput.value);
+            if (val > 15) nodeRadiusInput.value = 15;
+            if (val < 1) nodeRadiusInput.value = 1;
         });
 
         function getSVGPoint(evt) {
@@ -176,10 +186,11 @@
             previewGroup.innerHTML = '';
         }
 
-        function createComponentXML(tool, x1, y1, x2, y2, sw, textVal) {
+        function createComponentXML(tool, x1, y1, x2, y2, sw, textVal, nodeR) {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             const stroke = '#000000';
             const width = Math.min(Math.max(parseInt(sw) || 3, 1), 20);
+            const rVal = Math.min(Math.max(parseInt(nodeR) || 4, 1), 15);
 
             if (tool === 'line') {
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -193,16 +204,15 @@
             else if (tool === 'node') {
                 const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circ.setAttribute('cx', x1); circ.setAttribute('cy', y1);
-                circ.setAttribute('r', 4);
+                circ.setAttribute('r', rVal);
                 circ.setAttribute('fill', stroke);
                 group.appendChild(circ);
             }
             else if (tool === 'resistor') {
-                // Резистор тянется мышкой на любую ширину между start и end
                 const rx = Math.min(x1, x2);
                 const ry = Math.min(y1, y2);
                 const totalDist = Math.abs(x2 - x1);
-                const rw = Math.max(totalDist, 20); // минимум 20 пикселей ширина прямоугольника
+                const rw = Math.max(totalDist, 20);
                 const rh = 25;
                 
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -211,7 +221,6 @@
                 rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width', width);
                 rect.setAttribute('fill', 'none');
                 
-                // Левый и правый выводы
                 const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 l1.setAttribute('x1', x1); l1.setAttribute('y1', y1);
                 l1.setAttribute('x2', rx); l1.setAttribute('y2', ry);
@@ -230,23 +239,28 @@
                 const cx = (x1 + x2) / 2;
                 const cy = (y1 + y2) / 2;
                 
+                // Высота увеличена на 3px (было 15, стало 18)
+                // Расстояние между линиями увеличено на 3px (было +/-3, стало +/-4.5 или отступы от центра)
+                const halfHeight = 18; 
+                const gapOffset = 4.5; 
+
                 const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 l1.setAttribute('x1', x1); l1.setAttribute('y1', y1);
-                l1.setAttribute('x2', cx - 3); l1.setAttribute('y2', cy);
+                l1.setAttribute('x2', cx - gapOffset); l1.setAttribute('y2', cy);
                 l1.setAttribute('stroke', stroke); l1.setAttribute('stroke-width', width);
 
                 const plate1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                plate1.setAttribute('x1', cx - 3); plate1.setAttribute('y1', cy - 15);
-                plate1.setAttribute('x2', cx - 3); plate1.setAttribute('y2', cy + 15);
+                plate1.setAttribute('x1', cx - gapOffset); plate1.setAttribute('y1', cy - halfHeight);
+                plate1.setAttribute('x2', cx - gapOffset); plate1.setAttribute('y2', cy + halfHeight);
                 plate1.setAttribute('stroke', stroke); plate1.setAttribute('stroke-width', width);
 
                 const plate2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                plate2.setAttribute('x1', cx + 3); plate2.setAttribute('y1', cy - 15);
-                plate2.setAttribute('x2', cx + 3); plate2.setAttribute('y2', cy + 15);
+                plate2.setAttribute('x1', cx + gapOffset); plate2.setAttribute('y1', cy - halfHeight);
+                plate2.setAttribute('x2', cx + gapOffset); plate2.setAttribute('y2', cy + halfHeight);
                 plate2.setAttribute('stroke', stroke); plate2.setAttribute('stroke-width', width);
 
                 const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                l2.setAttribute('x1', cx + 3); l2.setAttribute('y1', cy);
+                l2.setAttribute('x1', cx + gapOffset); l2.setAttribute('y1', cy);
                 l2.setAttribute('x2', x2); l2.setAttribute('y2', y2);
                 l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
 
@@ -369,9 +383,10 @@
             const currentY = Math.round(pt.y);
             const sw = strokeWidthInput.value;
             const textVal = textContentInput.value;
+            const nodeR = nodeRadiusInput.value;
 
             clearPreview();
-            const previewEl = createComponentXML(currentTool, startX, startY, currentX, currentY, sw, textVal);
+            const previewEl = createComponentXML(currentTool, startX, startY, currentX, currentY, sw, textVal, nodeR);
             previewGroup.appendChild(previewEl);
         });
 
@@ -383,6 +398,7 @@
             const endY = Math.round(pt.y);
             const sw = strokeWidthInput.value;
             const textVal = textContentInput.value;
+            const nodeR = nodeRadiusInput.value;
 
             clearPreview();
 
@@ -393,7 +409,7 @@
                 finalY2 = startY;
             }
 
-            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, textVal);
+            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, textVal, nodeR);
             if (newElement) {
                 elementsGroup.appendChild(newElement);
                 actionHistory.push(newElement);
