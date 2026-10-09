@@ -47,7 +47,8 @@
 
     <div class="controls" id="controls">
         <label>Горизонтальный период: <span id="val-x">74</span> px</label><br>
-        <input type="range" id="range-x" min="30" max="150" value="74"><br><br>
+        <!-- Изменено min="0" -->
+        <input type="range" id="range-x" min="0" max="250" value="74"><br><br>
 
         <label>Вертикальный сдвиг: <span id="val-y">0</span> px</label><br>
         <input type="range" id="range-y" min="-20" max="20" value="0">
@@ -124,11 +125,10 @@
                 for (let x = 0; x < imgWidth; x++) {
                     const idx = (y * imgWidth + x) * 4;
                     
-                    // Учитываем и горизонтальный период, и вертикальный сдвиг
                     const targetX = x + shiftX;
                     const targetY = y + shiftY;
 
-                    if (targetX < imgWidth && targetY >= 0 && targetY < imgHeight) {
+                    if (targetX < imgWidth && targetX >= 0 && targetY >= 0 && targetY < imgHeight) {
                         const targetIdx = (targetY * imgWidth + targetX) * 4;
                         
                         const r = Math.abs(data[idx] - data[targetIdx]);
