@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Монитор Samsung TV</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 320px;
+        }
+        .status-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #555;
+            transition: background-color 0.3s;
+        }
+        .indicator.online {
+            background-color: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+        .indicator.offline {
+            background-color: #F44336;
+            box-shadow: 0 0 10px #F44336;
+        }
+        button {
+            background-color: #007ACC;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #005999;
+        }
+        .ip-info {
+            font-size: 13px;
+            color: #888;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Samsung TV Status</h2>
+        <div class="status-container">
+            <div id="indicator" class="indicator"></div>
+            <span id="statusText">Подключение...</span>
+        </div>
+        <button onclick="checkStatus()">Обновить статус</button>
+        <div id="ipInfo" class="ip-info">IP: Определение...</div>
+    </div>
+
+    <script>
+        // Адрес вашего локального Node.js сервера на компьютере
+        const SERVER_URL = 'http://localhost:3000/status';
+
+        async function checkStatus() {
+            const indicator = document.getElementById('indicator');
+            const statusText = document.getElementById('statusText');
+            const ipInfo = document.getElementById('ipInfo');
+
+            try {
+                // Запрос к локальному серверу через CORS
+                const response = await fetch(SERVER_URL);
+                const data = await response.json();
+
+                ipInfo.innerText = `IP: ${data.ip}`;
+
+                if (data.status === 'Online') {
+                    indicator.className = 'indicator online';
+                    statusText.innerText = 'Включен (Online)';
+                } else {
+                    indicator.className = 'indicator offline';
+                    statusText.innerText = 'Выключен (Offline)';
+                }
+            } catch (error) {
+                indicator.className = 'indicator offline';
+                statusText.innerText = 'Нет связи с мостом';
+                ipInfo.innerText = 'Запустите start.bat на ПК';
+                console.error('Ошибка соединения с локальным сервером:', error);
+            }
+        }
+
+        // Автоматический опрос каждые 5 секунд
+        setInterval(checkStatus, 5000);
+
+        // Первая проверка сразу при загрузке страницы
+        checkStatus();
+    </script>
+
+</body>
+</html>
