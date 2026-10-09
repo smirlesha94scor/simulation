@@ -2,19 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Интерактивный декодер стереограмм</title>
+    <title>Декодер стереограмм с точной настройкой</title>
     <style>
         body {
             font-family: sans-serif;
             text-align: center;
             background: #1e1e1e;
             color: #fff;
-            margin-top: 30px;
+            margin-top: 20px;
         }
         #drop-zone {
             width: 80%;
             max-width: 600px;
-            height: 100px;
+            height: 80px;
             border: 3px dashed #4CAF50;
             border-radius: 10px;
             margin: 10px auto;
@@ -23,14 +23,14 @@
             justify-content: center;
             background: #2d2d2d;
             color: #bbb;
-            font-size: 16px;
+            font-size: 15px;
         }
         #drop-zone.hover { background: #388E3C; color: #fff; }
         .controls {
-            margin: 15px auto;
+            margin: 10px auto;
             display: none;
         }
-        input[type=range] { width: 300px; }
+        input[type=range] { width: 250px; }
         canvas { display: none; }
         #result img {
             max-width: 100%;
@@ -46,29 +46,32 @@
     <div id="drop-zone">Перетащите картинку сюда</div>
 
     <div class="controls" id="controls">
-        <label>Период узора: <span id="period-val">100</span> px</label><br>
-        <input type="range" id="period-range" min="50" max="250" value="100">
+        <label>Горизонтальный период: <span id="val-x">74</span> px</label><br>
+        <input type="range" id="range-x" min="30" max="150" value="74"><br><br>
+
+        <label>Вертикальный сдвиг: <span id="val-y">0</span> px</label><br>
+        <input type="range" id="range-y" min="-20" max="20" value="0">
     </div>
 
     <h3 id="status"></h3>
-    <canvas id="canvas"></canvas>
     <div id="result"></div>
 
     <script>
         const dropZone = document.getElementById('drop-zone');
         const statusText = document.getElementById('status');
         const resultDiv = document.getElementById('result');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
         const controls = document.getElementById('controls');
-        const periodRange = document.getElementById('period-range');
-        const periodVal = document.getElementById('period-val');
+        
+        const rangeX = document.getElementById('range-x');
+        const rangeY = document.getElementById('range-y');
+        const valX = document.getElementById('val-x');
+        const valY = document.getElementById('val-y');
 
         let originalImageData = null;
         let imgWidth = 0;
         let imgHeight = 0;
 
-        // Настройка Drag and Drop
+        // Drag and Drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
         });
@@ -88,48 +91,31 @@
                 img.onload = function() {
                     imgWidth = img.width;
                     imgHeight = img.height;
+                    
+                    const canvas = document.createElement('canvas');
                     canvas.width = imgWidth;
                     canvas.height = imgHeight;
+                    const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0);
+                    
                     originalImageData = ctx.getImageData(0, 0, imgWidth, imgHeight);
-
-                    // Автоподбор в более узком и реалистичном диапазоне (от 70 до 160 px)
-                    const bestP = autoFindPeriod(originalImageData, imgWidth, imgHeight);
-                    periodRange.value = bestP;
-                    periodVal.innerText = bestP;
                     controls.style.display = 'block';
-
-                    render(bestP);
+                    render();
                 }
                 img.src = e.target.result;
             }
             reader.readAsDataURL(file);
         }
 
-        function autoFindPeriod(imgData, width, height) {
-            const midY = Math.floor(height / 2);
-            let bestPeriod = 100;
-            let minDiffSum = Infinity;
-            const data = imgData.data;
+        function render() {
+            if (!originalImageData) return;
 
-            for (let p = 70; p <= 160; p++) {
-                let diffSum = 0;
-                for (let x = p; x < width - p; x += 3) {
-                    const idx1 = (midY * width + x) * 4;
-                    const idx2 = (midY * width + (x + p)) * 4;
-                    diffSum += Math.abs(data[idx1] - data[idx2]) + 
-                               Math.abs(data[idx1+1] - data[idx2+1]) + 
-                               Math.abs(data[idx1+2] - data[idx2+2]);
-                }
-                if (diffSum < minDiffSum) {
-                    minDiffSum = diffSum;
-                    bestPeriod = p;
-                }
-            }
-            return bestPeriod;
-        }
+            const shiftX = parseInt(rangeX.value);
+            const shiftY = parseInt(rangeY.value);
+            
+            valX.innerText = shiftX;
+            valY.innerText = shiftY;
 
-        function render(period) {
             const data = originalImageData.data;
             const outputData = new Uint8ClampedArray(data.length);
             const contrastFactor = 3.5;
@@ -137,10 +123,14 @@
             for (let y = 0; y < imgHeight; y++) {
                 for (let x = 0; x < imgWidth; x++) {
                     const idx = (y * imgWidth + x) * 4;
-                    const targetX = x + parseInt(period);
+                    
+                    // Учитываем и горизонтальный период, и вертикальный сдвиг
+                    const targetX = x + shiftX;
+                    const targetY = y + shiftY;
 
-                    if (targetX < imgWidth) {
-                        const targetIdx = (y * imgWidth + targetX) * 4;
+                    if (targetX < imgWidth && targetY >= 0 && targetY < imgHeight) {
+                        const targetIdx = (targetY * imgWidth + targetX) * 4;
+                        
                         const r = Math.abs(data[idx] - data[targetIdx]);
                         const g = Math.abs(data[idx + 1] - data[targetIdx + 1]);
                         const b = Math.abs(data[idx + 2] - data[targetIdx + 2]);
@@ -168,15 +158,11 @@
             const resultImg = document.createElement('img');
             resultImg.src = tempCanvas.toDataURL('image/png');
             resultDiv.appendChild(resultImg);
-            statusText.innerText = `Текущий период: ${period}px`;
+            statusText.innerText = `Готово! (X: ${shiftX}px, Y: ${shiftY}px)`;
         }
 
-        periodRange.addEventListener('input', function() {
-            periodVal.innerText = this.value;
-            if (originalImageData) {
-                render(this.value);
-            }
-        });
+        rangeX.addEventListener('input', render);
+        rangeY.addEventListener('input', render);
     </script>
 </body>
 </html>
