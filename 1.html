@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Декодер стереограмм с точной настройкой</title>
+    <title>Декодер стереограмм с полным автоперебором (Y и X)</title>
     <style>
         body {
             font-family: sans-serif;
@@ -14,7 +14,7 @@
         #drop-zone {
             width: 80%;
             max-width: 600px;
-            height: 80px;
+            height: 70px;
             border: 3px dashed #4CAF50;
             border-radius: 10px;
             margin: 10px auto;
@@ -24,13 +24,27 @@
             background: #2d2d2d;
             color: #bbb;
             font-size: 15px;
+            cursor: pointer;
         }
         #drop-zone.hover { background: #388E3C; color: #fff; }
+        #file-input { display: none; }
+        
         .controls {
-            margin: 10px auto;
+            margin: 15px auto;
             display: none;
         }
         input[type=range] { width: 250px; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background: #45a049; }
         canvas { display: none; }
         #result img {
             max-width: 100%;
@@ -42,16 +56,18 @@
 </head>
 <body>
 
-    <h2>Декодер стереограмм</h2>
-    <div id="drop-zone">Перетащите картинку сюда</div>
+    <h2>Декодер стереограмм (Полный автоперебор Y и X)</h2>
+    <div id="drop-zone">Перетащите картинку сюда или кликните для выбора</div>
+    <input type="file" id="file-input" accept="image/*">
 
     <div class="controls" id="controls">
-        <label>Горизонтальный период: <span id="val-x">74</span> px</label><br>
-        <!-- Изменено min="0" -->
-        <input type="range" id="range-x" min="0" max="250" value="74"><br><br>
+        <button id="anim-btn">▶ Запустить полный автоперебор (2 сек)</button><br><br>
 
-        <label>Вертикальный сдвиг: <span id="val-y">0</span> px</label><br>
-        <input type="range" id="range-y" min="-20" max="20" value="0">
+        <label>Горизонтальный период (X): <span id="val-x">0</span> px</label><br>
+        <input type="range" id="range-x" min="0" max="250" value="0"><br><br>
+
+        <label>Вертикальный сдвиг (Y): <span id="val-y">0</span> px</label><br>
+        <input type="range" id="range-y" min="-10" max="10" value="0">
     </div>
 
     <h3 id="status"></h3>
@@ -59,6 +75,7 @@
 
     <script>
         const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
         const statusText = document.getElementById('status');
         const resultDiv = document.getElementById('result');
         const controls = document.getElementById('controls');
@@ -67,25 +84,28 @@
         const rangeY = document.getElementById('range-y');
         const valX = document.getElementById('val-x');
         const valY = document.getElementById('val-y');
+        const animBtn = document.getElementById('anim-btn');
 
         let originalImageData = null;
         let imgWidth = 0;
         let imgHeight = 0;
+        let animInterval = null;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => {
+            if (e.target.files[0]) loadImage(e.target.files[0]);
+        });
 
         // Drag and Drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
         });
-        dropZone.addEventListener('dragenter', () => dropZone.classList.add('hover'));
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
         dropZone.addEventListener('drop', e => {
-            dropZone.classList.remove('hover');
-            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                loadImage(e.dataTransfer.files[0]);
-            }
+            if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
         });
 
         function loadImage(file) {
+            stopAnimation();
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
@@ -158,11 +178,51 @@
             const resultImg = document.createElement('img');
             resultImg.src = tempCanvas.toDataURL('image/png');
             resultDiv.appendChild(resultImg);
-            statusText.innerText = `Готово! (X: ${shiftX}px, Y: ${shiftY}px)`;
+            statusText.innerText = `Текущий сдвиг (X: ${shiftX}px, Y: ${shiftY}px)`;
         }
 
-        rangeX.addEventListener('input', render);
-        rangeY.addEventListener('input', render);
+        // Логика вложенного перебора: сначала бежим по X, при достижении максимума сдвигаем Y на 1 и снова перебираем X
+        animBtn.addEventListener('click', () => {
+            if (animInterval) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        });
+
+        function startAnimation() {
+            animBtn.innerText = '⏹ Остановить автоперебор';
+            animBtn.style.background = '#f44336';
+            
+            animInterval = setInterval(() => {
+                let xVal = parseInt(rangeX.value);
+                let yVal = parseInt(rangeY.value);
+                
+                xVal += 1;
+                if (xVal > parseInt(rangeX.max)) {
+                    xVal = parseInt(rangeX.min);
+                    yVal += 1; // Увеличиваем вертикальный сдвиг на 1
+                    if (yVal > parseInt(rangeY.max)) {
+                        yVal = parseInt(rangeY.min); // Цикл по вертикали
+                    }
+                    rangeY.value = yVal;
+                }
+                rangeX.value = xVal;
+                render();
+            }, 2000); // Шаг каждые 2 секунды
+        }
+
+        function stopAnimation() {
+            if (animInterval) {
+                clearInterval(animInterval);
+                animInterval = null;
+                animBtn.innerText = '▶ Запустить полный автоперебор (2 сек)';
+                animBtn.style.background = '#4CAF50';
+            }
+        }
+
+        rangeX.addEventListener('input', () => { stopAnimation(); render(); });
+        rangeY.addEventListener('input', () => { stopAnimation(); render(); });
     </script>
 </body>
 </html>
