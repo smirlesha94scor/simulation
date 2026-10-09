@@ -48,7 +48,7 @@
 
     <div id="sidebar">
         <h3>SVG Редактор Схем</h3>
-        <div class="hint">Элементы примагничиваются к существующим точкам соединения. При создании элементов точки проставляются автоматически.</div>
+        <div class="hint">Зажмите клавишу <b>Shift</b> при рисовании линии, резистора или конденсатора, чтобы элемент встал строго вертикально или горизонтально.</div>
 
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
@@ -182,11 +182,10 @@
             return pt.matrixTransform(canvas.getScreenCTM().inverse());
         }
 
-        // Поиск ближайшей существующей точки соединения для магнитной привязки (радиус 10px)
         function findNearestSnapPoint(x, y) {
             const nodes = elementsGroup.querySelectorAll('[data-node-coord]');
             let nearest = null;
-            let minDist = 12; // радиус захвата
+            let minDist = 12;
 
             nodes.forEach(node => {
                 const nx = parseFloat(node.getAttribute('cx') || node.getAttribute('data-x'));
@@ -198,6 +197,21 @@
                 }
             });
             return nearest;
+        }
+
+        function getAdjustedCoordinates(rawX, rawY, shiftKey) {
+            let endX = rawX;
+            let endY = rawY;
+            if (shiftKey) {
+                const dx = Math.abs(endX - startX);
+                const dy = Math.abs(endY - startY);
+                if (dx > dy) {
+                    endY = startY; // строго горизонтально
+                } else {
+                    endX = startX; // строго вертикально
+                }
+            }
+            return { x: endX, y: endY };
         }
 
         function clearPreview() {
@@ -397,7 +411,6 @@
             const pt = getSVGPoint(e);
             isDrawing = true;
             
-            // Примагничиваем стартовую точку к существующему узлу, если курсор близко
             const snap = findNearestSnapPoint(pt.x, pt.y);
             startX = snap ? snap.x : Math.round(pt.x);
             startY = snap ? snap.y : Math.round(pt.y);
@@ -407,17 +420,17 @@
             if (!isDrawing) return;
             const pt = getSVGPoint(e);
             
-            // Примагничиваем текущую конечную точку к существующему узлу
-            const snap = findNearestSnapPoint(pt.x, pt.y);
-            const currentX = snap ? snap.x : Math.round(pt.x);
-            const currentY = snap ? snap.y : Math.round(pt.y);
+            let snap = findNearestSnapPoint(pt.x, pt.y);
+            let targetX = snap ? snap.x : Math.round(pt.x);
+            let targetY = snap ? snap.y : Math.round(pt.y);
 
+            const adjusted = getAdjustedCoordinates(targetX, targetY, e.shiftKey);
             const sw = strokeWidthInput.value;
             const textVal = textContentInput.value;
             const nodeR = nodeRadiusInput.value;
 
             clearPreview();
-            const previewEl = createComponentXML(currentTool, startX, startY, currentX, currentY, sw, textVal, nodeR, true);
+            const previewEl = createComponentXML(currentTool, startX, startY, adjusted.x, adjusted.y, sw, textVal, nodeR, true);
             previewGroup.appendChild(previewEl);
         });
 
@@ -426,9 +439,13 @@
             isDrawing = false;
             const pt = getSVGPoint(e);
             
-            const snap = findNearestSnapPoint(pt.x, pt.y);
-            const endX = snap ? snap.x : Math.round(pt.x);
-            const endY = snap ? snap.y : Math.round(pt.y);
+            let snap = findNearestSnapPoint(pt.x, pt.y);
+            let targetX = snap ? snap.x : Math.round(pt.x);
+            let targetY = snap ? snap.y : Math.round(pt.y);
+
+            const adjusted = getAdjustedCoordinates(targetX, targetY, e.shiftKey);
+            const endX = adjusted.x;
+            const endY = adjusted.y;
 
             const sw = strokeWidthInput.value;
             const textVal = textContentInput.value;
@@ -447,17 +464,14 @@
             if (newElement) {
                 elementsGroup.appendChild(newElement);
 
-                // Автоматически добавляем точки соединения по краям, если их там еще нет
                 const helperNodes = [];
                 if (currentTool !== 'node') {
-                    // Проверяем начало
                     if (!findNearestSnapPoint(startX, startY)) {
                         const startNode = createComponentXML('node', startX, startY, startX, startY, sw, textVal, nodeR, false);
                         elementsGroup.appendChild(startNode);
                         helperNodes.push(startNode);
                     }
 
-                    // Проверяем конец для растягиваемых элементов
                     if (['line', 'resistor', 'capacitor'].includes(currentTool)) {
                         if (!findNearestSnapPoint(finalX2, finalY2)) {
                             const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, textVal, nodeR, false);
@@ -496,7 +510,6 @@
             const preview = clone.querySelector('#previewGroup');
             if (preview) preview.remove();
             
-            // Удаляем служебные точки из итогового кода
             const helpers = clone.querySelectorAll('[data-helper="true"]');
             helpers.forEach(h => h.remove());
 
