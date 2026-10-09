@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Декодер стереограмм с полным автоперебором (Y и X)</title>
+    <title>Декодер стереограмм с быстрым автоперебором (1 сек)</title>
     <style>
         body {
             font-family: sans-serif;
@@ -56,12 +56,12 @@
 </head>
 <body>
 
-    <h2>Декодер стереограмм (Полный автоперебор Y и X)</h2>
+    <h2>Декодер стереограмм (Автоперебор 1 сек)</h2>
     <div id="drop-zone">Перетащите картинку сюда или кликните для выбора</div>
     <input type="file" id="file-input" accept="image/*">
 
     <div class="controls" id="controls">
-        <button id="anim-btn">▶ Запустить полный автоперебор (2 сек)</button><br><br>
+        <button id="anim-btn">▶ Запустить автоперебор (1 сек)</button><br><br>
 
         <label>Горизонтальный период (X): <span id="val-x">0</span> px</label><br>
         <input type="range" id="range-x" min="0" max="250" value="0"><br><br>
@@ -181,7 +181,6 @@
             statusText.innerText = `Текущий сдвиг (X: ${shiftX}px, Y: ${shiftY}px)`;
         }
 
-        // Логика вложенного перебора: сначала бежим по X, при достижении максимума сдвигаем Y на 1 и снова перебираем X
         animBtn.addEventListener('click', () => {
             if (animInterval) {
                 stopAnimation();
@@ -201,22 +200,22 @@
                 xVal += 1;
                 if (xVal > parseInt(rangeX.max)) {
                     xVal = parseInt(rangeX.min);
-                    yVal += 1; // Увеличиваем вертикальный сдвиг на 1
+                    yVal += 1; // Сдвигаем вертикаль на 1 пиксель после полного прохода X
                     if (yVal > parseInt(rangeY.max)) {
-                        yVal = parseInt(rangeY.min); // Цикл по вертикали
+                        yVal = parseInt(rangeY.min);
                     }
                     rangeY.value = yVal;
                 }
                 rangeX.value = xVal;
                 render();
-            }, 2000); // Шаг каждые 2 секунды
+            }, 1000); // Интервал изменен на 1000 мс (1 секунда)
         }
 
         function stopAnimation() {
             if (animInterval) {
                 clearInterval(animInterval);
                 animInterval = null;
-                animBtn.innerText = '▶ Запустить полный автоперебор (2 сек)';
+                animBtn.innerText = '▶ Запустить автоперебор (1 сек)';
                 animBtn.style.background = '#4CAF50';
             }
         }
