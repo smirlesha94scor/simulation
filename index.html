@@ -48,7 +48,7 @@
 
     <div id="sidebar">
         <h3>SVG Редактор Схем</h3>
-        <div class="hint">При добавлении элементов автоматически проставляются служебные точки соединения по их краям. В итоговый код они не попадают.</div>
+        <div class="hint">Элементы примагничиваются к существующим точкам соединения. При создании элементов точки проставляются автоматически.</div>
 
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
@@ -182,6 +182,24 @@
             return pt.matrixTransform(canvas.getScreenCTM().inverse());
         }
 
+        // Поиск ближайшей существующей точки соединения для магнитной привязки (радиус 10px)
+        function findNearestSnapPoint(x, y) {
+            const nodes = elementsGroup.querySelectorAll('[data-node-coord]');
+            let nearest = null;
+            let minDist = 12; // радиус захвата
+
+            nodes.forEach(node => {
+                const nx = parseFloat(node.getAttribute('cx') || node.getAttribute('data-x'));
+                const ny = parseFloat(node.getAttribute('cy') || node.getAttribute('data-y'));
+                const dist = Math.hypot(nx - x, ny - y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = { x: nx, y: ny };
+                }
+            });
+            return nearest;
+        }
+
         function clearPreview() {
             previewGroup.innerHTML = '';
         }
@@ -206,6 +224,7 @@
                 circ.setAttribute('cx', x1); circ.setAttribute('cy', y1);
                 circ.setAttribute('r', rVal);
                 circ.setAttribute('fill', stroke);
+                circ.setAttribute('data-node-coord', 'true');
                 if (!isForPreview) {
                     group.setAttribute('data-helper', 'true');
                 }
@@ -292,6 +311,8 @@
             else if (tool === 'npn' || tool === 'pnp') {
                 const gTranslate = `translate(${x1}, ${y1})`;
                 group.setAttribute('transform', gTranslate);
+                group.setAttribute('data-x', x1);
+                group.setAttribute('data-y', y1);
 
                 const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circ.setAttribute('cx', 30); circ.setAttribute('cy', 30);
@@ -333,6 +354,8 @@
             else if (tool === 'battery') {
                 const gTranslate = `translate(${x1}, ${y1})`;
                 group.setAttribute('transform', gTranslate);
+                group.setAttribute('data-x', x1);
+                group.setAttribute('data-y', y1);
 
                 const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 l1.setAttribute('x1', 20); l1.setAttribute('y1', 0);
@@ -373,15 +396,22 @@
         canvas.addEventListener('mousedown', (e) => {
             const pt = getSVGPoint(e);
             isDrawing = true;
-            startX = Math.round(pt.x);
-            startY = Math.round(pt.y);
+            
+            // Примагничиваем стартовую точку к существующему узлу, если курсор близко
+            const snap = findNearestSnapPoint(pt.x, pt.y);
+            startX = snap ? snap.x : Math.round(pt.x);
+            startY = snap ? snap.y : Math.round(pt.y);
         });
 
         canvas.addEventListener('mousemove', (e) => {
             if (!isDrawing) return;
             const pt = getSVGPoint(e);
-            const currentX = Math.round(pt.x);
-            const currentY = Math.round(pt.y);
+            
+            // Примагничиваем текущую конечную точку к существующему узлу
+            const snap = findNearestSnapPoint(pt.x, pt.y);
+            const currentX = snap ? snap.x : Math.round(pt.x);
+            const currentY = snap ? snap.y : Math.round(pt.y);
+
             const sw = strokeWidthInput.value;
             const textVal = textContentInput.value;
             const nodeR = nodeRadiusInput.value;
@@ -395,8 +425,11 @@
             if (!isDrawing) return;
             isDrawing = false;
             const pt = getSVGPoint(e);
-            const endX = Math.round(pt.x);
-            const endY = Math.round(pt.y);
+            
+            const snap = findNearestSnapPoint(pt.x, pt.y);
+            const endX = snap ? snap.x : Math.round(pt.x);
+            const endY = snap ? snap.y : Math.round(pt.y);
+
             const sw = strokeWidthInput.value;
             const textVal = textContentInput.value;
             const nodeR = nodeRadiusInput.value;
@@ -414,23 +447,26 @@
             if (newElement) {
                 elementsGroup.appendChild(newElement);
 
-                // Автоматически добавляем служебные точки соединения по краям элемента
+                // Автоматически добавляем точки соединения по краям, если их там еще нет
                 const helperNodes = [];
                 if (currentTool !== 'node') {
-                    // Точка в начале (startX, startY)
-                    const startNode = createComponentXML('node', startX, startY, startX, startY, sw, textVal, nodeR, false);
-                    elementsGroup.appendChild(startNode);
-                    helperNodes.push(startNode);
+                    // Проверяем начало
+                    if (!findNearestSnapPoint(startX, startY)) {
+                        const startNode = createComponentXML('node', startX, startY, startX, startY, sw, textVal, nodeR, false);
+                        elementsGroup.appendChild(startNode);
+                        helperNodes.push(startNode);
+                    }
 
-                    // Если инструмент растягиваемый (линия, резистор, конденсатор), добавляем точку и в конце (finalX2, finalY2)
+                    // Проверяем конец для растягиваемых элементов
                     if (['line', 'resistor', 'capacitor'].includes(currentTool)) {
-                        const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, textVal, nodeR, false);
-                        elementsGroup.appendChild(endNode);
-                        helperNodes.push(endNode);
+                        if (!findNearestSnapPoint(finalX2, finalY2)) {
+                            const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, textVal, nodeR, false);
+                            elementsGroup.appendChild(endNode);
+                            helperNodes.push(endNode);
+                        }
                     }
                 }
 
-                // Сохраняем в историю элемент и связанные с ним служебные точки для корректного отката
                 actionHistory.push({ element: newElement, helpers: helperNodes });
                 updateOutputCode();
             }
@@ -460,7 +496,7 @@
             const preview = clone.querySelector('#previewGroup');
             if (preview) preview.remove();
             
-            // Удаляем все служебные точки соединения из итогового кода
+            // Удаляем служебные точки из итогового кода
             const helpers = clone.querySelectorAll('[data-helper="true"]');
             helpers.forEach(h => h.remove());
 
