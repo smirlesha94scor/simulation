@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Декодер стереограмм с быстрым автоперебором (1 сек)</title>
+    <title>Декодер стереограмм с быстрой анимацией (500 мс)</title>
     <style>
         body {
             font-family: sans-serif;
@@ -56,12 +56,12 @@
 </head>
 <body>
 
-    <h2>Декодер стереограмм (Автоперебор 1 сек)</h2>
+    <h2>Декодер стереограмм (Автоперебор 500 мс)</h2>
     <div id="drop-zone">Перетащите картинку сюда или кликните для выбора</div>
     <input type="file" id="file-input" accept="image/*">
 
     <div class="controls" id="controls">
-        <button id="anim-btn">▶ Запустить автоперебор (1 сек)</button><br><br>
+        <button id="anim-btn">▶ Запустить автоперебор (500 мс)</button><br><br>
 
         <label>Горизонтальный период (X): <span id="val-x">0</span> px</label><br>
         <input type="range" id="range-x" min="0" max="250" value="0"><br><br>
@@ -208,14 +208,14 @@
                 }
                 rangeX.value = xVal;
                 render();
-            }, 1000); // Интервал изменен на 1000 мс (1 секунда)
+            }, 500); // Интервал установлен на 500 миллисекунд
         }
 
         function stopAnimation() {
             if (animInterval) {
                 clearInterval(animInterval);
                 animInterval = null;
-                animBtn.innerText = '▶ Запустить автоперебор (1 сек)';
+                animBtn.innerText = '▶ Запустить автоперебор (500 мс)';
                 animBtn.style.background = '#4CAF50';
             }
         }
