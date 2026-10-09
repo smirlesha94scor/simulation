@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Декодер стереограмм с супер-быстрым автоперебором (100 мс)</title>
+    <title>Автоматический декодер стереограмм</title>
     <style>
         body {
             font-family: sans-serif;
@@ -39,12 +39,15 @@
             color: white;
             border: none;
             padding: 10px 20px;
-            font-size: 16px;
+            font-size: 15px;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 10px;
+            margin: 5px;
         }
         button:hover { background: #45a049; }
+        #auto-btn { background: #2196F3; }
+        #auto-btn:hover { background: #0b7dda; }
+        
         canvas { display: none; }
         #result img {
             max-width: 100%;
@@ -56,12 +59,13 @@
 </head>
 <body>
 
-    <h2>Декодер стереограмм (Автоперебор 100 мс)</h2>
+    <h2>Автоматический декодер стереограмм</h2>
     <div id="drop-zone">Перетащите картинку сюда или кликните для выбора</div>
     <input type="file" id="file-input" accept="image/*">
 
     <div class="controls" id="controls">
-        <button id="anim-btn">▶ Запустить автоперебор (100 мс)</button><br><br>
+        <button id="auto-btn">🔍 Найти лучший период автоматически</button><br>
+        <button id="anim-btn">▶ Запустить ручной перебор (100 мс)</button><br><br>
 
         <label>Горизонтальный период (X): <span id="val-x">0</span> px</label><br>
         <input type="range" id="range-x" min="0" max="250" value="0"><br><br>
@@ -85,6 +89,7 @@
         const valX = document.getElementById('val-x');
         const valY = document.getElementById('val-y');
         const animBtn = document.getElementById('anim-btn');
+        const autoBtn = document.getElementById('auto-btn');
 
         let originalImageData = null;
         let imgWidth = 0;
@@ -96,7 +101,6 @@
             if (e.target.files[0]) loadImage(e.target.files[0]);
         });
 
-        // Drag and Drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
         });
@@ -181,6 +185,62 @@
             statusText.innerText = `Текущий сдвиг (X: ${shiftX}px, Y: ${shiftY}px)`;
         }
 
+        // Автоматический поиск оптимального периода
+        autoBtn.addEventListener('click', () => {
+            stopAnimation();
+            if (!originalImageData) return;
+
+            statusText.innerText = '⏳ Ищем лучший период... Пожалуйста, подождите.';
+            
+            setTimeout(() => {
+                const data = originalImageData.data;
+                let bestX = 0;
+                let bestY = 0;
+                let minDiff = Infinity;
+
+                // Перебираем Y от -8 до 8
+                for (let yVal = -8; yVal <= 8; yVal++) {
+                    // Перебираем X от 40 до 220 (основной диапазон для стереограмм)
+                    for (let xVal = 40; xVal <= 220; xVal += 2) {
+                        let totalDiff = 0;
+                        let count = 0;
+
+                        // Выборочная проверка пикселей для скорости (каждую 4-ю строку и каждый 4-й пиксель)
+                        for (let y = 0; y < imgHeight; y += 4) {
+                            for (let x = 0; x < imgWidth - xVal; x += 4) {
+                                const idx = (y * imgWidth + x) * 4;
+                                const targetX = x + xVal;
+                                const targetY = y + yVal;
+
+                                if (targetY >= 0 && targetY < imgHeight) {
+                                    const targetIdx = (targetY * imgWidth + targetX) * 4;
+                                    
+                                    totalDiff += Math.abs(data[idx] - data[targetIdx]) +
+                                                 Math.abs(data[idx+1] - data[targetIdx+1]) +
+                                                 Math.abs(data[idx+2] - data[targetIdx+2]);
+                                    count++;
+                                }
+                            }
+                        }
+
+                        const avgDiff = totalDiff / count;
+                        if (avgDiff < minDiff) {
+                            minDiff = avgDiff;
+                            bestX = xVal;
+                            bestY = yVal;
+                        }
+                    }
+                }
+
+                // Устанавливаем найденные лучшие значения на ползунки
+                rangeX.value = bestX;
+                rangeY.value = bestY;
+                render();
+                statusText.innerText = `🎉 Найдено автоматически! (X: ${bestX}px, Y: ${bestY}px)`;
+            }, 50);
+        });
+
+        // Ручной автоперебор
         animBtn.addEventListener('click', () => {
             if (animInterval) {
                 stopAnimation();
@@ -197,10 +257,10 @@
                 let xVal = parseInt(rangeX.value);
                 let yVal = parseInt(rangeY.value);
                 
-                xVal += 2; // Шаг 2 пикселя для плавной и быстрой анимации
+                xVal += 2;
                 if (xVal > parseInt(rangeX.max)) {
                     xVal = parseInt(rangeX.min);
-                    yVal += 1; // Сдвиг вертикали на 1 пиксель
+                    yVal += 1;
                     if (yVal > parseInt(rangeY.max)) {
                         yVal = parseInt(rangeY.min);
                     }
@@ -208,14 +268,14 @@
                 }
                 rangeX.value = xVal;
                 render();
-            }, 100); // Интервал 100 мс
+            }, 100);
         }
 
         function stopAnimation() {
             if (animInterval) {
                 clearInterval(animInterval);
                 animInterval = null;
-                animBtn.innerText = '▶ Запустить автоперебор (100 мс)';
+                animBtn.innerText = '▶ Запустить ручной перебор (100 мс)';
                 animBtn.style.background = '#4CAF50';
             }
         }
