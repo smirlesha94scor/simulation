@@ -1,310 +1,141 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Декодер стереограмм с дробным сдвигом</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сигналізація "Чірк" з 3D Звуком</title>
     <style>
         body {
             font-family: sans-serif;
-            text-align: center;
-            background: #1e1e1e;
-            color: #fff;
-            margin-top: 20px;
-        }
-        #drop-zone {
-            width: 80%;
-            max-width: 600px;
-            height: 70px;
-            border: 3px dashed #4CAF50;
-            border-radius: 10px;
-            margin: 10px auto;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: #2d2d2d;
-            color: #bbb;
-            font-size: 15px;
-            cursor: pointer;
+            height: 100vh;
+            background-color: #1a1a1a;
+            color: #fff;
+            margin: 0;
         }
-        #drop-zone.hover { background: #388E3C; color: #fff; }
-        #file-input { display: none; }
-        
         .controls {
-            margin: 15px auto;
-            display: none;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
         }
-        input[type=range] { width: 250px; }
+        .control-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
         button {
-            background: #4CAF50;
-            color: white;
+            background: #00ff66;
+            color: #000;
             border: none;
-            padding: 10px 20px;
-            font-size: 15px;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
             border-radius: 5px;
             cursor: pointer;
-            margin: 5px;
+            transition: 0.2s;
         }
-        button:hover { background: #45a049; }
-        #auto-btn { background: #2196F3; }
-        #auto-btn:hover { background: #0b7dda; }
-        
-        canvas { display: none; }
-        #result img {
-            max-width: 100%;
-            margin-top: 15px;
-            border-radius: 5px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        button:hover {
+            background: #00cc52;
+            transform: scale(1.05);
         }
     </style>
 </head>
 <body>
 
-    <h2>Декодер стереограмм (Дробный сдвиг)</h2>
-    <div id="drop-zone">Перетащите картинку сюда или кликните для выбора</div>
-    <input type="file" id="file-input" accept="image/*">
-
-    <div class="controls" id="controls">
-        <button id="auto-btn">🔍 Найти лучший период автоматически</button><br>
-        <button id="anim-btn">▶ Запустить автоперебор</button><br><br>
-
-        <label>Горизонтальный период (X): <span id="val-x">0.0</span> px</label><br>
-        <!-- step="0.5" для дробных значений -->
-        <input type="range" id="range-x" min="0" max="250" step="0.5" value="0"><br><br>
-
-        <label>Вертикальный сдвиг (Y): <span id="val-y">0.0</span> px</label><br>
-        <input type="range" id="range-y" min="-10" max="10" step="0.5" value="0">
+<div class="controls">
+    <h2>Сигналізація "Чірк"</h2>
+    
+    <!-- Налаштування базової частоти -->
+    <div class="control-group">
+        <label for="frequency">Базова частота: <span id="freq-val">1200</span> Гц</label>
+        <input type="range" id="frequency" min="500" max="2500" step="50" value="1200">
     </div>
 
-    <h3 id="status"></h3>
-    <div id="result"></div>
+    <!-- Налаштування об'єму (Панорама Ліво/Право) -->
+    <div class="control-group">
+        <label for="panning">Позиція у просторі (3D): <span id="pan-val">0</span> (Центр)</label>
+        <input type="range" id="panning" min="-1" max="1" step="0.1" value="0">
+    </div>
 
-    <script>
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const statusText = document.getElementById('status');
-        const resultDiv = document.getElementById('result');
-        const controls = document.getElementById('controls');
+    <button id="chirp-btn">🔊 Чірк!</button>
+</div>
+
+<script>
+    // Ініціалізація аудіоконтексту (створюється після кліку користувача)
+    let audioCtx = null;
+
+    const chirpBtn = document.getElementById('chirp-btn');
+    const freqInput = document.getElementById('frequency');
+    const panInput = document.getElementById('panning');
+    
+    const freqVal = document.getElementById('freq-val');
+    const panVal = document.getElementById('pan-val');
+
+    // Оновлення текстових значень повзунків
+    freqInput.addEventListener('input', (e) => freqVal.textContent = e.target.value);
+    panInput.addEventListener('input', (e) => {
+        let val = e.target.value;
+        panVal.textContent = val == 0 ? "Центр" : val < 0 ? "Ліво" : "Право";
+    });
+
+    function playChirp() {
+        // Створюємо аудіоконтекст, якщо його ще немає
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Перевірка на випадок блокування браузером (автоплей політика)
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
         
-        const rangeX = document.getElementById('range-x');
-        const rangeY = document.getElementById('range-y');
-        const valX = document.getElementById('val-x');
-        const valY = document.getElementById('val-y');
-        const animBtn = document.getElementById('anim-btn');
-        const autoBtn = document.getElementById('auto-btn');
+        // 1. Створюємо осцилятор (генератор звукової хвилі)
+        const oscillator = audioCtx.createOscillator();
+        // Для класичного "чірка" найкраще підходить квадратурна (sawtooth) або трикутна (triangle) хвиля
+        oscillator.type = 'sawtooth'; 
 
-        let originalImageData = null;
-        let imgWidth = 0;
-        let imgHeight = 0;
-        let animInterval = null;
+        // 2. Створюємо вузол гучності (Gain Node) для плавного згасання
+        const gainNode = audioCtx.createGain();
 
-        dropZone.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', e => {
-            if (e.target.files[0]) loadImage(e.target.files[0]);
-        });
+        // 3. Створюємо Стерео-панорама вузол (Об'ємний звук Л/П)
+        const pannerNode = new StereoPannerNode(audioCtx, { pan: parseFloat(panInput.value) });
 
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
-        });
-        dropZone.addEventListener('drop', e => {
-            if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
-        });
+        // Налаштування частоти (швидкий підйом вгору створює ефект "чірк")
+        const baseFreq = parseFloat(freqInput.value);
+        oscillator.frequency.setValueAtTime(baseFreq, now);
+        // Експоненціальний зліт частоти за 0.08 секунди (дуже швидко)
+        oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 2.2, now + 0.08);
 
-        function loadImage(file) {
-            stopAnimation();
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    imgWidth = img.width;
-                    imgHeight = img.height;
-                    
-                    const canvas = document.createElement('canvas');
-                    canvas.width = imgWidth;
-                    canvas.height = imgHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    
-                    originalImageData = ctx.getImageData(0, 0, imgWidth, imgHeight);
-                    controls.style.display = 'block';
-                    render();
-                }
-                img.src = e.target.result;
-            }
-            reader.readAsDataURL(file);
-        }
+        // Налаштування гучності (швидка атака та згасання)
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.4, now + 0.01); // Атака
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08); // Швидке затухання
 
-        // Функция получения цвета с учетом дробных координат (билинейная интерполяция)
-        function getSubPixel(data, width, height, x, y) {
-            if (x < 0 || x >= width - 1 || y < 0 || y >= height - 1) return null;
+        // З'єднуємо ланцюг: Осцилятор -> Гучність -> 3D Панорама -> Динаміки
+        oscillator.connect(gainNode);
+        gainNode.connect(pannerNode);
+        pannerNode.connect(audioCtx.destination);
 
-            const x1 = Math.floor(x);
-            const y1 = Math.floor(y);
-            const x2 = x1 + 1;
-            const y2 = y1 + 1;
+        // Запуск і зупинка
+        oscillator.start(now);
+        oscillator.stop(now + 0.09);
+    }
 
-            const fx = x - x1;
-            const fy = y - y1;
+    chirpBtn.addEventListener('click', playChirp);
+</script>
 
-            const idx1 = (y1 * width + x1) * 4;
-            const idx2 = (y1 * width + x2) * 4;
-            const idx3 = (y2 * width + x1) * 4;
-            const idx4 = (y2 * width + x2) * 4;
-
-            const color = [];
-            for (let i = 0; i < 3; i++) {
-                const top = data[idx1 + i] * (1 - fx) + data[idx2 + i] * fx;
-                const bottom = data[idx3 + i] * (1 - fx) + data[idx4 + i] * fx;
-                color[i] = top * (1 - fy) + bottom * fy;
-            }
-            return color;
-        }
-
-        function render() {
-            if (!originalImageData) return;
-
-            const shiftX = parseFloat(rangeX.value);
-            const shiftY = parseFloat(rangeY.value);
-            
-            valX.innerText = shiftX.toFixed(1);
-            valY.innerText = shiftY.toFixed(1);
-
-            const data = originalImageData.data;
-            const outputData = new Uint8ClampedArray(data.length);
-            const contrastFactor = 3.5;
-
-            for (let y = 0; y < imgHeight; y++) {
-                for (let x = 0; x < imgWidth; x++) {
-                    const idx = (y * imgWidth + x) * 4;
-                    
-                    const targetX = x + shiftX;
-                    const targetY = y + shiftY;
-
-                    const targetColor = getSubPixel(data, imgWidth, imgHeight, targetX, targetY);
-
-                    if (targetColor) {
-                        const r = Math.abs(data[idx]     - targetColor[0]);
-                        const g = Math.abs(data[idx + 1] - targetColor[1]);
-                        const b = Math.abs(data[idx + 2] - targetColor[2]);
-
-                        outputData[idx]     = Math.min(255, r * contrastFactor);
-                        outputData[idx + 1] = Math.min(255, g * contrastFactor);
-                        outputData[idx + 2] = Math.min(255, b * contrastFactor);
-                        outputData[idx + 3] = 255;
-                    } else {
-                        outputData[idx] = outputData[idx+1] = outputData[idx+2] = 0;
-                        outputData[idx + 3] = 255;
-                    }
-                }
-            }
-
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = imgWidth;
-            tempCanvas.height = imgHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            const newImgData = tempCtx.createImageData(imgWidth, imgHeight);
-            newImgData.data.set(outputData);
-            tempCtx.putImageData(newImgData, 0, 0);
-
-            resultDiv.innerHTML = '';
-            const resultImg = document.createElement('img');
-            resultImg.src = tempCanvas.toDataURL('image/png');
-            resultDiv.appendChild(resultImg);
-            statusText.innerText = `Текущий сдвиг (X: ${shiftX.toFixed(1)}px, Y: ${shiftY.toFixed(1)}px)`;
-        }
-
-        // Автоматический поиск с дробным шагом (0.5)
-        autoBtn.addEventListener('click', () => {
-            stopAnimation();
-            if (!originalImageData) return;
-
-            statusText.innerText = '⏳ Ищем точный период... Пожалуйста, подождите.';
-            
-            setTimeout(() => {
-                const data = originalImageData.data;
-                let bestX = 0;
-                let bestY = 0;
-                let minDiff = Infinity;
-
-                for (let yVal = -4; yVal <= 4; yVal += 1) {
-                    for (let xVal = 40; xVal <= 220; xVal += 0.5) {
-                        let totalDiff = 0;
-                        let count = 0;
-
-                        for (let y = 0; y < imgHeight; y += 6) {
-                            for (let x = 0; x < imgWidth - xVal - 1; x += 6) {
-                                const idx = (y * imgWidth + x) * 4;
-                                const targetX = x + xVal;
-                                const targetY = y + yVal;
-
-                                const targetColor = getSubPixel(data, imgWidth, imgHeight, targetX, targetY);
-                                if (targetColor) {
-                                    totalDiff += Math.abs(data[idx] - targetColor[0]) +
-                                                 Math.abs(data[idx+1] - targetColor[1]) +
-                                                 Math.abs(data[idx+2] - targetColor[2]);
-                                    count++;
-                                }
-                            }
-                        }
-
-                        if (count > 0) {
-                            const avgDiff = totalDiff / count;
-                            if (avgDiff < minDiff) {
-                                minDiff = avgDiff;
-                                bestX = xVal;
-                                bestY = yVal;
-                            }
-                        }
-                    }
-                }
-
-                rangeX.value = bestX;
-                rangeY.value = bestY;
-                render();
-                statusText.innerText = `🎉 Найдено идеально! (X: ${bestX.toFixed(1)}px, Y: ${bestY.toFixed(1)}px)`;
-            }, 50);
-        });
-
-        animBtn.addEventListener('click', () => {
-            if (animInterval) {
-                stopAnimation();
-            } else {
-                startAnimation();
-            }
-        });
-
-        function startAnimation() {
-            animBtn.innerText = '⏹ Остановить автоперебор';
-            animBtn.style.background = '#f44336';
-            
-            animInterval = setInterval(() => {
-                let xVal = parseFloat(rangeX.value);
-                let yVal = parseFloat(rangeY.value);
-                
-                xVal += 0.5; // Шаг в 0.5 пикселя
-                if (xVal > parseFloat(rangeX.max)) {
-                    xVal = parseFloat(rangeX.min);
-                    yVal += 0.5;
-                    if (yVal > parseFloat(rangeY.max)) {
-                        yVal = parseFloat(rangeY.min);
-                    }
-                    rangeY.value = yVal;
-                }
-                rangeX.value = xVal;
-                render();
-            }, 100);
-        }
-
-        function stopAnimation() {
-            if (animInterval) {
-                clearInterval(animInterval);
-                animInterval = null;
-                animBtn.innerText = '▶ Запустить автоперебор';
-                animBtn.style.background = '#4CAF50';
-            }
-        }
-
-        rangeX.addEventListener('input', () => { stopAnimation(); render(); });
-        rangeY.addEventListener('input', () => { stopAnimation(); render(); });
-    </script>
 </body>
 </html>
