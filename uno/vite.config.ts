@@ -3,9 +3,10 @@ import react from '@vitejs.plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/simulation/', // Название вашего репозитория на GitHub
+  root: 'uno',          // Исходники лежат в папке uno
+  base: '/simulation/uno/', // Обязательно учитываем вложенность пути!
   build: {
-    outDir: 'dist',     // Сборка создастся в папке uno/dist
+    outDir: 'dist',     // Vite соберет всё в папку uno/dist
     emptyOutDir: true,
   },
 })
