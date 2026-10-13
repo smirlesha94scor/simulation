@@ -7,6 +7,6 @@ export default defineConfig({
   base: '/simulation/uno/', // Обязательно учитываем вложенность пути!
   build: {
     outDir: '.',     // Vite соберет всё в папку uno/dist
-    emptyOutDir: true,
+  emptyOutDir: false,
   },
 })
