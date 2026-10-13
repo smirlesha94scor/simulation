@@ -6,7 +6,7 @@ export default defineConfig({
   root: 'uno',          // Исходники лежат в папке uno
   base: '/simulation/uno/', // Обязательно учитываем вложенность пути!
   build: {
-    outDir: 'dist',     // Vite соберет всё в папку uno/dist
+    outDir: '.',     // Vite соберет всё в папку uno/dist
     emptyOutDir: true,
   },
 })
