@@ -1,16 +1,15 @@
-name: Build and Deploy
+name: Deploy React App to Root
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Срабатывает при каждом пуше в ветку main
+  workflow_dispatch:  # Позволяет запустить деплой вручную из вкладки Actions
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,18 +30,24 @@ jobs:
         run: npm run build
         working-directory: uno
 
-      - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Commit and push built files to root
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          # Копируем скомпилированные файлы из uno/dist в корень репозитория
+          # Убедитесь, что ваш build создает папку dist (если у вас build, замените dist на build)
+          cp -r uno/dist/* .
+          
+          git add .
+          git status
+          
+          # Проверяем, есть ли изменения для коммита
+          if git diff-index --quiet HEAD; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Auto-deploy React app to root [skip ci]"
+            git push origin main
+          fi
