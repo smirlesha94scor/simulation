@@ -23,12 +23,14 @@ jobs:
           cache-dependency-path: uno/package-lock.json
 
       - name: Install dependencies
-        run: npm install
-        working-directory: uno
-
+        run: |
+          cd uno
+          npm install
+        
       - name: Build React app
-        run: npm run build
-        working-directory: uno
+        run: |
+          cd uno
+          npm run build
 
       - name: Commit and push built files to root
         env:
