@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сигналізація "Чірк" з 3D Звуком</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #1a1a1a;
+            color: #fff;
+            margin: 0;
+        }
+        .controls {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .control-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        button {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #00cc52;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <h2>Сигналізація "Чірк"</h2>
+    
+    <!-- Налаштування базової частоти -->
+    <div class="control-group">
+        <label for="frequency">Базова частота: <span id="freq-val">1200</span> Гц</label>
+        <input type="range" id="frequency" min="500" max="2500" step="50" value="1200">
+    </div>
+
+    <!-- Налаштування об'єму (Панорама Ліво/Право) -->
+    <div class="control-group">
+        <label for="panning">Позиція у просторі (3D): <span id="pan-val">0</span> (Центр)</label>
+        <input type="range" id="panning" min="-1" max="1" step="0.1" value="0">
+    </div>
+
+    <button id="chirp-btn">🔊 Чірк!</button>
+</div>
+
+<script>
+    // Ініціалізація аудіоконтексту (створюється після кліку користувача)
+    let audioCtx = null;
+
+    const chirpBtn = document.getElementById('chirp-btn');
+    const freqInput = document.getElementById('frequency');
+    const panInput = document.getElementById('panning');
+    
+    const freqVal = document.getElementById('freq-val');
+    const panVal = document.getElementById('pan-val');
+
+    // Оновлення текстових значень повзунків
+    freqInput.addEventListener('input', (e) => freqVal.textContent = e.target.value);
+    panInput.addEventListener('input', (e) => {
+        let val = e.target.value;
+        panVal.textContent = val == 0 ? "Центр" : val < 0 ? "Ліво" : "Право";
+    });
+
+    function playChirp() {
+        // Створюємо аудіоконтекст, якщо його ще немає
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Перевірка на випадок блокування браузером (автоплей політика)
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+        
+        // 1. Створюємо осцилятор (генератор звукової хвилі)
+        const oscillator = audioCtx.createOscillator();
+        // Для класичного "чірка" найкраще підходить квадратурна (sawtooth) або трикутна (triangle) хвиля
+        oscillator.type = 'sawtooth'; 
+
+        // 2. Створюємо вузол гучності (Gain Node) для плавного згасання
+        const gainNode = audioCtx.createGain();
+
+        // 3. Створюємо Стерео-панорама вузол (Об'ємний звук Л/П)
+        const pannerNode = new StereoPannerNode(audioCtx, { pan: parseFloat(panInput.value) });
+
+        // Налаштування частоти (швидкий підйом вгору створює ефект "чірк")
+        const baseFreq = parseFloat(freqInput.value);
+        oscillator.frequency.setValueAtTime(baseFreq, now);
+        // Експоненціальний зліт частоти за 0.08 секунди (дуже швидко)
+        oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 2.2, now + 0.08);
+
+        // Налаштування гучності (швидка атака та згасання)
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.4, now + 0.01); // Атака
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08); // Швидке затухання
+
+        // З'єднуємо ланцюг: Осцилятор -> Гучність -> 3D Панорама -> Динаміки
+        oscillator.connect(gainNode);
+        gainNode.connect(pannerNode);
+        pannerNode.connect(audioCtx.destination);
+
+        // Запуск і зупинка
+        oscillator.start(now);
+        oscillator.stop(now + 0.09);
+    }
+
+    chirpBtn.addEventListener('click', playChirp);
+</script>
+
+</body>
+</html>

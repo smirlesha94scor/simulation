@@ -1,0 +1,49 @@
+name: Deploy React App to Root
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+
+      - name: Install dependencies in uno folder
+        working-directory: ./uno
+        run: npm install
+
+      - name: Build React app
+        working-directory: ./uno
+        run: npm run build
+
+      - name: Commit and push built files to root
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          # Копируем собранные файлы из uno/dist в корень репозитория
+          cp -r uno/dist/* .
+          
+          git add .
+          git status
+          
+          if git diff-index --quiet HEAD; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Auto-deploy React app to root [skip ci]"
+            git push origin main
+          fi
