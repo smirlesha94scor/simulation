@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Интерактивный симулятор и SVG-редактор электрических схем</title>
+    <title>Интерактивный симулятор & SVG-редактор электрических схем</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; display: flex; height: 100vh; background: #1e1e1e; color: #d4d4d4; overflow: hidden; }
         
-        #sidebar { width: 370px; background: #252526; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 12px; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.5); overflow-y: auto; }
+        #sidebar { width: 380px; background: #252526; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 12px; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.5); overflow-y: auto; }
         h3 { margin: 0 0 5px 0; color: #4ec9b0; font-size: 18px; }
         
         .section { background: #2d2d2d; padding: 10px; border-radius: 6px; border: 1px solid #3c3c3c; display: flex; flex-direction: column; gap: 8px; }
@@ -43,7 +43,6 @@
         .hint { font-size: 11px; color: #858585; line-height: 1.3; }
         .flex-row { display: flex; align-items: center; justify-content: space-between; }
 
-        /* Стиль анимированного физического тока */
         .current-particle {
             stroke: #00e5ff;
             stroke-dasharray: 6 8;
@@ -55,8 +54,8 @@
 <body>
 
     <div id="sidebar">
-        <h3>SVG Редактор & Симулятор</h3>
-        <div class="hint">Зажмите <b>Shift</b> для строго вертикального/горизонтального рисования. Включите симуляцию для расчета реального протекания тока.</div>
+        <h3>SVG Редактор &amp; Умный Симулятор</h3>
+        <div class="hint">Указывайте конкретные модели (КТ315А, КТ361) и номиналы (750k, 47n). Движок рассчитывает параметры тока и физику элементов.</div>
 
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
@@ -83,13 +82,21 @@
             </div>
         </div>
 
+        <!-- Динамические параметры элементов -->
         <div class="section" id="paramsSection">
-            <label>Параметры элементов:</label>
-            <div id="textParamContainer" style="display:none; flex-direction:column; gap:4px;">
-                <label style="font-weight:normal;">Текст надписи:</label>
-                <input type="text" id="textContent" value="R1 750k">
+            <label>Параметры выделенного элемента:</label>
+            
+            <div id="designationContainer" style="display:none; flex-direction:column; gap:4px;">
+                <label style="font-weight:normal;">Обозначение (например R1, C1, VT1):</label>
+                <input type="text" id="elemDesignation" value="R1">
             </div>
-            <div class="flex-row">
+
+            <div id="valueParamContainer" style="display:none; flex-direction:column; gap:4px; margin-top: 4px;">
+                <label style="font-weight:normal;" id="valueLabel">Номинал:</label>
+                <input type="text" id="elemValue" value="750k">
+            </div>
+
+            <div class="flex-row" style="margin-top: 4px;">
                 <label style="font-weight:normal;">Толщина линий (до 20):</label>
                 <input type="number" id="strokeWidth" value="3" min="1" max="20" style="width: 80px;">
             </div>
@@ -98,7 +105,7 @@
                 <input type="number" id="nodeRadius" value="4" min="1" max="15" style="width: 80px;">
             </div>
             <div class="flex-row" style="margin-top: 6px; background: #1e1e1e; padding: 6px; border-radius: 4px;">
-                <label style="color: #4ec9b0;">⚡ Симуляция протекания тока:</label>
+                <label style="color: #4ec9b0;">⚡ Физическая симуляция:</label>
                 <input type="checkbox" id="simToggle" style="width: 18px; height: 18px; cursor: pointer;">
             </div>
         </div>
@@ -135,8 +142,12 @@
         const flowGroup = document.getElementById('flowGroup');
         const previewGroup = document.getElementById('previewGroup');
         
-        const textParamContainer = document.getElementById('textParamContainer');
-        const textContentInput = document.getElementById('textContent');
+        const designationContainer = document.getElementById('designationContainer');
+        const elemDesignation = document.getElementById('elemDesignation');
+        const valueParamContainer = document.getElementById('valueParamContainer');
+        const valueLabel = document.getElementById('valueLabel');
+        const elemValue = document.getElementById('elemValue');
+
         const strokeWidthInput = document.getElementById('strokeWidth');
         const nodeRadiusInput = document.getElementById('nodeRadius');
         const simToggle = document.getElementById('simToggle');
@@ -152,12 +163,55 @@
         let actionHistory = [];
         let simulationElements = [];
 
+        // База известных моделей транзисторов и параметров
+        const TRANSISTOR_DATABASE = {
+            'КТ315А': { type: 'NPN', hFE: 50, vCE: 15 },
+            'КТ315Б': { type: 'NPN', hFE: 100, vCE: 20 },
+            'КТ361': { type: 'PNP', hFE: 50, vCE: 15 },
+            'КТ3102': { type: 'NPN', hFE: 200, vCE: 30 },
+            'BC547': { type: 'NPN', hFE: 200, vCE: 45 },
+            'BC557': { type: 'PNP', hFE: 200, vCE: 45 }
+        };
+
+        // Обновление доступных полей в зависимости от выбранного инструмента
         document.querySelectorAll('.comp-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.comp-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentTool = btn.getAttribute('data-tool');
-                textParamContainer.style.display = (currentTool === 'text') ? 'flex' : 'none';
+                
+                designationContainer.style.display = 'none';
+                valueParamContainer.style.display = 'none';
+
+                if (currentTool === 'resistor') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = 'R1';
+                    valueLabel.textContent = 'Сопротивление (Ом/кОм/МПа):';
+                    elemValue.value = '750k';
+                } else if (currentTool === 'capacitor') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = 'C1';
+                    valueLabel.textContent = 'Емкость (пФ/нФ/мкФ):';
+                    elemValue.value = '47n';
+                } else if (currentTool === 'npn' || currentTool === 'pnp') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = (currentTool === 'npn') ? 'VT1' : 'VT2';
+                    valueLabel.textContent = 'Марка транзистора:';
+                    elemValue.value = (currentTool === 'npn') ? 'КТ315А' : 'КТ361';
+                } else if (currentTool === 'diode') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = 'VD1';
+                    valueLabel.textContent = 'Марка диода:';
+                    elemValue.value = 'Д9Б';
+                } else if (currentTool === 'text') {
+                    designationContainer.style.display = 'flex';
+                    elemDesignation.value = 'E1';
+                }
+
                 clearPreview();
             });
         });
@@ -177,18 +231,6 @@
             const val = e.target.value;
             bgImage.setAttribute('opacity', val);
             opacityVal.textContent = val;
-        });
-
-        strokeWidthInput.addEventListener('input', () => {
-            let val = parseInt(strokeWidthInput.value);
-            if (val > 20) strokeWidthInput.value = 20;
-            if (val < 1) strokeWidthInput.value = 1;
-        });
-
-        nodeRadiusInput.addEventListener('input', () => {
-            let val = parseInt(nodeRadiusInput.value);
-            if (val > 15) nodeRadiusInput.value = 15;
-            if (val < 1) nodeRadiusInput.value = 1;
         });
 
         function getSVGPoint(evt) {
@@ -234,17 +276,17 @@
             previewGroup.innerHTML = '';
         }
 
-        function createComponentXML(tool, x1, y1, x2, y2, sw, textVal, nodeR, isForPreview = false) {
+        function createComponentXML(tool, x1, y1, x2, y2, sw, desigVal, paramVal, nodeR, isForPreview = false) {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             const stroke = '#000000';
             const width = Math.min(Math.max(parseInt(sw) || 3, 1), 20);
             const rVal = Math.min(Math.max(parseInt(nodeR) || 4, 1), 15);
 
             group.setAttribute('data-comp-type', tool);
-            group.setAttribute('data-x1', x1);
-            group.setAttribute('data-y1', y1);
-            group.setAttribute('data-x2', x2);
-            group.setAttribute('data-y2', y2);
+            group.setAttribute('data-x1', x1); group.setAttribute('data-y1', y1);
+            group.setAttribute('data-x2', x2); group.setAttribute('data-y2', y2);
+            group.setAttribute('data-desig', desigVal || '');
+            group.setAttribute('data-val', paramVal || '');
 
             if (tool === 'line') {
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -261,9 +303,7 @@
                 circ.setAttribute('r', rVal);
                 circ.setAttribute('fill', stroke);
                 circ.setAttribute('data-node-coord', 'true');
-                if (!isForPreview) {
-                    group.setAttribute('data-helper', 'true');
-                }
+                if (!isForPreview) group.setAttribute('data-helper', 'true');
                 group.appendChild(circ);
             }
             else if (tool === 'resistor') {
@@ -289,14 +329,18 @@
                 l2.setAttribute('x2', Math.max(x1, x2)); l2.setAttribute('y2', y2);
                 l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
 
-                group.appendChild(rect);
-                group.appendChild(l1);
-                group.appendChild(l2);
+                // Надписи
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', rx); txt.setAttribute('y', ry + rh + 12);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '14'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = `${desigVal} ${paramVal}`;
+
+                group.appendChild(rect); group.appendChild(l1); group.appendChild(l2); group.appendChild(txt);
             }
             else if (tool === 'capacitor') {
                 const cx = (x1 + x2) / 2;
                 const cy = (y1 + y2) / 2;
-                
                 const halfHeight = 18; 
                 const gapOffset = 4.5; 
 
@@ -320,7 +364,13 @@
                 l2.setAttribute('x2', x2); l2.setAttribute('y2', y2);
                 l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
 
-                group.appendChild(l1); group.appendChild(plate1); group.appendChild(plate2); group.appendChild(l2);
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', cx - 15); txt.setAttribute('y', cy - halfHeight - 5);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '14'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = `${desigVal} ${paramVal}`;
+
+                group.appendChild(l1); group.appendChild(plate1); group.appendChild(plate2); group.appendChild(l2); group.appendChild(txt);
             }
             else if (tool === 'diode') {
                 const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
@@ -342,13 +392,18 @@
                 l2.setAttribute('x2', x1+45); l2.setAttribute('y2', y1);
                 l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
 
-                group.appendChild(poly); group.appendChild(bar); group.appendChild(l1); group.appendChild(l2);
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', x1); txt.setAttribute('y', y1 - 18);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '14'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = `${desigVal} ${paramVal}`;
+
+                group.appendChild(poly); group.appendChild(bar); group.appendChild(l1); group.appendChild(l2); group.appendChild(txt);
             }
             else if (tool === 'npn' || tool === 'pnp') {
                 const gTranslate = `translate(${x1}, ${y1})`;
                 group.setAttribute('transform', gTranslate);
-                group.setAttribute('data-x', x1);
-                group.setAttribute('data-y', y1);
+                group.setAttribute('data-x', x1); group.setAttribute('data-y', y1);
 
                 const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circ.setAttribute('cx', 30); circ.setAttribute('cy', 30);
@@ -384,14 +439,26 @@
                 }
                 arrow.setAttribute('fill', stroke);
 
+                const txt1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt1.setAttribute('x', -10); txt1.setAttribute('y', 75);
+                txt1.setAttribute('fill', stroke); txt1.setAttribute('font-family', 'Courier New, monospace');
+                txt1.setAttribute('font-size', '14'); txt1.setAttribute('font-weight', 'bold');
+                txt1.textContent = desigVal;
+
+                const txt2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt2.setAttribute('x', -20); txt2.setAttribute('y', 92);
+                txt2.setAttribute('fill', stroke); txt2.setAttribute('font-family', 'Courier New, monospace');
+                txt2.setAttribute('font-size', '13');
+                txt2.textContent = paramVal;
+
                 group.appendChild(circ); group.appendChild(baseLine); group.appendChild(baseBar);
                 group.appendChild(colLine); group.appendChild(emLine); group.appendChild(arrow);
+                group.appendChild(txt1); group.appendChild(txt2);
             }
             else if (tool === 'battery') {
                 const gTranslate = `translate(${x1}, ${y1})`;
                 group.setAttribute('transform', gTranslate);
-                group.setAttribute('data-x', x1);
-                group.setAttribute('data-y', y1);
+                group.setAttribute('data-x', x1); group.setAttribute('data-y', y1);
 
                 const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 l1.setAttribute('x1', 20); l1.setAttribute('y1', 0);
@@ -418,11 +485,9 @@
             else if (tool === 'text') {
                 const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 txt.setAttribute('x', x1); txt.setAttribute('y', y1);
-                txt.setAttribute('fill', stroke);
-                txt.setAttribute('font-family', 'Courier New, monospace');
-                txt.setAttribute('font-size', '16');
-                txt.setAttribute('font-weight', 'bold');
-                txt.textContent = textVal || 'R1';
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '16'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = desigVal || 'E1';
                 group.appendChild(txt);
             }
 
@@ -448,11 +513,12 @@
 
             const adjusted = getAdjustedCoordinates(targetX, targetY, e.shiftKey);
             const sw = strokeWidthInput.value;
-            const textVal = textContentInput.value;
+            const desigVal = elemDesignation.value;
+            const paramVal = elemValue.value;
             const nodeR = nodeRadiusInput.value;
 
             clearPreview();
-            const previewEl = createComponentXML(currentTool, startX, startY, adjusted.x, adjusted.y, sw, textVal, nodeR, true);
+            const previewEl = createComponentXML(currentTool, startX, startY, adjusted.x, adjusted.y, sw, desigVal, paramVal, nodeR, true);
             previewGroup.appendChild(previewEl);
         });
 
@@ -470,7 +536,8 @@
             const endY = adjusted.y;
 
             const sw = strokeWidthInput.value;
-            const textVal = textContentInput.value;
+            const desigVal = elemDesignation.value;
+            const paramVal = elemValue.value;
             const nodeR = nodeRadiusInput.value;
 
             clearPreview();
@@ -482,21 +549,21 @@
                 finalY2 = startY;
             }
 
-            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, textVal, nodeR, false);
+            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, desigVal, paramVal, nodeR, false);
             if (newElement) {
                 elementsGroup.appendChild(newElement);
 
                 const helperNodes = [];
                 if (currentTool !== 'node') {
                     if (!findNearestSnapPoint(startX, startY)) {
-                        const startNode = createComponentXML('node', startX, startY, startX, startY, sw, textVal, nodeR, false);
+                        const startNode = createComponentXML('node', startX, startY, startX, startY, sw, desigVal, paramVal, nodeR, false);
                         elementsGroup.appendChild(startNode);
                         helperNodes.push(startNode);
                     }
 
                     if (['line', 'resistor', 'capacitor'].includes(currentTool)) {
                         if (!findNearestSnapPoint(finalX2, finalY2)) {
-                            const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, textVal, nodeR, false);
+                            const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, desigVal, paramVal, nodeR, false);
                             elementsGroup.appendChild(endNode);
                             helperNodes.push(endNode);
                         }
@@ -529,7 +596,7 @@
         });
 
         // -------------------------------------------------------------
-        // МАТЕМАТИЧЕСКИЙ ДВИЖОК СИМУЛЯЦИИ ЭЛЕКТРИЧЕСКОЙ ЦЕПИ (SolvEngine)
+        // МАТЕМАТИЧЕСКИЙ СИМУЛЯТОР ФИЗИКИ С УЧЕТОМ НОМИНАЛОВ И МОДЕЛЕЙ
         // -------------------------------------------------------------
         let animOffset = 0;
         let animFrameReq = null;
@@ -543,6 +610,19 @@
                 flowGroup.innerHTML = '';
             }
         });
+
+        // Парсинг числовых значений номиналов (кОм, пФ, нФ, мкФ)
+        function parseValue(valStr) {
+            if (!valStr) return 1;
+            const str = valStr.toString().toLowerCase().trim();
+            let num = parseFloat(str) || 1;
+            if (str.includes('k') || str.includes('к')) num *= 1000;
+            else if (str.includes('m') || str.includes('м')) num *= 1000000;
+            else if (str.includes('u') || str.includes('мк')) num *= 0.000001;
+            else if (str.includes('n') || str.includes('н')) num *= 0.000000001;
+            else if (str.includes('p') || str.includes('п')) num *= 0.000000000001;
+            return num;
+        }
 
         function rebuildSimulation() {
             flowGroup.innerHTML = '';
@@ -562,6 +642,7 @@
                 const y1 = parseFloat(c.getAttribute('data-y1'));
                 const x2 = parseFloat(c.getAttribute('data-x2'));
                 const y2 = parseFloat(c.getAttribute('data-y2'));
+                const valStr = c.getAttribute('data-val');
 
                 if (['line', 'resistor', 'capacitor', 'diode'].includes(type)) {
                     const pLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -570,10 +651,21 @@
                     pLine.setAttribute('stroke-width', Math.max(parseFloat(strokeWidthInput.value) - 1, 2));
                     pLine.setAttribute('class', 'current-particle');
                     
-                    // Скорость течения тока высчитывается по законам электрической цепи
                     let speed = hasBattery ? 1.5 : 0;
-                    if (type === 'resistor') speed *= 0.5; // Замедление в резисторах
-                    if (type === 'capacitor') speed *= 0.8; // Зарядка конденсатора
+
+                    // Физический расчет скорости тока в зависимости от номинала резистора и емкости
+                    if (type === 'resistor') {
+                        const R = parseValue(valStr);
+                        // Чем больше сопротивление, тем медленнее ток (Закон Ома)
+                        if (R >= 500000) speed *= 0.2;
+                        else if (R >= 100000) speed *= 0.4;
+                        else if (R >= 1000) speed *= 0.7;
+                    } 
+                    else if (type === 'capacitor') {
+                        const C = parseValue(valStr);
+                        // Время заряда емкости
+                        speed *= 0.6;
+                    }
 
                     flowGroup.appendChild(pLine);
                     simulationElements.push({ el: pLine, speed: speed });
