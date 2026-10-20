@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Raycasting Симуляція (JS)</title>
+    <title>Сканування та перетин з вантажем</title>
     <style>
         body {
             margin: 0;
@@ -17,7 +17,7 @@
         }
         canvas {
             border: 2px solid #555;
-            background: #000;
+            background: #050505;
         }
         .controls {
             margin-top: 10px;
@@ -28,172 +28,114 @@
 </head>
 <body>
 
-    <h2>Raycasting: Вид зверху vs Вид збоку (3D)</h2>
+    <h2>Сканування поверхні та визначення координат вантажу</h2>
     <canvas id="gameCanvas" width="800" height="400"></canvas>
-    <div class="controls">Керування: Стрілки <b>Вліво / Вправо</b> — поворот, <b>Вгору / Вниз</b> — рух.</div>
+    <div class="controls">Керування вантажем: Стрілки <b>Вліво / Вправо / Вгору / Вниз</b></div>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Світ (Карта): 1 - стіна, 0 - пусто
-const MAP_SIZE = 8;
-const TILE_SIZE = 50; // Розмір одного куба на карті 2D
-const map = [,
- ,
- ,
- ,
- ,
- ,
- ,
-    [1,1,1,1,1,1,1,1]
-];
-
-// Гравець
-const player = {
-    x: 120,
-    y: 120,
-    angle: 0, // Кут погляду в радіанах
-    speed: 2,
-    rotSpeed: 0.05
+// Вантаж, який можна переміщати по поверхні
+const cargo = {
+    x: 350,
+    y: 250,
+    width: 100,
+    height: 60,
+    speed: 3
 };
 
-// Налаштування променів (Екрану)
-const FOV = Math.PI / 3; // Кут огляду (60 градусів)
-const NUM_RAYS = 400;    // Кількість променів (ширина 3D екрану)
-const HALF_WIDTH = 400;  // Половина екрану (ліва частина - 2D, права - 3D)
+// Позиція скануючого датчика зверху (може рухатися або бути стабільним)
+const scanner = {
+    y: 50 // Висота, з якої сканує датчик
+};
 
-// Клава
+// Клавіші керування
 const keys = {};
 window.addEventListener("keydown", e => keys[e.code] = true);
 window.addEventListener("keyup", e => keys[e.code] = false);
 
-// Оновлення логіки
 function update() {
-    if (keys["ArrowLeft"])  player.angle -= player.rotSpeed;
-    if (keys["ArrowRight"]) player.angle += player.rotSpeed;
-    
-    let newX = player.x;
-    let newY = player.y;
-    
-    if (keys["ArrowUp"]) {
-        newX += Math.cos(player.angle) * player.speed;
-        newY += Math.sin(player.angle) * player.speed;
-    }
-    if (keys["ArrowDown"]) {
-        newX -= Math.cos(player.angle) * player.speed;
-        newY -= Math.sin(player.angle) * player.speed;
-    }
+    // Переміщення вантажу стрілками
+    if (keys["ArrowLeft"])  cargo.x -= cargo.speed;
+    if (keys["ArrowRight"]) cargo.x += cargo.speed;
+    if (keys["ArrowUp"])    cargo.y -= cargo.speed;
+    if (keys["ArrowDown"])  cargo.y += cargo.speed;
 
-    // Проста перевірка колізій із картою перед рухом
-    let checkMapX = Math.floor(newX / TILE_SIZE);
-    let checkMapY = Math.floor(newY / TILE_SIZE);
-    if (map[checkMapY] && map[checkMapY][checkMapX] === 0) {
-        player.x = newX;
-        player.y = newY;
-    }
+    // Обмеження в межах canvas
+    if (cargo.x < 0) cargo.x = 0;
+    if (cargo.x + cargo.width > canvas.width) cargo.x = canvas.width - cargo.width;
+    if (cargo.y < 100) cargo.y = 100; // Не вище лінії сканування
+    if (cargo.y + cargo.height > canvas.height - 20) cargo.y = canvas.height - 20 - cargo.height;
 }
 
-// Малювання всього
 function draw() {
-    // Очищення екрану
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- 1. МАЛЮЄМО ВИД ЗВЕРХУ (Ліва половина) ---
-    for (let r = 0; r < MAP_SIZE; r++) {
-        for (let c = 0; c < MAP_SIZE; c++) {
-            if (map[r][c] === 1) {
-                ctx.fillStyle = "#555";
-                ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE - 1, TILE_SIZE - 1);
-            }
-        }
-    }
+    // 1. Малюємо поверхню землі (внизу)
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
 
-    // --- 2. СИМУЛЯЦІЯ ПРОМЕНІВ (RAYCASTING) ---
-    let startAngle = player.angle - FOV / 2;
-    let rayAngleInc = FOV / NUM_RAYS;
+    // 2. Малюємо сам вантаж
+    ctx.fillStyle = "#ff5555";
+    ctx.fillRect(cargo.x, cargo.y, cargo.width, cargo.height);
+    ctx.strokeStyle = "#ff9999";
+    ctx.strokeRect(cargo.x, cargo.y, cargo.width, cargo.height);
 
-    // Малюємо небо та землю для 3D вигляду (Права половина)
-    ctx.fillStyle = "#223344"; // Небо
-    ctx.fillRect(HALF_WIDTH, 0, HALF_WIDTH, canvas.height / 2);
-    ctx.fillStyle = "#332211"; // Земля
-    ctx.fillRect(HALF_WIDTH, canvas.height / 2, HALF_WIDTH, canvas.height / 2);
+    // Напис на вантажі
+    ctx.fillStyle = "#fff";
+    ctx.font = "12px sans-serif";
+    ctx.fillText("ВАНТАЖ", cargo.x + 25, cargo.y + 35);
 
-    for (let i = 0; i < NUM_RAYS; i++) {
-        let rayAngle = startAngle + i * rayAngleInc;
-        let distance = 0;
-        let hitWall = false;
+    // 3. Сканування зверху: випускаємо вертикальні промені вниз
+    const numBeams = 40;
+    const step = canvas.width / numBeams;
 
-        // Вектори напрямку променя
-        let cos = Math.cos(rayAngle);
-        let sin = Math.sin(rayAngle);
+    for (let i = 0; i < numBeams; i++) {
+        let beamX = i * step + step / 2;
+        let intersectionY = null;
 
-        // Цикл випуску променя: збільшуємо дистанцію, поки не впоремося в об'єкт
-        while (!hitWall && distance < 400) {
-            distance += 1; // крок променя в пікселях
-
-            // Рахуємо поточну координату кінчика променя
-            let rayX = player.x + cos * distance;
-            let rayY = player.y + sin * distance;
-
-            // Перевіряємо, в якій клітинці карти знаходиться кінчик променя
-            let mapX = Math.floor(rayX / TILE_SIZE);
-            let mapY = Math.floor(rayY / TILE_SIZE);
-
-            // Якщо вийшли за межі або влучили в стіну (1)
-            if (mapX < 0 || mapX >= MAP_SIZE || mapY < 0 || mapY >= MAP_SIZE || map[mapY][mapX] === 1) {
-                hitWall = true;
-            }
+        // Перевіряємо, чи перетинає промінь вантаж
+        if (beamX >= cargo.x && beamX <= cargo.x + cargo.width) {
+            intersectionY = cargo.y; // Верхня границя вантажу — точка перетину!
         }
 
-        // Малюємо промінь на карті 2D (Вид зверху)
-        ctx.strokeStyle = "rgba(255, 255, 0, 0.1)";
+        // Малюємо промінь від датчика (сканера) до землі або до вантажу
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.2)";
         ctx.beginPath();
-        ctx.moveTo(player.x, player.y);
-        ctx.lineTo(player.x + cos * distance, player.y + sin * distance);
+        ctx.moveTo(beamX, scanner.y);
+        ctx.lineTo(beamX, intersectionY !== null ? intersectionY : canvas.height - 20);
         ctx.stroke();
 
-        // --- 3. МАЛЮЄМО ВИД ЗБОКУ (3D Екран - Права половина) ---
-        // Корекція ефекту "риб'ячого ока" (fish-eye)
-        let correctedDist = distance * Math.cos(rayAngle - player.angle);
-        
-        // Розрахунок висоти стіни: чим ближче, тим вона вища
-        let wallHeight = Math.min(canvas.height, (TILE_SIZE * 300) / correctedDist);
+        // Якщо є перетин із вантажем — фіксуємо його яскравою точкою
+        if (intersectionY !== null) {
+            ctx.fillStyle = "#00ffcc";
+            ctx.beginPath();
+            ctx.arc(beamX, intersectionY, 3, 0, Math.PI * 2);
+            ctx.fill();
 
-        // Чим далі стіна, тим вона темніша (імітація глибини/тіні)
-        let colorValue = Math.max(0, 255 - correctedDist * 0.7);
-        ctx.fillStyle = `rgb(${colorValue}, ${colorValue}, ${colorValue})`;
-
-        // Малюємо вертикальну смужку стіни
-        let wallX = HALF_WIDTH + (i * (HALF_WIDTH / NUM_RAYS));
-        let wallY = (canvas.height / 2) - (wallHeight / 2);
-        ctx.fillRect(wallX, wallY, (HALF_WIDTH / NUM_RAYS) + 1, wallHeight);
+            // Виводимо координати перетину для кількох центральних променів
+            if (i === Math.floor(numBeams / 2)) {
+                ctx.fillStyle = "#00ffcc";
+                ctx.font = "11px monospace";
+                ctx.fillText(`Перетин: X=${Math.round(beamX)}, Y=${Math.round(intersectionY)}`, beamX + 10, intersectionY - 10);
+            }
+        }
     }
 
-    // Малюємо самого гравця на карті 2D
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Лінія розділення екранів
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(HALF_WIDTH, 0);
-    ctx.lineTo(HALF_WIDTH, canvas.height);
-    ctx.stroke();
-    ctx.lineWidth = 1;
+    // 4. Малюємо сам датчик зверху
+    ctx.fillStyle = "#00ffff";
+    ctx.fillRect(0, scanner.y - 10, canvas.width, 10);
+    ctx.fillStyle = "#000";
+    ctx.fillText("ДАТЧИК СКАНУВАННЯ ЗВЕРХУ", 20, scanner.y - 2);
 }
 
-// Головний ігровий цикл
 function gameLoop() {
     update();
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-// Старт
 gameLoop();
 </script>
 
