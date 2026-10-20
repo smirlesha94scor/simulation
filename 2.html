@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Симуляція крана, сканування та зони видачі</title>
+    <title>Активний сканер та кран</title>
     <style>
         body {
             margin: 0;
@@ -29,76 +29,78 @@
 </head>
 <body>
 
-    <h2>Симуляція крана: Вибір з списку та перенесення в зону видачі</h2>
+    <h2>Симуляція: Активний пошук сканером, доставка та повернення</h2>
     <canvas id="gameCanvas" width="950" height="400"></canvas>
     <div class="controls">
-        Виберіть коробку у списку праворуч і натисніть кнопку <b>«Взяти обрану»</b>.<br>
-        Кран відсканує номер, забере вантаж і перенесе його у зону видачі.
+        Виберіть коробку у списку і натисніть <b>«Знайти та забрати»</b>.<br>
+        Кран почне рух, скануватиме променем кожну коробку дорогами і доставить її у зону вивантаження.
     </div>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Список коробок (вантажів) на полі
+// Список коробок на складі
 const boxes = [
-    { id: 1, name: "Коробка #001", x: 120, y: 260, width: 60, height: 50, color: "#ff5555", delivered: false },
-    { id: 2, name: "Коробка #002", x: 240, y: 250, width: 70, height: 60, color: "#55ff55", delivered: false },
-    { id: 3, name: "Коробка #003", x: 380, y: 270, width: 80, height: 40, color: "#5555ff", delivered: false },
-    { id: 4, name: "Коробка #004", x: 500, y: 240, width: 50, height: 70, color: "#ffff55", delivered: false }
+    { id: 1, name: "Коробка #001", x: 150, y: 260, width: 60, height: 50, color: "#ff5555", delivered: false },
+    { id: 2, name: "Коробка #002", x: 300, y: 250, width: 70, height: 60, color: "#55ff55", delivered: false },
+    { id: 3, name: "Коробка #003", x: 450, y: 270, width: 80, height: 40, color: "#5555ff", delivered: false },
+    { id: 4, name: "Коробка #004", x: 600, y: 240, width: 50, height: 70, color: "#ffff55", delivered: false }
 ];
 
-// Вибрана коробка у списку
 let selectedCard = boxes[0];
 
-// Зона видачі (праворуч, перед панеллю меню)
+// Зона видачі (справа)
 const dropZone = {
-    x: 630,
+    x: 700,
     y: 270,
     width: 90,
     height: 50
 };
 
+// Початкова домашня позиція крана
+const HOME_X = 80;
+
 // Параметри крана
 const crane = {
-    x: 80,                 // Поточна позиція крана по X
-    startY: 50,            // Вихідна висота моста
-    hookY: 50,             // Поточна висота гака/сканера
-    targetHookY: 50,       // Цільова висота
-    state: "IDLE",         // IDLE, SCANNING, MOVING_TO_BOX, LOWERING, GRABBING, LIFTING, MOVING_TO_DROP, LOWERING_DROP, RELEASING, RETURN
-    holding: null          // Яку коробку зараз тримає кран
+    x: HOME_X,
+    hookY: 50,
+    targetHookY: 50,
+    state: "IDLE", // IDLE, SCANNING_SEARCH, MOVING_TO_BOX, LOWERING, GRABBING, LIFTING, MOVING_TO_DROP, LOWERING_DROP, RELEASING, RETURN_HOME
+    holding: null,
+    scannedBox: null
 };
 
-// Кнопка «Взяти обрану» на панелі
+// Кнопка запуску
 const actionBtn = {
-    x: 740,
+    x: 750,
     y: 310,
-    width: 180,
+    width: 170,
     height: 40
 };
 
-// Обробка кліків мишею
+// Обробка кліків
 canvas.addEventListener("click", (e) => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // 1. Клік по списку коробок (вибір)
+    // Вибір коробки у списку
     boxes.forEach((box, index) => {
-        let itemX = 740;
+        let itemX = 750;
         let itemY = 60 + index * 55;
-        if (mouseX >= itemX && mouseX <= itemX + 180 && mouseY >= itemY && mouseY <= itemY + 45) {
+        if (mouseX >= itemX && mouseX <= itemX + 170 && mouseY >= itemY && mouseY <= itemY + 45) {
             if (!box.delivered && crane.state === "IDLE") {
                 selectedCard = box;
             }
         }
     });
 
-    // 2. Клік по кнопці «Взяти обрану» (запуск процесу)
+    // Кнопка старт
     if (mouseX >= actionBtn.x && mouseX <= actionBtn.x + actionBtn.width && 
         mouseY >= actionBtn.y && mouseY <= actionBtn.y + actionBtn.height) {
         if (crane.state === "IDLE" && selectedCard && !selectedCard.delivered) {
-            crane.state = "SCANNING"; // Починаємо роботу за цим вантажем
+            crane.state = "SCANNING_SEARCH"; // Початок активного пошуку
         }
     }
 });
@@ -106,27 +108,31 @@ canvas.addEventListener("click", (e) => {
 function update() {
     if (crane.state === "IDLE") return;
 
-    let targetX = selectedCard.x + selectedCard.width / 2;
-
     switch (crane.state) {
-        case "SCANNING":
-            // Імітація сканування вибраної коробки (пауза/лазер)
-            // Переходимо до руху до неї
-            crane.state = "MOVING_TO_BOX";
-            break;
+        case "SCANNING_SEARCH":
+            // Кран їде праворуч і активно сканує склад
+            if (crane.x < 680) {
+                crane.x += 2;
 
-        case "MOVING_TO_BOX":
-            // Рух крана до коробки по X
-            if (Math.abs(crane.x - targetX) > 1) {
-                crane.x += (targetX > crane.x) ? 2 : -2;
+                // Перевіряємо, чи під променем крана знаходиться якась нерозподілена коробка
+                boxes.forEach(box => {
+                    if (!box.delivered && crane.x >= box.x && crane.x <= box.x + box.width) {
+                        // Якщо це та коробка, яку ми замовили через список
+                        if (box.id === selectedCard.id) {
+                            crane.scannedBox = box;
+                            crane.state = "LOWERING";
+                            crane.targetHookY = box.y;
+                        }
+                    }
+                });
             } else {
-                crane.state = "LOWERING";
-                crane.targetHookY = selectedCard.y;
+                // Якщо доїхали до кінця і не знайшли
+                crane.state = "RETURN_HOME";
             }
             break;
 
         case "LOWERING":
-            // Опускання гака до коробки
+            // Опускаємо гак до знайденої коробки
             if (crane.hookY < crane.targetHookY) {
                 crane.hookY += 2;
             } else {
@@ -135,14 +141,14 @@ function update() {
             break;
 
         case "GRABBING":
-            // Захоплення
-            crane.holding = selectedCard;
+            // Захоплюємо коробку
+            crane.holding = crane.scannedBox;
             crane.state = "LIFTING";
             crane.targetHookY = 50;
             break;
 
         case "LIFTING":
-            // Підйом з коробкою
+            // Підйом гака з вантажем
             if (crane.hookY > crane.targetHookY) {
                 crane.hookY -= 2;
                 if (crane.holding) crane.holding.y = crane.hookY;
@@ -152,10 +158,10 @@ function update() {
             break;
 
         case "MOVING_TO_DROP":
-            // Перенесення в зону видачі по X
+            // Перенесення в зону видачі
             let dropX = dropZone.x + dropZone.width / 2;
-            if (Math.abs(crane.x - dropX) > 1) {
-                crane.x += (dropX > crane.x) ? 2 : -2;
+            if (crane.x < dropX) {
+                crane.x += 2;
                 if (crane.holding) crane.holding.x = crane.x - selectedCard.width / 2;
             } else {
                 crane.state = "LOWERING_DROP";
@@ -174,22 +180,24 @@ function update() {
             break;
 
         case "RELEASING":
-            // Відпускаємо коробку
+            // Вивантаження
             if (crane.holding) {
-                crane.holding.y = dropZone.y - selectedCard.height + 10; // фіксуємо в зоні видачі
+                crane.holding.y = dropZone.y - selectedCard.height + 10;
                 crane.holding.delivered = true;
                 crane.holding = null;
             }
-            crane.state = "RETURN";
+            crane.state = "RETURN_HOME";
             crane.targetHookY = 50;
             break;
 
-        case "RETURN":
-            // Повернення гака у верхнє положення
-            if (crane.hookY > crane.targetHookY) {
+        case "RETURN_HOME":
+            // Підйом гака (якщо не піднятий) та повернення крана на вихідну позицію (HOME_X)
+            if (crane.hookY > 50) {
                 crane.hookY -= 2;
+            } else if (Math.abs(crane.x - HOME_X) > 1) {
+                crane.x += (HOME_X > crane.x) ? 2 : -2;
             } else {
-                crane.state = "IDLE"; // Завершено цикл
+                crane.state = "IDLE"; // Повністю завершено цикл
             }
             break;
     }
@@ -200,26 +208,25 @@ function draw() {
 
     // 1. Поверхня землі
     ctx.fillStyle = "#333";
-    ctx.fillRect(0, 320, 730, 20);
+    ctx.fillRect(0, 320, 740, 20);
 
-    // 2. Зона видачі (справа)
+    // 2. Зона видачі
     ctx.fillStyle = "rgba(0, 255, 100, 0.15)";
     ctx.fillRect(dropZone.x, dropZone.y, dropZone.width, dropZone.height);
     ctx.strokeStyle = "#00ff66";
     ctx.setLineDash([4, 4]);
     ctx.strokeRect(dropZone.x, dropZone.y, dropZone.width, dropZone.height);
-    ctx.setLineDash([]); // скинути штрих
+    ctx.setLineDash([]);
     ctx.fillStyle = "#00ff66";
     ctx.font = "10px sans-serif";
-    ctx.fillText("ЗОНА ВИДАЧІ", dropZone.x + 12, dropZone.y + 30);
+    ctx.fillText("ЗОНА ВИДАЧІ", dropZone.x + 10, dropZone.y + 30);
 
-    // 3. Малюємо всі коробки
+    // 3. Коробки
     boxes.forEach(box => {
         if (!box.delivered || box === crane.holding) {
             ctx.fillStyle = box.color;
             ctx.fillRect(box.x, box.y, box.width, box.height);
             
-            // Підсвічування обраної коробки у списку/на полі
             if (box === selectedCard && crane.state === "IDLE") {
                 ctx.strokeStyle = "#ffffff";
                 ctx.lineWidth = 2;
@@ -235,14 +242,14 @@ function draw() {
 
     // 4. Рейка і кран
     ctx.fillStyle = "#555";
-    ctx.fillRect(0, 20, 730, 10);
+    ctx.fillRect(0, 20, 740, 10);
 
     ctx.fillStyle = "#00ffff";
     ctx.fillRect(crane.x - 15, 15, 30, 20);
 
-    // Трос/сканер
-    ctx.strokeStyle = (crane.state === "SCANNING") ? "#ff00ff" : "#00ffff";
-    ctx.lineWidth = (crane.state === "SCANNING") ? 3 : 1;
+    // Промінь сканера (фіолетовий під час активного пошуку)
+    ctx.strokeStyle = (crane.state === "SCANNING_SEARCH") ? "#ff00ff" : "#00ffff";
+    ctx.lineWidth = (crane.state === "SCANNING_SEARCH") ? 3 : 1;
     ctx.beginPath();
     ctx.moveTo(crane.x, 35);
     ctx.lineTo(crane.x, crane.hookY);
@@ -253,26 +260,25 @@ function draw() {
     ctx.fillStyle = "#ffcc00";
     ctx.fillRect(crane.x - 8, crane.hookY, 16, 10);
 
-    // Статус на екрані
+    // Статус
     ctx.fillStyle = "#00ffcc";
     ctx.font = "11px monospace";
     ctx.fillText(`Статус: ${crane.state}`, 20, 370);
 
-    // 5. Бічна панель управління (меню)
+    // 5. Бічна панель
     ctx.fillStyle = "#222";
-    ctx.fillRect(730, 0, 220, canvas.height);
+    ctx.fillRect(740, 0, 210, canvas.height);
     ctx.strokeStyle = "#444";
-    ctx.strokeRect(730, 0, 220, canvas.height);
+    ctx.strokeRect(740, 0, 210, canvas.height);
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 12px sans-serif";
-    ctx.fillText("СПИСОК ВАНТАЖІВ:", 750, 30);
+    ctx.fillText("СПИСОК ВАНТАЖІВ:", 755, 30);
 
     boxes.forEach((box, index) => {
-        let itemX = 750;
+        let itemX = 755;
         let itemY = 50 + index * 55;
 
-        // Фон пункту
         ctx.fillStyle = (box === selectedCard) ? "#444" : "#222";
         ctx.fillRect(itemX, itemY, 180, 45);
         ctx.strokeStyle = box.delivered ? "#555" : box.color;
@@ -281,15 +287,15 @@ function draw() {
         ctx.fillStyle = box.delivered ? "#777" : "#fff";
         ctx.font = "11px sans-serif";
         ctx.fillText(box.name, itemX + 8, itemY + 20);
-        ctx.fillText(box.delivered ? "Статус: Доставлено" : "Статус: На складі", itemX + 8, itemY + 36);
+        ctx.fillText(box.delivered ? "Доставлено" : "На складі", itemX + 8, itemY + 36);
     });
 
-    // Кнопка запуску
+    // Кнопка
     ctx.fillStyle = (crane.state === "IDLE") ? "#00aa55" : "#555";
     ctx.fillRect(actionBtn.x, actionBtn.y, actionBtn.width, actionBtn.height);
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 12px sans-serif";
-    ctx.fillText("Взяти обрану", actionBtn.x + 45, actionBtn.y + 25);
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText("Знайти та забрати", actionBtn.x + 25, actionBtn.y + 25);
 }
 
 function gameLoop() {
