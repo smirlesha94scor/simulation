@@ -38,7 +38,7 @@
         textarea { width: 100%; height: 110px; font-family: Consolas, monospace; font-size: 11px; background: #1e1e1e; color: #ce9178; border: 1px solid #3c3c3c; border-radius: 4px; resize: vertical; padding: 6px; }
 
         #canvas-container { flex-grow: 1; position: relative; overflow: hidden; background: #121212; display: flex; justify-content: center; align-items: center; }
-        svg { background: #ffffff; box-shadow: 0 0 20px rgba(0,0,0,0.8); cursor: crosshair; }
+        svg { background: #ffffff; box-shadow: 0 0 20px rgba(0,0,0,0.8); cursor: crosshair; width: 850px; height: 650px; }
         
         .hint { font-size: 11px; color: #858585; line-height: 1.3; }
         .flex-row { display: flex; align-items: center; justify-content: space-between; }
@@ -54,8 +54,8 @@
 <body>
 
     <div id="sidebar">
-        <h3>SVG Редактор &amp; Умный Симулятор</h3>
-        <div class="hint">Символы NPN и PNP исправлены под правильную схемотехнику. Зажимайте Shift для прямых линий.</div>
+        <h3>SVG Редактор &amp; Симулятор</h3>
+        <div class="hint">Загрузка изображений и добавление элементов восстановлены. Используйте Shift для ровных линий.</div>
 
         <div class="section">
             <label>1. Картинка-подложка (для обводки):</label>
@@ -122,8 +122,8 @@
     </div>
 
     <div id="canvas-container">
-        <svg id="drawingCanvas" width="850" height="650" viewBox="0 0 850 650">
-            <image id="bg-image" href="" width="850" height="650" opacity="0.5" preserveAspectRatio="none" />
+        <svg id="drawingCanvas" viewBox="0 0 850 650">
+            <image id="bg-image" href="" x="0" y="0" width="850" height="650" opacity="0.5" preserveAspectRatio="none" />
             <g id="elementsGroup"></g>
             <g id="flowGroup" style="pointer-events: none;"></g>
             <g id="previewGroup" style="pointer-events: none; opacity: 0.6;"></g>
@@ -143,4 +143,549 @@
         
         const designationContainer = document.getElementById('designationContainer');
         const elemDesignation = document.getElementById('elemDesignation');
-        const valueParamContainer = document.getElementById
+        const valueParamContainer = document.getElementById('valueParamContainer');
+        const valueLabel = document.getElementById('valueLabel');
+        const elemValue = document.getElementById('elemValue');
+
+        const strokeWidthInput = document.getElementById('strokeWidth');
+        const nodeRadiusInput = document.getElementById('nodeRadius');
+        const simToggle = document.getElementById('simToggle');
+        
+        const undoBtn = document.getElementById('undoBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const svgCodeOutput = document.getElementById('svgCodeOutput');
+        const copyBtn = document.getElementById('copyBtn');
+        
+        let currentTool = 'line';
+        let isDrawing = false;
+        let startX, startY;
+        let actionHistory = [];
+        let simulationElements = [];
+
+        document.querySelectorAll('.comp-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.comp-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTool = btn.getAttribute('data-tool');
+                
+                designationContainer.style.display = 'none';
+                valueParamContainer.style.display = 'none';
+
+                if (currentTool === 'resistor') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = 'R1';
+                    valueLabel.textContent = 'Сопротивление:';
+                    elemValue.value = '750k';
+                } else if (currentTool === 'capacitor') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = 'C1';
+                    valueLabel.textContent = 'Емкость:';
+                    elemValue.value = '47n';
+                } else if (currentTool === 'npn' || currentTool === 'pnp') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = (currentTool === 'npn') ? 'VT1' : 'VT2';
+                    valueLabel.textContent = 'Марка транзистора:';
+                    elemValue.value = (currentTool === 'npn') ? 'КТ315А' : 'КТ361';
+                } else if (currentTool === 'diode') {
+                    designationContainer.style.display = 'flex';
+                    valueParamContainer.style.display = 'flex';
+                    elemDesignation.value = 'VD1';
+                    valueLabel.textContent = 'Марка диода:';
+                    elemValue.value = 'Д9Б';
+                } else if (currentTool === 'text') {
+                    designationContainer.style.display = 'flex';
+                    elemDesignation.value = 'E1';
+                }
+
+                clearPreview();
+            });
+        });
+
+        imageLoader.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    bgImage.setAttribute('href', event.target.result);
+                    bgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', event.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        opacityRange.addEventListener('input', (e) => {
+            const val = e.target.value;
+            bgImage.setAttribute('opacity', val);
+            opacityVal.textContent = val;
+        });
+
+        function getSVGPoint(evt) {
+            const pt = canvas.createSVGPoint();
+            pt.x = evt.clientX;
+            pt.y = evt.clientY;
+            return pt.matrixTransform(canvas.getScreenCTM().inverse());
+        }
+
+        function findNearestSnapPoint(x, y) {
+            const nodes = elementsGroup.querySelectorAll('[data-node-coord]');
+            let nearest = null;
+            let minDist = 12;
+
+            nodes.forEach(node => {
+                const nx = parseFloat(node.getAttribute('cx') || node.getAttribute('data-x'));
+                const ny = parseFloat(node.getAttribute('cy') || node.getAttribute('data-y'));
+                const dist = Math.hypot(nx - x, ny - y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = { x: nx, y: ny };
+                }
+            });
+            return nearest;
+        }
+
+        function getAdjustedCoordinates(rawX, rawY, shiftKey) {
+            let endX = rawX;
+            let endY = rawY;
+            if (shiftKey) {
+                const dx = Math.abs(endX - startX);
+                const dy = Math.abs(endY - startY);
+                if (dx > dy) {
+                    endY = startY;
+                } else {
+                    endX = startX;
+                }
+            }
+            return { x: endX, y: endY };
+        }
+
+        function clearPreview() {
+            previewGroup.innerHTML = '';
+        }
+
+        function createComponentXML(tool, x1, y1, x2, y2, sw, desigVal, paramVal, nodeR, isForPreview = false) {
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const stroke = '#000000';
+            const width = Math.min(Math.max(parseInt(sw) || 3, 1), 20);
+            const rVal = Math.min(Math.max(parseInt(nodeR) || 4, 1), 15);
+
+            group.setAttribute('data-comp-type', tool);
+            group.setAttribute('data-x1', x1); group.setAttribute('data-y1', y1);
+            group.setAttribute('data-x2', x2); group.setAttribute('data-y2', y2);
+            group.setAttribute('data-desig', desigVal || '');
+            group.setAttribute('data-val', paramVal || '');
+
+            if (tool === 'line') {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                line.setAttribute('stroke', stroke);
+                line.setAttribute('stroke-width', width);
+                line.setAttribute('stroke-linecap', 'square');
+                group.appendChild(line);
+            } 
+            else if (tool === 'node') {
+                const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circ.setAttribute('cx', x1); circ.setAttribute('cy', y1);
+                circ.setAttribute('r', rVal);
+                circ.setAttribute('fill', stroke);
+                circ.setAttribute('data-node-coord', 'true');
+                if (!isForPreview) group.setAttribute('data-helper', 'true');
+                group.appendChild(circ);
+            }
+            else if (tool === 'resistor') {
+                const rx = Math.min(x1, x2);
+                const ry = Math.min(y1, y2);
+                const totalDist = Math.abs(x2 - x1);
+                const rw = Math.max(totalDist, 20);
+                const rh = 25;
+                
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', rx); rect.setAttribute('y', ry - rh/2);
+                rect.setAttribute('width', rw); rect.setAttribute('height', rh);
+                rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width', width);
+                rect.setAttribute('fill', 'none');
+                
+                const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l1.setAttribute('x1', x1); l1.setAttribute('y1', y1);
+                l1.setAttribute('x2', rx); l1.setAttribute('y2', ry);
+                l1.setAttribute('stroke', stroke); l1.setAttribute('stroke-width', width);
+
+                const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l2.setAttribute('x1', rx + rw); l2.setAttribute('y1', ry);
+                l2.setAttribute('x2', Math.max(x1, x2)); l2.setAttribute('y2', y2);
+                l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
+
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', rx); txt.setAttribute('y', ry + rh + 12);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '14'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = `${desigVal} ${paramVal}`;
+
+                group.appendChild(rect); group.appendChild(l1); group.appendChild(l2); group.appendChild(txt);
+            }
+            else if (tool === 'capacitor') {
+                const cx = (x1 + x2) / 2;
+                const cy = (y1 + y2) / 2;
+                const halfHeight = 18; 
+                const gapOffset = 4.5; 
+
+                const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l1.setAttribute('x1', x1); l1.setAttribute('y1', y1);
+                l1.setAttribute('x2', cx - gapOffset); l1.setAttribute('y2', cy);
+                l1.setAttribute('stroke', stroke); l1.setAttribute('stroke-width', width);
+
+                const plate1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                plate1.setAttribute('x1', cx - gapOffset); plate1.setAttribute('y1', cy - halfHeight);
+                plate1.setAttribute('x2', cx - gapOffset); plate1.setAttribute('y2', cy + halfHeight);
+                plate1.setAttribute('stroke', stroke); plate1.setAttribute('stroke-width', width);
+
+                const plate2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                plate2.setAttribute('x1', cx + gapOffset); plate2.setAttribute('y1', cy - halfHeight);
+                plate2.setAttribute('x2', cx + gapOffset); plate2.setAttribute('y2', cy + halfHeight);
+                plate2.setAttribute('stroke', stroke); plate2.setAttribute('stroke-width', width);
+
+                const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l2.setAttribute('x1', cx + gapOffset); l2.setAttribute('y1', cy);
+                l2.setAttribute('x2', x2); l2.setAttribute('y2', y2);
+                l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
+
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', cx - 15); txt.setAttribute('y', cy - halfHeight - 5);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '14'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = `${desigVal} ${paramVal}`;
+
+                group.appendChild(l1); group.appendChild(plate1); group.appendChild(plate2); group.appendChild(l2); group.appendChild(txt);
+            }
+            else if (tool === 'diode') {
+                const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                poly.setAttribute('points', `${x1},${y1} ${x1+30},${y1-10} ${x1+30},${y1+10}`);
+                poly.setAttribute('fill', stroke);
+
+                const bar = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                bar.setAttribute('x1', x1+30); bar.setAttribute('y1', y1-12);
+                bar.setAttribute('x2', x1+30); bar.setAttribute('y2', y1+12);
+                bar.setAttribute('stroke', stroke); bar.setAttribute('stroke-width', width);
+
+                const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l1.setAttribute('x1', x1-15); l1.setAttribute('y1', y1);
+                l1.setAttribute('x2', x1); l1.setAttribute('y2', y1);
+                l1.setAttribute('stroke', stroke); l1.setAttribute('stroke-width', width);
+
+                const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l2.setAttribute('x1', x1+30); l2.setAttribute('y1', y1);
+                l2.setAttribute('x2', x1+45); l2.setAttribute('y2', y1);
+                l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
+
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', x1); txt.setAttribute('y', y1 - 18);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '14'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = `${desigVal} ${paramVal}`;
+
+                group.appendChild(poly); group.appendChild(bar); group.appendChild(l1); group.appendChild(l2); group.appendChild(txt);
+            }
+            else if (tool === 'npn' || tool === 'pnp') {
+                const gTranslate = `translate(${x1}, ${y1})`;
+                group.setAttribute('transform', gTranslate);
+                group.setAttribute('data-x', x1); group.setAttribute('data-y', y1);
+
+                const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circ.setAttribute('cx', 30); circ.setAttribute('cy', 30);
+                circ.setAttribute('r', 28);
+                circ.setAttribute('stroke', stroke); circ.setAttribute('stroke-width', width);
+                circ.setAttribute('fill', 'none');
+
+                const baseLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                baseLine.setAttribute('x1', 0); baseLine.setAttribute('y1', 30);
+                baseLine.setAttribute('x2', 18); baseLine.setAttribute('y2', 30);
+                baseLine.setAttribute('stroke', stroke); baseLine.setAttribute('stroke-width', width);
+
+                const baseBar = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                baseBar.setAttribute('x1', 18); baseBar.setAttribute('y1', 12);
+                baseBar.setAttribute('x2', 18); baseBar.setAttribute('y2', 48);
+                baseBar.setAttribute('stroke', stroke); baseBar.setAttribute('stroke-width', Math.max(width, 3));
+
+                const colLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                colLine.setAttribute('x1', 18); colLine.setAttribute('y1', 18);
+                colLine.setAttribute('x2', 45); colLine.setAttribute('y2', 0);
+                colLine.setAttribute('stroke', stroke); colLine.setAttribute('stroke-width', width);
+
+                const emLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                emLine.setAttribute('x1', 18); emLine.setAttribute('y1', 42);
+                emLine.setAttribute('x2', 45); emLine.setAttribute('y2', 60);
+                emLine.setAttribute('stroke', stroke); emLine.setAttribute('stroke-width', width);
+
+                const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                if (tool === 'npn') {
+                    arrow.setAttribute('points', '45,60 33,52 38,44');
+                } else {
+                    arrow.setAttribute('points', '30,42 42,54 36,58');
+                }
+                arrow.setAttribute('fill', stroke);
+
+                const txt1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt1.setAttribute('x', -10); txt1.setAttribute('y', 75);
+                txt1.setAttribute('fill', stroke); txt1.setAttribute('font-family', 'Courier New, monospace');
+                txt1.setAttribute('font-size', '14'); txt1.setAttribute('font-weight', 'bold');
+                txt1.textContent = desigVal;
+
+                const txt2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt2.setAttribute('x', -20); txt2.setAttribute('y', 92);
+                txt2.setAttribute('fill', stroke); txt2.setAttribute('font-family', 'Courier New, monospace');
+                txt2.setAttribute('font-size', '13');
+                txt2.textContent = paramVal;
+
+                group.appendChild(circ); group.appendChild(baseLine); group.appendChild(baseBar);
+                group.appendChild(colLine); group.appendChild(emLine); group.appendChild(arrow);
+                group.appendChild(txt1); group.appendChild(txt2);
+            }
+            else if (tool === 'battery') {
+                const gTranslate = `translate(${x1}, ${y1})`;
+                group.setAttribute('transform', gTranslate);
+                group.setAttribute('data-x', x1); group.setAttribute('data-y', y1);
+
+                const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l1.setAttribute('x1', 20); l1.setAttribute('y1', 0);
+                l1.setAttribute('x2', 20); l1.setAttribute('y2', 25);
+                l1.setAttribute('stroke', stroke); l1.setAttribute('stroke-width', width);
+
+                const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                p1.setAttribute('x1', 5); p1.setAttribute('y1', 25);
+                p1.setAttribute('x2', 35); p1.setAttribute('y2', 25);
+                p1.setAttribute('stroke', stroke); p1.setAttribute('stroke-width', width);
+
+                const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                p2.setAttribute('x1', 12); p2.setAttribute('y1', 35);
+                p2.setAttribute('x2', 28); p2.setAttribute('y2', 35);
+                p2.setAttribute('stroke', stroke); p2.setAttribute('stroke-width', Math.max(width, 3));
+
+                const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                l2.setAttribute('x1', 20); l2.setAttribute('y1', 35);
+                l2.setAttribute('x2', 20); l2.setAttribute('y2', 60);
+                l2.setAttribute('stroke', stroke); l2.setAttribute('stroke-width', width);
+
+                group.appendChild(l1); group.appendChild(p1); group.appendChild(p2); group.appendChild(l2);
+            }
+            else if (tool === 'text') {
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', x1); txt.setAttribute('y', y1);
+                txt.setAttribute('fill', stroke); txt.setAttribute('font-family', 'Courier New, monospace');
+                txt.setAttribute('font-size', '16'); txt.setAttribute('font-weight', 'bold');
+                txt.textContent = desigVal || 'E1';
+                group.appendChild(txt);
+            }
+
+            return group;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pt = getSVGPoint(e);
+            isDrawing = true;
+            
+            const snap = findNearestSnapPoint(pt.x, pt.y);
+            startX = snap ? snap.x : Math.round(pt.x);
+            startY = snap ? snap.y : Math.round(pt.y);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const pt = getSVGPoint(e);
+            
+            let snap = findNearestSnapPoint(pt.x, pt.y);
+            let targetX = snap ? snap.x : Math.round(pt.x);
+            let targetY = snap ? snap.y : Math.round(pt.y);
+
+            const adjusted = getAdjustedCoordinates(targetX, targetY, e.shiftKey);
+            const sw = strokeWidthInput.value;
+            const desigVal = elemDesignation.value;
+            const paramVal = elemValue.value;
+            const nodeR = nodeRadiusInput.value;
+
+            clearPreview();
+            const previewEl = createComponentXML(currentTool, startX, startY, adjusted.x, adjusted.y, sw, desigVal, paramVal, nodeR, true);
+            previewGroup.appendChild(previewEl);
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            const pt = getSVGPoint(e);
+            
+            let snap = findNearestSnapPoint(pt.x, pt.y);
+            let targetX = snap ? snap.x : Math.round(pt.x);
+            let targetY = snap ? snap.y : Math.round(pt.y);
+
+            const adjusted = getAdjustedCoordinates(targetX, targetY, e.shiftKey);
+            const endX = adjusted.x;
+            const endY = adjusted.y;
+
+            const sw = strokeWidthInput.value;
+            const desigVal = elemDesignation.value;
+            const paramVal = elemValue.value;
+            const nodeR = nodeRadiusInput.value;
+
+            clearPreview();
+
+            let finalX2 = endX;
+            let finalY2 = endY;
+            if (['node', 'npn', 'pnp', 'battery', 'diode', 'text'].includes(currentTool)) {
+                finalX2 = startX;
+                finalY2 = startY;
+            }
+
+            const newElement = createComponentXML(currentTool, startX, startY, finalX2, finalY2, sw, desigVal, paramVal, nodeR, false);
+            if (newElement) {
+                elementsGroup.appendChild(newElement);
+
+                const helperNodes = [];
+                if (currentTool !== 'node') {
+                    if (!findNearestSnapPoint(startX, startY)) {
+                        const startNode = createComponentXML('node', startX, startY, startX, startY, sw, desigVal, paramVal, nodeR, false);
+                        elementsGroup.appendChild(startNode);
+                        helperNodes.push(startNode);
+                    }
+
+                    if (['line', 'resistor', 'capacitor'].includes(currentTool)) {
+                        if (!findNearestSnapPoint(finalX2, finalY2)) {
+                            const endNode = createComponentXML('node', finalX2, finalY2, finalX2, finalY2, sw, desigVal, paramVal, nodeR, false);
+                            elementsGroup.appendChild(endNode);
+                            helperNodes.push(endNode);
+                        }
+                    }
+                }
+
+                actionHistory.push({ element: newElement, helpers: helperNodes });
+                updateOutputCode();
+                if (simToggle.checked) rebuildSimulation();
+            }
+        });
+
+        undoBtn.addEventListener('click', () => {
+            if (actionHistory.length > 0) {
+                const action = actionHistory.pop();
+                action.element.remove();
+                action.helpers.forEach(h => h.remove());
+                updateOutputCode();
+                if (simToggle.checked) rebuildSimulation();
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Очистить все элементы схемы?')) {
+                elementsGroup.innerHTML = '';
+                flowGroup.innerHTML = '';
+                actionHistory = [];
+                updateOutputCode();
+            }
+        });
+
+        let animOffset = 0;
+        let animFrameReq = null;
+
+        simToggle.addEventListener('change', () => {
+            if (simToggle.checked) {
+                rebuildSimulation();
+                runSimulationLoop();
+            } else {
+                if (animFrameReq) cancelAnimationFrame(animFrameReq);
+                flowGroup.innerHTML = '';
+            }
+        });
+
+        function parseValue(valStr) {
+            if (!valStr) return 1;
+            const str = valStr.toString().toLowerCase().trim();
+            let num = parseFloat(str) || 1;
+            if (str.includes('k') || str.includes('к')) num *= 1000;
+            else if (str.includes('m') || str.includes('м')) num *= 1000000;
+            else if (str.includes('u') || str.includes('мк')) num *= 0.000001;
+            else if (str.includes('n') || str.includes('н')) num *= 0.000000001;
+            else if (str.includes('p') || str.includes('п')) num *= 0.000000000001;
+            return num;
+        }
+
+        function rebuildSimulation() {
+            flowGroup.innerHTML = '';
+            simulationElements = [];
+
+            const comps = elementsGroup.querySelectorAll('[data-comp-type]');
+            let hasBattery = false;
+
+            comps.forEach(c => {
+                const type = c.getAttribute('data-comp-type');
+                if (type === 'battery') hasBattery = true;
+            });
+
+            comps.forEach(c => {
+                const type = c.getAttribute('data-comp-type');
+                const x1 = parseFloat(c.getAttribute('data-x1'));
+                const y1 = parseFloat(c.getAttribute('data-y1'));
+                const x2 = parseFloat(c.getAttribute('data-x2'));
+                const y2 = parseFloat(c.getAttribute('data-y2'));
+                const valStr = c.getAttribute('data-val');
+
+                if (['line', 'resistor', 'capacitor', 'diode'].includes(type)) {
+                    const pLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    pLine.setAttribute('x1', x1); pLine.setAttribute('y1', y1);
+                    pLine.setAttribute('x2', x2); pLine.setAttribute('y2', y2);
+                    pLine.setAttribute('stroke-width', Math.max(parseFloat(strokeWidthInput.value) - 1, 2));
+                    pLine.setAttribute('class', 'current-particle');
+                    
+                    let speed = hasBattery ? 1.5 : 0;
+
+                    if (type === 'resistor') {
+                        const R = parseValue(valStr);
+                        if (R >= 500000) speed *= 0.2;
+                        else if (R >= 100000) speed *= 0.4;
+                        else if (R >= 1000) speed *= 0.7;
+                    } 
+                    else if (type === 'capacitor') {
+                        speed *= 0.6;
+                    }
+
+                    flowGroup.appendChild(pLine);
+                    simulationElements.push({ el: pLine, speed: speed });
+                }
+            });
+        }
+
+        function runSimulationLoop() {
+            animOffset = (animOffset - 0.6) % 14;
+            simulationElements.forEach(item => {
+                item.el.style.strokeDashoffset = (animOffset * item.speed) + 'px';
+            });
+
+            if (simToggle.checked) {
+                animFrameReq = requestAnimationFrame(runSimulationLoop);
+            }
+        }
+
+        function updateOutputCode() {
+            const clone = canvas.cloneNode(true);
+            const bg = clone.querySelector('#bg-image');
+            if (bg) bg.remove();
+            const preview = clone.querySelector('#previewGroup');
+            if (preview) preview.remove();
+            const flow = clone.querySelector('#flowGroup');
+            if (flow) flow.remove();
+            
+            const helpers = clone.querySelectorAll('[data-helper="true"]');
+            helpers.forEach(h => h.remove());
+
+            svgCodeOutput.value = clone.outerHTML;
+        }
+
+        copyBtn.addEventListener('click', () => {
+            svgCodeOutput.select();
+            document.execCommand('copy');
+            alert('SVG код успешно скопирован в буфер обмена!');
+        });
+
+        updateOutputCode();
+    </script>
+</body>
+</html>
