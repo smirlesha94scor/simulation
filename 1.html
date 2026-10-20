@@ -204,17 +204,31 @@
             });
         });
 
-        imageLoader.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    bgImage.setAttribute('href', event.target.result);
-                    bgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', event.target.result);
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+      imageLoader.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                // Меняем размеры холста (viewBox и атрибуты width/height) под размер картинки
+                canvas.setAttribute('width', img.width);
+                canvas.setAttribute('height', img.height);
+                canvas.setAttribute('viewBox', `0 0 ${img.width} ${img.height}`);
+                
+                // Меняем размеры фоновой картинки
+                bgImage.setAttribute('width', img.width);
+                bgImage.setAttribute('height', img.height);
+                bgImage.setAttribute('href', event.target.result);
+                bgImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', event.target.result);
+                
+                updateOutputCode();
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+});
 
         opacityRange.addEventListener('input', (e) => {
             const val = e.target.value;
