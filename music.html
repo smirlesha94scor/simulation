@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Player + Beat Waveform Visualizer</title>
+    <title>DJ Player + Waveform & Track Timers</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -49,14 +49,22 @@
         .track-name {
             font-size: 15px;
             font-weight: bold;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .track-time {
+            font-size: 12px;
+            color: #1db954;
+            font-family: monospace;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
         .visualizer-canvas {
             width: 100%;
-            height: 45px;
+            height: 40px;
             background: #111;
             border-radius: 4px;
             margin-top: 6px;
@@ -137,7 +145,7 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Player + Beat Visualizer</h3>
+        <h3>DJ Player + Timers & Visualizer</h3>
 
         <!-- Загрузка файлов -->
         <div class="upload-section">
@@ -152,9 +160,12 @@
                 <span id="deck1-status" style="color: #1db954;">В эфире</span>
             </div>
             <div class="track-name" id="track1-name">Трек не выбран</div>
-            <div style="font-size: 12px; color: #bbb;">BPM: <span id="bpm1-val">--</span></div>
+            <div class="track-time">
+                <span>🕒 <span id="time1-current">00:00</span></span>
+                <span>BPM: <span id="bpm1-val">--</span></span>
+                <span>Осталось: <span id="time1-left">00:00</span></span>
+            </div>
             
-            <!-- График волны 1 -->
             <canvas id="canvas1" class="visualizer-canvas"></canvas>
 
             <div style="margin-top: 6px;">
@@ -170,9 +181,12 @@
                 <span id="deck2-status" style="color: #888;">Молчит</span>
             </div>
             <div class="track-name" id="track2-name">Следующий трек не выбран</div>
-            <div style="font-size: 12px; color: #bbb;">BPM: <span id="bpm2-val">--</span></div>
+            <div class="track-time">
+                <span>🕒 <span id="time2-current">00:00</span></span>
+                <span>BPM: <span id="bpm2-val">--</span></span>
+                <span>Осталось: <span id="time2-left">00:00</span></span>
+            </div>
 
-            <!-- График волны 2 -->
             <canvas id="canvas2" class="visualizer-canvas"></canvas>
 
             <div style="margin-top: 6px;">
@@ -219,7 +233,7 @@
                 sourceA = audioContext.createMediaElementSource(playerA);
                 gainA = audioContext.createGain();
                 analyserA = audioContext.createAnalyser();
-                analyserA.fftSize = 64; // Высокая скорость отрисовки бита
+                analyserA.fftSize = 64;
                 sourceA.connect(analyserA).connect(gainA).connect(audioContext.destination);
 
                 sourceB = audioContext.createMediaElementSource(playerB);
@@ -231,6 +245,7 @@
                 gainA.gain.setValueAtTime(1, audioContext.currentTime);
                 gainB.gain.setValueAtTime(0, audioContext.currentTime);
 
+                setInterval(updateTimers, 200); // Обновление таймеров каждые 200 мс
                 drawVisualizers();
             }
             if (audioContext.state === 'suspended') {
@@ -238,10 +253,33 @@
             }
         }
 
-        // Отрисовка графиков ритма (Oscilloscope/Beat Monitor)
+        // Форматирование секунд в формат ММ:СС
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds < 0) return "00:00";
+            let mins = Math.floor(seconds / 60);
+            let secs = Math.floor(seconds % 60);
+            return (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
+        }
+
+        // Обновление таймеров на деках
+        function updateTimers() {
+            // Дека 1
+            if (playerA.duration) {
+                document.getElementById('time1-current').textContent = formatTime(playerA.currentTime);
+                let timeLeft = playerA.duration - playerA.currentTime;
+                document.getElementById('time1-left').textContent = "-" + formatTime(timeLeft);
+            }
+
+            // Дека 2
+            if (playerB.duration) {
+                document.getElementById('time2-current').textContent = formatTime(playerB.currentTime);
+                let timeLeft = playerB.duration - playerB.currentTime;
+                document.getElementById('time2-left').textContent = "-" + formatTime(timeLeft);
+            }
+        }
+
         function drawVisualizers() {
             requestAnimationFrame(drawVisualizers);
-
             drawDeckWave('canvas1', analyserA, '#1db954');
             drawDeckWave('canvas2', analyserB, '#00bfff');
         }
@@ -253,7 +291,6 @@
             const height = canvas.height;
 
             ctx.clearRect(0, 0, width, height);
-
             if (!analyser) return;
 
             const bufferLength = analyser.frequencyBinCount;
