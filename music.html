@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Плеер с плавным переходом (Crossfade)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #121212;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .player {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 300px;
+        }
+        button {
+            background: #1db954;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #1ed760;
+        }
+        #track-info {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player">
+        <h3>Web Crossfade Player</h3>
+        <div id="track-info">Трек: <span id="current-track-name">Не играет</span></div>
+        <button onclick="nextTrack()">Следующий трек</button>
+    </div>
+
+    <script>
+        // Список ваших треков (замените ссылки на свои рабочие)
+        const playlist = [
+            { name: "Трек 1", url: "https://cdn9.sefon.pro/prev/YOH18gw0YB4ICXhk_Qb6Uw/1792621419/1089/Volaris%20-%20Set%20You%20Free%20%28Extended%20Mix%29%20%28192kbps%29.mp3" },
+            { name: "Трек 2", url: "https://cdn7.sefon.pro/prev/A7WIZuHOFM5I0nIaWsgYA/1792621419/1089/Bassjackers%20%26%20Nifra%20-%20I%20Feel%20U%20Feel%20%28192kbps%29.mp3" }
+        ];
+
+        let currentIndex = 0;
+        let audioContext;
+        
+        // Два аудио-элемента для переключения и наложения (crossfade)
+        let playerA = new Audio();
+        let playerB = new Audio();
+        let activePlayer = playerA;
+        let nextPlayer = playerB;
+
+        let sourceA, sourceB;
+        let gainA, gainB;
+
+        let crossfadeDuration = 3; // Длительность перехода в секундах
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Настраиваем узел для первого плеера
+                sourceA = audioContext.createMediaElementSource(playerA);
+                gainA = audioContext.createGain();
+                sourceA.connect(gainA).connect(audioContext.destination);
+
+                // Настраиваем узел для второго плеера
+                sourceB = audioContext.createMediaElementSource(playerB);
+                gainB = audioContext.createGain();
+                sourceB.connect(gainB).connect(audioContext.destination);
+
+                // Назначаем обработчики окончания трека для автопереключения
+                playerA.addEventListener('timeupdate', () => checkCrossfade(playerA));
+                playerB.addEventListener('timeupdate', () => checkCrossfade(playerB));
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        function playTrack(index) {
+            initAudioContext();
+
+            let track = playlist[index];
+            document.getElementById('current-track-name').textContent = track.name;
+
+            // Определяем, кто сейчас играет, а кто будет следующим
+            let playingNow = activePlayer;
+            let startingNext = nextPlayer;
+            let gainPlaying = (activePlayer === playerA) ? gainA : gainB;
+            let gainStarting = (activePlayer === playerA) ? gainB : gainA;
+
+            // Загружаем новый трек во второй плеер
+            startingNext.src = track.url;
+            startingNext.load();
+            
+            startingNext.play().then(() => {
+                let now = audioContext.currentTime;
+
+                // Плавное затухание текущего трека
+                gainPlaying.gain.setValueAtTime(1, now);
+                gainPlaying.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+
+                // Плавное появление нового трека
+                gainStarting.gain.setValueAtTime(0, now);
+                gainStarting.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
+
+                // Останавливаем старый трек после завершения кроссфейда
+                setTimeout(() => {
+                    playingNow.pause();
+                }, crossfadeDuration * 1000);
+
+                // Меняем плееры ролями
+                activePlayer = startingNext;
+                nextPlayer = playingNow;
+            }).catch(e => console.log("Ошибка воспроизведения:", e));
+        }
+
+        function checkCrossfade(player) {
+            // Если до конца текущего трека осталось меньше времени, чем длительность кроссфейда, и он еще не запущен
+            if (player === activePlayer && player.duration && !player.dataset.fading) {
+                let timeLeft = player.duration - player.currentTime;
+                if (timeLeft <= crossfadeDuration && timeLeft > 0) {
+                    player.dataset.fading = "true";
+                    currentIndex = (currentIndex + 1) % playlist.length;
+                    
+                    // Запускаем следующий трек с наложением
+                    let nextTrackData = playlist[currentIndex];
+                    document.getElementById('current-track-name').textContent = nextTrackData.name;
+
+                    let playingNow = activePlayer;
+                    let startingNext = nextPlayer;
+                    let gainPlaying = (activePlayer === playerA) ? gainA : gainB;
+                    let gainStarting = (activePlayer === playerA) ? gainB : gainA;
+
+                    startingNext.src = nextTrackData.url;
+                    startingNext.play().then(() => {
+                        let now = audioContext.currentTime;
+
+                        gainPlaying.gain.setValueAtTime(1, now);
+                        gainPlaying.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+
+                        gainStarting.gain.setValueAtTime(0, now);
+                        gainStarting.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
+
+                        setTimeout(() => {
+                            playingNow.pause();
+                            playingNow.removeAttribute('data-fading');
+                        }, crossfadeDuration * 1000);
+
+                        activePlayer = startingNext;
+                        nextPlayer = playingNow;
+                    });
+                }
+            }
+        }
+
+        function nextTrack() {
+            currentIndex = (currentIndex + 1) % playlist.length;
+            playTrack(currentIndex);
+        }
+
+        // Первый запуск по клику на кнопку (требуется из-за политики браузеров автовоспроизведения)
+        document.querySelector('button').addEventListener('click', () => {
+            if (activePlayer.paused && nextPlayer.paused) {
+                playTrack(currentIndex);
+            }
+        }, { once: true });
+    </script>
+
+</body>
+</html>
