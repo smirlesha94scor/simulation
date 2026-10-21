@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Crossfade Player + File Upload & BPM</title>
+    <title>Web Crossfade Player + Realtime BPM & Silent Preload</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -44,7 +44,7 @@
         }
         .controls {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         button, .file-btn {
             background: #1db954;
@@ -64,7 +64,13 @@
             background: #2a2a2a;
             padding: 12px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
+        }
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
         }
         input[type=range] {
             width: 100%;
@@ -73,7 +79,7 @@
         }
         .upload-section {
             background: #252525;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             margin-bottom: 15px;
             text-align: center;
@@ -135,7 +141,13 @@
             <input type="range" id="tempo-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeTempo(this.value)">
         </div>
 
-        <!-- Загрузка файлов с компьютера -->
+        <!-- Переключатель тихой предзагрузки следующего трека -->
+        <div class="control-group toggle-group">
+            <label for="silent-preload">Предзагрузка (без звука):</label>
+            <input type="checkbox" id="silent-preload" onchange="toggleSilentPreload(this.checked)">
+        </div>
+
+        <!-- Загрузка файлов с ПК -->
         <div class="upload-section">
             <label for="file-input" class="file-btn">📂 Выбрать файлы с ПК</label>
             <input type="file" id="file-input" accept="audio/*" multiple onchange="handleFiles(this.files)">
@@ -161,6 +173,8 @@
 
         let crossfadeDuration = 3;
         let currentSpeed = 1.0;
+        let baseBPM = null; // Базовый рассчитанный BPM текущего трека
+        let isSilentPreloadEnabled = false;
 
         function initAudioContext() {
             if (!audioContext) {
@@ -182,28 +196,22 @@
             }
         }
 
-        // Обработка загруженных файлов с компьютера
         function handleFiles(files) {
             if (!files.length) return;
 
             for (let file of files) {
-                // Создаем временную ссылку на локальный файл на ПК
                 const objectURL = URL.createObjectURL(file);
-                // Чистим имя файла от расширения
                 const cleanName = file.name.replace(/\.[^/.]+$/, "");
-                
                 playlist.push({ name: cleanName, url: objectURL });
             }
 
             renderPlaylist();
 
-            // Если раньше ничего не играло, запускаем первый из новых файлов
             if (playerA.paused && playerB.paused && playlist.length === files.length) {
                 playTrack(0);
             }
         }
 
-        // Отрисовка плейлиста
         function renderPlaylist() {
             const container = document.getElementById('playlist-view');
             container.innerHTML = '';
@@ -246,6 +254,7 @@
         // Анализ BPM
         async function calculateBPM(url) {
             document.getElementById('bpm-val').textContent = "Анализ...";
+            baseBPM = null;
             try {
                 const response = await fetch(url);
                 const arrayBuffer = await response.arrayBuffer();
@@ -280,7 +289,7 @@
                     intervals.push(peaks[i] - peaks[i - 1]);
                 }
 
-                if (intervals.length === 0) return "Н/Д";
+                if (intervals.length === 0) return null;
 
                 let avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
                 let bpm = Math.round(60 / (avgInterval / 44100));
@@ -290,10 +299,21 @@
 
                 return Math.round(bpm);
             } catch (err) {
-                return "Н/Д";
+                return null;
             }
         }
 
+        // Обновление BPM на экране с учетом текущей скорости (Pitch)
+        function updateDisplayBPM() {
+            if (baseBPM) {
+                let calculated = Math.round(baseBPM * currentSpeed);
+                document.getElementById('bpm-val').textContent = calculated;
+            } else {
+                document.getElementById('bpm-val').textContent = "Н/Д";
+            }
+        }
+
+        // Изменение скорости (Pitch) в реальном времени
         function changeTempo(value) {
             currentSpeed = parseFloat(value);
             document.getElementById('tempo-val').textContent = currentSpeed.toFixed(2) + 'x';
@@ -303,6 +323,40 @@
 
             playerA.playbackRate = currentSpeed;
             playerB.playbackRate = currentSpeed;
+
+            // Мгновенный перерасчет BPM при движении ползунка
+            updateDisplayBPM();
+        }
+
+        // Включение/выключение тихой предзагрузки
+        function toggleSilentPreload(enabled) {
+            isSilentPreloadEnabled = enabled;
+            if (enabled && playlist.length > 1) {
+                startSilentPreload();
+            }
+        }
+
+        // Запуск следующего трека без звука (gain = 0)
+        function startSilentPreload() {
+            if (playlist.length <= 1) return;
+            let nextIndex = (currentIndex + 1) % playlist.length;
+            let nextTrackObj = playlist[nextIndex];
+            let gainNext = (activePlayer === playerA) ? gainB : gainA;
+
+            if (nextPlayer.src !== nextTrackObj.url) {
+                nextPlayer.src = nextTrackObj.url;
+                nextPlayer.load();
+            }
+
+            nextPlayer.preservesPitch = true;
+            nextPlayer.playbackRate = currentSpeed;
+
+            // Громкость на 0
+            if (audioContext) {
+                gainNext.gain.setValueAtTime(0, audioContext.currentTime);
+            }
+
+            nextPlayer.play().catch(e => console.log("Фоновый запуск:", e));
         }
 
         async function playTrack(index) {
@@ -315,8 +369,10 @@
             let track = playlist[index];
             document.getElementById('current-track-name').textContent = track.name;
 
+            // Вычисляем базовый BPM и обновляем его отображение
             calculateBPM(track.url).then(bpm => {
-                document.getElementById('bpm-val').textContent = bpm;
+                baseBPM = bpm;
+                updateDisplayBPM();
             });
 
             let playingNow = activePlayer;
@@ -324,8 +380,11 @@
             let gainPlaying = (activePlayer === playerA) ? gainA : gainB;
             let gainStarting = (activePlayer === playerA) ? gainB : gainA;
 
-            startingNext.src = track.url;
-            startingNext.load();
+            // Если следующий трек еще не загружен тихой предзагрузкой
+            if (startingNext.src !== track.url) {
+                startingNext.src = track.url;
+                startingNext.load();
+            }
             
             startingNext.preservesPitch = true;
             startingNext.playbackRate = currentSpeed;
@@ -333,10 +392,11 @@
             startingNext.play().then(() => {
                 let now = audioContext.currentTime;
 
-                gainPlaying.gain.setValueAtTime(1, now);
+                // Плавно глушим текущий и выводим следующий
+                gainPlaying.gain.setValueAtTime(gainPlaying.gain.value, now);
                 gainPlaying.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
 
-                gainStarting.gain.setValueAtTime(0, now);
+                gainStarting.gain.setValueAtTime(gainStarting.gain.value, now);
                 gainStarting.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
 
                 setTimeout(() => {
@@ -345,6 +405,11 @@
 
                 activePlayer = startingNext;
                 nextPlayer = playingNow;
+
+                // Если включен режим тихой предзагрузки, запускаем следующий трек без звука
+                if (isSilentPreloadEnabled) {
+                    setTimeout(() => startSilentPreload(), (crossfadeDuration + 0.5) * 1000);
+                }
             }).catch(e => console.log("Ошибка воспроизведения:", e));
         }
 
