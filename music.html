@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Crossfade Player + Realtime BPM & Silent Preload</title>
+    <title>DJ Player + Beat Waveform Visualizer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -22,66 +22,89 @@
             padding: 25px;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-            width: 360px;
+            width: 420px;
         }
         h3 {
             margin-top: 0;
             text-align: center;
         }
-        #track-info {
-            text-align: center;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-        .bpm-badge {
-            display: inline-block;
-            background: #333;
-            padding: 4px 10px;
-            border-radius: 10px;
-            font-weight: bold;
-            color: #1db954;
-            margin-top: 5px;
-        }
-        .controls {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        button, .file-btn {
-            background: #1db954;
-            color: white;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        button:hover, .file-btn:hover {
-            background: #1ed760;
-        }
-        .control-group {
-            background: #2a2a2a;
+        .deck {
+            background: #262626;
+            border: 1px solid #333;
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 12px;
         }
-        .toggle-group {
+        .deck.live {
+            border-color: #1db954;
+        }
+        .deck-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #aaa;
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
+        }
+        .track-name {
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .visualizer-canvas {
+            width: 100%;
+            height: 45px;
+            background: #111;
+            border-radius: 4px;
+            margin-top: 6px;
+            display: block;
+        }
+        .deck-controls {
+            display: flex;
+            gap: 8px;
             align-items: center;
-            font-size: 14px;
+            margin-top: 8px;
+        }
+        button, .file-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        button:hover, .file-btn:hover {
+            background: #444;
+        }
+        button.primary {
+            background: #1db954;
+        }
+        button.primary:hover {
+            background: #1ed760;
         }
         input[type=range] {
             width: 100%;
             cursor: pointer;
-            margin-top: 8px;
+            margin-top: 5px;
+        }
+        .global-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .global-controls button {
+            flex: 1;
         }
         .upload-section {
             background: #252525;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             text-align: center;
         }
         input[type="file"] {
@@ -90,17 +113,16 @@
         .playlist-container {
             background: #181818;
             border-radius: 8px;
-            max-height: 180px;
+            max-height: 120px;
             overflow-y: auto;
         }
         .playlist-item {
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-bottom: 1px solid #282828;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
         }
         .playlist-item:hover {
             background: #282828;
@@ -110,47 +132,62 @@
             font-weight: bold;
             background: #222;
         }
-        .remove-btn {
-            color: #888;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 0 5px;
-        }
-        .remove-btn:hover {
-            color: #ff5555;
-        }
     </style>
 </head>
 <body>
 
     <div class="player-card">
-        <h3>Web Crossfade Player</h3>
-        
-        <div id="track-info">
-            <div>Текущий: <span id="current-track-name">Выберите файлы</span></div>
-            <div class="bpm-badge">BPM: <span id="bpm-val">--</span></div>
-        </div>
+        <h3>DJ Player + Beat Visualizer</h3>
 
-        <div class="controls">
-            <button onclick="nextTrack()">Следующий трек</button>
-        </div>
-
-        <!-- Регулировка темпа -->
-        <div class="control-group">
-            <label for="tempo-slider">Скорость (Pitch): <b id="tempo-val">1.00x</b></label>
-            <input type="range" id="tempo-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeTempo(this.value)">
-        </div>
-
-        <!-- Переключатель тихой предзагрузки следующего трека -->
-        <div class="control-group toggle-group">
-            <label for="silent-preload">Предзагрузка (без звука):</label>
-            <input type="checkbox" id="silent-preload" onchange="toggleSilentPreload(this.checked)">
-        </div>
-
-        <!-- Загрузка файлов с ПК -->
+        <!-- Загрузка файлов -->
         <div class="upload-section">
-            <label for="file-input" class="file-btn">📂 Выбрать файлы с ПК</label>
+            <label for="file-input" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить треки с ПК</label>
             <input type="file" id="file-input" accept="audio/*" multiple onchange="handleFiles(this.files)">
+        </div>
+
+        <!-- ДЕКА 1 -->
+        <div class="deck live" id="deck1-box">
+            <div class="deck-title">
+                <span>ДЕКА 1 (LIVE)</span>
+                <span id="deck1-status" style="color: #1db954;">В эфире</span>
+            </div>
+            <div class="track-name" id="track1-name">Трек не выбран</div>
+            <div style="font-size: 12px; color: #bbb;">BPM: <span id="bpm1-val">--</span></div>
+            
+            <!-- График волны 1 -->
+            <canvas id="canvas1" class="visualizer-canvas"></canvas>
+
+            <div style="margin-top: 6px;">
+                <label style="font-size: 12px;">Темп: <b id="tempo1-val">1.00x</b></label>
+                <input type="range" id="tempo1-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeDeckTempo(1, this.value)">
+            </div>
+        </div>
+
+        <!-- ДЕКА 2 -->
+        <div class="deck" id="deck2-box">
+            <div class="deck-title">
+                <span>ДЕКА 2 (PREVIEW / ТИХО)</span>
+                <span id="deck2-status" style="color: #888;">Молчит</span>
+            </div>
+            <div class="track-name" id="track2-name">Следующий трек не выбран</div>
+            <div style="font-size: 12px; color: #bbb;">BPM: <span id="bpm2-val">--</span></div>
+
+            <!-- График волны 2 -->
+            <canvas id="canvas2" class="visualizer-canvas"></canvas>
+
+            <div style="margin-top: 6px;">
+                <label style="font-size: 12px;">Темп: <b id="tempo2-val">1.00x</b></label>
+                <input type="range" id="tempo2-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeDeckTempo(2, this.value)">
+            </div>
+            <div class="deck-controls">
+                <button onclick="startSilentPreview()">▶ Запустить тихо (Cue)</button>
+            </div>
+        </div>
+
+        <!-- Кнопки контроля -->
+        <div class="global-controls">
+            <button class="primary" onclick="executeCrossfade()">🔀 Свести (Crossfade)</button>
+            <button onclick="nextTrack()">Следующий</button>
         </div>
 
         <!-- Плейлист -->
@@ -165,16 +202,15 @@
         let playerA = new Audio();
         let playerB = new Audio();
 
-        let activePlayer = playerA;
-        let nextPlayer = playerB;
-
         let sourceA, sourceB;
         let gainA, gainB;
+        let analyserA, analyserB;
 
+        let activeDeck = 1;
         let crossfadeDuration = 3;
-        let currentSpeed = 1.0;
-        let baseBPM = null; // Базовый рассчитанный BPM текущего трека
-        let isSilentPreloadEnabled = false;
+
+        let baseBPM1 = null;
+        let baseBPM2 = null;
 
         function initAudioContext() {
             if (!audioContext) {
@@ -182,79 +218,98 @@
 
                 sourceA = audioContext.createMediaElementSource(playerA);
                 gainA = audioContext.createGain();
-                sourceA.connect(gainA).connect(audioContext.destination);
+                analyserA = audioContext.createAnalyser();
+                analyserA.fftSize = 64; // Высокая скорость отрисовки бита
+                sourceA.connect(analyserA).connect(gainA).connect(audioContext.destination);
 
                 sourceB = audioContext.createMediaElementSource(playerB);
                 gainB = audioContext.createGain();
-                sourceB.connect(gainB).connect(audioContext.destination);
+                analyserB = audioContext.createAnalyser();
+                analyserB.fftSize = 64;
+                sourceB.connect(analyserB).connect(gainB).connect(audioContext.destination);
 
-                playerA.addEventListener('timeupdate', () => checkCrossfade(playerA));
-                playerB.addEventListener('timeupdate', () => checkCrossfade(playerB));
+                gainA.gain.setValueAtTime(1, audioContext.currentTime);
+                gainB.gain.setValueAtTime(0, audioContext.currentTime);
+
+                drawVisualizers();
             }
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
             }
         }
 
+        // Отрисовка графиков ритма (Oscilloscope/Beat Monitor)
+        function drawVisualizers() {
+            requestAnimationFrame(drawVisualizers);
+
+            drawDeckWave('canvas1', analyserA, '#1db954');
+            drawDeckWave('canvas2', analyserB, '#00bfff');
+        }
+
+        function drawDeckWave(canvasId, analyser, color) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (!analyser) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = color;
+            const barWidth = (width / bufferLength) * 1.5;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                let barHeight = (dataArray[i] / 255) * height;
+                ctx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+                x += barWidth;
+            }
+        }
+
         function handleFiles(files) {
             if (!files.length) return;
-
             for (let file of files) {
                 const objectURL = URL.createObjectURL(file);
                 const cleanName = file.name.replace(/\.[^/.]+$/, "");
                 playlist.push({ name: cleanName, url: objectURL });
             }
-
             renderPlaylist();
 
-            if (playerA.paused && playerB.paused && playlist.length === files.length) {
-                playTrack(0);
+            if (playerA.paused && playerB.paused && playlist.length > 0) {
+                loadDeck(1, 0);
+                loadDeck(2, 1 < playlist.length ? 1 : 0);
+                playerA.play();
+                activeDeck = 1;
+                updateDeckUI();
             }
         }
 
         function renderPlaylist() {
             const container = document.getElementById('playlist-view');
             container.innerHTML = '';
-
             if (playlist.length === 0) {
-                container.innerHTML = '<div style="padding: 15px; text-align: center; color: #666;">Плейлист пуст</div>';
+                container.innerHTML = '<div style="padding: 10px; text-align: center; color: #666;">Плейлист пуст</div>';
                 return;
             }
-
             playlist.forEach((track, idx) => {
                 const item = document.createElement('div');
                 item.className = 'playlist-item' + (idx === currentIndex ? ' active' : '');
-                
-                const titleSpan = document.createElement('span');
-                titleSpan.textContent = `${idx + 1}. ${track.name}`;
-                titleSpan.onclick = () => selectTrack(idx);
-                
-                const removeSpan = document.createElement('span');
-                removeSpan.className = 'remove-btn';
-                removeSpan.innerHTML = '&times;';
-                removeSpan.onclick = (e) => {
-                    e.stopPropagation();
-                    removeTrack(idx);
+                item.textContent = `${idx + 1}. ${track.name}`;
+                item.onclick = () => {
+                    currentIndex = idx;
+                    loadDeck(activeDeck === 1 ? 1 : 2, currentIndex);
+                    renderPlaylist();
                 };
-
-                item.appendChild(titleSpan);
-                item.appendChild(removeSpan);
                 container.appendChild(item);
             });
         }
 
-        function removeTrack(idx) {
-            playlist.splice(idx, 1);
-            if (currentIndex >= playlist.length) {
-                currentIndex = Math.max(0, playlist.length - 1);
-            }
-            renderPlaylist();
-        }
-
-        // Анализ BPM
         async function calculateBPM(url) {
-            document.getElementById('bpm-val').textContent = "Анализ...";
-            baseBPM = null;
             try {
                 const response = await fetch(url);
                 const arrayBuffer = await response.arrayBuffer();
@@ -289,7 +344,7 @@
                     intervals.push(peaks[i] - peaks[i - 1]);
                 }
 
-                if (intervals.length === 0) return null;
+                if (intervals.length === 0) return 120;
 
                 let avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
                 let bpm = Math.round(60 / (avgInterval / 44100));
@@ -299,142 +354,120 @@
 
                 return Math.round(bpm);
             } catch (err) {
-                return null;
+                return 120;
             }
         }
 
-        // Обновление BPM на экране с учетом текущей скорости (Pitch)
-        function updateDisplayBPM() {
-            if (baseBPM) {
-                let calculated = Math.round(baseBPM * currentSpeed);
-                document.getElementById('bpm-val').textContent = calculated;
-            } else {
-                document.getElementById('bpm-val').textContent = "Н/Д";
-            }
-        }
-
-        // Изменение скорости (Pitch) в реальном времени
-        function changeTempo(value) {
-            currentSpeed = parseFloat(value);
-            document.getElementById('tempo-val').textContent = currentSpeed.toFixed(2) + 'x';
-            
-            playerA.preservesPitch = true;
-            playerB.preservesPitch = true;
-
-            playerA.playbackRate = currentSpeed;
-            playerB.playbackRate = currentSpeed;
-
-            // Мгновенный перерасчет BPM при движении ползунка
-            updateDisplayBPM();
-        }
-
-        // Включение/выключение тихой предзагрузки
-        function toggleSilentPreload(enabled) {
-            isSilentPreloadEnabled = enabled;
-            if (enabled && playlist.length > 1) {
-                startSilentPreload();
-            }
-        }
-
-        // Запуск следующего трека без звука (gain = 0)
-        function startSilentPreload() {
-            if (playlist.length <= 1) return;
-            let nextIndex = (currentIndex + 1) % playlist.length;
-            let nextTrackObj = playlist[nextIndex];
-            let gainNext = (activePlayer === playerA) ? gainB : gainA;
-
-            if (nextPlayer.src !== nextTrackObj.url) {
-                nextPlayer.src = nextTrackObj.url;
-                nextPlayer.load();
-            }
-
-            nextPlayer.preservesPitch = true;
-            nextPlayer.playbackRate = currentSpeed;
-
-            // Громкость на 0
-            if (audioContext) {
-                gainNext.gain.setValueAtTime(0, audioContext.currentTime);
-            }
-
-            nextPlayer.play().catch(e => console.log("Фоновый запуск:", e));
-        }
-
-        async function playTrack(index) {
+        function loadDeck(deckNum, playlistIdx) {
+            initAudioContext();
             if (playlist.length === 0) return;
 
+            let track = playlist[playlistIdx];
+            let player = (deckNum === 1) ? playerA : playerB;
+
+            player.src = track.url;
+            player.load();
+            player.preservesPitch = true;
+
+            let sliderVal = parseFloat(document.getElementById(`tempo${deckNum}-slider`).value);
+            player.playbackRate = sliderVal;
+
+            if (deckNum === 1) {
+                document.getElementById('track1-name').textContent = track.name;
+                calculateBPM(track.url).then(bpm => {
+                    baseBPM1 = bpm;
+                    updateBPMDisplay(1);
+                });
+            } else {
+                document.getElementById('track2-name').textContent = track.name;
+                document.getElementById('deck2-status').textContent = "Молчит";
+                document.getElementById('deck2-status').style.color = "#888";
+                calculateBPM(track.url).then(bpm => {
+                    baseBPM2 = bpm;
+                    updateBPMDisplay(2);
+                });
+            }
+        }
+
+        function changeDeckTempo(deckNum, value) {
+            let speed = parseFloat(value);
+            document.getElementById(`tempo${deckNum}-val`).textContent = speed.toFixed(2) + 'x';
+
+            let player = (deckNum === 1) ? playerA : playerB;
+            player.preservesPitch = true;
+            player.playbackRate = speed;
+
+            updateBPMDisplay(deckNum);
+        }
+
+        function updateBPMDisplay(deckNum) {
+            let base = (deckNum === 1) ? baseBPM1 : baseBPM2;
+            let sliderVal = parseFloat(document.getElementById(`tempo${deckNum}-slider`).value);
+            if (base) {
+                document.getElementById(`bpm${deckNum}-val`).textContent = Math.round(base * sliderVal);
+            }
+        }
+
+        function startSilentPreview() {
             initAudioContext();
-            currentIndex = index;
-            renderPlaylist();
+            let previewPlayer = (activeDeck === 1) ? playerB : playerA;
+            let previewGain = (activeDeck === 1) ? gainB : gainA;
 
-            let track = playlist[index];
-            document.getElementById('current-track-name').textContent = track.name;
-
-            // Вычисляем базовый BPM и обновляем его отображение
-            calculateBPM(track.url).then(bpm => {
-                baseBPM = bpm;
-                updateDisplayBPM();
-            });
-
-            let playingNow = activePlayer;
-            let startingNext = nextPlayer;
-            let gainPlaying = (activePlayer === playerA) ? gainA : gainB;
-            let gainStarting = (activePlayer === playerA) ? gainB : gainA;
-
-            // Если следующий трек еще не загружен тихой предзагрузкой
-            if (startingNext.src !== track.url) {
-                startingNext.src = track.url;
-                startingNext.load();
-            }
-            
-            startingNext.preservesPitch = true;
-            startingNext.playbackRate = currentSpeed;
-
-            startingNext.play().then(() => {
-                let now = audioContext.currentTime;
-
-                // Плавно глушим текущий и выводим следующий
-                gainPlaying.gain.setValueAtTime(gainPlaying.gain.value, now);
-                gainPlaying.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
-
-                gainStarting.gain.setValueAtTime(gainStarting.gain.value, now);
-                gainStarting.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
-
-                setTimeout(() => {
-                    playingNow.pause();
-                }, crossfadeDuration * 1000);
-
-                activePlayer = startingNext;
-                nextPlayer = playingNow;
-
-                // Если включен режим тихой предзагрузки, запускаем следующий трек без звука
-                if (isSilentPreloadEnabled) {
-                    setTimeout(() => startSilentPreload(), (crossfadeDuration + 0.5) * 1000);
-                }
-            }).catch(e => console.log("Ошибка воспроизведения:", e));
+            previewGain.gain.setValueAtTime(0, audioContext.currentTime);
+            previewPlayer.play().then(() => {
+                document.getElementById(`deck2-status`).textContent = "Играет тихо";
+                document.getElementById(`deck2-status`).style.color = "#00bfff";
+            }).catch(e => console.log("Ошибка превью:", e));
         }
 
-        function checkCrossfade(player) {
-            if (player === activePlayer && player.duration && !player.dataset.fading) {
-                let timeLeft = player.duration - player.currentTime;
-                if (timeLeft <= crossfadeDuration && timeLeft > 0) {
-                    player.dataset.fading = "true";
-                    let nextIndex = (currentIndex + 1) % playlist.length;
-                    playTrack(nextIndex);
-                }
+        function executeCrossfade() {
+            initAudioContext();
+            let now = audioContext.currentTime;
+
+            let livePlayer = (activeDeck === 1) ? playerA : playerB;
+            let liveGain = (activeDeck === 1) ? gainA : gainB;
+
+            let nextPlayer = (activeDeck === 1) ? playerB : playerA;
+            let nextGain = (activeDeck === 1) ? gainB : gainA;
+
+            if (nextPlayer.paused) {
+                nextPlayer.play();
             }
+
+            liveGain.gain.setValueAtTime(liveGain.gain.value, now);
+            liveGain.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+
+            nextGain.gain.setValueAtTime(nextGain.gain.value, now);
+            nextGain.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
+
+            setTimeout(() => {
+                livePlayer.pause();
+                activeDeck = (activeDeck === 1) ? 2 : 1;
+                updateDeckUI();
+                
+                currentIndex = (currentIndex + 1) % playlist.length;
+                renderPlaylist();
+                loadDeck(activeDeck === 1 ? 2 : 1, currentIndex);
+            }, crossfadeDuration * 1000);
         }
 
-        function selectTrack(index) {
-            playTrack(index);
+        function updateDeckUI() {
+            if (activeDeck === 1) {
+                document.getElementById('deck1-box').className = "deck live";
+                document.getElementById('deck2-box').className = "deck";
+                document.getElementById('deck1-status').textContent = "В эфире";
+                document.getElementById('deck1-status').style.color = "#1db954";
+            } else {
+                document.getElementById('deck1-box').className = "deck";
+                document.getElementById('deck2-box').className = "deck live";
+                document.getElementById('deck2-status').textContent = "В эфире";
+                document.getElementById('deck2-status').style.color = "#1db954";
+            }
         }
 
         function nextTrack() {
-            if (playlist.length === 0) return;
-            let nextIndex = (currentIndex + 1) % playlist.length;
-            playTrack(nextIndex);
+            executeCrossfade();
         }
-
-        renderPlaylist();
     </script>
 
 </body>
