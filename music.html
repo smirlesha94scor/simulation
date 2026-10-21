@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Player + Waveform & Track Timers</title>
+    <title>DJ Ultra-Fast Silence Switcher</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -69,12 +69,6 @@
             border-radius: 4px;
             margin-top: 6px;
             display: block;
-        }
-        .deck-controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-top: 8px;
         }
         button, .file-btn {
             background: #333;
@@ -145,9 +139,8 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Player + Timers & Visualizer</h3>
+        <h3>DJ Ultra-Fast Switcher</h3>
 
-        <!-- Загрузка файлов -->
         <div class="upload-section">
             <label for="file-input" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить треки с ПК</label>
             <input type="file" id="file-input" accept="audio/*" multiple onchange="handleFiles(this.files)">
@@ -177,8 +170,8 @@
         <!-- ДЕКА 2 -->
         <div class="deck" id="deck2-box">
             <div class="deck-title">
-                <span>ДЕКА 2 (PREVIEW / ТИХО)</span>
-                <span id="deck2-status" style="color: #888;">Молчит</span>
+                <span>ДЕКА 2 (CUE / СЛЕДУЮЩИЙ)</span>
+                <span id="deck2-status" style="color: #888;">Ожидание</span>
             </div>
             <div class="track-name" id="track2-name">Следующий трек не выбран</div>
             <div class="track-time">
@@ -193,18 +186,13 @@
                 <label style="font-size: 12px;">Темп: <b id="tempo2-val">1.00x</b></label>
                 <input type="range" id="tempo2-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeDeckTempo(2, this.value)">
             </div>
-            <div class="deck-controls">
-                <button onclick="startSilentPreview()">▶ Запустить тихо (Cue)</button>
-            </div>
         </div>
 
-        <!-- Кнопки контроля -->
         <div class="global-controls">
-            <button class="primary" onclick="executeCrossfade()">🔀 Свести (Crossfade)</button>
-            <button onclick="nextTrack()">Следующий</button>
+            <button class="primary" onclick="executeInstantSwitch()">⚡ Переключить</button>
+            <button onclick="nextTrack()">След. трек</button>
         </div>
 
-        <!-- Плейлист -->
         <div class="playlist-container" id="playlist-view"></div>
     </div>
 
@@ -221,7 +209,7 @@
         let analyserA, analyserB;
 
         let activeDeck = 1;
-        let crossfadeDuration = 3;
+        let isSwitching = false;
 
         let baseBPM1 = null;
         let baseBPM2 = null;
@@ -233,19 +221,20 @@
                 sourceA = audioContext.createMediaElementSource(playerA);
                 gainA = audioContext.createGain();
                 analyserA = audioContext.createAnalyser();
-                analyserA.fftSize = 64;
+                analyserA.fftSize = 2048; // Точный анализ волны
                 sourceA.connect(analyserA).connect(gainA).connect(audioContext.destination);
 
                 sourceB = audioContext.createMediaElementSource(playerB);
                 gainB = audioContext.createGain();
                 analyserB = audioContext.createAnalyser();
-                analyserB.fftSize = 64;
+                analyserB.fftSize = 2048;
                 sourceB.connect(analyserB).connect(gainB).connect(audioContext.destination);
 
                 gainA.gain.setValueAtTime(1, audioContext.currentTime);
                 gainB.gain.setValueAtTime(0, audioContext.currentTime);
 
-                setInterval(updateTimers, 200); // Обновление таймеров каждые 200 мс
+                // Запуск ультрабыстрого цикла через requestAnimationFrame (синхронизация с частотой экрана / долями миллисекунд)
+                requestAnimationFrame(ultraFastLoop);
                 drawVisualizers();
             }
             if (audioContext.state === 'suspended') {
@@ -253,7 +242,6 @@
             }
         }
 
-        // Форматирование секунд в формат ММ:СС
         function formatTime(seconds) {
             if (isNaN(seconds) || seconds < 0) return "00:00";
             let mins = Math.floor(seconds / 60);
@@ -261,20 +249,44 @@
             return (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
         }
 
-        // Обновление таймеров на деках
-        function updateTimers() {
-            // Дека 1
+        // Ультрабыстрый цикл проверки тишины (работает каждый кадр / каждые ~4-16 мс)
+        function ultraFastLoop() {
+            requestAnimationFrame(ultraFastLoop);
+
+            let livePlayer = (activeDeck === 1) ? playerA : playerB;
+            let liveAnalyser = (activeDeck === 1) ? analyserA : analyserB;
+
+            // Обновляем таймеры на экране реже (раз в секунду через время, чтобы не грузить DOM)
             if (playerA.duration) {
                 document.getElementById('time1-current').textContent = formatTime(playerA.currentTime);
-                let timeLeft = playerA.duration - playerA.currentTime;
-                document.getElementById('time1-left').textContent = "-" + formatTime(timeLeft);
+                document.getElementById('time1-left').textContent = "-" + formatTime(playerA.duration - playerA.currentTime);
             }
-
-            // Дека 2
             if (playerB.duration) {
                 document.getElementById('time2-current').textContent = formatTime(playerB.currentTime);
-                let timeLeft = playerB.duration - playerB.currentTime;
-                document.getElementById('time2-left').textContent = "-" + formatTime(timeLeft);
+                document.getElementById('time2-left').textContent = "-" + formatTime(playerB.duration - playerB.currentTime);
+            }
+
+            if (!livePlayer.duration || isNaN(livePlayer.duration) || isSwitching) return;
+
+            let timeLeft = livePlayer.duration - livePlayer.currentTime;
+            
+            // Проверяем тишину на последних 10 секундах трека
+            if (timeLeft <= 10 && liveAnalyser) {
+                const pcmData = new Float32Array(liveAnalyser.fftSize);
+                liveAnalyser.getFloatTimeDomainData(pcmData); // Получаем сырые колебания звука в реальном времени
+
+                // Вычисляем RMS (среднеквадратичное значение громкости)
+                let sumSquares = 0;
+                for (let i = 0; i < pcmData.length; i++) {
+                    sumSquares += pcmData[i] * pcmData[i];
+                }
+                let rms = Math.sqrt(sumSquares / pcmData.length);
+
+                // Если уровень громкости упал ниже порога тишины (0.005)
+                if (rms < 0.005) {
+                    isSwitching = true;
+                    executeInstantSwitch();
+                }
             }
         }
 
@@ -323,6 +335,7 @@
                 playerA.play();
                 activeDeck = 1;
                 updateDeckUI();
+                prepareNextDeckPreview();
             }
         }
 
@@ -337,11 +350,6 @@
                 const item = document.createElement('div');
                 item.className = 'playlist-item' + (idx === currentIndex ? ' active' : '');
                 item.textContent = `${idx + 1}. ${track.name}`;
-                item.onclick = () => {
-                    currentIndex = idx;
-                    loadDeck(activeDeck === 1 ? 1 : 2, currentIndex);
-                    renderPlaylist();
-                };
                 container.appendChild(item);
             });
         }
@@ -406,9 +414,6 @@
             player.load();
             player.preservesPitch = true;
 
-            let sliderVal = parseFloat(document.getElementById(`tempo${deckNum}-slider`).value);
-            player.playbackRate = sliderVal;
-
             if (deckNum === 1) {
                 document.getElementById('track1-name').textContent = track.name;
                 calculateBPM(track.url).then(bpm => {
@@ -417,13 +422,25 @@
                 });
             } else {
                 document.getElementById('track2-name').textContent = track.name;
-                document.getElementById('deck2-status').textContent = "Молчит";
-                document.getElementById('deck2-status').style.color = "#888";
                 calculateBPM(track.url).then(bpm => {
                     baseBPM2 = bpm;
-                    updateBPMDisplay(2);
+                    autoSyncBPM();
                 });
             }
+        }
+
+        function autoSyncBPM() {
+            if (!baseBPM1 || !baseBPM2) return;
+
+            let liveBase = (activeDeck === 1) ? baseBPM1 : baseBPM2;
+            let currentLiveBPM = liveBase * parseFloat(document.getElementById(`tempo${activeDeck}-slider`).value);
+
+            let requiredSpeed = currentLiveBPM / baseBPM2;
+            requiredSpeed = Math.max(0.8, Math.min(1.2, requiredSpeed));
+
+            let nextDeckNum = (activeDeck === 1) ? 2 : 1;
+            document.getElementById(`tempo${nextDeckNum}-slider`).value = requiredSpeed.toFixed(2);
+            changeDeckTempo(nextDeckNum, requiredSpeed);
         }
 
         function changeDeckTempo(deckNum, value) {
@@ -445,47 +462,48 @@
             }
         }
 
-        function startSilentPreview() {
-            initAudioContext();
+        function prepareNextDeckPreview() {
             let previewPlayer = (activeDeck === 1) ? playerB : playerA;
             let previewGain = (activeDeck === 1) ? gainB : gainA;
+            let deckNum = (activeDeck === 1) ? 2 : 1;
 
             previewGain.gain.setValueAtTime(0, audioContext.currentTime);
             previewPlayer.play().then(() => {
-                document.getElementById(`deck2-status`).textContent = "Играет тихо";
-                document.getElementById(`deck2-status`).style.color = "#00bfff";
-            }).catch(e => console.log("Ошибка превью:", e));
+                document.getElementById(`deck${deckNum}-status`).textContent = "Готов (тихо)";
+                document.getElementById(`deck${deckNum}-status`).style.color = "#00bfff";
+            }).catch(e => console.log("Превью:", e));
         }
 
-        function executeCrossfade() {
+        function executeInstantSwitch() {
             initAudioContext();
             let now = audioContext.currentTime;
 
-            let livePlayer = (activeDeck === 1) ? playerA : playerB;
             let liveGain = (activeDeck === 1) ? gainA : gainB;
+            let livePlayer = (activeDeck === 1) ? playerA : playerB;
 
-            let nextPlayer = (activeDeck === 1) ? playerB : playerA;
             let nextGain = (activeDeck === 1) ? gainB : gainA;
+            let nextPlayer = (activeDeck === 1) ? playerB : playerA;
 
             if (nextPlayer.paused) {
                 nextPlayer.play();
             }
 
-            liveGain.gain.setValueAtTime(liveGain.gain.value, now);
-            liveGain.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+            // Мгновенный свитч сигнала
+            nextGain.gain.setValueAtTime(1, now);
+            liveGain.gain.setValueAtTime(0, now);
 
-            nextGain.gain.setValueAtTime(nextGain.gain.value, now);
-            nextGain.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
+            livePlayer.pause();
+            activeDeck = (activeDeck === 1) ? 2 : 1;
+            updateDeckUI();
+            
+            currentIndex = (currentIndex + 1) % playlist.length;
+            renderPlaylist();
 
-            setTimeout(() => {
-                livePlayer.pause();
-                activeDeck = (activeDeck === 1) ? 2 : 1;
-                updateDeckUI();
-                
-                currentIndex = (currentIndex + 1) % playlist.length;
-                renderPlaylist();
-                loadDeck(activeDeck === 1 ? 2 : 1, currentIndex);
-            }, crossfadeDuration * 1000);
+            let nextDeckToLoad = (activeDeck === 1) ? 2 : 1;
+            loadDeck(nextDeckToLoad, (currentIndex + 1) % playlist.length);
+            prepareNextDeckPreview();
+
+            isSwitching = false;
         }
 
         function updateDeckUI() {
@@ -494,16 +512,23 @@
                 document.getElementById('deck2-box').className = "deck";
                 document.getElementById('deck1-status').textContent = "В эфире";
                 document.getElementById('deck1-status').style.color = "#1db954";
+                document.getElementById('deck2-status').textContent = "Ожидание";
+                document.getElementById('deck2-status').style.color = "#888";
             } else {
                 document.getElementById('deck1-box').className = "deck";
                 document.getElementById('deck2-box').className = "deck live";
                 document.getElementById('deck2-status').textContent = "В эфире";
                 document.getElementById('deck2-status').style.color = "#1db954";
+                document.getElementById('deck1-status').textContent = "Ожидание";
+                document.getElementById('deck1-status').style.color = "#888";
             }
         }
 
         function nextTrack() {
-            executeCrossfade();
+            if (!isSwitching) {
+                isSwitching = true;
+                executeInstantSwitch();
+            }
         }
     </script>
 
