@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Crossfade Player + File Upload & BPM</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #121212;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .player-card {
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            width: 360px;
+        }
+        h3 {
+            margin-top: 0;
+            text-align: center;
+        }
+        #track-info {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .bpm-badge {
+            display: inline-block;
+            background: #333;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            color: #1db954;
+            margin-top: 5px;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button, .file-btn {
+            background: #1db954;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        button:hover, .file-btn:hover {
+            background: #1ed760;
+        }
+        .control-group {
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .upload-section {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .playlist-container {
+            background: #181818;
+            border-radius: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .playlist-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #282828;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .playlist-item:hover {
+            background: #282828;
+        }
+        .playlist-item.active {
+            color: #1db954;
+            font-weight: bold;
+            background: #222;
+        }
+        .remove-btn {
+            color: #888;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        .remove-btn:hover {
+            color: #ff5555;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player-card">
+        <h3>Web Crossfade Player</h3>
+        
+        <div id="track-info">
+            <div>Текущий: <span id="current-track-name">Выберите файлы</span></div>
+            <div class="bpm-badge">BPM: <span id="bpm-val">--</span></div>
+        </div>
+
+        <div class="controls">
+            <button onclick="nextTrack()">Следующий трек</button>
+        </div>
+
+        <!-- Регулировка темпа -->
+        <div class="control-group">
+            <label for="tempo-slider">Скорость (Pitch): <b id="tempo-val">1.00x</b></label>
+            <input type="range" id="tempo-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeTempo(this.value)">
+        </div>
+
+        <!-- Загрузка файлов с компьютера -->
+        <div class="upload-section">
+            <label for="file-input" class="file-btn">📂 Выбрать файлы с ПК</label>
+            <input type="file" id="file-input" accept="audio/*" multiple onchange="handleFiles(this.files)">
+        </div>
+
+        <!-- Плейлист -->
+        <div class="playlist-container" id="playlist-view"></div>
+    </div>
+
+    <script>
+        let playlist = [];
+        let currentIndex = 0;
+        let audioContext;
+        
+        let playerA = new Audio();
+        let playerB = new Audio();
+
+        let activePlayer = playerA;
+        let nextPlayer = playerB;
+
+        let sourceA, sourceB;
+        let gainA, gainB;
+
+        let crossfadeDuration = 3;
+        let currentSpeed = 1.0;
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                sourceA = audioContext.createMediaElementSource(playerA);
+                gainA = audioContext.createGain();
+                sourceA.connect(gainA).connect(audioContext.destination);
+
+                sourceB = audioContext.createMediaElementSource(playerB);
+                gainB = audioContext.createGain();
+                sourceB.connect(gainB).connect(audioContext.destination);
+
+                playerA.addEventListener('timeupdate', () => checkCrossfade(playerA));
+                playerB.addEventListener('timeupdate', () => checkCrossfade(playerB));
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // Обработка загруженных файлов с компьютера
+        function handleFiles(files) {
+            if (!files.length) return;
+
+            for (let file of files) {
+                // Создаем временную ссылку на локальный файл на ПК
+                const objectURL = URL.createObjectURL(file);
+                // Чистим имя файла от расширения
+                const cleanName = file.name.replace(/\.[^/.]+$/, "");
+                
+                playlist.push({ name: cleanName, url: objectURL });
+            }
+
+            renderPlaylist();
+
+            // Если раньше ничего не играло, запускаем первый из новых файлов
+            if (playerA.paused && playerB.paused && playlist.length === files.length) {
+                playTrack(0);
+            }
+        }
+
+        // Отрисовка плейлиста
+        function renderPlaylist() {
+            const container = document.getElementById('playlist-view');
+            container.innerHTML = '';
+
+            if (playlist.length === 0) {
+                container.innerHTML = '<div style="padding: 15px; text-align: center; color: #666;">Плейлист пуст</div>';
+                return;
+            }
+
+            playlist.forEach((track, idx) => {
+                const item = document.createElement('div');
+                item.className = 'playlist-item' + (idx === currentIndex ? ' active' : '');
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = `${idx + 1}. ${track.name}`;
+                titleSpan.onclick = () => selectTrack(idx);
+                
+                const removeSpan = document.createElement('span');
+                removeSpan.className = 'remove-btn';
+                removeSpan.innerHTML = '&times;';
+                removeSpan.onclick = (e) => {
+                    e.stopPropagation();
+                    removeTrack(idx);
+                };
+
+                item.appendChild(titleSpan);
+                item.appendChild(removeSpan);
+                container.appendChild(item);
+            });
+        }
+
+        function removeTrack(idx) {
+            playlist.splice(idx, 1);
+            if (currentIndex >= playlist.length) {
+                currentIndex = Math.max(0, playlist.length - 1);
+            }
+            renderPlaylist();
+        }
+
+        // Анализ BPM
+        async function calculateBPM(url) {
+            document.getElementById('bpm-val').textContent = "Анализ...";
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const offlineContext = new OfflineAudioContext(1, arrayBuffer.byteLength, 44100);
+                const audioBuffer = await offlineContext.decodeAudioData(arrayBuffer);
+
+                const bufferSource = offlineContext.createBufferSource();
+                bufferSource.buffer = audioBuffer;
+
+                const filter = offlineContext.createBiquadFilter();
+                filter.type = "lowpass";
+                filter.frequency.value = 150;
+
+                bufferSource.connect(filter);
+                filter.connect(offlineContext.destination);
+                bufferSource.start(0);
+
+                const renderedBuffer = await offlineContext.startRendering();
+                const pcmData = renderedBuffer.getChannelData(0);
+
+                let peaks = [];
+                let threshold = 0.3;
+                for (let i = 0; i < pcmData.length; i += 1000) {
+                    if (pcmData[i] > threshold) {
+                        peaks.push(i);
+                        i += 10000;
+                    }
+                }
+
+                let intervals = [];
+                for (let i = 1; i < peaks.length; i++) {
+                    intervals.push(peaks[i] - peaks[i - 1]);
+                }
+
+                if (intervals.length === 0) return "Н/Д";
+
+                let avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                let bpm = Math.round(60 / (avgInterval / 44100));
+
+                while (bpm < 90) bpm *= 2;
+                while (bpm > 180) bpm /= 2;
+
+                return Math.round(bpm);
+            } catch (err) {
+                return "Н/Д";
+            }
+        }
+
+        function changeTempo(value) {
+            currentSpeed = parseFloat(value);
+            document.getElementById('tempo-val').textContent = currentSpeed.toFixed(2) + 'x';
+            
+            playerA.preservesPitch = true;
+            playerB.preservesPitch = true;
+
+            playerA.playbackRate = currentSpeed;
+            playerB.playbackRate = currentSpeed;
+        }
+
+        async function playTrack(index) {
+            if (playlist.length === 0) return;
+
+            initAudioContext();
+            currentIndex = index;
+            renderPlaylist();
+
+            let track = playlist[index];
+            document.getElementById('current-track-name').textContent = track.name;
+
+            calculateBPM(track.url).then(bpm => {
+                document.getElementById('bpm-val').textContent = bpm;
+            });
+
+            let playingNow = activePlayer;
+            let startingNext = nextPlayer;
+            let gainPlaying = (activePlayer === playerA) ? gainA : gainB;
+            let gainStarting = (activePlayer === playerA) ? gainB : gainA;
+
+            startingNext.src = track.url;
+            startingNext.load();
+            
+            startingNext.preservesPitch = true;
+            startingNext.playbackRate = currentSpeed;
+
+            startingNext.play().then(() => {
+                let now = audioContext.currentTime;
+
+                gainPlaying.gain.setValueAtTime(1, now);
+                gainPlaying.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+
+                gainStarting.gain.setValueAtTime(0, now);
+                gainStarting.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
+
+                setTimeout(() => {
+                    playingNow.pause();
+                }, crossfadeDuration * 1000);
+
+                activePlayer = startingNext;
+                nextPlayer = playingNow;
+            }).catch(e => console.log("Ошибка воспроизведения:", e));
+        }
+
+        function checkCrossfade(player) {
+            if (player === activePlayer && player.duration && !player.dataset.fading) {
+                let timeLeft = player.duration - player.currentTime;
+                if (timeLeft <= crossfadeDuration && timeLeft > 0) {
+                    player.dataset.fading = "true";
+                    let nextIndex = (currentIndex + 1) % playlist.length;
+                    playTrack(nextIndex);
+                }
+            }
+        }
+
+        function selectTrack(index) {
+            playTrack(index);
+        }
+
+        function nextTrack() {
+            if (playlist.length === 0) return;
+            let nextIndex = (currentIndex + 1) % playlist.length;
+            playTrack(nextIndex);
+        }
+
+        renderPlaylist();
+    </script>
+
+</body>
+</html>
