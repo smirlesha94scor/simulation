@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Ultra-Fast Silence Switcher</title>
+    <title>DJ Ultra-Fast Switcher (Wide Tempo)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -163,7 +163,8 @@
 
             <div style="margin-top: 6px;">
                 <label style="font-size: 12px;">Темп: <b id="tempo1-val">1.00x</b></label>
-                <input type="range" id="tempo1-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeDeckTempo(1, this.value)">
+                <!-- Расширено от 0.5 до 2.0 -->
+                <input type="range" id="tempo1-slider" min="0.5" max="2.0" step="0.01" value="1.0" oninput="changeDeckTempo(1, this.value)">
             </div>
         </div>
 
@@ -184,7 +185,8 @@
 
             <div style="margin-top: 6px;">
                 <label style="font-size: 12px;">Темп: <b id="tempo2-val">1.00x</b></label>
-                <input type="range" id="tempo2-slider" min="0.8" max="1.2" step="0.01" value="1.0" oninput="changeDeckTempo(2, this.value)">
+                <!-- Расширено от 0.5 до 2.0 -->
+                <input type="range" id="tempo2-slider" min="0.5" max="2.0" step="0.01" value="1.0" oninput="changeDeckTempo(2, this.value)">
             </div>
         </div>
 
@@ -221,7 +223,7 @@
                 sourceA = audioContext.createMediaElementSource(playerA);
                 gainA = audioContext.createGain();
                 analyserA = audioContext.createAnalyser();
-                analyserA.fftSize = 2048; // Точный анализ волны
+                analyserA.fftSize = 2048;
                 sourceA.connect(analyserA).connect(gainA).connect(audioContext.destination);
 
                 sourceB = audioContext.createMediaElementSource(playerB);
@@ -233,7 +235,6 @@
                 gainA.gain.setValueAtTime(1, audioContext.currentTime);
                 gainB.gain.setValueAtTime(0, audioContext.currentTime);
 
-                // Запуск ультрабыстрого цикла через requestAnimationFrame (синхронизация с частотой экрана / долями миллисекунд)
                 requestAnimationFrame(ultraFastLoop);
                 drawVisualizers();
             }
@@ -249,14 +250,12 @@
             return (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
         }
 
-        // Ультрабыстрый цикл проверки тишины (работает каждый кадр / каждые ~4-16 мс)
         function ultraFastLoop() {
             requestAnimationFrame(ultraFastLoop);
 
             let livePlayer = (activeDeck === 1) ? playerA : playerB;
             let liveAnalyser = (activeDeck === 1) ? analyserA : analyserB;
 
-            // Обновляем таймеры на экране реже (раз в секунду через время, чтобы не грузить DOM)
             if (playerA.duration) {
                 document.getElementById('time1-current').textContent = formatTime(playerA.currentTime);
                 document.getElementById('time1-left').textContent = "-" + formatTime(playerA.duration - playerA.currentTime);
@@ -270,19 +269,16 @@
 
             let timeLeft = livePlayer.duration - livePlayer.currentTime;
             
-            // Проверяем тишину на последних 10 секундах трека
             if (timeLeft <= 10 && liveAnalyser) {
                 const pcmData = new Float32Array(liveAnalyser.fftSize);
-                liveAnalyser.getFloatTimeDomainData(pcmData); // Получаем сырые колебания звука в реальном времени
+                liveAnalyser.getFloatTimeDomainData(pcmData);
 
-                // Вычисляем RMS (среднеквадратичное значение громкости)
                 let sumSquares = 0;
                 for (let i = 0; i < pcmData.length; i++) {
                     sumSquares += pcmData[i] * pcmData[i];
                 }
                 let rms = Math.sqrt(sumSquares / pcmData.length);
 
-                // Если уровень громкости упал ниже порога тишины (0.005)
                 if (rms < 0.005) {
                     isSwitching = true;
                     executeInstantSwitch();
@@ -436,7 +432,8 @@
             let currentLiveBPM = liveBase * parseFloat(document.getElementById(`tempo${activeDeck}-slider`).value);
 
             let requiredSpeed = currentLiveBPM / baseBPM2;
-            requiredSpeed = Math.max(0.8, Math.min(1.2, requiredSpeed));
+            // Ограничение скорости расширено до диапазона 0.5 – 2.0
+            requiredSpeed = Math.max(0.5, Math.min(2.0, requiredSpeed));
 
             let nextDeckNum = (activeDeck === 1) ? 2 : 1;
             document.getElementById(`tempo${nextDeckNum}-slider`).value = requiredSpeed.toFixed(2);
@@ -488,7 +485,6 @@
                 nextPlayer.play();
             }
 
-            // Мгновенный свитч сигнала
             nextGain.gain.setValueAtTime(1, now);
             liveGain.gain.setValueAtTime(0, now);
 
