@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Auto-Fade & Smart Switcher</title>
+    <title>DJ Smart Switcher & Tempo Reset</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -139,7 +139,7 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Auto-Smart Switcher</h3>
+        <h3>DJ Smart Switcher & Tempo Reset</h3>
 
         <div class="upload-section">
             <label for="file-input" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить треки с ПК</label>
@@ -215,7 +215,6 @@
         let baseBPM1 = null;
         let baseBPM2 = null;
 
-        // Авто-детектор пиковой громкости трека
         let peakRMS1 = 0.01;
         let peakRMS2 = 0.01;
 
@@ -272,13 +271,11 @@
 
             let timeLeft = livePlayer.duration - livePlayer.currentTime;
 
-            // 1. Предзагрузка следующего трека за 5 секунд до конца
             if (timeLeft <= 5.0 && !isPreloaded) {
                 isPreloaded = true;
                 startSyncedPreload();
             }
 
-            // 2. Умный автоматический анализ уровня затухания
             if (liveAnalyser) {
                 const pcmData = new Float32Array(liveAnalyser.fftSize);
                 liveAnalyser.getFloatTimeDomainData(pcmData);
@@ -289,7 +286,6 @@
                 }
                 let currentRMS = Math.sqrt(sumSquares / pcmData.length);
 
-                // Отслеживаем максимальный уровень громкости активного трека
                 if (activeDeck === 1) {
                     if (currentRMS > peakRMS1) peakRMS1 = currentRMS;
                 } else {
@@ -298,8 +294,6 @@
 
                 let currentPeak = (activeDeck === 1) ? peakRMS1 : peakRMS2;
 
-                // Условие срабатывания:
-                // Громкость затухла ниже 4% от пиковой на последних 15 секундах ИЛИ файл полностью закончился
                 let isFadedOut = (currentRMS < currentPeak * 0.04) && (timeLeft <= 15);
                 let isEndReached = timeLeft <= 0.08;
 
@@ -436,7 +430,7 @@
             player.preservesPitch = true;
 
             if (deckNum === 1) {
-                peakRMS1 = 0.01; // Сброс пиковой громкости для нового трека
+                peakRMS1 = 0.01;
                 document.getElementById('track1-name').textContent = track.name;
                 calculateBPM(track.url).then(bpm => {
                     baseBPM1 = bpm;
@@ -528,6 +522,7 @@
             }).catch(e => console.log("Ошибка предзагрузки:", e));
         }
 
+        // Момент перехода: включаем звук и возвращаем темп нового трека на исходный (1.00x)
         function executeInstantSwitch() {
             initAudioContext();
             let now = audioContext.currentTime;
@@ -537,6 +532,11 @@
 
             let nextGain = (activeDeck === 1) ? gainB : gainA;
             let nextPlayer = (activeDeck === 1) ? playerB : playerA;
+            let nextDeckNum = (activeDeck === 1) ? 2 : 1;
+
+            // Возвращаем темп вступившего трека на исходный (1.00x)
+            document.getElementById(`tempo${nextDeckNum}-slider`).value = "1.0";
+            changeDeckTempo(nextDeckNum, 1.0);
 
             nextGain.gain.setValueAtTime(1, now);
             liveGain.gain.setValueAtTime(0, now);
