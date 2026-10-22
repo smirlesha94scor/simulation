@@ -804,7 +804,6 @@
         }
 
         function handleSpawning() {
-            // Уменьшенный поток входящих пассажиров (вероятность спавна снижена с 0.04 до 0.015)
             if (Math.random() < 0.015) {
                 passengers.push(new Passenger());
             }
@@ -986,7 +985,7 @@
                         <div><span>Длина очереди:</span> <b>${selectedEntity.queue.length} чел.</b></div>
                         <div><span>Продано билетов:</span> <b>${selectedEntity.ticketsSold} шт.</b></div>
                     `;
-                } else(selectedEntity.type === 'bus') {
+                } else if (selectedEntity.type === 'bus') {
                     const b = selectedEntity.bus;
                     badge.innerText = `Автобус ${b.trip.id}`;
                     infoPanel.innerHTML = `
