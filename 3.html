@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Формантный синтезатор речи на чистом JS</title>
+    <title>Реалистичный нейросетевой JS-синтезатор</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -21,211 +21,173 @@
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             width: 440px;
-            text-align: center;
         }
-        h2 { margin-top: 0; font-size: 20px; color: #2c3e50; }
-        p { font-size: 13px; color: #666; margin-bottom: 20px; }
-        
-        .section-title {
+        h2 { margin-top: 0; font-size: 20px; color: #2c3e50; text-align: center; }
+        textarea {
+            width: 100%;
+            height: 110px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            resize: vertical;
+            box-sizing: border-box;
+            margin-bottom: 15px;
             font-size: 14px;
-            font-weight: bold;
-            color: #444;
-            margin: 15px 0 8px;
-            text-align: left;
         }
-        .buttons {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-        }
-        .consonants {
-            grid-template-columns: repeat(3, 1fr);
+        label { display: block; font-size: 12px; color: #555; margin-bottom: 5px; }
+        select {
+            width: 100%;
+            margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
         }
         button {
-            background: #3498db;
+            background: #27ae60;
             color: white;
             border: none;
-            padding: 12px 0;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            transition: background 0.2s, transform 0.1s;
-        }
-        button:hover { background: #2980b9; }
-        button:active { transform: scale(0.95); }
-        .noise-btn { background: #e67e22; }
-        .noise-btn:hover { background: #d35400; }
-
-        .controls {
-            margin-top: 20px;
-            text-align: left;
-            background: #f9f9f9;
             padding: 12px;
             border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.2s;
         }
-        label { display: block; font-size: 12px; color: #555; margin-bottom: 4px; }
-        input[type="range"] { width: 100%; margin-bottom: 10px; }
-        .range-value { float: right; font-weight: bold; color: #3498db; }
+        button:hover { background: #219150; }
+        button:disabled { background: #95a5a6; cursor: not-allowed; }
+        .status {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 10px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Формантный синтезатор голоса</h2>
-    <p>Синтез звуков речи физическим методом (Web Audio API)</p>
+    <h2>Нейросетевой синтез речи (Edge Neural)</h2>
     
-    <div class="section-title">Гласные звуки:</div>
-    <div class="buttons">
-        <button onclick="playVowel('A')">А</button>
-        <button onclick="playVowel('E')">Э</button>
-        <button onclick="playVowel('I')">И</button>
-        <button onclick="playVowel('O')">О</button>
-        <button onclick="playVowel('U')">У</button>
-    </div>
+    <label for="textInput">Введите текст:</label>
+    <textarea id="textInput">Привет! Это высококачественный нейросетевой голос, который генерируется прямо через код JavaScript абсолютно бесплатно.</textarea>
+    
+    <label for="voiceSelect">Нейросетевой голос:</label>
+    <select id="voiceSelect">
+        <option value="ru-RU-SvetlanaNeural">Светлана (Женский, реалистичный)</option>
+        <option value="ru-RU-DmitryNeural">Дмитрий (Мужской, реалистичный)</option>
+    </select>
 
-    <div class="section-title">Согласные звуки:</div>
-    <div class="buttons consonants">
-        <button class="noise-btn" onclick="playConsonant('S')">С</button>
-        <button class="noise-btn" onclick="playConsonant('SH')">Ш</button>
-        <button class="noise-btn" onclick="playConsonant('F')">Ф</button>
-    </div>
-
-    <div class="controls">
-        <label for="volumeRange">Громкость: <span id="volumeVal" class="range-value">50%</span></label>
-        <input type="range" id="volumeRange" min="0" max="100" value="50" step="1">
-
-        <label for="pitchRange">Тон голоса (Гц): <span id="pitchVal" class="range-value">120</span></label>
-        <input type="range" id="pitchRange" min="80" max="250" value="120" step="1">
-
-        <label for="durRange">Длительность (сек): <span id="durVal" class="range-value">0.6</span></label>
-        <input type="range" id="durRange" min="0.2" max="1.5" value="0.6" step="0.1">
-    </div>
+    <button id="speakBtn">Озвучить нейросетью</button>
+    <div id="status" class="status">Готов к работе</div>
 </div>
 
 <script>
-    let audioCtx = null;
-    let masterVolumeNode = null;
+    const speakBtn = document.getElementById('speakBtn');
+    const textInput = document.getElementById('textInput');
+    const voiceSelect = document.getElementById('voiceSelect');
+    const statusDiv = document.getElementById('status');
 
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Ключ подключения к бесплатному серверу генерации
+    const TRUSTED_CLIENT_TOKEN = "6A5AA1D4EA01472831981F123881F7ED3";
+
+    async function generateNeuralSpeech(text, voice) {
+        return new Promise((resolve, reject) => {
+            statusDiv.textContent = "Подключение к нейросети...";
             
-            // Создаем глобальный узел регулировки громкости и подключаем к выходу
-            masterVolumeNode = audioCtx.createGain();
-            updateMasterVolume();
-            masterVolumeNode.connect(audioCtx.destination);
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-    }
+            // Открываем WebSocket-соединение с нейросетевым движком Microsoft Edge
+            const ws = new WebSocket(`wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}`);
+            ws.binaryType = 'arraybuffer';
 
-    const volumeRange = document.getElementById('volumeRange');
-    const pitchRange = document.getElementById('pitchRange');
-    const durRange = document.getElementById('durRange');
-    
-    volumeRange.oninput = () => {
-        document.getElementById('volumeVal').textContent = volumeRange.value + '%';
-        updateMasterVolume();
-    };
-    pitchRange.oninput = () => document.getElementById('pitchVal').textContent = pitchRange.value;
-    durRange.oninput = () => document.getElementById('durVal').textContent = durRange.value;
+            let audioChunks = [];
 
-    function updateMasterVolume() {
-        if (masterVolumeNode) {
-            // Переводим шкалу 0-100 в коэффициент громкости (с квадратичной кривой для естественности слуха)
-            const val = volumeRange.value / 100;
-            masterVolumeNode.gain.setValueAtTime(val * val, audioCtx.currentTime);
-        }
-    }
+            ws.onopen = () => {
+                statusDiv.textContent = "Генерация человеческого голоса...";
+                
+                // 1. Отправляем конфигурацию аудио (MP3)
+                const configHeader = "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n" +
+                    JSON.stringify({
+                        context: {
+                            synthesis: {
+                                audio: {
+                                    metadataversion: "A",
+                                    outputformat: "audio-24khz-48kbitrate-mono-mp3"
+                                }
+                            }
+                        }
+                    });
+                ws.send(configHeader);
 
-    const formantData = {
-        'A': { freqs: [730, 1090, 2440, 3500], gains: [1.0, 0.5, 0.2, 0.1] },
-        'E': { freqs: [530, 1840, 2480, 3600], gains: [1.0, 0.7, 0.3, 0.1] },
-        'I': { freqs: [270, 2290, 3010, 3600], gains: [1.0, 0.8, 0.2, 0.05] },
-        'O': { freqs: [570, 840, 2410, 3400], gains: [1.0, 0.6, 0.2, 0.1] },
-        'U': { freqs: [300, 870, 2240, 3300], gains: [1.0, 0.5, 0.2, 0.1] }
-    };
+                // 2. Отправляем SSML-запрос с текстом и выбранной нейромоделью
+                const requestId = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+                const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='ru-RU'><voice name='${voice}'>${text}</voice></speak>`;
+                
+                const ssmlHeader = `X-RequestId:${requestId}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n${ssml}`;
+                ws.send(ssmlHeader);
+            };
 
-    function playVowel(vowelKey) {
-        initAudio();
-        const now = audioCtx.currentTime;
-        const baseFreq = parseFloat(pitchRange.value);
-        const duration = parseFloat(durRange.value);
+            ws.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    // Завершение передачи данных
+                    if (event.data.includes("Path:turn.end")) {
+                        ws.close();
+                    }
+                } else if (event.data instanceof ArrayBuffer) {
+                    // Получаем бинарные данные MP3 кадра
+                    const view = new DataView(event.data);
+                    const headerLength = view.getUint16(0);
+                    const audioData = event.data.slice(2 + headerLength);
+                    if (audioData.byteLength > 0) {
+                        audioChunks.push(audioData);
+                    }
+                }
+            };
 
-        const real = new Float32Array([0, 0.6, 0.3, 0.15, 0.08, 0.04]);
-        const imag = new Float32Array(real.length);
-        const wave = audioCtx.createPeriodicWave(real, imag);
+            ws.onerror = (err) => {
+                statusDiv.textContent = "Ошибка генерации";
+                reject(err);
+            };
 
-        const osc = audioCtx.createOscillator();
-        osc.setPeriodicWave(wave);
-
-        osc.frequency.setValueAtTime(baseFreq, now);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.92, now + duration);
-
-        const voiceGain = audioCtx.createGain();
-        voiceGain.gain.setValueAtTime(0, now);
-        voiceGain.gain.linearRampToValueAtTime(0.5, now + 0.05);
-        voiceGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-        const formants = formantData[vowelKey];
-        formants.freqs.forEach((f, i) => {
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'bandpass';
-            filter.frequency.value = f;
-            filter.Q.value = f / 70;
-
-            const fGain = audioCtx.createGain();
-            fGain.gain.value = formants.gains[i];
-
-            osc.connect(filter);
-            filter.connect(fGain);
-            fGain.connect(voiceGain);
+            ws.onclose = () => {
+                if (audioChunks.length > 0) {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                    resolve(audioBlob);
+                } else {
+                    reject("Не удалось получить аудиоданные");
+                }
+            };
         });
-
-        // Подключаем к общему регулятору громкости вместо напрямую к destination
-        voiceGain.connect(masterVolumeNode);
-
-        osc.start(now);
-        osc.stop(now + duration);
     }
 
-    function playConsonant(type) {
-        initAudio();
-        const now = audioCtx.currentTime;
-        const duration = 0.3;
-        const bufferSize = audioCtx.sampleRate * duration;
-        
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
+    speakBtn.addEventListener('click', async () => {
+        const text = textInput.value.trim();
+        if (!text) return;
+
+        speakBtn.disabled = true;
+
+        try {
+            const selectedVoice = voiceSelect.value;
+            const audioBlob = await generateNeuralSpeech(text, selectedVoice);
+            
+            statusDiv.textContent = "Воспроизведение...";
+            
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            audio.onended = () => {
+                statusDiv.textContent = "Готов к работе";
+                speakBtn.disabled = false;
+            };
+
+            await audio.play();
+
+        } catch (error) {
+            console.error(error);
+            statusDiv.textContent = "Произошла ошибка при генерации";
+            speakBtn.disabled = false;
         }
-
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buffer;
-
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'bandpass';
-        if (type === 'S') { filter.frequency.value = 6000; filter.Q.value = 5; }
-        else if (type === 'SH') { filter.frequency.value = 2400; filter.Q.value = 4; }
-        else if (type === 'F') { filter.frequency.value = 1500; filter.Q.value = 2; }
-
-        const gainNode = audioCtx.createGain();
-        gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.25, now + 0.04);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-        noise.connect(filter);
-        filter.connect(gainNode);
-        
-        // Подключаем к общему регулятору громкости
-        gainNode.connect(masterVolumeNode);
-
-        noise.start(now);
-    }
+    });
 </script>
 
 </body>
