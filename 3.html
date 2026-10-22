@@ -414,7 +414,6 @@
             while (time < endTime) {
                 const dest = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
                 const platformId = Math.floor(Math.random() * platforms.length) + 1;
-                // Вместимость автобуса теперь строго соответствует количеству посадочных мест (например, фиксировано 16 или 20 сидячих мест)
                 const capacity = 16; 
 
                 const arrivalTime = time - 12 * 60;
@@ -477,7 +476,6 @@
 
             chooseCashRegister() {
                 let chosen = null;
-                // Кассы продают билеты только на рейсы, где еще есть свободные СИДЯЧИЕ места (ticketsSold < capacity)
                 const emptyRegisters = cashRegisters.filter(r => r.queue.length === 0 && !r.serving);
 
                 if (emptyRegisters.length > 0) {
@@ -521,7 +519,6 @@
             }
 
             buyTicket() {
-                // Ищем рейсы, у которых еще остались свободные места (строго сидячие места = capacity)
                 const availableTrips = schedule.filter(t => t.departureTime > simTime && t.ticketsSold < t.capacity);
                 if (availableTrips.length > 0) {
                     const trip = availableTrips[Math.floor(Math.random() * Math.min(3, availableTrips.length))];
@@ -553,7 +550,6 @@
             checkBoarding() {
                 if (!this.ticket || this.state === 'GO_TO_PLATFORM' || this.state === 'WAITING_ON_PLATFORM' || this.state === 'BOARDING') return;
 
-                // Строгий алгоритм: пассажир выходит на платформу только если до отправления ≤ 10 минут И автобус уже прибыл на эту платформу
                 const timeLeft = this.ticket.departureTime - simTime;
                 const busArrived = this.ticket.status === 'DOCKED' || this.ticket.status === 'BOARDING';
 
@@ -667,7 +663,6 @@
 
                     this.boardPassengers();
 
-                    // Как только наступает время отправления, автобус уезжает с платформы в накопительный карман
                     if (simTime >= this.trip.departureTime) {
                         this.state = 'PARKING_WAIT';
                         this.trip.status = 'DEPARTED';
@@ -720,7 +715,6 @@
 
             boardPassengers() {
                 const queue = this.platform.waitingQueue;
-                // Строгое условие: заходят только пассажиры на этот рейс и только пока в автобусе есть свободные сидячие места (< capacity)
                 if (queue.length > 0 && this.passengersOnboard < this.capacity) {
                     const p = queue[0];
                     if (p.ticket && p.ticket.id === this.trip.id) {
@@ -760,7 +754,6 @@
                 ctx.fillRect(-this.w / 2 + 2, -this.h / 2, 4, 3);
                 ctx.fillRect(this.w / 2 - 6, -this.h / 2, 4, 3);
 
-                // Отображение занятых сидячих мест из общего числа мест
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 9px monospace';
                 ctx.textAlign = 'center';
@@ -993,7 +986,7 @@
             scheduleBody.innerHTML = upcomingTrips.map(t => {
                 let statusBadge = '<span class="badge badge-scheduled">Ожидание</span>';
                 if (t.status === 'DOCKED') statusBadge = '<span class="badge badge-docked">Прибыл</span>';
-                if.status === 'BOARDING' ? statusBadge = '<span class="badge badge-boarding">Посадка</span>' : null;
+                if (t.status === 'BOARDING') statusBadge = '<span class="badge badge-boarding">Посадка</span>';
 
                 return `
                     <tr>
