@@ -403,34 +403,52 @@
             }
         }
 
+        // АЛГОРИТМ ГЕНЕРАЦИИ РАСПИСАНИЯ С ИНТЕРВАЛАМИ НЕ МЕНЕЕ 10 МИНУТ НА КАЖДУЮ ПЛАТФОРМУ
         function generateSchedule() {
             schedule = [];
-            let time = 6 * 3600 + 300;
+            const platformNextAvailableTime = {};
+            platforms.forEach(p => platformNextAvailableTime[p.id] = 6 * 3600 + 100);
+
             const endTime = 23 * 3600;
             let tripId = 101;
 
-            while (time < endTime) {
+            while (true) {
+                // Находим платформу, которая освобождается раньше остальных
+                let earliestPlatformId = 1;
+                let minTime = Infinity;
+                for (let pId in platformNextAvailableTime) {
+                    if (platformNextAvailableTime[pId] < minTime) {
+                        minTime = platformNextAvailableTime[pId];
+                        earliestPlatformId = Number(pId);
+                    }
+                }
+
+                if (minTime >= endTime) break;
+
                 const dest = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
-                const platformId = Math.floor(Math.random() * platforms.length) + 1;
-                // Вместимость автобуса = строгое количество сидячих мест (16)
                 const capacity = 16; 
 
-                const arrivalTime = time - 10 * 60;
+                const arrivalTime = minTime;
+                const departureTime = arrivalTime + 10 * 60; // Стоянка 10 минут
 
                 schedule.push({
                     id: `№${tripId++}`,
                     destination: dest.name,
                     price: dest.price,
                     arrivalTime: arrivalTime,
-                    departureTime: time,
-                    platformId: platformId,
+                    departureTime: departureTime,
+                    platformId: earliestPlatformId,
                     capacity: capacity,
                     ticketsSold: 0,
                     status: 'SCHEDULED'
                 });
 
-                time += Math.floor(Math.random() * 5 + 4) * 60;
+                // Следующий автобус на эту же платформу сможет приехать минимум через 10 минут после отправления предыдущего (+ случайный буфер окна)
+                platformNextAvailableTime[earliestPlatformId] = departureTime + (Math.floor(Math.random() * 5) + 2) * 60;
             }
+
+            // Сортируем расписание по времени прибытия
+            schedule.sort((a, b) => a.arrivalTime - b.arrivalTime);
         }
 
         class Passenger {
@@ -518,7 +536,6 @@
             }
 
             buyTicket() {
-                // Продаем билеты ТОЛЬКО если продано меньше, чем общее количество сидячих мест (ticketsSold < capacity)
                 const availableTrips = schedule.filter(t => t.departureTime > simTime && t.ticketsSold < t.capacity);
                 if (availableTrips.length > 0) {
                     const trip = availableTrips[Math.floor(Math.random() * Math.min(3, availableTrips.length))];
@@ -550,10 +567,9 @@
             checkBoarding() {
                 if (!this.ticket || this.state === 'GO_TO_PLATFORM' || this.state === 'WAITING_ON_PLATFORM' || this.state === 'BOARDING') return;
 
-                // К платформе подходят ТОЛЬКО те, у кого есть билет на рейс, который уже СТОИТ на платформе ИЛИ подъедет в пределах 5 минут (300 секунд)
                 const timeUntilArrival = this.ticket.arrivalTime - simTime;
                 const busIsDocked = this.ticket.status === 'DOCKED' || this.ticket.status === 'BOARDING';
-                const arrivingSoon = timeUntilArrival <= 300 && timeUntilArrival >= -600;
+                const arrivingSoon = timeUntilArrival <= 300 && timeUntilArrival >= -300;
 
                 if (busIsDocked || arrivingSoon) {
                     if (this.assignedSeat) {
@@ -610,16 +626,15 @@
                 this.trip = trip;
                 this.platform = platforms.find(p => p.id === trip.platformId);
                 this.platform.bus = this;
-                this.capacity = trip.capacity; // Только сидячие места
+                this.capacity = trip.capacity;
                 this.passengersOnboard = 0;
 
                 this.w = 28;
                 this.h = 60;
 
-                // Заезд справа по заездной полосе
                 this.x = width + 100;
                 this.y = laneInY;
-                this.angle = -Math.PI / 2; // Носом влево (-90 deg)
+                this.angle = -Math.PI / 2;
 
                 this.speed = 1.5;
                 this.currentSpeed = 1.5;
@@ -633,7 +648,6 @@
                 this.checkDistance();
 
                 if (this.state === 'DRIVING_IN') {
-                    // Прямолинейное движение влево по дороге
                     this.x -= this.currentSpeed;
                     this.angle = -Math.PI / 2;
 
@@ -641,11 +655,9 @@
                         this.state = 'TURNING_IN';
                     }
                 } else if (this.state === 'TURNING_IN') {
-                    // Реалистичный поворот на 90 градусов вверх к платформе
-                    const targetAngle = 0; // Носом вверх
+                    const targetAngle = 0;
                     this.angle += (targetAngle - this.angle) * 0.08;
 
-                    // Движение вперед с плавным поворотом
                     this.x += Math.sin(this.angle) * this.currentSpeed;
                     this.y -= Math.cos(this.angle) * this.currentSpeed;
 
@@ -658,7 +670,7 @@
                         this.trip.status = 'DOCKED';
                     }
                 } else if (this.state === 'DOCKED') {
-                    if (simTime >= this.trip.arrivalTime + 30) {
+                    if (simTime >= this.trip.arrivalTime + 10) {
                         this.trip.status = 'BOARDING';
                     }
 
@@ -670,7 +682,6 @@
                         this.platform.bus = null;
                     }
                 } else if (this.state === 'BACKING_OUT') {
-                    // Прямолинейный съезд назад от платформы на выездную полосу
                     this.y += this.currentSpeed * 0.8;
 
                     if (this.y >= laneOutY) {
@@ -678,8 +689,7 @@
                         this.state = 'TURNING_OUT';
                     }
                 } else if (this.state === 'TURNING_OUT') {
-                    // Реалистичный поворот на 90 градусов вправо для выезда
-                    const targetAngle = Math.PI / 2; // Носом вправо
+                    const targetAngle = Math.PI / 2;
                     this.angle += (targetAngle - this.angle) * 0.08;
 
                     if (Math.abs(this.angle - targetAngle) < 0.1) {
@@ -687,7 +697,6 @@
                         this.state = 'DRIVING_OUT';
                     }
                 } else if (this.state === 'DRIVING_OUT') {
-                    // Прямолинейное движение вправо по выездной полосе
                     this.x += this.currentSpeed;
 
                     if (this.x > width + 100) {
@@ -698,19 +707,26 @@
 
             checkDistance() {
                 this.currentSpeed = this.speed;
-                const safeDistance = 80;
+                const safeDistance = 90;
 
                 for (let other of buses) {
                     if (other === this) continue;
 
-                    if (this.state === 'DRIVING_IN' && other.state === 'DRIVING_IN') {
-                        if (other.x < this.x && (this.x - other.x) < safeDistance) {
-                            this.currentSpeed = Math.max(0, other.currentSpeed - 0.2);
+                    if (this.state === 'DRIVING_IN' && (other.state === 'DRIVING_IN' || other.state === 'TURNING_IN')) {
+                        if (other.x < this.x && (this.x - other.x) < safeDistance && Math.abs(this.y - other.y) < 40) {
+                            this.currentSpeed = 0;
                         }
                     }
+
                     if (this.state === 'DRIVING_OUT' && other.state === 'DRIVING_OUT') {
                         if (other.x > this.x && (other.x - this.x) < safeDistance) {
-                            this.currentSpeed = Math.max(0, other.currentSpeed - 0.2);
+                            this.currentSpeed = 0;
+                        }
+                    }
+                    
+                    if (this.state === 'BACKING_OUT' && other.state === 'DRIVING_OUT') {
+                        if (Math.abs(this.x - other.x) < safeDistance) {
+                            this.currentSpeed = 0;
                         }
                     }
                 }
@@ -718,7 +734,6 @@
 
             boardPassengers() {
                 const queue = this.platform.waitingQueue;
-                // Заходят только если есть места (не более capacity)
                 if (queue.length > 0 && this.passengersOnboard < this.capacity) {
                     const p = queue[0];
                     if (p.ticket && p.ticket.id === this.trip.id) {
@@ -751,16 +766,13 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Лобовое стекло
                 ctx.fillStyle = '#0f172a';
                 ctx.fillRect(-this.w / 2 + 3, -this.h / 2 + 3, this.w - 6, 10);
 
-                // Фары
                 ctx.fillStyle = '#facc15';
                 ctx.fillRect(-this.w / 2 + 2, -this.h / 2, 4, 3);
                 ctx.fillRect(this.w / 2 - 6, -this.h / 2, 4, 3);
 
-                // С счетчик сидячих мест
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 9px monospace';
                 ctx.textAlign = 'center';
@@ -812,7 +824,6 @@
             ctx.fillStyle = '#111827';
             ctx.fillRect(0, 0, width, building.y);
 
-            // Двухполосная дорога
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, laneInY - 30, width, 120);
 
