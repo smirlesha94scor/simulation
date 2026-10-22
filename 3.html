@@ -373,10 +373,9 @@
                 cashRegisters.push({
                     id: i + 1,
                     x: building.x + 55 + i * regSpacing,
-                    y: building.y + 35,
+                    y: building.y + 38,
                     queue: [],
                     serving: null,
-                    serveTimer: 0,
                     ticketsSold: 0,
                     type: 'cash'
                 });
@@ -403,7 +402,6 @@
             }
         }
 
-        // АЛГОРИТМ ГЕНЕРАЦИИ РАСПИСАНИЯ С ИНТЕРВАЛАМИ НЕ МЕНЕЕ 10 МИНУТ НА КАЖДУЮ ПЛАТФОРМУ
         function generateSchedule() {
             schedule = [];
             const platformNextAvailableTime = {};
@@ -413,7 +411,6 @@
             let tripId = 101;
 
             while (true) {
-                // Находим платформу, которая освобождается раньше остальных
                 let earliestPlatformId = 1;
                 let minTime = Infinity;
                 for (let pId in platformNextAvailableTime) {
@@ -429,7 +426,7 @@
                 const capacity = 16; 
 
                 const arrivalTime = minTime;
-                const departureTime = arrivalTime + 10 * 60; // Стоянка 10 минут
+                const departureTime = arrivalTime + 10 * 60;
 
                 schedule.push({
                     id: `№${tripId++}`,
@@ -443,11 +440,9 @@
                     status: 'SCHEDULED'
                 });
 
-                // Следующий автобус на эту же платформу сможет приехать минимум через 10 минут после отправления предыдущего (+ случайный буфер окна)
                 platformNextAvailableTime[earliestPlatformId] = departureTime + (Math.floor(Math.random() * 5) + 2) * 60;
             }
 
-            // Сортируем расписание по времени прибытия
             schedule.sort((a, b) => a.arrivalTime - b.arrivalTime);
         }
 
@@ -464,6 +459,9 @@
                 this.assignedSeat = null;
                 this.assignedPlatform = null;
                 this.color = '#38bdf8';
+                
+                // Время обслуживания кассиром (в кадрах/тактах симуляции)
+                this.purchaseTimer = 0;
             }
 
             update() {
@@ -482,6 +480,14 @@
             onReachTarget() {
                 if (this.state === 'ENTERING') {
                     this.chooseCashRegister();
+                } else if (this.state === 'QUEUE_MOVING') {
+                    this.state = 'QUEUED';
+                } else if (this.state === 'BUYING') {
+                    // Процесс покупки билета с реалистичным временем
+                    this.purchaseTimer--;
+                    if (this.purchaseTimer <= 0) {
+                        this.buyTicket();
+                    }
                 } else if (this.state === 'GO_TO_WAITING') {
                     this.state = 'SEATED';
                 } else if (this.state === 'GO_TO_PLATFORM') {
@@ -493,19 +499,16 @@
 
             chooseCashRegister() {
                 let chosen = null;
-                const emptyRegisters = cashRegisters.filter(r => r.queue.length === 0 && !r.serving);
+                let minLen = Infinity;
 
-                if (emptyRegisters.length > 0) {
-                    chosen = emptyRegisters[Math.floor(Math.random() * emptyRegisters.length)];
-                } else {
-                    let minLen = Infinity;
-                    cashRegisters.forEach(r => {
-                        const len = r.queue.length + (r.serving ? 1 : 0);
-                        if (len < minLen) minLen = len;
-                    });
-                    const minRegisters = cashRegisters.filter(r => (r.queue.length + (r.serving ? 1 : 0)) === minLen);
-                    chosen = minRegisters[Math.floor(Math.random() * minRegisters.length)];
-                }
+                // Выбираем кассу с наименьшей очередью
+                cashRegisters.forEach(r => {
+                    const len = r.queue.length + (r.serving === this ? 1 : 0);
+                    if (len < minLen) {
+                        minLen = len;
+                        chosen = r;
+                    }
+                });
 
                 this.assignedRegister = chosen;
                 chosen.queue.push(this);
@@ -517,9 +520,10 @@
                 if (!this.assignedRegister) return;
                 const idx = this.assignedRegister.queue.indexOf(this);
                 if (idx !== -1) {
+                    // Пассажиры выстраиваются строгой колонной перед конкретной кассой
                     this.target = {
                         x: this.assignedRegister.x,
-                        y: this.assignedRegister.y + 20 + idx * 10
+                        y: this.assignedRegister.y + 18 + idx * 11
                     };
                 }
             }
@@ -527,7 +531,12 @@
             leaveQueueInFrustration() {
                 if (this.assignedRegister) {
                     const idx = this.assignedRegister.queue.indexOf(this);
-                    if (idx !== -1) this.assignedRegister.queue.splice(idx, 1);
+                    if (idx !== -1) {
+                        this.assignedRegister.queue.splice(idx, 1);
+                        if (this.assignedRegister.serving === this) {
+                            this.assignedRegister.serving = null;
+                        }
+                    }
                     this.assignedRegister.queue.forEach(p => p.updateCashQueuePosition());
                 }
                 this.state = 'LEAVING';
@@ -545,6 +554,10 @@
                     this.assignedRegister.ticketsSold++;
                     this.color = '#eab308';
 
+                    // Освобождаем кассу для следующего в очереди
+                    this.assignedRegister.serving = null;
+                    this.assignedRegister = null;
+
                     const freeSeat = waitingSeats.find(s => !s.occupied);
                     if (freeSeat) {
                         freeSeat.occupied = true;
@@ -560,6 +573,7 @@
                         };
                     }
                 } else {
+                    this.assignedRegister.serving = null;
                     this.leaveQueueInFrustration();
                 }
             }
@@ -782,20 +796,17 @@
             }
         }
 
+        // ОБРАБОТКА ОЧЕРЕДЕЙ И ВРЕМЕНИ ПОКУПКИ В КАССАХ
         function updateCashRegisters() {
             cashRegisters.forEach(reg => {
                 if (!reg.serving && reg.queue.length > 0) {
-                    reg.serving = reg.queue.shift();
-                    reg.serveTimer = Math.floor(Math.random() * 40 + 20);
+                    const nextPax = reg.queue.shift();
+                    reg.serving = nextPax;
+                    nextPax.state = 'BUYING';
+                    nextPax.purchaseTimer = 50 + Math.floor(Math.random() * 40); // Время на покупку билета кассиром
+                    
+                    // Подтягиваем остальных участников очереди к кассе
                     reg.queue.forEach(p => p.updateCashQueuePosition());
-                }
-
-                if (reg.serving) {
-                    reg.serveTimer--;
-                    if (reg.serveTimer <= 0) {
-                        reg.serving.buyTicket();
-                        reg.serving = null;
-                    }
                 }
             });
         }
