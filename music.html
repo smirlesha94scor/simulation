@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Smart Switcher & Tempo Reset</title>
+    <title>DJ Deep Scan & Smart 30s Sync Player</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -139,7 +139,7 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Smart Switcher & Tempo Reset</h3>
+        <h3>DJ Deep Scan (30s Preload & Sync)</h3>
 
         <div class="upload-section">
             <label for="file-input" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить треки с ПК</label>
@@ -210,7 +210,7 @@
 
         let activeDeck = 1;
         let isSwitching = false;
-        let isPreloaded = false;
+        let isPreloaded = false; // Флаг предзагрузки за 30 секунд
 
         let baseBPM1 = null;
         let baseBPM2 = null;
@@ -271,11 +271,13 @@
 
             let timeLeft = livePlayer.duration - livePlayer.currentTime;
 
-            if (timeLeft <= 5.0 && !isPreloaded) {
+            // 1. Запуск тихого воспроизведения и синхронизации ЗА 30 СЕКУНД ДО КОНЦА
+            if (timeLeft <= 30.0 && !isPreloaded) {
                 isPreloaded = true;
                 startSyncedPreload();
             }
 
+            // 2. Глубокий анализ тишины и завершения трека в реальном времени
             if (liveAnalyser) {
                 const pcmData = new Float32Array(liveAnalyser.fftSize);
                 liveAnalyser.getFloatTimeDomainData(pcmData);
@@ -294,6 +296,7 @@
 
                 let currentPeak = (activeDeck === 1) ? peakRMS1 : peakRMS2;
 
+                // Условие свитча: если за последние 15 секунд громкость упала ниже 4% (начало тишины/fade-out) ИЛИ трек подошел к абсолютному концу
                 let isFadedOut = (currentRMS < currentPeak * 0.04) && (timeLeft <= 15);
                 let isEndReached = timeLeft <= 0.08;
 
@@ -501,6 +504,7 @@
             }
         }
 
+        // Запуск второго трека тихо за 30 секунд до конца с подгонкой фазы
         function startSyncedPreload() {
             autoSyncBPM();
 
@@ -514,15 +518,15 @@
             let currentPhase = livePlayer.currentTime % beatInterval;
 
             nextPlayer.currentTime = currentPhase;
-            nextGain.gain.setValueAtTime(0, audioContext.currentTime);
+            nextGain.gain.setValueAtTime(0, audioContext.currentTime); // Полная тишина в фоне
 
             nextPlayer.play().then(() => {
-                document.getElementById(`deck${nextDeckNum}-status`).textContent = "Предзагрузка (тихо)";
+                document.getElementById(`deck${nextDeckNum}-status`).textContent = "Синхронизация (тихо)";
                 document.getElementById(`deck${nextDeckNum}-status`).style.color = "#00bfff";
-            }).catch(e => console.log("Ошибка предзагрузки:", e));
+            }).catch(e => console.log("Ошибка предзагрузки за 30с:", e));
         }
 
-        // Момент перехода: включаем звук и возвращаем темп нового трека на исходный (1.00x)
+        // Переключение эфира при начале тишины: включение звука нового и сброс его темпа на исходный
         function executeInstantSwitch() {
             initAudioContext();
             let now = audioContext.currentTime;
@@ -534,7 +538,7 @@
             let nextPlayer = (activeDeck === 1) ? playerB : playerA;
             let nextDeckNum = (activeDeck === 1) ? 2 : 1;
 
-            // Возвращаем темп вступившего трека на исходный (1.00x)
+            // Возвращаем темп нового трека на родное значение 1.00x при выходе в эфир
             document.getElementById(`tempo${nextDeckNum}-slider`).value = "1.0";
             changeDeckTempo(nextDeckNum, 1.0);
 
