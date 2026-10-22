@@ -35,7 +35,6 @@
             overflow: hidden;
         }
 
-        /* АДАПТИВНЫЙ ИНТЕРФЕЙС (ФЛЕКСБУК) */
         @media (max-width: 900px) {
             body {
                 flex-direction: column;
@@ -305,7 +304,7 @@
             <div class="legend-item"><div class="legend-color" style="background: #a855f7;"></div>Пассажир (на перроне)</div>
             <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div>Пассажир (уходит)</div>
             <div class="legend-item"><div class="legend-color" style="background: #22c55e;"></div>Рейсовый автобус</div>
-            <div class="legend-item"><div class="legend-color" style="background: #3b82f6;"></div>Платформа персона</div>
+            <div class="legend-item"><div class="legend-color" style="background: #3b82f6;"></div>Платформа перрона</div>
         </div>
     </div>
 
@@ -353,8 +352,8 @@
         function initLayout() {
             const centerX = width / 2;
             const bWidth = Math.min(520, width - 40);
-            const bHeight = Math.min(170, Math.max(120, height * 0.35));
-            const bY = 40;
+            const bHeight = 150;
+            const bY = 30;
 
             building = {
                 x: centerX - bWidth / 2,
@@ -371,13 +370,13 @@
                 for (let col = 0; col < 6; col++) {
                     waitingSeats.push({
                         x: building.x + 35 + col * 18,
-                        y: building.y + 65 + row * 18,
+                        y: building.y + 60 + row * 18,
                         occupied: false,
                         passenger: null
                     });
                     waitingSeats.push({
                         x: building.x + bWidth - 140 + col * 18,
-                        y: building.y + 65 + row * 18,
+                        y: building.y + 60 + row * 18,
                         occupied: false,
                         passenger: null
                     });
@@ -391,7 +390,7 @@
                 cashRegisters.push({
                     id: i + 1,
                     x: building.x + 55 + i * regSpacing,
-                    y: building.y + 32,
+                    y: building.y + 30,
                     queue: [],
                     serving: null,
                     ticketsSold: 0,
@@ -403,10 +402,11 @@
             const numPlatforms = 5;
             const startX = building.x + 40;
             const pSpacing = (bWidth - 80) / (numPlatforms - 1);
-            const platformY = building.y + bHeight + 70;
+            const platformY = building.y + bHeight + 45;
 
-            laneInY = platformY + 60;
-            laneOutY = platformY + 115;
+            // Дороги расположены строго НИЖЕ платформ
+            laneInY = platformY + 75;
+            laneOutY = platformY + 130;
 
             for (let i = 0; i < numPlatforms; i++) {
                 platforms.push({
@@ -420,7 +420,7 @@
             }
         }
 
-        // УНИКАЛЬНОЕ ВРЕМЯ И СТОЯНКА БОЛЕЕ 15 МИНУТ
+        // РАСПИСАНИЕ: СТОЯНКА > 15 МИН И СЛЕДУЮЩИЙ ПРИЕЗЖАЕТ ТОЛЬКО ПОСЛЕ УХОДА ПРЕДЫДУЩЕГО
         function generateSchedule() {
             schedule = [];
             const platformNextAvailableTime = {};
@@ -444,11 +444,10 @@
                 const dest = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
                 const capacity = 16; 
 
-                // Уникальное время прибытия (уникальное для каждого рейса)
-                const arrivalTime = minTime + Math.floor(Math.random() * 3) * 60;
+                const arrivalTime = minTime + Math.floor(Math.random() * 5) * 60;
                 
-                // Время стоянки: строго больше 15 минут (от 16 до 22 минут)
-                const stayDuration = (16 + Math.floor(Math.random() * 7)) * 60; 
+                // Время стоянки: строго больше 15 минут (от 16 до 25 минут)
+                const stayDuration = (16 + Math.floor(Math.random() * 10)) * 60; 
                 const departureTime = arrivalTime + stayDuration;
 
                 schedule.push({
@@ -463,8 +462,9 @@
                     status: 'SCHEDULED'
                 });
 
-                // Следующий рейс назначится только после отправления
-                platformNextAvailableTime[earliestPlatformId] = departureTime + (Math.floor(Math.random() * 4) + 3) * 60;
+                // Промежуток между прибытиями больше, чем время стоянки (окно отдыха платформы 20-35 минут)
+                const windowBuffer = (20 + Math.floor(Math.random() * 15)) * 60;
+                platformNextAvailableTime[earliestPlatformId] = departureTime + windowBuffer;
             }
 
             schedule.sort((a, b) => a.arrivalTime - b.arrivalTime);
@@ -542,7 +542,7 @@
                 if (idx !== -1) {
                     this.target = {
                         x: this.assignedRegister.x,
-                        y: this.assignedRegister.y + 18 + idx * 11
+                        y: this.assignedRegister.y + 18 + idx * 10
                     };
                 }
             }
@@ -587,7 +587,7 @@
                         this.state = 'GO_TO_WAITING';
                         this.target = {
                             x: building.x + 40 + Math.random() * (building.w - 80),
-                            y: building.y + 80 + Math.random() * 30
+                            y: building.y + 70 + Math.random() * 25
                         };
                     }
                 } else {
@@ -708,7 +708,6 @@
 
                     this.boardPassengers();
 
-                    // Автобус стоит более 15 минут согласно времени отправления
                     if (simTime >= this.trip.departureTime) {
                         this.state = 'BACKING_OUT';
                         this.trip.status = 'DEPARTED';
@@ -852,6 +851,7 @@
             ctx.fillStyle = '#111827';
             ctx.fillRect(0, 0, width, building.y);
 
+            // Отрисовка дорог строго ВНИЗУ ПОД ПЛАТФОРМАМИ
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, laneInY - 25, width, 110);
 
@@ -920,7 +920,7 @@
             });
 
             ctx.fillStyle = '#0d1322';
-            ctx.fillRect(building.x + 20, building.y + 18, building.w - 40, 28);
+            ctx.fillRect(building.x + 20, building.y + 18, building.w - 40, 26);
 
             cashRegisters.forEach(r => {
                 const isSelected = selectedEntity && selectedEntity.type === 'cash' && selectedEntity.id === r.id;
