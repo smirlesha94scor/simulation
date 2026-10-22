@@ -73,9 +73,9 @@
 
 <div class="card">
     <h2>Формантный синтезатор голоса</h2>
-    <p>Синтез звуков речи физическим методом (Web Audio API без внешних файлов)</p>
+    <p>Синтез звуков речи физическим методом (Web Audio API)</p>
     
-    <div class="section-title">Гласные звуки (связки + форманты):</div>
+    <div class="section-title">Гласные звуки:</div>
     <div class="buttons">
         <button onclick="playVowel('A')">А</button>
         <button onclick="playVowel('E')">Э</button>
@@ -84,7 +84,7 @@
         <button onclick="playVowel('U')">У</button>
     </div>
 
-    <div class="section-title">Согласные звуки (белый шум + фильтр):</div>
+    <div class="section-title">Согласные звуки:</div>
     <div class="buttons consonants">
         <button class="noise-btn" onclick="playConsonant('S')">С</button>
         <button class="noise-btn" onclick="playConsonant('SH')">Ш</button>
@@ -112,14 +112,12 @@
         }
     }
 
-    // Настройки интерфейса ползунков
     const pitchRange = document.getElementById('pitchRange');
     const durRange = document.getElementById('durRange');
     
     pitchRange.oninput = () => document.getElementById('pitchVal').textContent = pitchRange.value;
     durRange.oninput = () => document.getElementById('durVal').textContent = durRange.value;
 
-    // Частоты формант для гласных (F1, F2, F3, F4)
     const formantData = {
         'A': { freqs: [730, 1090, 2440, 3500], gains: [1.0, 0.5, 0.2, 0.1] },
         'E': { freqs: [530, 1840, 2480, 3600], gains: [1.0, 0.7, 0.3, 0.1] },
@@ -128,38 +126,34 @@
         'U': { freqs: [300, 870, 2240, 3300], gains: [1.0, 0.5, 0.2, 0.1] }
     };
 
-    // Функция синтеза гласной
     function playVowel(vowelKey) {
         initAudio();
         const now = audioCtx.currentTime;
         const baseFreq = parseFloat(pitchRange.value);
         const duration = parseFloat(durRange.value);
 
-        // 1. Создание сложной формы волны (имитация импульса голосовых связок)
-        const real = new Float32Array([0, 0.5, 0.25, 0.12, 0.06, 0.03]);
+        const real = new Float32Array([0, 0.6, 0.3, 0.15, 0.08, 0.04]);
         const imag = new Float32Array(real.length);
         const wave = audioCtx.createPeriodicWave(real, imag);
 
         const osc = audioCtx.createOscillator();
         osc.setPeriodicWave(wave);
 
-        // Живая интонация: легкое плавание частоты тона вниз к концу звука
         osc.frequency.setValueAtTime(baseFreq, now);
         osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.92, now + duration);
 
-        // 2. Общая огибающая громкости (плавная атака и затухание)
+        // Увеличена общая громкость гласной
         const masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(0, now);
-        masterGain.gain.linearRampToValueAtTime(0.25, now + 0.05);
+        masterGain.gain.linearRampToValueAtTime(0.5, now + 0.05);
         masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-        // 3. Формантная фильтрация (моделирование речевого тракта рта/гортани)
         const formants = formantData[vowelKey];
         formants.freqs.forEach((f, i) => {
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'bandpass';
             filter.frequency.value = f;
-            filter.Q.value = f / 80; // ширина полосы пропускания резонатора
+            filter.Q.value = f / 70;
 
             const fGain = audioCtx.createGain();
             fGain.gain.value = formants.gains[i];
@@ -175,17 +169,15 @@
         osc.stop(now + duration);
     }
 
-    // Функция синтеза согласной (шумовая компонента)
     function playConsonant(type) {
         initAudio();
         const now = audioCtx.currentTime;
-        const duration = 0.25;
+        const duration = 0.3;
         const bufferSize = audioCtx.sampleRate * duration;
         
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
         
-        // Генерация белого шума
         for (let i = 0; i < bufferSize; i++) {
             data[i] = Math.random() * 2 - 1;
         }
@@ -193,15 +185,16 @@
         const noise = audioCtx.createBufferSource();
         noise.buffer = buffer;
 
-        // Полосовой фильтр для настройки характера шума (С, Ш или Ф)
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
-        if (type === 'S') { filter.frequency.value = 6500; filter.Q.value = 6; }
-        else if (type === 'SH') { filter.frequency.value = 2500; filter.Q.value = 4; }
+        if (type === 'S') { filter.frequency.value = 6000; filter.Q.value = 5; }
+        else if (type === 'SH') { filter.frequency.value = 2400; filter.Q.value = 4; }
         else if (type === 'F') { filter.frequency.value = 1500; filter.Q.value = 2; }
 
+        // Добавлена плавная атака (linearRamp), чтобы убрать щелчок в начале
         const gainNode = audioCtx.createGain();
-        gainNode.gain.setValueAtTime(0.15, now);
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.25, now + 0.04);
         gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
         noise.connect(filter);
