@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Нейросетевой синтез речи</title>
+    <title>Синтезатор речи на чистом JS</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -35,7 +35,7 @@
             font-size: 14px;
         }
         label { display: block; font-size: 12px; color: #555; margin-bottom: 5px; }
-        select {
+        select, input[type="range"] {
             width: 100%;
             margin-bottom: 15px;
             padding: 8px;
@@ -43,8 +43,9 @@
             border-radius: 6px;
             box-sizing: border-box;
         }
+        .range-value { float: right; font-weight: bold; color: #3498db; }
         button {
-            background: #27ae60;
+            background: #3498db;
             color: white;
             border: none;
             padding: 12px;
@@ -55,8 +56,7 @@
             font-weight: bold;
             transition: background 0.2s;
         }
-        button:hover { background: #219150; }
-        button:disabled { background: #95a5a6; cursor: not-allowed; }
+        button:hover { background: #2980b9; }
         .status {
             font-size: 12px;
             color: #7f8c8d;
@@ -68,68 +68,96 @@
 <body>
 
 <div class="card">
-    <h2>Нейросетевой синтез речи</h2>
+    <h2>Синтезатор речи</h2>
     
     <label for="textInput">Введите текст:</label>
-    <textarea id="textInput">Привет! Это высококачественный нейросетевой голос, который теперь стабильно работает прямо через ваш браузный скрипт.</textarea>
+    <textarea id="textInput">Привет! Этот синтезатор работает стабильно, без ошибок и сторонних серверов.</textarea>
     
-    <label for="voiceSelect">Нейросетевой голос:</label>
-    <select id="voiceSelect">
-        <option value="ru-RU-SvetlanaNeural">Светлана (Женский, реалистичный)</option>
-        <option value="ru-RU-DmitryNeural">Дмитрий (Мужской, реалистичный)</option>
-    </select>
+    <label for="voiceSelect">Голос:</label>
+    <select id="voiceSelect"></select>
 
-    <button id="speakBtn">Озвучить нейросетью</button>
+    <label for="volumeRange">Громкость: <span id="volumeVal" class="range-value">100%</span></label>
+    <input type="range" id="volumeRange" min="0" max="100" value="100" step="1">
+
+    <label for="rateRange">Скорость: <span id="rateVal" class="range-value">1.0</span></label>
+    <input type="range" id="rateRange" min="0.5" max="2" value="1.0" step="0.1">
+
+    <label for="pitchRange">Высота тона: <span id="pitchVal" class="range-value">1.0</span></label>
+    <input type="range" id="pitchRange" min="0.5" max="1.5" value="1.0" step="0.1">
+
+    <button id="speakBtn">Озвучить текст</button>
     <div id="status" class="status">Готов к работе</div>
 </div>
 
 <script>
-    const speakBtn = document.getElementById('speakBtn');
+    const synth = window.speechSynthesis;
     const textInput = document.getElementById('textInput');
     const voiceSelect = document.getElementById('voiceSelect');
+    const volumeRange = document.getElementById('volumeRange');
+    const rateRange = document.getElementById('rateRange');
+    const pitchRange = document.getElementById('pitchRange');
+    const speakBtn = document.getElementById('speakBtn');
     const statusDiv = document.getElementById('status');
 
-    async function speakNeural(text, voice) {
-        statusDiv.textContent = "Обработка нейросетью...";
+    let voices = [];
 
-        // Формируем открытый запрос через безопасный Google-TTS API шлюз
-        // Кодируем параметры текста для получения готового чистокровного нейроаудио
-        const lang = voice.startsWith('ru') ? 'ru' : 'en';
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
-
-        const audio = new Audio(url);
-
-        return new Promise((resolve, reject) => {
-            audio.onplay = () => {
-                statusDiv.textContent = "Воспроизведение...";
-            };
-            audio.onended = () => {
-                statusDiv.textContent = "Готов к работе";
-                resolve();
-            };
-            audio.onerror = (e) => {
-                statusDiv.textContent = "Ошибка воспроизведения";
-                reject(e);
-            };
-
-            audio.play().catch(reject);
+    function loadVoices() {
+        voices = synth.getVoices();
+        voiceSelect.innerHTML = '';
+        
+        voices.forEach((voice, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `${voice.name} (${voice.lang})`;
+            voiceSelect.appendChild(option);
         });
+
+        // Автовыбор русского голоса
+        let bestVoiceIndex = voices.findIndex(v => 
+            (v.lang.includes('ru') || v.lang.includes('RU')) && 
+            (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google'))
+        );
+        if (bestVoiceIndex === -1) {
+            bestVoiceIndex = voices.findIndex(v => v.lang.includes('ru') || v.lang.includes('RU'));
+        }
+        if (bestVoiceIndex !== -1) {
+            voiceSelect.value = bestVoiceIndex;
+        }
     }
 
-    speakBtn.addEventListener('click', async () => {
+    loadVoices();
+    if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = loadVoices;
+    }
+
+    volumeRange.oninput = () => document.getElementById('volumeVal').textContent = volumeRange.value + '%';
+    rateRange.oninput = () => document.getElementById('rateVal').textContent = rateRange.value;
+    pitchRange.oninput = () => document.getElementById('pitchVal').textContent = pitchRange.value;
+
+    speakBtn.addEventListener('click', () => {
+        if (synth.speaking) {
+            synth.cancel();
+        }
+
         const text = textInput.value.trim();
         if (!text) return;
 
-        speakBtn.disabled = true;
-
-        try {
-            await speakNeural(text, voiceSelect.value);
-        } catch (error) {
-            console.error(error);
-            statusDiv.textContent = "Ошибка загрузки аудио";
-        } finally {
-            speakBtn.disabled = false;
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        const selectedVoiceIndex = voiceSelect.value;
+        if (voices[selectedVoiceIndex]) {
+            utterance.voice = voices[selectedVoiceIndex];
         }
+
+        utterance.volume = parseFloat(volumeRange.value) / 100;
+        utterance.rate = parseFloat(rateRange.value);
+        utterance.pitch = parseFloat(pitchRange.value);
+
+        utterance.onstart = () => { statusDiv.textContent = "Воспроизведение..."; };
+        utterance.onend = () => { statusDiv.textContent = "Готов к работе"; };
+        utterance.onerror = () => { statusDiv.textContent = "Ошибка воспроизведения"; };
+
+        synth.speak(utterance);
     });
 </script>
 
