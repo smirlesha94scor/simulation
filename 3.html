@@ -3,163 +3,978 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Синтезатор речи на чистом JS</title>
+    <title>Симулятор Автовокзала</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f4f7f6;
-            color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        :root {
+            --bg-color: #1e293b;
+            --panel-bg: #0f172a;
+            --accent-blue: #38bdf8;
+            --accent-green: #4ade80;
+            --accent-yellow: #facc15;
+            --accent-red: #f87171;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --road-color: #334155;
+            --platform-color: #475569;
+            --building-color: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
         }
-        .card {
-            background: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            width: 440px;
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
         }
-        h2 { margin-top: 0; font-size: 20px; color: #2c3e50; text-align: center; }
-        textarea {
+
+        #simulation-container {
+            flex: 1;
+            position: relative;
+            background-color: #0d1527;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
             width: 100%;
-            height: 110px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            resize: vertical;
-            box-sizing: border-box;
-            margin-bottom: 15px;
-            font-size: 14px;
+            height: 100%;
         }
-        label { display: block; font-size: 12px; color: #555; margin-bottom: 5px; }
-        select, input[type="range"] {
-            width: 100%;
-            margin-bottom: 15px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box;
+
+        #sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-left: 2px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.5);
+            z-index: 10;
         }
-        .range-value { float: right; font-weight: bold; color: #3498db; }
-        button {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-            font-weight: bold;
-            transition: background 0.2s;
-        }
-        button:hover { background: #2980b9; }
-        .status {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-top: 10px;
+
+        .header {
+            padding: 20px;
+            background-color: #182238;
+            border-bottom: 1px solid #334155;
             text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            color: var(--accent-blue);
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .clock-display {
+            font-family: monospace;
+            font-size: 1.8rem;
+            color: var(--accent-green);
+            background: #090d16;
+            padding: 8px 15px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 10px;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            background: #111827;
+            border-bottom: 1px solid #334155;
+        }
+
+        .stat-card {
+            background: #1e293b;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+
+        .stat-card .val {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent-yellow);
+        }
+
+        .stat-card .lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        .content-section {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-box {
+            background: #182238;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #334155;
+        }
+
+        .panel-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-blue);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-details {
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .info-details div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #334155;
+            padding-bottom: 4px;
+        }
+
+        .info-details div span:first-child {
+            color: var(--text-muted);
+        }
+
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .schedule-table th, .schedule-table td {
+            padding: 8px 5px;
+            text-align: left;
+            border-bottom: 1px solid #273549;
+        }
+
+        .schedule-table th {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .badge-waiting { background: #334155; color: #fff; }
+        .badge-docked { background: var(--accent-green); color: #000; }
+        .badge-departed { background: #64748b; color: #fff; }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 0.75rem;
+            padding: 10px;
+            background: #0f172a;
+            border-top: 1px solid #334155;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
         }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Синтезатор речи</h2>
-    
-    <label for="textInput">Введите текст:</label>
-    <textarea id="textInput">Привет! Этот синтезатор работает стабильно, без ошибок и сторонних серверов.</textarea>
-    
-    <label for="voiceSelect">Голос:</label>
-    <select id="voiceSelect"></select>
+    <div id="simulation-container">
+        <canvas id="simCanvas"></canvas>
+    </div>
 
-    <label for="volumeRange">Громкость: <span id="volumeVal" class="range-value">100%</span></label>
-    <input type="range" id="volumeRange" min="0" max="100" value="100" step="1">
+    <div id="sidebar">
+        <div class="header">
+            <h1>ЦЕНТРАЛЬНЫЙ АВТОВОКЗАЛ</h1>
+            <div class="clock-display" id="clock">06:00:00</div>
+        </div>
 
-    <label for="rateRange">Скорость: <span id="rateVal" class="range-value">1.0</span></label>
-    <input type="range" id="rateRange" min="0.5" max="2" value="1.0" step="0.1">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="val" id="stat-revenue">0 ₴</div>
+                <div class="lbl">Выручка</div>
+            </div>
+            <div class="stat-card">
+                <div class="val" id="stat-served">0</div>
+                <div class="lbl">Пассажиров отправлено</div>
+            </div>
+            <div class="stat-card">
+                <div class="val" id="stat-pax-count">0</div>
+                <div class="lbl">Пассажиров в здании</div>
+            </div>
+            <div class="stat-card">
+                <div class="val" id="stat-active-buses">0</div>
+                <div class="lbl">Автобусов на рейсе</div>
+            </div>
+        </div>
 
-    <label for="pitchRange">Высота тона: <span id="pitchVal" class="range-value">1.0</span></label>
-    <input type="range" id="pitchRange" min="0.5" max="1.5" value="1.0" step="0.1">
+        <div class="content-section">
+            <div class="panel-box">
+                <div class="panel-title">
+                    <span>Информация о объекте</span>
+                    <span id="selected-type-badge" style="font-size: 0.7rem; color: var(--accent-yellow);">Выберите объект</span>
+                </div>
+                <div class="info-details" id="info-panel">
+                    <p style="color: var(--text-muted); text-align: center; padding: 10px 0;">
+                        Кликните по платформе или кассе на карте для просмотра подробностей.
+                    </p>
+                </div>
+            </div>
 
-    <button id="speakBtn">Озвучить текст</button>
-    <div id="status" class="status">Готов к работе</div>
-</div>
+            <div class="panel-box" style="flex: 1; display: flex; flex-direction: column;">
+                <div class="panel-title">Ближайшие рейсы</div>
+                <div style="flex: 1; overflow-y: auto;">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Платф.</th>
+                                <th>Маршрут</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-<script>
-    const synth = window.speechSynthesis;
-    const textInput = document.getElementById('textInput');
-    const voiceSelect = document.getElementById('voiceSelect');
-    const volumeRange = document.getElementById('volumeRange');
-    const rateRange = document.getElementById('rateRange');
-    const pitchRange = document.getElementById('pitchRange');
-    const speakBtn = document.getElementById('speakBtn');
-    const statusDiv = document.getElementById('status');
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background: #38bdf8;"></div>Пассажир (ищет кассу)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #facc15;"></div>Пассажир (с билетом)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div>Пассажир (покидает)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #4ade80;"></div>Автобус</div>
+        </div>
+    </div>
 
-    let voices = [];
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
 
-    function loadVoices() {
-        voices = synth.getVoices();
-        voiceSelect.innerHTML = '';
-        
-        voices.forEach((voice, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = `${voice.name} (${voice.lang})`;
-            voiceSelect.appendChild(option);
+        // Глобальные переменные симуляции
+        let width = 0;
+        let height = 0;
+        let simTime = 6 * 3600; // Старт в 06:00:00 (в секундах)
+        const simSpeed = 3; // Коэффициент ускорения времени
+        let totalRevenue = 0;
+        let totalPassengersServed = 0;
+        let selectedEntity = null;
+
+        const DESTINATIONS = [
+            { name: "Киев", price: 350, duration: 40 },
+            { name: "Львов", price: 450, duration: 50 },
+            { name: "Одесса", price: 400, duration: 45 },
+            { name: "Харьков", price: 300, duration: 35 },
+            { name: "Днепр", price: 280, duration: 30 },
+            { name: "Полтава", price: 200, duration: 25 },
+            { name: "Винница", price: 220, duration: 25 },
+            { name: "Житомир", price: 180, duration: 20 }
+        ];
+
+        // Структуры данных
+        let building = {};
+        let cashRegisters = [];
+        let platforms = [];
+        let passengers = [];
+        let buses = [];
+        let schedule = [];
+
+        function resizeCanvas() {
+            width = canvas.parentElement.clientWidth;
+            height = canvas.parentElement.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initLayout();
+        }
+
+        // Инициализация планировки автовокзала
+        function initLayout() {
+            const centerX = width / 2;
+            const centerY = height / 2 - 40;
+            const bWidth = 320;
+            const bHeight = 180;
+
+            // Здание в центре вверху
+            building = {
+                x: centerX - bWidth / 2,
+                y: centerY - bHeight / 2,
+                w: bWidth,
+                h: bHeight,
+                doorX: centerX,
+                doorY: centerY + bHeight / 2,
+                waitingArea: {
+                    x1: centerX - bWidth / 2 + 20,
+                    x2: centerX + bWidth / 2 - 20,
+                    y1: centerY - bHeight / 2 + 70,
+                    y2: centerY + bHeight / 2 - 20
+                }
+            };
+
+            // Кассы внутри здания вверху
+            cashRegisters = [];
+            const numRegisters = 4;
+            const regSpacing = bWidth / (numRegisters + 1);
+            for (let i = 0; i < numRegisters; i++) {
+                cashRegisters.push({
+                    id: i + 1,
+                    x: building.x + regSpacing * (i + 1),
+                    y: building.y + 35,
+                    queue: [],
+                    serving: null,
+                    serveTimer: 0,
+                    ticketsSold: 0,
+                    type: 'cash'
+                });
+            }
+
+            // Платформы вокруг здания (П-образно: слева, снизу, справа)
+            platforms = [];
+            let pId = 1;
+
+            // Слева (2 платформы)
+            for (let i = 0; i < 2; i++) {
+                platforms.push({
+                    id: pId++,
+                    x: building.x - 110,
+                    y: building.y + 20 + i * 70,
+                    w: 80,
+                    h: 40,
+                    dir: 'left',
+                    bus: null,
+                    waitingPassengers: [],
+                    type: 'platform'
+                });
+            }
+
+            // Снизу (4 платформы)
+            const bottomSpacing = (bWidth + 120) / 5;
+            for (let i = 0; i < 4; i++) {
+                platforms.push({
+                    id: pId++,
+                    x: (building.x - 60) + bottomSpacing * (i + 1),
+                    y: building.y + bHeight + 110,
+                    w: 50,
+                    h: 70,
+                    dir: 'down',
+                    bus: null,
+                    waitingPassengers: [],
+                    type: 'platform'
+                });
+            }
+
+            // Справа (2 платформы)
+            for (let i = 0; i < 2; i++) {
+                platforms.push({
+                    id: pId++,
+                    x: building.x + bWidth + 30,
+                    y: building.y + 20 + i * 70,
+                    w: 80,
+                    h: 40,
+                    dir: 'right',
+                    bus: null,
+                    waitingPassengers: [],
+                    type: 'platform'
+                });
+            }
+        }
+
+        // Генератор расписания
+        function generateSchedule() {
+            schedule = [];
+            let time = 6 * 3600 + 300; // Первый рейс в 06:05
+            const endTime = 23 * 3600;
+
+            let tripId = 101;
+            while (time < endTime) {
+                const dest = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
+                const platformId = Math.floor(Math.random() * platforms.length) + 1;
+                const capacity = 15 + Math.floor(Math.random() * 4) * 5; // 15, 20, 25, 30 мест
+
+                schedule.push({
+                    id: tripId++,
+                    destination: dest.name,
+                    price: dest.price,
+                    departureTime: time,
+                    arrivalTime: time - 600, // Автобус приезжает за 10 мин
+                    platformId: platformId,
+                    capacity: capacity,
+                    ticketsSold: 0,
+                    status: 'SCHEDULED' // SCHEDULED, DOCKED, DEPARTED
+                });
+
+                time += Math.floor(Math.random() * 5 + 3) * 60; // Интервал 3-8 минут
+            }
+        }
+
+        // Класс Пассажира
+        class Passenger {
+            constructor() {
+                this.x = width / 2 + (Math.random() * 60 - 30);
+                this.y = height + 20;
+                this.radius = 5;
+                this.speed = 1.2 + Math.random() * 0.5;
+                this.target = { x: building.doorX, y: building.doorY };
+                this.state = 'ENTERING'; // ENTERING, CHOOSING_CASH, QUEUED, WAITING_BUS, BOARDING, LEAVING, DONE
+                this.ticket = null;
+                this.assignedRegister = null;
+                this.color = '#38bdf8';
+            }
+
+            update() {
+                // Перемещение к текущей цели
+                const dx = this.target.x - this.x;
+                const dy = this.target.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 2) {
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+                } else {
+                    this.onReachTarget();
+                }
+            }
+
+            onReachTarget() {
+                if (this.state === 'ENTERING') {
+                    this.state = 'CHOOSING_CASH';
+                    this.chooseCashRegister();
+                } else if (this.state === 'WAITING_BUS') {
+                    // Пассажир ждет у своей платформы
+                } else if (this.state === 'LEAVING') {
+                    this.state = 'DONE';
+                }
+            }
+
+            chooseCashRegister() {
+                // Выбор кассы по алгоритму условия
+                let chosen = null;
+
+                // Проверка: есть ли кассы вообще без очередей и без обслуживаемого пассажира
+                const emptyRegisters = cashRegisters.filter(r => r.queue.length === 0 && !r.serving);
+
+                if (emptyRegisters.length > 0) {
+                    // Если есть полностью свободные, выберем случайную из них
+                    chosen = emptyRegisters[Math.floor(Math.random() * emptyRegisters.length)];
+                } else {
+                    // Иначе ищем минимальную длину очереди
+                    let minLen = Infinity;
+                    cashRegisters.forEach(r => {
+                        const len = r.queue.length + (r.serving ? 1 : 0);
+                        if (len < minLen) minLen = len;
+                    });
+
+                    const minRegisters = cashRegisters.filter(r => (r.queue.length + (r.serving ? 1 : 0)) === minLen);
+
+                    // Условие: Если все очереди равны или несколько минимальных - выбрать случайную из минимальных
+                    chosen = minRegisters[Math.floor(Math.random() * minRegisters.length)];
+                }
+
+                // Дополнительное условие: у пассажира 5% шанс передумать и уйти, если везде очереди > 4
+                const minQueueSize = Math.min(...cashRegisters.map(r => r.queue.length));
+                if (minQueueSize > 4 && Math.random() < 0.05) {
+                    this.leaveUnsatisfied();
+                    return;
+                }
+
+                this.assignedRegister = chosen;
+                chosen.queue.push(this);
+                this.state = 'QUEUED';
+                this.updateQueuePosition();
+            }
+
+            leaveUnsatisfied() {
+                this.state = 'LEAVING';
+                this.color = '#ef4444';
+                this.target = { x: this.x, y: height + 20 };
+            }
+
+            updateQueuePosition() {
+                if (!this.assignedRegister) return;
+                const idx = this.assignedRegister.queue.indexOf(this);
+                if (idx !== -1) {
+                    // Встать в колонну перед кассой
+                    this.target = {
+                        x: this.assignedRegister.x,
+                        y: this.assignedRegister.y + 25 + idx * 12
+                    };
+                }
+            }
+
+            buyTicket() {
+                // Покупка билета на один из ближайших доступных рейсов
+                const availableTrips = schedule.filter(t => t.departureTime > simTime && t.ticketsSold < t.capacity);
+                if (availableTrips.length > 0) {
+                    const trip = availableTrips[Math.floor(Math.random() * Math.min(5, availableTrips.length))];
+                    trip.ticketsSold++;
+                    this.ticket = trip;
+                    totalRevenue += trip.price;
+                    this.assignedRegister.ticketsSold++;
+                    this.color = '#facc15'; // Желтый - с билетом
+
+                    // Идти к нужной платформе
+                    const platform = platforms.find(p => p.id === trip.platformId);
+                    this.state = 'WAITING_BUS';
+                    platform.waitingPassengers.push(this);
+
+                    // Смещение вокруг платформы для красивого расположения
+                    const offsetX = (Math.random() - 0.5) * (platform.w - 10);
+                    const offsetY = (Math.random() - 0.5) * (platform.h - 10);
+                    this.target = { x: platform.x + platform.w / 2 + offsetX, y: platform.y + platform.h / 2 + offsetY };
+                } else {
+                    // Нет доступных рейсов - уходит
+                    this.leaveUnsatisfied();
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        // Класс Автобуса
+        class Bus {
+            constructor(trip) {
+                this.trip = trip;
+                this.platform = platforms.find(p => p.id === trip.platformId);
+                this.platform.bus = this;
+                this.capacity = trip.capacity;
+                this.passengersOnboard = 0;
+                this.state = 'ARRIVING'; // ARRIVING, DOCKED, DEPARTING, GONE
+
+                // Начальная позиция за пределами экрана
+                this.x = -100;
+                this.y = this.platform.y;
+                this.targetX = this.platform.x;
+                this.targetY = this.platform.y;
+                this.speed = 2;
+                this.color = '#4ade80';
+
+                // Габариты автобуса в зависимости от ориентации платформы
+                if (this.platform.dir === 'down') {
+                    this.w = 34;
+                    this.h = 60;
+                    this.x = this.platform.x + 8;
+                    this.y = height + 50;
+                } else {
+                    this.w = 60;
+                    this.h = 34;
+                    this.x = this.platform.dir === 'left' ? -80 : width + 80;
+                    this.y = this.platform.y + 3;
+                }
+            }
+
+            update() {
+                if (this.state === 'ARRIVING') {
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist > 2) {
+                        this.x += (dx / dist) * this.speed;
+                        this.y += (dy / dist) * this.speed;
+                    } else {
+                        this.x = this.targetX;
+                        this.y = this.targetY;
+                        this.state = 'DOCKED';
+                        this.trip.status = 'DOCKED';
+                    }
+                } else if (this.state === 'DOCKED') {
+                    // Посадка пассажиров
+                    this.boardPassengers();
+
+                    // Отправление по времени
+                    if (simTime >= this.trip.departureTime) {
+                        this.state = 'DEPARTING';
+                        this.trip.status = 'DEPARTED';
+                        this.platform.bus = null; // Освободить платформу
+
+                        // Установка конечной точки уезда
+                        if (this.platform.dir === 'down') {
+                            this.targetY = height + 100;
+                        } else if (this.platform.dir === 'left') {
+                            this.targetX = -100;
+                        } else {
+                            this.targetX = width + 100;
+                        }
+                    }
+                } else if (this.state === 'DEPARTING') {
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist > 2) {
+                        this.x += (dx / dist) * this.speed;
+                        this.y += (dy / dist) * this.speed;
+                    } else {
+                        this.state = 'GONE';
+                    }
+                }
+            }
+
+            boardPassengers() {
+                // Посадка людей с билетами на этот рейс
+                const waiting = this.platform.waitingPassengers;
+                for (let i = waiting.length - 1; i >= 0; i--) {
+                    const p = waiting[i];
+                    if (p.ticket && p.ticket.id === this.trip.id) {
+                        // Анимация захода в автобус
+                        p.target = { x: this.x + this.w / 2, y: this.y + this.h / 2 };
+                        if (Math.hypot(p.x - (this.x + this.w / 2), p.y - (this.y + this.h / 2)) < 10) {
+                            this.passengersOnboard++;
+                            totalPassengersServed++;
+                            p.state = 'DONE';
+                            waiting.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                // Кузов
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.w, this.h);
+
+                // Стекла / Детали
+                ctx.fillStyle = '#0f172a';
+                if (this.platform.dir === 'down') {
+                    // Лобовое стекло
+                    ctx.fillRect(this.x + 4, this.y + 4, this.w - 8, 10);
+                    // Фары
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillRect(this.x + 2, this.y, 6, 3);
+                    ctx.fillRect(this.x + this.w - 8, this.y, 6, 3);
+                } else {
+                    ctx.fillRect(this.x + 4, this.y + 4, this.w - 8, 8);
+                }
+
+                // Индикатор заполненности
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${this.passengersOnboard}/${this.trip.ticketsSold}`, this.x + this.w / 2, this.y + this.h / 2 + 3);
+
+                ctx.restore();
+            }
+        }
+
+        // Обновление работы касс
+        function updateCashRegisters() {
+            cashRegisters.forEach(reg => {
+                // Если касса свободна и есть очередь
+                if (!reg.serving && reg.queue.length > 0) {
+                    reg.serving = reg.queue.shift();
+                    reg.serveTimer = Math.floor(Math.random() * 80 + 40); // Время оформления билета
+                    // Сдвинуть оставшихся в очереди
+                    reg.queue.forEach(p => p.updateQueuePosition());
+                }
+
+                if (reg.serving) {
+                    reg.serveTimer--;
+                    if (reg.serveTimer <= 0) {
+                        reg.serving.buyTicket();
+                        reg.serving = null;
+                    }
+                }
+            });
+        }
+
+        // Логика спавна пассажиров
+        function handlePassengerSpawning() {
+            // Спавн интенсивнее в определенное время
+            if (Math.random() < 0.08) {
+                passengers.push(new Passenger());
+            }
+        }
+
+        // Логика спавна автобусов по расписанию
+        function handleBusSpawning() {
+            schedule.forEach(trip => {
+                if (trip.status === 'SCHEDULED' && simTime >= trip.arrivalTime) {
+                    const platform = platforms.find(p => p.id === trip.platformId);
+                    // Спавним, если платформа свободна
+                    if (!platform.bus) {
+                        buses.push(new Bus(trip));
+                    }
+                }
+            });
+        }
+
+        // Рендеринг фона и элементов вокзала
+        function drawStation() {
+            // Фон / Асфальт
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, width, height);
+
+            // Дороги вокруг вокзала
+            ctx.fillStyle = '#1e293b';
+            // Дорога снизу
+            ctx.fillRect(0, building.y + building.h + 80, width, 120);
+            // Разделительные полосы на дороге
+            ctx.strokeStyle = '#475569';
+            ctx.setLineDash([20, 15]);
+            ctx.beginPath();
+            ctx.moveTo(0, building.y + building.h + 140);
+            ctx.lineTo(width, building.y + building.h + 140);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Платформы
+            platforms.forEach(p => {
+                const isSelected = selectedEntity && selectedEntity.type === 'platform' && selectedEntity.id === p.id;
+
+                ctx.fillStyle = isSelected ? '#38bdf8' : '#334155';
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+                ctx.strokeStyle = isSelected ? '#ffffff' : '#475569';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(p.x, p.y, p.w, p.h);
+
+                // Номер платформы
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`P${p.id}`, p.x + p.w / 2, p.y + p.h / 2 + 4);
+            });
+
+            // Главное здание Автовокзала
+            ctx.fillStyle = '#182238';
+            ctx.fillRect(building.x, building.y, building.w, building.h);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(building.x, building.y, building.w, building.h);
+
+            // Крыша / Заголовок здания
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(building.x + 10, building.y - 15, building.w - 20, 25);
+            ctx.strokeStyle = '#334155';
+            ctx.strokeRect(building.x + 10, building.y - 15, building.w - 20, 25);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('ТЕРМИНАЛ АВТОВОКЗАЛА', building.x + building.w / 2, building.y + 2);
+
+            // Входные двери
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(building.doorX - 20, building.doorY - 5, 40, 10);
+
+            // Кассы
+            cashRegisters.forEach(r => {
+                const isSelected = selectedEntity && selectedEntity.type === 'cash' && selectedEntity.id === r.id;
+
+                ctx.fillStyle = r.serving ? '#22c55e' : '#64748b';
+                if (isSelected) ctx.fillStyle = '#facc15';
+
+                ctx.fillRect(r.x - 15, r.y - 10, 30, 20);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(r.x - 15, r.y - 10, 30, 20);
+
+                ctx.fillStyle = '#000000';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`К${r.id}`, r.x, r.y + 3);
+            });
+        }
+
+        // Обработка кликов мышкой по объектам
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let clicked = null;
+
+            // Проверка клика по платформам
+            platforms.forEach(p => {
+                if (mouseX >= p.x && mouseX <= p.x + p.w && mouseY >= p.y && mouseY <= p.y + p.h) {
+                    clicked = p;
+                }
+            });
+
+            // Проверка клика по кассам
+            if (!clicked) {
+                cashRegisters.forEach(r => {
+                    if (mouseX >= r.x - 15 && mouseX <= r.x + 15 && mouseY >= r.y - 10 && mouseY <= r.y + 10) {
+                        clicked = r;
+                    }
+                });
+            }
+
+            selectedEntity = clicked;
+            updateUI();
         });
 
-        // Автовыбор русского голоса
-        let bestVoiceIndex = voices.findIndex(v => 
-            (v.lang.includes('ru') || v.lang.includes('RU')) && 
-            (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google'))
-        );
-        if (bestVoiceIndex === -1) {
-            bestVoiceIndex = voices.findIndex(v => v.lang.includes('ru') || v.lang.includes('RU'));
+        // Обновление интерфейса (боковой панели)
+        function updateUI() {
+            // Обновление часов
+            const hours = Math.floor(simTime / 3600) % 24;
+            const minutes = Math.floor((simTime % 3600) / 60);
+            const seconds = Math.floor(simTime % 60);
+            document.getElementById('clock').innerText =
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            // Статистика
+            document.getElementById('stat-revenue').innerText = `${totalRevenue} ₴`;
+            document.getElementById('stat-served').innerText = totalPassengersServed;
+            document.getElementById('stat-pax-count').innerText = passengers.filter(p => p.state !== 'DONE').length;
+            document.getElementById('stat-active-buses').innerText = buses.filter(b => b.state !== 'GONE').length;
+
+            // Информационная панель об объекте
+            const infoPanel = document.getElementById('info-panel');
+            const badge = document.getElementById('selected-type-badge');
+
+            if (selectedEntity) {
+                if (selectedEntity.type === 'platform') {
+                    badge.innerText = `Платформа №${selectedEntity.id}`;
+                    const activeTrip = schedule.find(s => s.platformId === selectedEntity.id && s.status !== 'DEPARTED');
+                    const bus = selectedEntity.bus;
+
+                    infoPanel.innerHTML = `
+                        <div><span>Статус:</span> <b>${bus ? 'Автобус на платформе' : 'Свободна'}</b></div>
+                        <div><span>Ожидающие пассажиры:</span> <b>${selectedEntity.waitingPassengers.length} чел.</b></div>
+                        <div><span>Текущий/Ближайший рейс:</span> <b>${activeTrip ? activeTrip.destination : 'Нет'}</b></div>
+                        <div><span>Время отправления:</span> <b>${activeTrip ? formatTime(activeTrip.departureTime) : '-'}</b></div>
+                        <div><span>Цена билета:</span> <b>${activeTrip ? activeTrip.price + ' ₴' : '-'}</b></div>
+                        <div><span>Продано билетов:</span> <b>${activeTrip ? activeTrip.ticketsSold + '/' + activeTrip.capacity : '-'}</b></div>
+                    `;
+                } else if (selectedEntity.type === 'cash') {
+                    badge.innerText = `Касса №${selectedEntity.id}`;
+                    infoPanel.innerHTML = `
+                        <div><span>Статус:</span> <b>${selectedEntity.serving ? 'Обслуживание' : 'Свободна'}</b></div>
+                        <div><span>Длина очереди:</span> <b>${selectedEntity.queue.length} чел.</b></div>
+                        <div><span>Продано билетов всего:</span> <b>${selectedEntity.ticketsSold} шт.</b></div>
+                        <div><span>Эффективность:</span> <b>Высокая</b></div>
+                    `;
+                }
+            } else {
+                badge.innerText = 'Объект не выбран';
+                infoPanel.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 10px 0;">Кликните по платформе или кассе на карте для просмотра подробностей.</p>`;
+            }
+
+            // Таблица расписания
+            const scheduleBody = document.getElementById('schedule-body');
+            const upcomingTrips = schedule.filter(s => s.status !== 'DEPARTED').slice(0, 6);
+
+            scheduleBody.innerHTML = upcomingTrips.map(t => {
+                let statusBadge = '<span class="badge badge-waiting">Ожидается</span>';
+                if (t.status === 'DOCKED') statusBadge = '<span class="badge badge-docked">На платформе</span>';
+
+                return `
+                    <tr>
+                        <td><b>${formatTime(t.departureTime)}</b></td>
+                        <td>№${t.platformId}</td>
+                        <td>${t.destination}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            }).join('');
         }
-        if (bestVoiceIndex !== -1) {
-            voiceSelect.value = bestVoiceIndex;
-        }
-    }
 
-    loadVoices();
-    if (synth.onvoiceschanged !== undefined) {
-        synth.onvoiceschanged = loadVoices;
-    }
-
-    volumeRange.oninput = () => document.getElementById('volumeVal').textContent = volumeRange.value + '%';
-    rateRange.oninput = () => document.getElementById('rateVal').textContent = rateRange.value;
-    pitchRange.oninput = () => document.getElementById('pitchVal').textContent = pitchRange.value;
-
-    speakBtn.addEventListener('click', () => {
-        if (synth.speaking) {
-            synth.cancel();
+        function formatTime(sec) {
+            const h = Math.floor(sec / 3600) % 24;
+            const m = Math.floor((sec % 3600) / 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        const text = textInput.value.trim();
-        if (!text) return;
+        // Главный цикл симуляции
+        function loop() {
+            // Игровое время
+            simTime += simSpeed;
+            if (simTime >= 24 * 3600) simTime = 0; // Сброс на новый день
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        const selectedVoiceIndex = voiceSelect.value;
-        if (voices[selectedVoiceIndex]) {
-            utterance.voice = voices[selectedVoiceIndex];
+            // Спавны и обновление
+            handlePassengerSpawning();
+            handleBusSpawning();
+            updateCashRegisters();
+
+            // Обновление пассажиров
+            for (let i = passengers.length - 1; i >= 0; i--) {
+                passengers[i].update();
+                if (passengers[i].state === 'DONE') {
+                    passengers.splice(i, 1);
+                }
+            }
+
+            // Обновление автобусов
+            for (let i = buses.length - 1; i >= 0; i--) {
+                buses[i].update();
+                if (buses[i].state === 'GONE') {
+                    buses.splice(i, 1);
+                }
+            }
+
+            // Рендеринг
+            drawStation();
+            passengers.forEach(p => p.draw());
+            buses.forEach(b => b.draw());
+
+            // Обновление UI
+            updateUI();
+
+            requestAnimationFrame(loop);
         }
 
-        utterance.volume = parseFloat(volumeRange.value) / 100;
-        utterance.rate = parseFloat(rateRange.value);
-        utterance.pitch = parseFloat(pitchRange.value);
-
-        utterance.onstart = () => { statusDiv.textContent = "Воспроизведение..."; };
-        utterance.onend = () => { statusDiv.textContent = "Готов к работе"; };
-        utterance.onerror = () => { statusDiv.textContent = "Ошибка воспроизведения"; };
-
-        synth.speak(utterance);
-    });
-</script>
-
+        // Запуск
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        generateSchedule();
+        loop();
+    </script>
 </body>
 </html>
