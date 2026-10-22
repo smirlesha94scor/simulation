@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Player + Audio Enhancer & EQ</title>
+    <title>DJ Player + Delay, EQ & Master Enhancer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -107,19 +107,19 @@
             cursor: pointer;
             margin-top: 3px;
         }
-        .eq-container {
+        .controls-grid {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             margin-top: 8px;
-            background: #1c1c1c;
-            padding: 8px;
-            border-radius: 6px;
         }
-        .eq-group {
+        .control-box {
             flex: 1;
+            background: #1c1c1c;
+            padding: 6px;
+            border-radius: 6px;
             text-align: center;
         }
-        .eq-group label {
+        .control-box label {
             font-size: 10px;
             color: #888;
             display: block;
@@ -169,9 +169,8 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Player + Master Enhancer & EQ</h3>
+        <h3>DJ Player + Delay, EQ & Master</h3>
 
-        <!-- Общая загрузка в плейлист -->
         <div class="upload-section">
             <label for="file-input-global" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить плейлист (несколько файлов)</label>
             <input type="file" id="file-input-global" accept="audio/*" multiple onchange="handleFiles(this.files)">
@@ -202,19 +201,16 @@
             <canvas id="canvas1" class="visualizer-canvas"></canvas>
 
             <!-- Эквалайзер Деки 1 -->
-            <div class="eq-container">
-                <div class="eq-group">
-                    <label>BASS</label>
-                    <input type="range" id="eq1-low" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)">
-                </div>
-                <div class="eq-group">
-                    <label>MID</label>
-                    <input type="range" id="eq1-mid" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)">
-                </div>
-                <div class="eq-group">
-                    <label>TREBLE</label>
-                    <input type="range" id="eq1-high" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)">
-                </div>
+            <div class="controls-grid">
+                <div class="control-box"><label>BASS</label><input type="range" id="eq1-low" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)"></div>
+                <div class="control-box"><label>MID</label><input type="range" id="eq1-mid" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)"></div>
+                <div class="control-box"><label>TREBLE</label><input type="range" id="eq1-high" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)"></div>
+            </div>
+
+            <!-- Блок Дилея (Эха) Деки 1 -->
+            <div class="controls-grid">
+                <div class="control-box"><label>DELAY TIME</label><input type="range" id="delay1-time" min="0" max="1" value="0.3" step="0.05" oninput="updateDelay(1)"></div>
+                <div class="control-box"><label>DELAY MIX</label><input type="range" id="delay1-mix" min="0" max="1" value="0" step="0.05" oninput="updateDelay(1)"></div>
             </div>
 
             <div style="margin-top: 6px;">
@@ -243,19 +239,16 @@
             <canvas id="canvas2" class="visualizer-canvas"></canvas>
 
             <!-- Эквалайзер Деки 2 -->
-            <div class="eq-container">
-                <div class="eq-group">
-                    <label>BASS</label>
-                    <input type="range" id="eq2-low" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)">
-                </div>
-                <div class="eq-group">
-                    <label>MID</label>
-                    <input type="range" id="eq2-mid" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)">
-                </div>
-                <div class="eq-group">
-                    <label>TREBLE</label>
-                    <input type="range" id="eq2-high" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)">
-                </div>
+            <div class="controls-grid">
+                <div class="control-box"><label>BASS</label><input type="range" id="eq2-low" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)"></div>
+                <div class="control-box"><label>MID</label><input type="range" id="eq2-mid" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)"></div>
+                <div class="control-box"><label>TREBLE</label><input type="range" id="eq2-high" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)"></div>
+            </div>
+
+            <!-- Блок Дилея (Эха) Деки 2 -->
+            <div class="controls-grid">
+                <div class="control-box"><label>DELAY TIME</label><input type="range" id="delay2-time" min="0" max="1" value="0.3" step="0.05" oninput="updateDelay(2)"></div>
+                <div class="control-box"><label>DELAY MIX</label><input type="range" id="delay2-mix" min="0" max="1" value="0" step="0.05" oninput="updateDelay(2)"></div>
             </div>
 
             <div style="margin-top: 6px;">
@@ -279,11 +272,13 @@
         let gainA, gainB;
         let analyserA, analyserB;
 
-        // Фильтры Эквалайзера (Дека 1 и Дека 2)
         let lowEqA, midEqA, highEqA;
         let lowEqB, midEqB, highEqB;
 
-        // Мастер-компрессор для улучшения плотности звука
+        // Элементы DelayNode и Wet/Dry гейны
+        let delayNodeA, delayFeedbackA, delayWetA, delayDryA;
+        let delayNodeB, delayFeedbackB, delayWetB, delayDryB;
+
         let masterCompressor;
 
         let activeDeck = 1;
@@ -300,7 +295,6 @@
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-                // 1. Создание Мастер-Компрессора
                 masterCompressor = audioContext.createDynamicsCompressor();
                 masterCompressor.threshold.setValueAtTime(-18, audioContext.currentTime);
                 masterCompressor.knee.setValueAtTime(12, audioContext.currentTime);
@@ -309,7 +303,7 @@
                 masterCompressor.release.setValueAtTime(0.25, audioContext.currentTime);
                 masterCompressor.connect(audioContext.destination);
 
-                // 2. Эквалайзер для ДЕКИ 1
+                // --- ЦЕПОЧКА ДЕКИ 1 (EQ + Delay + Analyser + Gain) ---
                 lowEqA = createFilter('lowshelf', 250);
                 midEqA = createFilter('peaking', 1500);
                 highEqA = createFilter('highshelf', 4000);
@@ -319,15 +313,31 @@
                 analyserA = audioContext.createAnalyser();
                 analyserA.fftSize = 2048;
 
-                // Цепочка Деки 1: Source -> EQ Low -> EQ Mid -> EQ High -> Analyser -> Gain -> MasterCompressor
+                // Настройка Delay для Деки 1
+                let setupA = setupDelayNode();
+                delayNodeA = setupA.delay;
+                delayFeedbackA = setupA.feedback;
+                delayWetA = setupA.wet;
+                delayDryA = setupA.dry;
+
                 sourceA.connect(lowEqA);
                 lowEqA.connect(midEqA);
                 midEqA.connect(highEqA);
-                highEqA.connect(analyserA);
+                
+                // Ветвление на Delay (Wet/Dry)
+                highEqA.connect(delayDryA);
+                highEqA.connect(delayNodeA);
+                delayNodeA.connect(delayFeedbackA);
+                delayFeedbackA.connect(delayNodeA);
+                delayNodeA.connect(delayWetA);
+
+                delayDryA.connect(analyserA);
+                delayWetA.connect(analyserA);
+
                 analyserA.connect(gainA);
                 gainA.connect(masterCompressor);
 
-                // 3. Эквалайзер для ДЕКИ 2
+                // --- ЦЕПОЧКА ДЕКИ 2 (EQ + Delay + Analyser + Gain) ---
                 lowEqB = createFilter('lowshelf', 250);
                 midEqB = createFilter('peaking', 1500);
                 highEqB = createFilter('highshelf', 4000);
@@ -337,11 +347,25 @@
                 analyserB = audioContext.createAnalyser();
                 analyserB.fftSize = 2048;
 
-                // Цепочка Деки 2
+                let setupB = setupDelayNode();
+                delayNodeB = setupB.delay;
+                delayFeedbackB = setupB.feedback;
+                delayWetB = setupB.wet;
+                delayDryB = setupB.dry;
+
                 sourceB.connect(lowEqB);
                 lowEqB.connect(midEqB);
                 midEqB.connect(highEqB);
-                highEqB.connect(analyserB);
+
+                highEqB.connect(delayDryB);
+                highEqB.connect(delayNodeB);
+                delayNodeB.connect(delayFeedbackB);
+                delayFeedbackB.connect(delayNodeB);
+                delayNodeB.connect(delayWetB);
+
+                delayDryB.connect(analyserB);
+                delayWetB.connect(analyserB);
+
                 analyserB.connect(gainB);
                 gainB.connect(masterCompressor);
 
@@ -364,6 +388,22 @@
             return filter;
         }
 
+        function setupDelayNode() {
+            let delay = audioContext.createDelay(2.0);
+            delay.delayTime.value = 0.3;
+
+            let feedback = audioContext.createGain();
+            feedback.gain.value = 0.4; // Обратная связь эха
+
+            let wet = audioContext.createGain();
+            wet.gain.value = 0.0; // Изначально выключено
+
+            let dry = audioContext.createGain();
+            dry.gain.value = 1.0;
+
+            return { delay, feedback, wet, dry };
+        }
+
         function updateEQ(deckNum) {
             initAudioContext();
             if (deckNum === 1 && lowEqA) {
@@ -374,6 +414,21 @@
                 lowEqB.gain.value = parseFloat(document.getElementById('eq2-low').value);
                 midEqB.gain.value = parseFloat(document.getElementById('eq2-mid').value);
                 highEqB.gain.value = parseFloat(document.getElementById('eq2-high').value);
+            }
+        }
+
+        function updateDelay(deckNum) {
+            initAudioContext();
+            if (deckNum === 1 && delayNodeA) {
+                let timeVal = parseFloat(document.getElementById('delay1-time').value);
+                let mixVal = parseFloat(document.getElementById('delay1-mix').value);
+                delayNodeA.delayTime.value = timeVal;
+                delayWetA.gain.value = mixVal;
+            } else if (deckNum === 2 && delayNodeB) {
+                let timeVal = parseFloat(document.getElementById('delay2-time').value);
+                let mixVal = parseFloat(document.getElementById('delay2-mix').value);
+                delayNodeB.delayTime.value = timeVal;
+                delayWetB.gain.value = mixVal;
             }
         }
 
