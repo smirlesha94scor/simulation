@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Ultra-Fast Switcher (Phase Sync -5s)</title>
+    <title>DJ Ultra-Fast Switcher (Fixed Preload)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -268,17 +268,14 @@
 
             let timeLeft = livePlayer.duration - livePlayer.currentTime;
 
-            // Запуск за 5 секунд до конца с точной авто-синхронизацией темпа и фазы
-            if (timeLeft <= 5 && !isPreloaded) {
+            // 1. Предзагрузка и синхронизация фазы за 5 секунд до конца
+            if (timeLeft <= 5.0 && !isPreloaded) {
                 isPreloaded = true;
                 startSyncedPreload();
             }
-            
-            if (timeLeft > 5) {
-                isPreloaded = false;
-            }
 
-            if (timeLeft <= 10 && liveAnalyser) {
+            // 2. Мгновенное переключение звука при обнаружении тишины или в самом конце файла
+            if (liveAnalyser) {
                 const pcmData = new Float32Array(liveAnalyser.fftSize);
                 liveAnalyser.getFloatTimeDomainData(pcmData);
 
@@ -288,7 +285,8 @@
                 }
                 let rms = Math.sqrt(sumSquares / pcmData.length);
 
-                if (rms < 0.005 || timeLeft <= 0.05) {
+                // Если тишина наступила ИЛИ трек подошел к концу (меньше 0.1 сек)
+                if ((rms < 0.005 && timeLeft <= 5) || timeLeft <= 0.1) {
                     isSwitching = true;
                     executeInstantSwitch();
                 }
@@ -490,30 +488,29 @@
             }
         }
 
-        // Авто-синхронизация темпа и фазы ударов за 5 секунд до конца
+        // Синхронизированный тихий запуск ровно за 5 секунд до конца
         function startSyncedPreload() {
-            autoSyncBPM(); // Финальное уравнивание скорости
+            autoSyncBPM();
 
             let livePlayer = (activeDeck === 1) ? playerA : playerB;
             let nextPlayer = (activeDeck === 1) ? playerB : playerA;
             let nextGain = (activeDeck === 1) ? gainB : gainA;
             let nextDeckNum = (activeDeck === 1) ? 2 : 1;
 
-            // Вычисляем фазу (момент сильной доли) для синхронизации ритма
             let liveBPM = (activeDeck === 1) ? (baseBPM1 * parseFloat(document.getElementById('tempo1-slider').value)) : (baseBPM2 * parseFloat(document.getElementById('tempo2-slider').value));
-            let beatInterval = 60 / liveBPM;
+            let beatInterval = 60 / (liveBPM || 120);
             let currentPhase = livePlayer.currentTime % beatInterval;
 
-            // Подстраиваем стартовую позицию следующего трека под фазу удара
-            nextPlayer.currentTime = currentPhase; 
+            nextPlayer.currentTime = currentPhase;
+            nextGain.gain.setValueAtTime(0, audioContext.currentTime); // Звук строго на 0 в момент предзагрузки
 
-            nextGain.gain.setValueAtTime(0, audioContext.currentTime);
             nextPlayer.play().then(() => {
-                document.getElementById(`deck${nextDeckNum}-status`).textContent = "Синхронизирован (тихо)";
+                document.getElementById(`deck${nextDeckNum}-status`).textContent = "Предзагрузка (тихо)";
                 document.getElementById(`deck${nextDeckNum}-status`).style.color = "#00bfff";
-            }).catch(e => console.log("Ошибка фазирования:", e));
+            }).catch(e => console.log("Ошибка предзагрузки:", e));
         }
 
+        // Мгновенный свитч звука на 100% громкости
         function executeInstantSwitch() {
             initAudioContext();
             let now = audioContext.currentTime;
@@ -524,15 +521,17 @@
             let nextGain = (activeDeck === 1) ? gainB : gainA;
             let nextPlayer = (activeDeck === 1) ? playerB : playerA;
 
+            // Включаем громкость следующего трека на 100% и выключаем текущий
+            nextGain.gain.setValueAtTime(1, now);
+            liveGain.gain.setValueAtTime(0, now);
+
             if (nextPlayer.paused) {
                 nextPlayer.play();
             }
 
-            nextGain.gain.setValueAtTime(1, now);
-            liveGain.gain.setValueAtTime(0, now);
-
             livePlayer.pause();
             activeDeck = (activeDeck === 1) ? 2 : 1;
+            
             updateDeckUI();
             
             currentIndex = (currentIndex + 1) % playlist.length;
