@@ -323,7 +323,7 @@
 
         let laneInY = 0;
         let laneOutY = 0;
-        let parkingLaneY = 0; // Выделенный накопительный карман-парковка для ожидания отправления
+        let parkingLaneY = 0;
 
         function resizeCanvas() {
             width = canvas.parentElement.clientWidth;
@@ -389,9 +389,8 @@
             const pSpacing = (bWidth - 80) / (numPlatforms - 1);
             const platformY = building.y + bHeight + 85;
 
-            // Дороги и накопительная парковка (карман) ниже платформ
             laneInY = platformY + 70;
-            parkingLaneY = platformY + 115; // Карман для ожидания отправления
+            parkingLaneY = platformY + 115;
             laneOutY = platformY + 160;
 
             for (let i = 0; i < numPlatforms; i++) {
@@ -415,9 +414,9 @@
             while (time < endTime) {
                 const dest = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
                 const platformId = Math.floor(Math.random() * platforms.length) + 1;
-                const capacity = 15 + Math.floor(Math.random() * 3) * 5;
+                // Вместимость автобуса теперь строго соответствует количеству посадочных мест (например, фиксировано 16 или 20 сидячих мест)
+                const capacity = 16; 
 
-                // Точное время прибытия: за 12 минут до отправления
                 const arrivalTime = time - 12 * 60;
 
                 schedule.push({
@@ -478,6 +477,7 @@
 
             chooseCashRegister() {
                 let chosen = null;
+                // Кассы продают билеты только на рейсы, где еще есть свободные СИДЯЧИЕ места (ticketsSold < capacity)
                 const emptyRegisters = cashRegisters.filter(r => r.queue.length === 0 && !r.serving);
 
                 if (emptyRegisters.length > 0) {
@@ -521,6 +521,7 @@
             }
 
             buyTicket() {
+                // Ищем рейсы, у которых еще остались свободные места (строго сидячие места = capacity)
                 const availableTrips = schedule.filter(t => t.departureTime > simTime && t.ticketsSold < t.capacity);
                 if (availableTrips.length > 0) {
                     const trip = availableTrips[Math.floor(Math.random() * Math.min(3, availableTrips.length))];
@@ -552,8 +553,7 @@
             checkBoarding() {
                 if (!this.ticket || this.state === 'GO_TO_PLATFORM' || this.state === 'WAITING_ON_PLATFORM' || this.state === 'BOARDING') return;
 
-                // СТРОГИЙ АЛГОРИТМ ВЫХОДА НА ПОСАДКУ: 
-                // Пассажир подходит к платформе строго за 10 минут (600 сек) до отправления или позже, но только если автобус уже прибыл.
+                // Строгий алгоритм: пассажир выходит на платформу только если до отправления ≤ 10 минут И автобус уже прибыл на эту платформу
                 const timeLeft = this.ticket.departureTime - simTime;
                 const busArrived = this.ticket.status === 'DOCKED' || this.ticket.status === 'BOARDING';
 
@@ -618,7 +618,6 @@
                 this.w = 28;
                 this.h = 65;
 
-                // Заезжает справа по верхней полосе
                 this.x = width + 100;
                 this.y = laneInY;
                 this.angle = -Math.PI / 2;
@@ -642,7 +641,6 @@
                         this.state = 'TURNING_TO_PLATFORM';
                     }
                 } else if (this.state === 'TURNING_TO_PLATFORM') {
-                    // Точный заезд передом к платформе
                     const targetX = this.platform.x;
                     const targetY = this.platform.y + 25;
                     const dx = targetX - this.x;
@@ -669,16 +667,14 @@
 
                     this.boardPassengers();
 
-                    // АЛГОРИТМ ОТПРАВЛЕНИЯ: Как только время отправления наступило, автобус НЕ стоит на дороге! 
-                    // Он сразу перемещается в специальный накопительный карман-парковку ниже линии движения, освобождая проезжую часть.
+                    // Как только наступает время отправления, автобус уезжает с платформы в накопительный карман
                     if (simTime >= this.trip.departureTime) {
                         this.state = 'PARKING_WAIT';
                         this.trip.status = 'DEPARTED';
-                        this.platform.bus = null; // Сразу освобождаем платформу для следующего рейса!
-                        this.targetParkingX = this.platform.x - 80; // Место в кармане-накопителе
+                        this.platform.bus = null;
+                        this.targetParkingX = this.platform.x - 80;
                     }
                 } else if (this.state === 'PARKING_WAIT') {
-                    // Автобус отъезжает задним ходом в выделенный накопительный карман (парковку), чтобы не мешать на дороге
                     const targetY = parkingLaneY;
                     const targetX = this.targetParkingX;
                     const dx = targetX - this.x;
@@ -688,12 +684,11 @@
                         this.y += Math.sign(dy) * (this.currentSpeed * 0.8);
                     } else if (Math.abs(dx) > 2) {
                         this.x += Math.sign(dx) * (this.currentSpeed * 0.8);
-                        this.angle = Math.PI; // Разворот носом вправо для выезда
+                        this.angle = Math.PI;
                     } else {
                         this.state = 'DRIVING_OUT';
                     }
                 } else if (this.state === 'DRIVING_OUT') {
-                    // Из накопительного кармана автобус спокойно уезжает по нижней полосе вправо
                     this.x += this.currentSpeed;
                     this.angle = Math.PI / 2;
 
@@ -725,7 +720,8 @@
 
             boardPassengers() {
                 const queue = this.platform.waitingQueue;
-                if (queue.length > 0) {
+                // Строгое условие: заходят только пассажиры на этот рейс и только пока в автобусе есть свободные сидячие места (< capacity)
+                if (queue.length > 0 && this.passengersOnboard < this.capacity) {
                     const p = queue[0];
                     if (p.ticket && p.ticket.id === this.trip.id) {
                         const doorX = this.x + 12;
@@ -764,10 +760,11 @@
                 ctx.fillRect(-this.w / 2 + 2, -this.h / 2, 4, 3);
                 ctx.fillRect(this.w / 2 - 6, -this.h / 2, 4, 3);
 
+                // Отображение занятых сидячих мест из общего числа мест
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 9px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${this.passengersOnboard}/${this.trip.ticketsSold}`, 0, 4);
+                ctx.fillText(`${this.passengersOnboard}/${this.capacity}`, 0, 4);
 
                 ctx.restore();
             }
@@ -815,11 +812,9 @@
             ctx.fillStyle = '#111827';
             ctx.fillRect(0, 0, width, building.y);
 
-            // Дорожная сеть с выделенной зоной накопительной парковки, чтобы автобусы не стояли на проезжей части
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, laneInY - 30, width, 160);
 
-            // Разметка полос движения
             ctx.strokeStyle = '#475569';
             ctx.setLineDash([12, 10]);
             ctx.beginPath();
@@ -969,7 +964,7 @@
                         <div><span>Точное прибытие:</span> <b>${activeTrip ? formatTime(activeTrip.arrivalTime) : '-'}</b></div>
                         <div><span>Время отправления:</span> <b>${activeTrip ? formatTime(activeTrip.departureTime) : '-'}</b></div>
                         <div><span>Цена билета:</span> <b>${activeTrip ? activeTrip.price + ' ₴' : '-'}</b></div>
-                        <div><span>Продано билетов:</span> <b>${activeTrip ? activeTrip.ticketsSold + '/' + activeTrip.capacity : '-'}</b></div>
+                        <div><span>Сидячих мест продано:</span> <b>${activeTrip ? activeTrip.ticketsSold + '/' + activeTrip.capacity : '-'}</b></div>
                     `;
                 } else if (selectedEntity.type === 'cash') {
                     badge.innerText = `Касса №${selectedEntity.id}`;
@@ -984,8 +979,7 @@
                     infoPanel.innerHTML = `
                         <div><span>Маршрут:</span> <b>${b.trip.destination}</b></div>
                         <div><span>Статус движения:</span> <b>${b.state}</b></div>
-                        <div><span>В салоне:</span> <b>${b.passengersOnboard} / ${b.trip.ticketsSold}</b></div>
-                        <div><span>Вместимость:</span> <b>${b.capacity} мест</b></div>
+                        <div><span>Сидячих мест занято:</span> <b>${b.passengersOnboard} / ${b.capacity}</b></div>
                     `;
                 }
             } else {
@@ -999,7 +993,7 @@
             scheduleBody.innerHTML = upcomingTrips.map(t => {
                 let statusBadge = '<span class="badge badge-scheduled">Ожидание</span>';
                 if (t.status === 'DOCKED') statusBadge = '<span class="badge badge-docked">Прибыл</span>';
-                if (t.status === 'BOARDING') statusBadge = '<span class="badge badge-boarding">Посадка</span>';
+                if.status === 'BOARDING' ? statusBadge = '<span class="badge badge-boarding">Посадка</span>' : null;
 
                 return `
                     <tr>
