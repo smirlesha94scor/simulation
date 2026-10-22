@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Loop Sync & 30s Preload Player</title>
+    <title>DJ Separate Deck Load Player</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -89,6 +89,19 @@
         button.primary:hover {
             background: #1ed760;
         }
+        .deck-load-btn {
+            background: #3a3a3a;
+            color: #ddd;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .deck-load-btn:hover {
+            background: #4a4a4a;
+            color: #fff;
+        }
         input[type=range] {
             width: 100%;
             cursor: pointer;
@@ -139,11 +152,12 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Loop Sync (30s Preload)</h3>
+        <h3>DJ Loop Sync (Separate Deck Loading)</h3>
 
+        <!-- Общая загрузка в плейлист -->
         <div class="upload-section">
-            <label for="file-input" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить треки с ПК</label>
-            <input type="file" id="file-input" accept="audio/*" multiple onchange="handleFiles(this.files)">
+            <label for="file-input-global" class="file-btn" style="width: 100%; display: block; box-sizing: border-box;">📂 Загрузить плейлист (несколько файлов)</label>
+            <input type="file" id="file-input-global" accept="audio/*" multiple onchange="handleFiles(this.files)">
         </div>
 
         <div class="global-controls">
@@ -155,7 +169,11 @@
         <div class="deck live" id="deck1-box">
             <div class="deck-title">
                 <span>ДЕКА 1 (LIVE)</span>
-                <span id="deck1-status" style="color: #1db954;">Ожидание</span>
+                <div>
+                    <label for="file-input-deck1" class="deck-load-btn">📂 В Деку 1</label>
+                    <input type="file" id="file-input-deck1" accept="audio/*" onchange="loadCustomFileToDeck(1, this.files[0])">
+                    <span id="deck1-status" style="color: #1db954; margin-left: 6px;">Ожидание</span>
+                </div>
             </div>
             <div class="track-name" id="track1-name">Трек не выбран</div>
             <div class="track-time">
@@ -176,7 +194,11 @@
         <div class="deck" id="deck2-box">
             <div class="deck-title">
                 <span>ДЕКА 2 (CUE / СЛЕДУЮЩИЙ)</span>
-                <span id="deck2-status" style="color: #888;">Ожидание</span>
+                <div>
+                    <label for="file-input-deck2" class="deck-load-btn">📂 В Деку 2</label>
+                    <input type="file" id="file-input-deck2" accept="audio/*" onchange="loadCustomFileToDeck(2, this.files[0])">
+                    <span id="deck2-status" style="color: #888; margin-left: 6px;">Ожидание</span>
+                </div>
             </div>
             <div class="track-name" id="track2-name">Следующий трек не выбран</div>
             <div class="track-time">
@@ -272,18 +294,17 @@
 
             let timeLeft = livePlayer.duration - livePlayer.currentTime;
 
-            // 1. Запуск за 30 секунд до конца с зацикливанием первых 10 секунд для синхронизации
-            if (timeLeft <= 30.0 && !isPreloaded) {
+            // 1. Запуск за 30 секунд с петлей на первых 10 секундах
+            if (timeLeft <= 30.0 && !isPreloaded && nextPlayer.src) {
                 isPreloaded = true;
                 startSyncedLoopPreload();
             }
 
-            // Если предзагруженный трек дошел до 10-й секунды в режиме синхронизации, возвращаем его на старт петли (0 сек)
             if (isPreloaded && nextPlayer.currentTime >= 10.0) {
                 nextPlayer.currentTime = 0;
             }
 
-            // 2. Детектор тишины / конца трека
+            // 2. Детектор тишины
             if (liveAnalyser) {
                 const pcmData = new Float32Array(liveAnalyser.fftSize);
                 liveAnalyser.getFloatTimeDomainData(pcmData);
@@ -339,6 +360,37 @@
                 let barHeight = (dataArray[i] / 255) * height;
                 ctx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
                 x += barWidth;
+            }
+        }
+
+        // Загрузка файла напрямую на конкретную деку
+        function loadCustomFileToDeck(deckNum, file) {
+            if (!file) return;
+            const objectURL = URL.createObjectURL(file);
+            const cleanName = file.name.replace(/\.[^/.]+$/, "");
+            
+            playlist.push({ name: cleanName, url: objectURL });
+            renderPlaylist();
+
+            let player = (deckNum === 1) ? playerA : playerB;
+            player.src = objectURL;
+            player.load();
+            player.preservesPitch = true;
+
+            if (deckNum === 1) {
+                peakRMS1 = 0.01;
+                document.getElementById('track1-name').textContent = cleanName;
+                calculateBPM(objectURL).then(bpm => {
+                    baseBPM1 = bpm;
+                    updateBPMDisplay(1);
+                });
+            } else {
+                peakRMS2 = 0.01;
+                document.getElementById('track2-name').textContent = cleanName;
+                calculateBPM(objectURL).then(bpm => {
+                    baseBPM2 = bpm;
+                    autoSyncBPM();
+                });
             }
         }
 
@@ -509,7 +561,6 @@
             }
         }
 
-        // Запуск за 30 секунд с синхронизацией и зацикливанием первых 10 секунд
         function startSyncedLoopPreload() {
             autoSyncBPM();
 
@@ -531,7 +582,6 @@
             }).catch(e => console.log("Ошибка петли за 30с:", e));
         }
 
-        // Момент перехода: сбрасываем следующий трек на 0:00, отключаем петлю, включаем звук и сбрасываем темп на 1.00x
         function executeInstantSwitch() {
             initAudioContext();
             let now = audioContext.currentTime;
@@ -543,10 +593,8 @@
             let nextPlayer = (activeDeck === 1) ? playerB : playerA;
             let nextDeckNum = (activeDeck === 1) ? 2 : 1;
 
-            // Сбрасываем трек ровно на 0:00 при выходе в эфир
             nextPlayer.currentTime = 0;
 
-            // Возвращаем темп нового трека на исходное значение 1.00x
             document.getElementById(`tempo${nextDeckNum}-slider`).value = "1.0";
             changeDeckTempo(nextDeckNum, 1.0);
 
