@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DJ Separate Deck Load Player</title>
+    <title>DJ Player + Audio Enhancer & EQ</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -22,7 +22,7 @@
             padding: 25px;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-            width: 420px;
+            width: 440px;
         }
         h3 {
             margin-top: 0;
@@ -105,7 +105,24 @@
         input[type=range] {
             width: 100%;
             cursor: pointer;
-            margin-top: 5px;
+            margin-top: 3px;
+        }
+        .eq-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            background: #1c1c1c;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .eq-group {
+            flex: 1;
+            text-align: center;
+        }
+        .eq-group label {
+            font-size: 10px;
+            color: #888;
+            display: block;
         }
         .global-controls {
             display: flex;
@@ -152,7 +169,7 @@
 <body>
 
     <div class="player-card">
-        <h3>DJ Loop Sync (Separate Deck Loading)</h3>
+        <h3>DJ Player + Master Enhancer & EQ</h3>
 
         <!-- Общая загрузка в плейлист -->
         <div class="upload-section">
@@ -184,6 +201,22 @@
             
             <canvas id="canvas1" class="visualizer-canvas"></canvas>
 
+            <!-- Эквалайзер Деки 1 -->
+            <div class="eq-container">
+                <div class="eq-group">
+                    <label>BASS</label>
+                    <input type="range" id="eq1-low" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)">
+                </div>
+                <div class="eq-group">
+                    <label>MID</label>
+                    <input type="range" id="eq1-mid" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)">
+                </div>
+                <div class="eq-group">
+                    <label>TREBLE</label>
+                    <input type="range" id="eq1-high" min="-12" max="12" value="0" step="1" oninput="updateEQ(1)">
+                </div>
+            </div>
+
             <div style="margin-top: 6px;">
                 <label style="font-size: 12px;">Темп: <b id="tempo1-val">1.00x</b></label>
                 <input type="range" id="tempo1-slider" min="0.5" max="2.0" step="0.01" value="1.0" oninput="changeDeckTempo(1, this.value)">
@@ -209,6 +242,22 @@
 
             <canvas id="canvas2" class="visualizer-canvas"></canvas>
 
+            <!-- Эквалайзер Деки 2 -->
+            <div class="eq-container">
+                <div class="eq-group">
+                    <label>BASS</label>
+                    <input type="range" id="eq2-low" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)">
+                </div>
+                <div class="eq-group">
+                    <label>MID</label>
+                    <input type="range" id="eq2-mid" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)">
+                </div>
+                <div class="eq-group">
+                    <label>TREBLE</label>
+                    <input type="range" id="eq2-high" min="-12" max="12" value="0" step="1" oninput="updateEQ(2)">
+                </div>
+            </div>
+
             <div style="margin-top: 6px;">
                 <label style="font-size: 12px;">Темп: <b id="tempo2-val">1.00x</b></label>
                 <input type="range" id="tempo2-slider" min="0.5" max="2.0" step="0.01" value="1.0" oninput="changeDeckTempo(2, this.value)">
@@ -230,6 +279,13 @@
         let gainA, gainB;
         let analyserA, analyserB;
 
+        // Фильтры Эквалайзера (Дека 1 и Дека 2)
+        let lowEqA, midEqA, highEqA;
+        let lowEqB, midEqB, highEqB;
+
+        // Мастер-компрессор для улучшения плотности звука
+        let masterCompressor;
+
         let activeDeck = 1;
         let isSwitching = false;
         let isPreloaded = false;
@@ -244,17 +300,50 @@
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
+                // 1. Создание Мастер-Компрессора
+                masterCompressor = audioContext.createDynamicsCompressor();
+                masterCompressor.threshold.setValueAtTime(-18, audioContext.currentTime);
+                masterCompressor.knee.setValueAtTime(12, audioContext.currentTime);
+                masterCompressor.ratio.setValueAtTime(4, audioContext.currentTime);
+                masterCompressor.attack.setValueAtTime(0.003, audioContext.currentTime);
+                masterCompressor.release.setValueAtTime(0.25, audioContext.currentTime);
+                masterCompressor.connect(audioContext.destination);
+
+                // 2. Эквалайзер для ДЕКИ 1
+                lowEqA = createFilter('lowshelf', 250);
+                midEqA = createFilter('peaking', 1500);
+                highEqA = createFilter('highshelf', 4000);
+
                 sourceA = audioContext.createMediaElementSource(playerA);
                 gainA = audioContext.createGain();
                 analyserA = audioContext.createAnalyser();
                 analyserA.fftSize = 2048;
-                sourceA.connect(analyserA).connect(gainA).connect(audioContext.destination);
+
+                // Цепочка Деки 1: Source -> EQ Low -> EQ Mid -> EQ High -> Analyser -> Gain -> MasterCompressor
+                sourceA.connect(lowEqA);
+                lowEqA.connect(midEqA);
+                midEqA.connect(highEqA);
+                highEqA.connect(analyserA);
+                analyserA.connect(gainA);
+                gainA.connect(masterCompressor);
+
+                // 3. Эквалайзер для ДЕКИ 2
+                lowEqB = createFilter('lowshelf', 250);
+                midEqB = createFilter('peaking', 1500);
+                highEqB = createFilter('highshelf', 4000);
 
                 sourceB = audioContext.createMediaElementSource(playerB);
                 gainB = audioContext.createGain();
                 analyserB = audioContext.createAnalyser();
                 analyserB.fftSize = 2048;
-                sourceB.connect(analyserB).connect(gainB).connect(audioContext.destination);
+
+                // Цепочка Деки 2
+                sourceB.connect(lowEqB);
+                lowEqB.connect(midEqB);
+                midEqB.connect(highEqB);
+                highEqB.connect(analyserB);
+                analyserB.connect(gainB);
+                gainB.connect(masterCompressor);
 
                 gainA.gain.setValueAtTime(1, audioContext.currentTime);
                 gainB.gain.setValueAtTime(0, audioContext.currentTime);
@@ -264,6 +353,27 @@
             }
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
+            }
+        }
+
+        function createFilter(type, frequency) {
+            let filter = audioContext.createBiquadFilter();
+            filter.type = type;
+            filter.frequency.value = frequency;
+            filter.gain.value = 0;
+            return filter;
+        }
+
+        function updateEQ(deckNum) {
+            initAudioContext();
+            if (deckNum === 1 && lowEqA) {
+                lowEqA.gain.value = parseFloat(document.getElementById('eq1-low').value);
+                midEqA.gain.value = parseFloat(document.getElementById('eq1-mid').value);
+                highEqA.gain.value = parseFloat(document.getElementById('eq1-high').value);
+            } else if (deckNum === 2 && lowEqB) {
+                lowEqB.gain.value = parseFloat(document.getElementById('eq2-low').value);
+                midEqB.gain.value = parseFloat(document.getElementById('eq2-mid').value);
+                highEqB.gain.value = parseFloat(document.getElementById('eq2-high').value);
             }
         }
 
@@ -294,7 +404,6 @@
 
             let timeLeft = livePlayer.duration - livePlayer.currentTime;
 
-            // 1. Запуск за 30 секунд с петлей на первых 10 секундах
             if (timeLeft <= 30.0 && !isPreloaded && nextPlayer.src) {
                 isPreloaded = true;
                 startSyncedLoopPreload();
@@ -304,7 +413,6 @@
                 nextPlayer.currentTime = 0;
             }
 
-            // 2. Детектор тишины
             if (liveAnalyser) {
                 const pcmData = new Float32Array(liveAnalyser.fftSize);
                 liveAnalyser.getFloatTimeDomainData(pcmData);
@@ -363,7 +471,6 @@
             }
         }
 
-        // Загрузка файла напрямую на конкретную деку
         function loadCustomFileToDeck(deckNum, file) {
             if (!file) return;
             const objectURL = URL.createObjectURL(file);
@@ -383,13 +490,15 @@
                 calculateBPM(objectURL).then(bpm => {
                     baseBPM1 = bpm;
                     updateBPMDisplay(1);
+                    if (baseBPM2) autoSyncBPM();
                 });
             } else {
                 peakRMS2 = 0.01;
                 document.getElementById('track2-name').textContent = cleanName;
                 calculateBPM(objectURL).then(bpm => {
                     baseBPM2 = bpm;
-                    autoSyncBPM();
+                    updateBPMDisplay(2);
+                    if (baseBPM1) autoSyncBPM();
                 });
             }
         }
@@ -495,13 +604,15 @@
                 calculateBPM(track.url).then(bpm => {
                     baseBPM1 = bpm;
                     updateBPMDisplay(1);
+                    if (baseBPM2) autoSyncBPM();
                 });
             } else {
                 peakRMS2 = 0.01;
                 document.getElementById('track2-name').textContent = track.name;
                 calculateBPM(track.url).then(bpm => {
                     baseBPM2 = bpm;
-                    autoSyncBPM();
+                    updateBPMDisplay(2);
+                    if (baseBPM1) autoSyncBPM();
                 });
             }
         }
