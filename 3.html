@@ -92,6 +92,9 @@
     </div>
 
     <div class="controls">
+        <label for="volumeRange">Громкость: <span id="volumeVal" class="range-value">50%</span></label>
+        <input type="range" id="volumeRange" min="0" max="100" value="50" step="1">
+
         <label for="pitchRange">Тон голоса (Гц): <span id="pitchVal" class="range-value">120</span></label>
         <input type="range" id="pitchRange" min="80" max="250" value="120" step="1">
 
@@ -102,21 +105,40 @@
 
 <script>
     let audioCtx = null;
+    let masterVolumeNode = null;
 
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Создаем глобальный узел регулировки громкости и подключаем к выходу
+            masterVolumeNode = audioCtx.createGain();
+            updateMasterVolume();
+            masterVolumeNode.connect(audioCtx.destination);
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
     }
 
+    const volumeRange = document.getElementById('volumeRange');
     const pitchRange = document.getElementById('pitchRange');
     const durRange = document.getElementById('durRange');
     
+    volumeRange.oninput = () => {
+        document.getElementById('volumeVal').textContent = volumeRange.value + '%';
+        updateMasterVolume();
+    };
     pitchRange.oninput = () => document.getElementById('pitchVal').textContent = pitchRange.value;
     durRange.oninput = () => document.getElementById('durVal').textContent = durRange.value;
+
+    function updateMasterVolume() {
+        if (masterVolumeNode) {
+            // Переводим шкалу 0-100 в коэффициент громкости (с квадратичной кривой для естественности слуха)
+            const val = volumeRange.value / 100;
+            masterVolumeNode.gain.setValueAtTime(val * val, audioCtx.currentTime);
+        }
+    }
 
     const formantData = {
         'A': { freqs: [730, 1090, 2440, 3500], gains: [1.0, 0.5, 0.2, 0.1] },
@@ -142,11 +164,10 @@
         osc.frequency.setValueAtTime(baseFreq, now);
         osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.92, now + duration);
 
-        // Увеличена общая громкость гласной
-        const masterGain = audioCtx.createGain();
-        masterGain.gain.setValueAtTime(0, now);
-        masterGain.gain.linearRampToValueAtTime(0.5, now + 0.05);
-        masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        const voiceGain = audioCtx.createGain();
+        voiceGain.gain.setValueAtTime(0, now);
+        voiceGain.gain.linearRampToValueAtTime(0.5, now + 0.05);
+        voiceGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
         const formants = formantData[vowelKey];
         formants.freqs.forEach((f, i) => {
@@ -160,10 +181,11 @@
 
             osc.connect(filter);
             filter.connect(fGain);
-            fGain.connect(masterGain);
+            fGain.connect(voiceGain);
         });
 
-        masterGain.connect(audioCtx.destination);
+        // Подключаем к общему регулятору громкости вместо напрямую к destination
+        voiceGain.connect(masterVolumeNode);
 
         osc.start(now);
         osc.stop(now + duration);
@@ -191,7 +213,6 @@
         else if (type === 'SH') { filter.frequency.value = 2400; filter.Q.value = 4; }
         else if (type === 'F') { filter.frequency.value = 1500; filter.Q.value = 2; }
 
-        // Добавлена плавная атака (linearRamp), чтобы убрать щелчок в начале
         const gainNode = audioCtx.createGain();
         gainNode.gain.setValueAtTime(0, now);
         gainNode.gain.linearRampToValueAtTime(0.25, now + 0.04);
@@ -199,7 +220,9 @@
 
         noise.connect(filter);
         filter.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        
+        // Подключаем к общему регулятору громкости
+        gainNode.connect(masterVolumeNode);
 
         noise.start(now);
     }
