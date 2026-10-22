@@ -384,12 +384,13 @@
 
             platforms = [];
             const numPlatforms = 5;
-            const startX = building.x + 30;
-            const pSpacing = (bWidth - 60) / (numPlatforms - 1);
-            const platformY = building.y + bHeight + 85;
+            const startX = building.x + 40;
+            const pSpacing = (bWidth - 80) / (numPlatforms - 1);
+            const platformY = building.y + bHeight + 95;
 
-            laneInY = platformY + 70;
-            laneOutY = platformY + 120;
+            // Дороги для проезда носом вперед
+            laneInY = platformY + 75;
+            laneOutY = platformY + 125;
 
             for (let i = 0; i < numPlatforms; i++) {
                 platforms.push({
@@ -546,7 +547,7 @@
             checkBoarding() {
                 if (!this.ticket || this.state === 'GO_TO_PLATFORM' || this.state === 'WAITING_ON_PLATFORM' || this.state === 'BOARDING') return;
 
-                // Условие: пассажир выходит на платформу строго когда до отправления осталось ровно или менее 10 минут (600 секунд)
+                // Пассажиры выходят на платформу строго когда до отправления осталось ≤ 10 минут (600 секунд)
                 const timeLeft = this.ticket.departureTime - simTime;
                 if (timeLeft <= 600 && timeLeft >= 0) {
                     if (this.assignedSeat) {
@@ -577,8 +578,8 @@
                 const idx = this.assignedPlatform.waitingQueue.indexOf(this);
                 if (idx !== -1) {
                     const p = this.assignedPlatform;
-                    const offsetX = -25 + (idx % 6) * 10;
-                    const offsetY = 15 + Math.floor(idx / 6) * 10;
+                    const offsetX = -20 + (idx % 5) * 10;
+                    const offsetY = 12 + Math.floor(idx / 5) * 10;
 
                     this.target = {
                         x: p.x + offsetX,
@@ -606,13 +607,14 @@
                 this.capacity = trip.capacity;
                 this.passengersOnboard = 0;
 
-                // Размеры автобуса (боком: ширина длиннее высоты)
-                this.w = 65;
-                this.h = 30;
+                // Размеры автобуса (носом вперед: высота больше ширины)
+                this.w = 28;
+                this.h = 65;
 
+                // Спавн справа на верхней полосе
                 this.x = width + 100;
                 this.y = laneInY;
-                this.angle = 0;
+                this.angle = -Math.PI / 2; // Носом влево
 
                 this.speed = 1.5;
                 this.currentSpeed = 1.5;
@@ -627,18 +629,21 @@
 
                 if (this.state === 'DRIVING_IN') {
                     this.x -= this.currentSpeed;
-                    this.angle = 0; // Едет носом влево
+                    this.angle = -Math.PI / 2; // Едет влево
 
                     if (this.x <= this.turnX) {
-                        this.state = 'PARKING_SIDE';
+                        this.state = 'TURNING_TO_PLATFORM';
                     }
-                } else if (this.state === 'PARKING_SIDE') {
-                    // Плавное параллельное задом/боком паркование к платформе (опускаясь вниз на линию платформы)
+                } else if (this.state === 'TURNING_TO_PLATFORM') {
+                    // Плавный поворот носом перпендикулярно к платформе (снизу вверх)
                     const targetX = this.platform.x;
-                    const targetY = this.platform.y;
+                    const targetY = this.platform.y + 25; // Парковка передом к платформе
                     const dx = targetX - this.x;
                     const dy = targetY - this.y;
                     const dist = Math.hypot(dx, dy);
+
+                    const targetAngle = 0; // Носом вверх к зданию
+                    this.angle += (targetAngle - this.angle) * 0.1;
 
                     if (dist > 2) {
                         this.x += (dx / dist) * this.currentSpeed;
@@ -646,6 +651,7 @@
                     } else {
                         this.x = targetX;
                         this.y = targetY;
+                        this.angle = 0;
                         this.state = 'DOCKED';
                         this.trip.status = 'DOCKED';
                     }
@@ -657,26 +663,34 @@
                     this.boardPassengers();
 
                     if (simTime >= this.trip.departureTime) {
-                        this.state = 'PULLING_OUT';
+                        this.state = 'BACKING_OUT';
                         this.trip.status = 'DEPARTED';
                         this.platform.bus = null;
-                        this.targetExitY = laneOutY;
+                        this.targetY = laneOutY;
                     }
-                } else if (this.state === 'PULLING_OUT') {
-                    // Отъезд от платформы вниз на выездную полосу
+                } else if (this.state === 'BACKING_OUT') {
+                    // Сдает назад от платформы на нижнюю выездную полосу
                     const targetY = laneOutY;
                     const dy = targetY - this.y;
 
                     if (Math.abs(dy) > 2) {
-                        this.y += Math.sign(dy) * this.currentSpeed;
+                        this.y += Math.sign(dy) * (this.currentSpeed * 0.8);
                     } else {
                         this.y = laneOutY;
+                        this.state = 'TURNING_TO_EXIT';
+                    }
+                } else if (this.state === 'TURNING_TO_EXIT') {
+                    // Разворачивается носом вправо по выездной полосе
+                    const targetAngle = Math.PI / 2;
+                    this.angle += (targetAngle - this.angle) * 0.1;
+
+                    if (Math.abs(this.angle - targetAngle) < 0.1) {
                         this.state = 'DRIVING_OUT';
                     }
                 } else if (this.state === 'DRIVING_OUT') {
-                    // Движение по нижней полосе слева направо
+                    // Едет по нижней полосе слева направо
                     this.x += this.currentSpeed;
-                    this.angle = Math.PI; // Разворот носом вправо
+                    this.angle = Math.PI / 2;
 
                     if (this.x > width + 100) {
                         this.state = 'GONE';
@@ -709,8 +723,8 @@
                 if (queue.length > 0) {
                     const p = queue[0];
                     if (p.ticket && p.ticket.id === this.trip.id) {
-                        const doorX = this.x;
-                        const doorY = this.y - 12;
+                        const doorX = this.x + 12;
+                        const doorY = this.y;
 
                         p.target = { x: doorX, y: doorY };
 
@@ -730,18 +744,23 @@
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle);
 
-                // Кузов автобуса (боком)
+                // Корпус автобуса (носом вперед)
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
-                ctx.roundRect(-this.w / 2, -this.h / 2, this.w, this.h, 5);
+                ctx.roundRect(-this.w / 2, -this.h / 2, this.w, this.h, 6);
                 ctx.fill();
                 ctx.strokeStyle = '#0f172a';
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Окна боковые
+                // Лобовое стекло спереди
                 ctx.fillStyle = '#0f172a';
-                ctx.fillRect(-this.w / 2 + 6, -this.h / 2 + 4, this.w - 12, 10);
+                ctx.fillRect(-this.w / 2 + 3, -this.h / 2 + 3, this.w - 6, 10);
+
+                // Фары
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(-this.w / 2 + 2, -this.h / 2, 4, 3);
+                ctx.fillRect(this.w / 2 - 6, -this.h / 2, 4, 3);
 
                 // Индикатор мест
                 ctx.fillStyle = '#ffffff';
@@ -795,21 +814,21 @@
             ctx.fillStyle = '#111827';
             ctx.fillRect(0, 0, width, building.y);
 
-            // Дорога с полосами
+            // Дорога с полосами движения
             ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, laneInY - 25, width, 115);
+            ctx.fillRect(0, laneInY - 30, width, 125);
 
             ctx.strokeStyle = '#475569';
             ctx.setLineDash([12, 10]);
             ctx.beginPath();
-            ctx.moveTo(0, laneInY + 32);
-            ctx.lineTo(width, laneInY + 32);
+            ctx.moveTo(0, laneInY + 35);
+            ctx.lineTo(width, laneInY + 35);
             ctx.stroke();
 
             ctx.setLineDash([]);
             ctx.fillStyle = '#475569';
             ctx.font = '14px sans-serif';
-            ctx.fillText('← Заезд автобусов (боком)', width - 210, laneInY + 2);
+            ctx.fillText('← Заезд автобусов (носом вперед)', width - 240, laneInY + 2);
             ctx.fillText('Выезд автобусов →', 50, laneOutY + 5);
 
             // Платформы в ряд горизонтально
@@ -817,14 +836,14 @@
                 const isSelected = selectedEntity && selectedEntity.type === 'platform' && selectedEntity.id === p.id;
 
                 ctx.fillStyle = isSelected ? '#1e3a8a' : '#2d3748';
-                ctx.fillRect(p.x - 35, p.y - 12, 70, 24);
+                ctx.fillRect(p.x - 45, p.y - 10, 90, 20);
                 ctx.strokeStyle = isSelected ? '#38bdf8' : '#4b5563';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(p.x - 35, p.y - 12, 70, 24);
+                ctx.strokeRect(p.x - 45, p.y - 10, 90, 20);
 
-                // Желтая линия безопасности
+                // Желтая линия безопасности у платформы
                 ctx.fillStyle = '#eab308';
-                ctx.fillRect(p.x - 35, p.y + 8, 70, 3);
+                ctx.fillRect(p.x - 45, p.y + 6, 90, 3);
 
                 ctx.fillStyle = '#f3f4f6';
                 ctx.font = 'bold 11px sans-serif';
@@ -902,7 +921,7 @@
 
             if (!clicked) {
                 platforms.forEach(p => {
-                    if (Math.abs(mouseX - p.x) < 40 && Math.abs(mouseY - p.y) < 20) {
+                    if (Math.abs(mouseX - p.x) < 45 && Math.abs(mouseY - p.y) < 15) {
                         clicked = p;
                     }
                 });
