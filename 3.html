@@ -137,48 +137,48 @@
 
         <div class="section-title">Полукруг / Дорога</div>
         <div class="control-group">
-            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">284</span>px</label>
-            <input type="range" id="param-platformCenterY" min="150" max="450" value="284">
+            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">150</span>px</label>
+            <input type="range" id="param-platformCenterY" min="100" max="450" value="150">
         </div>
         <div class="control-group">
-            <label>Радиус полукруга: <span class="val" id="val-platformRadius">236</span>px</label>
-            <input type="range" id="param-platformRadius" min="100" max="350" value="236">
+            <label>Радиус полукруга: <span class="val" id="val-platformRadius">276</span>px</label>
+            <input type="range" id="param-platformRadius" min="100" max="400" value="276">
         </div>
         <div class="control-group">
-            <label>Толщина асфальта: <span class="val" id="val-ringThickness">75</span>px</label>
-            <input type="range" id="param-ringThickness" min="40" max="140" value="75">
+            <label>Толщина асфальта: <span class="val" id="val-ringThickness">69</span>px</label>
+            <input type="range" id="param-ringThickness" min="40" max="140" value="69">
         </div>
 
         <div class="section-title">Платформы (Конструктор)</div>
         <div class="control-group">
-            <label>Количество платформ: <span class="val" id="val-platformCount">6</span> шт</label>
-            <input type="range" id="param-platformCount" min="2" max="10" value="6">
+            <label>Количество платформ: <span class="val" id="val-platformCount">5</span> шт</label>
+            <input type="range" id="param-platformCount" min="2" max="10" value="5">
         </div>
         <div class="control-group">
-            <label>Смещение платформ: <span class="val" id="val-platformOffset">-23</span>px</label>
-            <input type="range" id="param-platformOffset" min="-80" max="80" step="1" value="-23">
+            <label>Смещение платформ: <span class="val" id="val-platformOffset">-22</span>px</label>
+            <input type="range" id="param-platformOffset" min="-80" max="80" step="1" value="-22">
         </div>
         <div class="control-group">
-            <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">160</span>°</label>
-            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="160">
+            <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">150</span>°</label>
+            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="150">
         </div>
         <div class="control-group">
-            <label>Поворот дуги (градусы): <span class="val" id="val-arcRotation">-95</span>°</label>
-            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="-95">
+            <label>Поворот дуги (градусы): <span class="val" id="val-arcRotation">-5</span>°</label>
+            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="-5">
         </div>
 
         <div class="section-title">Здание вокзала</div>
         <div class="control-group">
-            <label>Ширина здания: <span class="val" id="val-stationWidth">260</span>px</label>
-            <input type="range" id="param-stationWidth" min="140" max="400" value="260">
+            <label>Ширина здания: <span class="val" id="val-stationWidth">270</span>px</label>
+            <input type="range" id="param-stationWidth" min="140" max="400" value="270">
         </div>
         <div class="control-group">
-            <label>Высота здания: <span class="val" id="val-stationHeight">121</span>px</label>
-            <input type="range" id="param-stationHeight" min="50" max="180" value="121">
+            <label>Высота здания: <span class="val" id="val-stationHeight">130</span>px</label>
+            <input type="range" id="param-stationHeight" min="50" max="180" value="130">
         </div>
         <div class="control-group">
-            <label>Позиция Y здания: <span class="val" id="val-stationY">140</span>px</label>
-            <input type="range" id="param-stationY" min="10" max="250" value="140">
+            <label>Позиция Y здания: <span class="val" id="val-stationY">100</span>px</label>
+            <input type="range" id="param-stationY" min="10" max="250" value="100">
         </div>
 
         <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
@@ -192,16 +192,16 @@
         const params = {
             roadWidth: 135,
             roadStartY: 200,
-            platformCenterY: 284,
-            platformRadius: 236,
-            ringThickness: 75,
-            platformCount: 6,
-            platformOffset: -23,
-            arcSpread: 160,
-            arcRotation: -95,
-            stationWidth: 260,
-            stationHeight: 121,
-            stationY: 140
+            platformCenterY: 150,
+            platformRadius: 276,
+            ringThickness: 69,
+            platformCount: 5,
+            platformOffset: -22,
+            arcSpread: 150,
+            arcRotation: -5,
+            stationWidth: 270,
+            stationHeight: 130,
+            stationY: 100
         };
 
         const inputs = [
@@ -260,16 +260,22 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Отрисовка асфальтовой дуги (ПОЛУКРУГ, повернутый на 180 градусов — от 0 до Math.PI)
+            // Расчет радиусов асфальта
             const outerRadius = params.platformRadius + params.ringThickness / 2;
             const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
 
             ctx.fillStyle = '#334155';
-            ctx.beginPath();
-            ctx.arc(CENTER_X, params.platformCenterY, outerRadius, 0, Math.PI);
-            ctx.fill();
 
-            // Внутренний островок газона (полукруг снизу)
+            // Рисуем полукруг с помощью толстой линии скругленными краями (lineCap = 'round')
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = params.ringThickness;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            ctx.arc(CENTER_X, params.platformCenterY, params.platformRadius, 0, Math.PI);
+            ctx.stroke();
+
+            // Внутренний островок газона (полукруг)
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
             ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI);
