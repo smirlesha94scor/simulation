@@ -76,12 +76,7 @@
             justify-content: space-between;
         }
 
-        span.val {
-            color: #38bdf8;
-            font-weight: bold;
-        }
-
-        select, input[type="text"], input[type="number"] {
+        select, input[type="text"] {
             width: 100%;
             background-color: #1e293b;
             color: #38bdf8;
@@ -114,6 +109,15 @@
 
         .btn:hover {
             background-color: #0369a1;
+        }
+
+        .btn-toggle {
+            background-color: #eab308;
+            color: #0f172a;
+        }
+
+        .btn-toggle:hover {
+            background-color: #ca8a04;
         }
 
         .btn-danger {
@@ -167,11 +171,6 @@
             border-bottom: none;
         }
 
-        .point-item.active {
-            background-color: #0284c7;
-            color: white;
-        }
-
         .del-pt {
             color: #f87171;
             cursor: pointer;
@@ -206,6 +205,9 @@
             Кликните по Canvas, чтобы добавить точную точку (Waypoint) в активный маршрут. Нажмите на точку, чтобы перетащить ее.
         </div>
 
+        <div class="section-title">Служебный путь</div>
+        <button class="btn btn-toggle" id="btnToggleService">Скрыть служебный путь</button>
+
         <div class="section-title">Управление Путями</div>
         <div class="control-group">
             <label>Выберите путь:</label>
@@ -238,7 +240,7 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Фиксированные параметры карты из предыдущего шага
+        // Утвержденная геометрия карты
         const MAP_PARAMS = {
             roadWidth: 98,
             roadStartY: 398,
@@ -260,37 +262,49 @@
             ]
         };
 
-        // Структура путей
+        // Структура путей с отдельным служебным путем
         let paths = [
+            {
+                name: 'Служебный проезд (Транзит)',
+                color: '#ef4444',
+                isService: true,
+                points: [
+                    { x: 474, y: 720 },
+                    { x: 474, y: 398 },
+                    { x: 580, y: 310 },
+                    { x: 670, y: 200 },
+                    { x: 620, y: 100 },
+                    { x: 450, y: 75 },
+                    { x: 280, y: 100 },
+                    { x: 230, y: 200 },
+                    { x: 320, y: 310 },
+                    { x: 426, y: 398 },
+                    { x: 426, y: 720 }
+                ]
+            },
             {
                 name: 'Въезд на П-1',
                 color: '#f59e0b',
+                isService: false,
                 points: [
                     { x: 474, y: 720 },
-                    { x: 474, y: 410 },
+                    { x: 474, y: 398 },
                     { x: 550, y: 340 },
                     { x: 670, y: 220 },
                     { x: 685, y: 155 }
                 ]
-            },
-            {
-                name: 'Заезд на П-3 (Центр)',
-                color: '#10b981',
-                points: [
-                    { x: 474, y: 720 },
-                    { x: 474, y: 400 },
-                    { x: 450, y: 340 }
-                ]
             }
         ];
 
-        let selectedPathIndex = 0;
+        let showServicePath = true;
+        let selectedPathIndex = 1; // По умолчанию выбираем пользовательский маршрут
         let draggingPoint = null;
 
         const selectPathEl = document.getElementById('selectPath');
         const inputPathNameEl = document.getElementById('inputPathName');
         const pointListEl = document.getElementById('pointList');
         const configOutputEl = document.getElementById('configOutput');
+        const btnToggleServiceEl = document.getElementById('btnToggleService');
 
         function initUI() {
             renderPathSelect();
@@ -299,12 +313,20 @@
             drawMap();
         }
 
+        btnToggleServiceEl.addEventListener('click', () => {
+            showServicePath = !showServicePath;
+            btnToggleServiceEl.innerText = showServicePath ? 'Скрыть служебный путь' : 'Показать служебный путь';
+            btnToggleServiceEl.classList.toggle('btn-secondary', !showServicePath);
+            btnToggleServiceEl.classList.toggle('btn-toggle', showServicePath);
+            drawMap();
+        });
+
         function renderPathSelect() {
             selectPathEl.innerHTML = '';
             paths.forEach((p, i) => {
                 const opt = document.createElement('option');
                 opt.value = i;
-                opt.textContent = `${p.name} (${p.points.length} т.)`;
+                opt.textContent = `${p.isService ? '🛠️ ' : ''}${p.name} (${p.points.length} т.)`;
                 selectPathEl.appendChild(opt);
             });
             selectPathEl.value = selectedPathIndex;
@@ -356,10 +378,11 @@
         });
 
         document.getElementById('btnAddPath').addEventListener('click', () => {
-            const newIndex = paths.length + 1;
+            const newIndex = paths.length;
             paths.push({
                 name: `Маршрут ${newIndex}`,
                 color: getRandomColor(),
+                isService: false,
                 points: []
             });
             selectedPathIndex = paths.length - 1;
@@ -397,7 +420,7 @@
             return colors[Math.floor(Math.random() * colors.length)];
         }
 
-        // Клик и перетаскивание точек по Canvas
+        // Клик и перетаскивание точек
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -406,7 +429,7 @@
             const currentPath = paths[selectedPathIndex];
             if (!currentPath) return;
 
-            // Проверяем, попали ли в существуюущую точку для перетаскивания
+            // Проверка попадания в точки текущего пути
             for (let i = 0; i < currentPath.points.length; i++) {
                 const pt = currentPath.points[i];
                 const dist = Math.hypot(pt.x - mouseX, pt.y - mouseY);
@@ -416,7 +439,7 @@
                 }
             }
 
-            // Иначе добавляем новую точку
+            // Добавление новой точки
             currentPath.points.push({ x: mouseX, y: mouseY });
             renderPointList();
             renderPathSelect();
@@ -442,7 +465,7 @@
         function updateConfigText() {
             let pathsFormatted = paths.map((p, idx) => {
                 const pts = p.points.map(pt => `[${Math.round(pt.x)}, ${Math.round(pt.y)}]`).join(', ');
-                return `  - Путь ${idx + 1} ("${p.name}"): [${pts}]`;
+                return `  - ${p.isService ? '[СЛУЖЕБНЫЙ] ' : ''}Путь ${idx + 1} ("${p.name}"): [${pts}]`;
             }).join('\n');
 
             const configStr = `Параметры геометрии карты:
@@ -547,9 +570,11 @@ ${pathsFormatted}`;
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка всех путей / траекторий
+            // Отрисовка путей
             paths.forEach((p, idx) => {
-                const isSelected = (idx === selectedPlatformIndex || idx === selectedPathIndex);
+                if (p.isService && !showServicePath) return; // Пропуск служебного пути при отключении
+
+                const isSelected = (idx === selectedPathIndex);
                 
                 if (p.points.length > 0) {
                     ctx.beginPath();
@@ -559,12 +584,18 @@ ${pathsFormatted}`;
                     }
 
                     ctx.strokeStyle = p.color || '#38bdf8';
-                    ctx.lineWidth = isSelected ? 4 : 2;
-                    ctx.setLineDash(isSelected ? [] : [6, 6]);
+                    ctx.lineWidth = isSelected ? 4 : (p.isService ? 3 : 2);
+                    
+                    if (p.isService) {
+                        ctx.setLineDash([8, 8]); // Пунктир для служебного пути
+                    } else {
+                        ctx.setLineDash(isSelected ? [] : [6, 6]);
+                    }
+                    
                     ctx.stroke();
                     ctx.setLineDash([]);
 
-                    // Отрисовка точек (Waypoints)
+                    // Точки (Waypoints)
                     p.points.forEach((pt, ptIdx) => {
                         ctx.beginPath();
                         ctx.arc(pt.x, pt.y, isSelected ? 7 : 5, 0, Math.PI * 2);
@@ -574,7 +605,6 @@ ${pathsFormatted}`;
                         ctx.lineWidth = 2;
                         ctx.stroke();
 
-                        // Номера точек
                         if (isSelected) {
                             ctx.fillStyle = '#ffffff';
                             ctx.font = 'bold 10px sans-serif';
