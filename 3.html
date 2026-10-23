@@ -111,15 +111,6 @@
             background-color: #0369a1;
         }
 
-        .btn-toggle {
-            background-color: #eab308;
-            color: #0f172a;
-        }
-
-        .btn-toggle:hover {
-            background-color: #ca8a04;
-        }
-
         .btn-danger {
             background-color: #ef4444;
         }
@@ -202,11 +193,8 @@
         <h2>Маршруты Автобусов</h2>
         
         <div class="hint-box">
-            Служебный ориентир (красный) автоматически сопрягается с выбранной платформой. Кликайте по Canvas, чтобы расставлять свои точки.
+            Кликайте по Canvas, чтобы расставлять и перетаскивать точки выбранного пути.
         </div>
-
-        <div class="section-title">Ориентир</div>
-        <button class="btn btn-toggle" id="btnToggleService">Скрыть служебный ориентир</button>
 
         <div class="section-title">Управление Путями</div>
         <div class="control-group">
@@ -221,7 +209,7 @@
 
         <div class="control-group">
             <label>Имя маршрута:</label>
-            <input type="text" id="inputPathName" value="Маршрут к П-1">
+            <input type="text" id="inputPathName" value="Заезд на П-1">
         </div>
 
         <div class="control-group">
@@ -251,7 +239,7 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Фиксированная геометрия карты
+        // Геометрия карты
         const MAP_PARAMS = {
             roadWidth: 98,
             roadStartY: 398,
@@ -273,7 +261,7 @@
             ]
         };
 
-        // Пути по умолчанию
+        // Набор путей по умолчанию
         let paths = [
             {
                 name: 'Заезд на П-1',
@@ -300,7 +288,6 @@
         ];
 
         let selectedPathIndex = 0;
-        let showServiceGuide = true;
         let draggingPoint = null;
 
         const selectPathEl = document.getElementById('selectPath');
@@ -308,7 +295,6 @@
         const selectTargetPlatformEl = document.getElementById('selectTargetPlatform');
         const pointListEl = document.getElementById('pointList');
         const configOutputEl = document.getElementById('configOutput');
-        const btnToggleServiceEl = document.getElementById('btnToggleService');
 
         function initUI() {
             renderPathSelect();
@@ -316,14 +302,6 @@
             updateConfigText();
             drawMap();
         }
-
-        btnToggleServiceEl.addEventListener('click', () => {
-            showServiceGuide = !showServiceGuide;
-            btnToggleServiceEl.innerText = showServiceGuide ? 'Скрыть служебный ориентир' : 'Показать служебный ориентир';
-            btnToggleServiceEl.classList.toggle('btn-secondary', !showServiceGuide);
-            btnToggleServiceEl.classList.toggle('btn-toggle', showServiceGuide);
-            drawMap();
-        });
 
         function renderPathSelect() {
             selectPathEl.innerHTML = '';
@@ -433,36 +411,6 @@
         function getRandomColor() {
             const colors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
             return colors[Math.floor(Math.random() * colors.length)];
-        }
-
-        // Вычисление динамической служебной траектории под выбранную платформу
-        function getServiceGuidePoints(platformIdx) {
-            const CENTER_X = canvas.width / 2;
-            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
-            
-            const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
-            const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
-            const baseCenterAngle = Math.PI * 0.5;
-            const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
-            const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
-
-            let angle = startAngle + (platformIdx / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
-            const custom = MAP_PARAMS.platforms[platformIdx];
-            const placementRadius = innerRadius + custom.offset;
-
-            const targetX = Math.round(CENTER_X + Math.cos(angle) * placementRadius);
-            const targetY = Math.round(MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius);
-
-            // Формируем путь со въезда от нижней дороги до конкретной платформы
-            const midX = Math.round(CENTER_X + Math.cos(angle) * (placementRadius * 0.7));
-            const midY = Math.round(MAP_PARAMS.platformCenterY + Math.sin(angle) * (placementRadius * 0.7));
-
-            return [
-                { x: 474, y: 720 },
-                { x: 474, y: MAP_PARAMS.roadStartY },
-                { x: midX, y: Math.max(MAP_PARAMS.roadStartY - 60, midY) },
-                { x: targetX, y: targetY }
-            ];
         }
 
         // Клик и перетаскивание точек
@@ -618,22 +566,7 @@ ${pathsFormatted}`;
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка динамического СЛУЖЕБНОГО ОРИЕНТИРА к активной платформе
-            if (showServiceGuide && activePath) {
-                const servicePts = getServiceGuidePoints(currentTargetPlatform);
-                ctx.beginPath();
-                ctx.moveTo(servicePts[0].x, servicePts[0].y);
-                for (let i = 1; i < servicePts.length; i++) {
-                    ctx.lineTo(servicePts[i].x, servicePts[i].y);
-                }
-                ctx.strokeStyle = '#ef4444';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 6]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-
-            // Отрисовка активного пользовательского пути
+            // Отрисовка выбранного пути
             if (activePath && activePath.points.length > 0) {
                 ctx.beginPath();
                 ctx.moveTo(activePath.points[0].x, activePath.points[0].y);
