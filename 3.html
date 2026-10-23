@@ -9,484 +9,95 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            user-select: none;
         }
 
         body {
-            background-color: #121824;
-            color: #e2e8f0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #simulation-container {
-            flex: 1;
-            position: relative;
-            background-color: #1a2332;
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
         }
 
         canvas {
+            background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            border-radius: 8px;
-            background: #1e293b;
-        }
-
-        #sidebar {
-            width: 320px;
-            background-color: #0f172a;
-            border-left: 1px solid #334155;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            gap: 20px;
-            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.3);
-            z-index: 10;
-        }
-
-        h2, h3 {
-            color: #38bdf8;
-            font-weight: 600;
-        }
-
-        .panel-section {
-            background: #1e293b;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-        }
-
-        .control-group {
-            margin-bottom: 12px;
-        }
-
-        .control-group:last-child {
-            margin-bottom: 0;
-        }
-
-        label {
-            display: block;
-            font-size: 0.85rem;
-            color: #94a3b8;
-            margin-bottom: 5px;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            accent-color: #38bdf8;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: 8px;
-        }
-
-        .btn-primary {
-            background-color: #0284c7;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #0369a1;
-        }
-
-        .btn-secondary {
-            background-color: #334155;
-            color: #e2e8f0;
-        }
-
-        .btn-secondary:hover {
-            background-color: #475569;
-        }
-
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            padding: 6px 0;
-            border-bottom: 1px solid #334155;
-        }
-
-        .stat-item:last-child {
-            border-bottom: none;
-        }
-
-        .stat-value {
-            font-weight: bold;
-            color: #f1f5f9;
-        }
-
-        .bus-info-card {
-            background: #0f172a;
-            border-left: 4px solid #38bdf8;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 4px;
-            font-size: 0.85rem;
+            border-radius: 12px;
         }
     </style>
 </head>
 <body>
 
-    <div id="simulation-container">
-        <canvas id="simCanvas" width="900" height="800"></canvas>
-    </div>
-
-    <div id="sidebar">
-        <h2>Автовокзал</h2>
-        <p style="font-size: 0.8rem; color: #64748b;">Модель движения и обслуживания</p>
-
-        <div class="panel-section">
-            <h3>Управление</h3>
-            <div class="control-group" style="margin-top: 10px;">
-                <button id="btnSpawn" class="btn btn-primary">Отправить автобус</button>
-                <button id="btnPause" class="btn btn-secondary">Пауза</button>
-            </div>
-            <div class="control-group">
-                <label for="speedRange">Скорость симуляции: <span id="speedVal">1x</span></label>
-                <input type="range" id="speedRange" min="0.5" max="3" step="0.5" value="1">
-            </div>
-            <div class="control-group">
-                <label for="spawnRateRange">Интервал спавна: <span id="spawnVal">4 сек</span></label>
-                <input type="range" id="spawnRateRange" min="2" max="10" step="1" value="4">
-            </div>
-        </div>
-
-        <div class="panel-section">
-            <h3>Статистика</h3>
-            <div class="stat-item">
-                <span>Автобусов в пути:</span>
-                <span id="statActive" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-                <span>Обслужено всего:</span>
-                <span id="statServed" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-                <span>Занято платформ:</span>
-                <span id="statPlatforms" class="stat-value">0 / 5</span>
-            </div>
-        </div>
-
-        <div class="panel-section">
-            <h3>Инспекция</h3>
-            <div id="inspectionContent">
-                <p style="font-size: 0.85rem; color: #64748b;">Кликните на автобус или платформу для просмотра деталей</p>
-            </div>
-        </div>
-    </div>
+    <canvas id="simCanvas" width="900" height="750"></canvas>
 
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Конфигурация симуляции
-        let simSpeed = 1;
-        let isPaused = false;
-        let spawnInterval = 4000;
-        let lastSpawnTime = 0;
-        let totalServed = 0;
-        let selectedEntity = null;
-
-        // Геометрия вокзала
+        // Основные параметры геометрии
         const CENTER_X = canvas.width / 2;
         const ROAD_WIDTH = 80;
-        const LANE_OFFSET = 20;
 
-        const stationBuilding = {
-            x: CENTER_X - 120,
+        // Здание вокзала (вверху по центру)
+        const station = {
+            x: CENTER_X - 140,
             y: 40,
-            width: 240,
+            width: 280,
             height: 90
         };
 
-        // Платформы на дуге
-        const platformRadius = 220;
-        const platformCenterY = 220;
-        const totalPlatforms = 5;
-        const platforms = [];
+        // Параметры полукруглого разворота/перронов
+        const platformCenterY = 230;
+        const platformRadius = 200;
 
-        // Создание полукруговых платформ
-        const startAngle = Math.PI * 0.15;
-        const endAngle = Math.PI * 0.85;
-
-        for (let i = 0; i < totalPlatforms; i++) {
-            const angle = startAngle + (i / (totalPlatforms - 1)) * (endAngle - startAngle);
-            const x = CENTER_X + Math.cos(angle) * platformRadius;
-            const y = platformCenterY + Math.sin(angle) * (platformRadius * 0.6);
-            
-            platforms.push({
-                id: i + 1,
-                x: x,
-                y: y,
-                angle: angle,
-                occupied: false,
-                busId: null,
-                length: 50,
-                width: 22
-            });
-        }
-
-        // Пути движения (Waypoints)
-        const waypoints = {
-            entry: [
-                { x: CENTER_X + LANE_OFFSET, y: canvas.height },
-                { x: CENTER_X + LANE_OFFSET, y: 380 },
-                { x: CENTER_X + 160, y: 320 },
-                { x: CENTER_X + 220, y: 220 }
-            ],
-            exit: [
-                { x: CENTER_X - 220, y: 220 },
-                { x: CENTER_X - 160, y: 320 },
-                { x: CENTER_X - LANE_OFFSET, y: 380 },
-                { x: CENTER_X - LANE_OFFSET, y: canvas.height }
-            ]
-        };
-
-        const buses = [];
-        let busCounter = 101;
-
-        class Bus {
-            constructor(routeNumber) {
-                this.id = busCounter++;
-                this.route = routeNumber;
-                this.x = waypoints.entry[0].x;
-                this.y = waypoints.entry[0].y;
-                this.targetX = this.x;
-                this.targetY = this.y;
-                this.speed = 2;
-                this.angle = -Math.PI / 2;
-                this.width = 42;
-                this.height = 20;
-                
-                this.state = 'APPROACHING'; // APPROACHING, DOCKING, BOARDING, LEAVING
-                this.assignedPlatform = null;
-                this.path = [...waypoints.entry];
-                this.currentWaypointIndex = 0;
-                
-                this.passengers = Math.floor(Math.random() * 20) + 5;
-                this.maxPassengers = 45;
-                this.boardingTimer = 0;
-                this.boardingDuration = 180; // кадры
-            }
-
-            update() {
-                if (isPaused) return;
-
-                const actualSpeed = this.speed * simSpeed;
-
-                if (this.state === 'APPROACHING') {
-                    this.followPath(actualSpeed, () => {
-                        this.assignPlatform();
-                    });
-                } else if (this.state === 'DOCKING') {
-                    this.moveTo(this.assignedPlatform.x, this.assignedPlatform.y, actualSpeed, () => {
-                        this.angle = this.assignedPlatform.angle + Math.PI / 2;
-                        this.state = 'BOARDING';
-                    });
-                } else if (this.state === 'BOARDING') {
-                    this.boardingTimer += simSpeed;
-                    if (this.boardingTimer >= this.boardingDuration) {
-                        this.passengers = Math.min(this.maxPassengers, this.passengers + Math.floor(Math.random() * 15) + 5);
-                        this.state = 'LEAVING';
-                        if (this.assignedPlatform) {
-                            this.assignedPlatform.occupied = false;
-                            this.assignedPlatform.busId = null;
-                            this.assignedPlatform = null;
-                        }
-                        this.path = [
-                            { x: CENTER_X - 180, y: 220 },
-                            ...waypoints.exit
-                        ];
-                        this.currentWaypointIndex = 0;
-                    }
-                } else if (this.state === 'LEAVING') {
-                    this.followPath(actualSpeed, () => {
-                        // Удаление автобуса при выезде за карту
-                        const index = buses.indexOf(this);
-                        if (index > -1) {
-                            buses.splice(index, 1);
-                            totalServed++;
-                            if (selectedEntity === this) selectedEntity = null;
-                        }
-                    });
-                }
-            }
-
-            assignPlatform() {
-                const freePlatform = platforms.find(p => !p.occupied);
-                if (freePlatform) {
-                    freePlatform.occupied = true;
-                    freePlatform.busId = this.id;
-                    this.assignedPlatform = freePlatform;
-                    this.state = 'DOCKING';
-                } else {
-                    // Если нет мест, кружим или ждем на въезде
-                    this.speed = 0.5;
-                }
-            }
-
-            followPath(speed, onComplete) {
-                if (this.currentWaypointIndex >= this.path.length) {
-                    if (onComplete) onComplete();
-                    return;
-                }
-
-                const target = this.path[this.currentWaypointIndex];
-                this.moveTo(target.x, target.y, speed, () => {
-                    this.currentWaypointIndex++;
-                    if (this.currentWaypointIndex >= this.path.length) {
-                        if (onComplete) onComplete();
-                    }
-                });
-            }
-
-            moveTo(tx, ty, speed, onReach) {
-                const dx = tx - this.x;
-                const dy = ty - this.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (dist < speed) {
-                    this.x = tx;
-                    this.y = ty;
-                    if (onReach) onReach();
-                } else {
-                    this.angle = Math.atan2(dy, dx);
-                    this.x += Math.cos(this.angle) * speed;
-                    this.y += Math.sin(this.angle) * speed;
-                }
-            }
-
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.angle);
-
-                // Корпус автобуса
-                ctx.fillStyle = this.getColorByState();
-                ctx.shadowColor = 'rgba(0,0,0,0.4)';
-                ctx.shadowBlur = 6;
-                ctx.beginPath();
-                ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 4);
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-
-                // Лобовое стекло
-                ctx.fillStyle = '#38bdf8';
-                ctx.fillRect(this.width / 2 - 8, -this.height / 2 + 2, 6, this.height - 4);
-
-                // Фары
-                ctx.fillStyle = '#fef08a';
-                ctx.fillRect(this.width / 2 - 2, -this.height / 2 + 1, 2, 3);
-                ctx.fillRect(this.width / 2 - 2, this.height / 2 - 4, 2, 3);
-
-                ctx.restore();
-
-                // Номер маршрута
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(`№${this.route}`, this.x, this.y - 15);
-
-                // Выделение при клике
-                if (selectedEntity === this) {
-                    ctx.strokeStyle = '#f59e0b';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, 25, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            }
-
-            getColorByState() {
-                switch (this.state) {
-                    case 'APPROACHING': return '#10b981'; // Зеленый
-                    case 'DOCKING': return '#06b6d4';     // Голубой
-                    case 'BOARDING': return '#f59e0b';    // Оранжевый
-                    case 'LEAVING': return '#6366f1';     // Фиолетовый
-                    default: return '#64748b';
-                }
-            }
-        }
-
-        function spawnBus() {
-            const routes = [101, 204, 305, 412, 550, 777];
-            const randomRoute = routes[Math.floor(Math.random() * routes.length)];
-            buses.push(new Bus(randomRoute));
-        }
-
-        // Отрисовка карты
         function drawMap() {
-            // Задний фон
+            // Background
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Главная дорога
+            // Главная дорога (снизу вверх до развязки)
             ctx.fillStyle = '#334155';
-            ctx.fillRect(CENTER_X - ROAD_WIDTH / 2, 320, ROAD_WIDTH, canvas.height - 320);
+            ctx.fillRect(CENTER_X - ROAD_WIDTH / 2, 350, ROAD_WIDTH, canvas.height - 350);
 
-            // Разделительная полоса
+            // Разделительная линия на главной дороге
             ctx.strokeStyle = '#cbd5e1';
             ctx.lineWidth = 2;
-            ctx.setLineDash([15, 15]);
+            ctx.setLineDash([12, 12]);
             ctx.beginPath();
-            ctx.moveTo(CENTER_X, 350);
+            ctx.moveTo(CENTER_X, 360);
             ctx.lineTo(CENTER_X, canvas.height);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Разворотное кольцо / Асфальтовая площадка перед вокзалом
+            // Асфальтированная площадка полукругом перед вокзалом
             ctx.fillStyle = '#334155';
             ctx.beginPath();
-            ctx.arc(CENTER_X, platformCenterY, platformRadius + 40, 0, Math.PI * 2);
+            ctx.arc(CENTER_X, platformCenterY, platformRadius + 35, 0, Math.PI * 2);
             ctx.fill();
 
-            // Газон внутри полукруга
+            // Внутренний островок безопасности / газон
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
-            ctx.arc(CENTER_X, platformCenterY, platformRadius - 50, 0, Math.PI * 2);
+            ctx.arc(CENTER_X, platformCenterY, platformRadius - 45, 0, Math.PI * 2);
             ctx.fill();
 
             // Здание вокзала
             ctx.fillStyle = '#0284c7';
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 15;
             ctx.beginPath();
-            ctx.roundRect(stationBuilding.x, stationBuilding.y, stationBuilding.width, stationBuilding.height, 12);
+            ctx.roundRect(station.x, station.y, station.width, station.height, 10);
             ctx.fill();
-            ctx.shadowBlur = 0;
 
-            // Надпись на вокзале
+            // Текст вокзала
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('ЦЕНТРАЛЬНЫЙ АВТОВОКЗАЛ', CENTER_X, stationBuilding.y + 40);
+            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, station.y + 52);
+        }
 
-            // Отрисовка платформ
-            platforms.forEach(p => {
-                ctx.save();
-                ctx.translate(p.x, p.y);
-                ctx.rotate(p.angle + Math.PI / 2);
-
-                ctx.fillStyle = p.occupied ? '#ef4444' : '#22c55e';
-                ctx.fillRect(-p.width / 2, -p.length / 2, p.width, p.length);
-
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(-p.width / 2, -p.length / 2, p.width, p.length);
-
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 12px sans-serif';
-                ctx.
+        drawMap();
+    </script>
+</body>
+</html>
