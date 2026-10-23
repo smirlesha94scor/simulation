@@ -135,18 +135,18 @@
             <input type="range" id="param-roadStartY" min="150" max="500" value="200">
         </div>
 
-        <div class="section-title">Полукруг / Перроны</div>
+        <div class="section-title">Полукруг / Дорога</div>
         <div class="control-group">
             <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">220</span>px</label>
             <input type="range" id="param-platformCenterY" min="150" max="380" value="220">
         </div>
         <div class="control-group">
-            <label>Радиус полукруга: <span class="val" id="val-platformRadius">200</span>px</label>
-            <input type="range" id="param-platformRadius" min="100" max="300" value="200">
+            <label>Радиус полукруга: <span class="val" id="val-platformRadius">193</span>px</label>
+            <input type="range" id="param-platformRadius" min="100" max="300" value="193">
         </div>
         <div class="control-group">
-            <label>Толщина асфальта: <span class="val" id="val-ringThickness">83</span>px</label>
-            <input type="range" id="param-ringThickness" min="40" max="140" value="83">
+            <label>Толщина асфальта: <span class="val" id="val-ringThickness">77</span>px</label>
+            <input type="range" id="param-ringThickness" min="40" max="140" value="77">
         </div>
 
         <div class="section-title">Платформы (Конструктор)</div>
@@ -155,12 +155,16 @@
             <input type="range" id="param-platformCount" min="2" max="10" value="5">
         </div>
         <div class="control-group">
-            <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">140</span>°</label>
-            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="140">
+            <label>Смещение от центра: <span class="val" id="val-platformOffset">0</span>px</label>
+            <input type="range" id="param-platformOffset" min="-50" max="50" step="1" value="0">
         </div>
         <div class="control-group">
-            <label>Поворот дуги (градусы): <span class="val" id="val-arcRotation">0</span>°</label>
-            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="0">
+            <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">130</span>°</label>
+            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="130">
+        </div>
+        <div class="control-group">
+            <label>Поворот дуги (градусы): <span class="val" id="val-arcRotation">-95</span>°</label>
+            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="-95">
         </div>
 
         <div class="section-title">Здание вокзала</div>
@@ -189,11 +193,12 @@
             roadWidth: 91,
             roadStartY: 200,
             platformCenterY: 220,
-            platformRadius: 200,
-            ringThickness: 83,
+            platformRadius: 193,
+            ringThickness: 77,
             platformCount: 5,
-            arcSpread: 140,
-            arcRotation: 0,
+            platformOffset: 0,
+            arcSpread: 130,
+            arcRotation: -95,
             stationWidth: 251,
             stationHeight: 121,
             stationY: 122
@@ -201,7 +206,7 @@
 
         const inputs = [
             'roadWidth', 'roadStartY', 'platformCenterY', 
-            'platformRadius', 'ringThickness', 'platformCount',
+            'platformRadius', 'ringThickness', 'platformCount', 'platformOffset',
             'arcSpread', 'arcRotation', 'stationWidth', 'stationHeight', 'stationY'
         ];
 
@@ -225,6 +230,7 @@
 - Радиус полукруга: ${params.platformRadius}
 - Толщина асфальта: ${params.ringThickness}
 - Количество платформ: ${params.platformCount}
+- Смещение платформ: ${params.platformOffset}
 - Размах дуги платформ: ${params.arcSpread}°
 - Поворот дуги платформ: ${params.arcRotation}°
 - Ширина вокзала: ${params.stationWidth}
@@ -254,7 +260,7 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Асфальтированная площадка полукругом
+            // Асфальтированная площадка
             const outerRadius = params.platformRadius + params.ringThickness / 2;
             const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
 
@@ -263,17 +269,20 @@
             ctx.arc(CENTER_X, params.platformCenterY, outerRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Внутренний островок (газон)
+            // Внутренний островок (газон/тротуар)
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
             ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Отрисовка платформ по дуге с учетом поворота
+            // Точный расчет радиуса платформ (по краю внутреннего островка с учетом смещения)
+            const placementRadius = innerRadius + params.platformOffset;
+
+            // Отрисовка платформ по ровной круговой дуге
             const spreadRad = (params.arcSpread * Math.PI) / 180;
             const rotationRad = (params.arcRotation * Math.PI) / 180;
 
-            const baseCenterAngle = Math.PI; // Центр дуги снизу/посередине
+            const baseCenterAngle = Math.PI; // Базовый центр
             const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
             const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
 
@@ -285,8 +294,8 @@
                     angle = startAngle + (i / (params.platformCount - 1)) * (endAngle - startAngle);
                 }
 
-                const pX = CENTER_X + Math.cos(angle) * params.platformRadius;
-                const pY = params.platformCenterY + Math.sin(angle) * (params.platformRadius * 0.65);
+                const pX = CENTER_X + Math.cos(angle) * placementRadius;
+                const pY = params.platformCenterY + Math.sin(angle) * placementRadius;
 
                 ctx.save();
                 ctx.translate(pX, pY);
