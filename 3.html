@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Схема Маршрутов</title>
+    <title>Симуляция Автовокзала — Схема</title>
     <style>
         * {
             box-sizing: border-box;
@@ -59,83 +59,6 @@
                 { angle: -5, offset: -18 }
             ]
         };
-
-        // Сохраненные пути движения
-        const paths = [
-            {
-                name: 'Заезд на П-1',
-                targetPlatform: 0,
-                color: '#38bdf8',
-                points: [
-                    { x: 474, y: 692 },
-                    { x: 474, y: 384 },
-                    { x: 559, y: 365 },
-                    { x: 619, y: 339 },
-                    { x: 657, y: 308 },
-                    { x: 688, y: 281 },
-                    { x: 694, y: 247 },
-                    { x: 696, y: 193 },
-                    { x: 694, y: 130 }
-                ]
-            },
-            {
-                name: 'Маршрут к П-2',
-                targetPlatform: 1,
-                color: '#f59e0b',
-                points: [
-                    { x: 472, y: 692 },
-                    { x: 470, y: 389 },
-                    { x: 525, y: 378 },
-                    { x: 573, y: 362 },
-                    { x: 588, y: 336 },
-                    { x: 592, y: 307 },
-                    { x: 594, y: 252 }
-                ]
-            },
-            {
-                name: 'Маршрут к П-3',
-                targetPlatform: 2,
-                color: '#10b981',
-                points: [
-                    { x: 474, y: 692 },
-                    { x: 473, y: 400 },
-                    { x: 458, y: 366 },
-                    { x: 450, y: 338 },
-                    { x: 449, y: 293 }
-                ]
-            },
-            {
-                name: 'Маршрут к П-4',
-                targetPlatform: 3,
-                color: '#ec4899',
-                points: [
-                    { x: 476, y: 692 },
-                    { x: 472, y: 353 },
-                    { x: 427, y: 349 },
-                    { x: 391, y: 340 },
-                    { x: 341, y: 327 },
-                    { x: 313, y: 306 },
-                    { x: 308, y: 283 },
-                    { x: 305, y: 245 }
-                ]
-            },
-            {
-                name: 'Маршрут к П-5',
-                targetPlatform: 4,
-                color: '#8b5cf6',
-                points: [
-                    { x: 473, y: 692 },
-                    { x: 472, y: 344 },
-                    { x: 421, y: 342 },
-                    { x: 375, y: 334 },
-                    { x: 329, y: 318 },
-                    { x: 284, y: 293 },
-                    { x: 246, y: 263 },
-                    { x: 214, y: 225 },
-                    { x: 207, y: 127 }
-                ]
-            }
-        ];
 
         function drawMap() {
             const CENTER_X = canvas.width / 2;
@@ -218,30 +141,6 @@
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
-
-            // Отрисовка всех траекторий
-            paths.forEach(p => {
-                if (p.points.length < 2) return;
-                ctx.beginPath();
-                ctx.moveTo(p.points[0].x, p.points[0].y);
-                for (let i = 1; i < p.points.length; i++) {
-                    ctx.lineTo(p.points[i].x, p.points[i].y);
-                }
-                ctx.strokeStyle = p.color || '#38bdf8';
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
-
-                // Точки путей
-                p.points.forEach((pt) => {
-                    ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fill();
-                    ctx.strokeStyle = p.color;
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                });
-            });
         }
 
         drawMap();
