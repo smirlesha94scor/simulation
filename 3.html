@@ -260,20 +260,19 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Отрисовка асфальтовой дуги (ПОЛУКРУГ, а не полный круг)
+            // Отрисовка асфальтовой дуги (ПОЛУКРУГ, повернутый на 180 градусов — от 0 до Math.PI)
             const outerRadius = params.platformRadius + params.ringThickness / 2;
             const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
 
             ctx.fillStyle = '#334155';
             ctx.beginPath();
-            // Рисуем верхнюю половину (полукруг) от Math.PI до 2 * Math.PI
-            ctx.arc(CENTER_X, params.platformCenterY, outerRadius, Math.PI, 2 * Math.PI);
+            ctx.arc(CENTER_X, params.platformCenterY, outerRadius, 0, Math.PI);
             ctx.fill();
 
-            // Внутренний островок газона (тоже полукруг)
+            // Внутренний островок газона (полукруг снизу)
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
-            ctx.arc(CENTER_X, params.platformCenterY, innerRadius, Math.PI, 2 * Math.PI);
+            ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI);
             ctx.fill();
 
             // Точный расчет радиуса платформ
@@ -283,7 +282,7 @@
             const spreadRad = (params.arcSpread * Math.PI) / 180;
             const rotationRad = (params.arcRotation * Math.PI) / 180;
 
-            const baseCenterAngle = Math.PI * 1.5; // Центр верхней дуги
+            const baseCenterAngle = Math.PI * 0.5; // Центр нижней дуги
             const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
             const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
 
