@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Конфигуратор геометрии</title>
+    <title>Симуляция Автовокзала — Конструктор платформ</title>
     <style>
         * {
             box-sizing: border-box;
@@ -36,39 +36,39 @@
         }
 
         #controls {
-            width: 320px;
+            width: 340px;
             background-color: #0f172a;
             border-left: 1px solid #334155;
             padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
             overflow-y: auto;
         }
 
         h2 {
             color: #38bdf8;
             font-size: 1.2rem;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .section-title {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #64748b;
-            margin-top: 8px;
-            margin-bottom: 4px;
+            margin-top: 6px;
+            margin-bottom: 2px;
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
 
         label {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             color: #cbd5e1;
             display: flex;
             justify-content: space-between;
@@ -94,7 +94,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s;
-            margin-top: 10px;
+            margin-top: 6px;
         }
 
         .btn:hover {
@@ -103,12 +103,12 @@
 
         textarea {
             width: 100%;
-            height: 110px;
+            height: 120px;
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #38bdf8;
             font-family: monospace;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             padding: 8px;
             border-radius: 6px;
             resize: none;
@@ -123,44 +123,54 @@
     </div>
 
     <div id="controls">
-        <h2>Настройки геометрии</h2>
+        <h2>Конструктор Автовокзала</h2>
         
-        <div class="section-title">Главная дорога</div>
+        <div class="section-title">Геометрия</div>
         <div class="control-group">
-            <label>Ширина дороги: <span class="val" id="val-roadWidth">80</span>px</label>
-            <input type="range" id="param-roadWidth" min="40" max="160" value="80">
+            <label>Ширина дороги: <span class="val" id="val-roadWidth">91</span>px</label>
+            <input type="range" id="param-roadWidth" min="40" max="160" value="91">
         </div>
         <div class="control-group">
-            <label>Высота начала дороги: <span class="val" id="val-roadStartY">350</span>px</label>
-            <input type="range" id="param-roadStartY" min="200" max="550" value="350">
+            <label>Высота начала дороги: <span class="val" id="val-roadStartY">200</span>px</label>
+            <input type="range" id="param-roadStartY" min="150" max="500" value="200">
         </div>
 
-        <div class="section-title">Полукруг / Разворот</div>
+        <div class="section-title">Полукруг / Перроны</div>
         <div class="control-group">
-            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">230</span>px</label>
-            <input type="range" id="param-platformCenterY" min="150" max="380" value="230">
+            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">220</span>px</label>
+            <input type="range" id="param-platformCenterY" min="150" max="380" value="220">
         </div>
         <div class="control-group">
             <label>Радиус полукруга: <span class="val" id="val-platformRadius">200</span>px</label>
             <input type="range" id="param-platformRadius" min="100" max="300" value="200">
         </div>
         <div class="control-group">
-            <label>Толщина асфальта: <span class="val" id="val-ringThickness">80</span>px</label>
-            <input type="range" id="param-ringThickness" min="30" max="140" value="80">
+            <label>Толщина асфальта: <span class="val" id="val-ringThickness">83</span>px</label>
+            <input type="range" id="param-ringThickness" min="40" max="140" value="83">
+        </div>
+
+        <div class="section-title">Платформы (Конструктор)</div>
+        <div class="control-group">
+            <label>Количество платформ: <span class="val" id="val-platformCount">5</span> шт</label>
+            <input type="range" id="param-platformCount" min="2" max="10" value="5">
+        </div>
+        <div class="control-group">
+            <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">140</span>°</label>
+            <input type="range" id="param-arcSpread" min="60" max="180" step="5" value="140">
         </div>
 
         <div class="section-title">Здание вокзала</div>
         <div class="control-group">
-            <label>Ширина здания: <span class="val" id="val-stationWidth">280</span>px</label>
-            <input type="range" id="param-stationWidth" min="140" max="450" value="280">
+            <label>Ширина здания: <span class="val" id="val-stationWidth">251</span>px</label>
+            <input type="range" id="param-stationWidth" min="140" max="400" value="251">
         </div>
         <div class="control-group">
-            <label>Высота здания: <span class="val" id="val-stationHeight">90</span>px</label>
-            <input type="range" id="param-stationHeight" min="50" max="160" value="90">
+            <label>Высота здания: <span class="val" id="val-stationHeight">121</span>px</label>
+            <input type="range" id="param-stationHeight" min="50" max="180" value="121">
         </div>
         <div class="control-group">
-            <label>Позиция Y здания: <span class="val" id="val-stationY">40</span>px</label>
-            <input type="range" id="param-stationY" min="10" max="150" value="40">
+            <label>Позиция Y здания: <span class="val" id="val-stationY">122</span>px</label>
+            <input type="range" id="param-stationY" min="10" max="180" value="122">
         </div>
 
         <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
@@ -172,20 +182,22 @@
         const ctx = canvas.getContext('2d');
 
         const params = {
-            roadWidth: 80,
-            roadStartY: 350,
-            platformCenterY: 230,
+            roadWidth: 91,
+            roadStartY: 200,
+            platformCenterY: 220,
             platformRadius: 200,
-            ringThickness: 80,
-            stationWidth: 280,
-            stationHeight: 90,
-            stationY: 40
+            ringThickness: 83,
+            platformCount: 5,
+            arcSpread: 140, // градусы
+            stationWidth: 251,
+            stationHeight: 121,
+            stationY: 122
         };
 
         const inputs = [
             'roadWidth', 'roadStartY', 'platformCenterY', 
-            'platformRadius', 'ringThickness', 'stationWidth', 
-            'stationHeight', 'stationY'
+            'platformRadius', 'ringThickness', 'platformCount',
+            'arcSpread', 'stationWidth', 'stationHeight', 'stationY'
         ];
 
         inputs.forEach(key => {
@@ -201,12 +213,14 @@
         });
 
         function updateConfigText() {
-            const configStr = `Параметры геометрии:
+            const configStr = `Параметры геометрии и платформ:
 - Ширина дороги: ${params.roadWidth}
 - Высота начала дороги: ${params.roadStartY}
 - Центр Y полукруга: ${params.platformCenterY}
 - Радиус полукруга: ${params.platformRadius}
 - Толщина асфальта: ${params.ringThickness}
+- Количество платформ: ${params.platformCount}
+- Размах дуги платформ: ${params.arcSpread}°
 - Ширина вокзала: ${params.stationWidth}
 - Высота вокзала: ${params.stationHeight}
 - Y вокзала: ${params.stationY}`;
@@ -249,6 +263,42 @@
             ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI * 2);
             ctx.fill();
 
+            // Отрисовка платформ по дуге
+            const spreadRad = (params.arcSpread * Math.PI) / 180;
+            const startAngle = Math.PI / 2 + (Math.PI - spreadRad) / 2;
+            const endAngle = Math.PI / 2 + Math.PI - (Math.PI - spreadRad) / 2;
+
+            for (let i = 0; i < params.platformCount; i++) {
+                let angle;
+                if (params.platformCount === 1) {
+                    angle = Math.PI / 2 + Math.PI / 2;
+                } else {
+                    angle = startAngle + (i / (params.platformCount - 1)) * (endAngle - startAngle);
+                }
+
+                const pX = CENTER_X + Math.cos(angle) * params.platformRadius;
+                const pY = params.platformCenterY + Math.sin(angle) * (params.platformRadius * 0.65);
+
+                ctx.save();
+                ctx.translate(pX, pY);
+                ctx.rotate(angle + Math.PI / 2);
+
+                // Платформа
+                ctx.fillStyle = '#22c55e';
+                ctx.fillRect(-12, -22, 24, 44);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-12, -22, 24, 44);
+
+                // Номер платформы
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`П-${i + 1}`, 0, 4);
+
+                ctx.restore();
+            }
+
             // Здание вокзала
             const stationX = CENTER_X - params.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
@@ -267,7 +317,7 @@
             const textarea = document.getElementById('configOutput');
             textarea.select();
             navigator.clipboard.writeText(textarea.value);
-            alert('Скопировано! Вставь эти значения в чат.');
+            alert('Конфигурация скопирована!');
         });
 
         updateConfigText();
