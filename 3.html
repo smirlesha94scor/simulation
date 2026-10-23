@@ -147,26 +147,26 @@
         
         <div class="section-title">Геометрия</div>
         <div class="control-group">
-            <label>Ширина дороги: <span class="val" id="val-roadWidth">135</span>px</label>
-            <input type="range" id="param-roadWidth" min="40" max="200" value="135">
+            <label>Ширина дороги: <span class="val" id="val-roadWidth">98</span>px</label>
+            <input type="range" id="param-roadWidth" min="40" max="200" value="98">
         </div>
         <div class="control-group">
-            <label>Высота начала дороги: <span class="val" id="val-roadStartY">200</span>px</label>
-            <input type="range" id="param-roadStartY" min="150" max="500" value="200">
+            <label>Высота начала дороги: <span class="val" id="val-roadStartY">398</span>px</label>
+            <input type="range" id="param-roadStartY" min="150" max="600" value="398">
         </div>
 
         <div class="section-title">Полукруг / Дорога</div>
         <div class="control-group">
-            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">150</span>px</label>
-            <input type="range" id="param-platformCenterY" min="100" max="450" value="150">
+            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">100</span>px</label>
+            <input type="range" id="param-platformCenterY" min="50" max="450" value="100">
         </div>
         <div class="control-group">
-            <label>Радиус полукруга: <span class="val" id="val-platformRadius">276</span>px</label>
-            <input type="range" id="param-platformRadius" min="100" max="400" value="276">
+            <label>Радиус полукруга: <span class="val" id="val-platformRadius">272</span>px</label>
+            <input type="range" id="param-platformRadius" min="100" max="400" value="272">
         </div>
         <div class="control-group">
-            <label>Толщина асфальта: <span class="val" id="val-ringThickness">62</span>px</label>
-            <input type="range" id="param-ringThickness" min="40" max="140" value="62">
+            <label>Толщина асфальта: <span class="val" id="val-ringThickness">80</span>px</label>
+            <input type="range" id="param-ringThickness" min="40" max="140" value="80">
         </div>
 
         <div class="section-title">Общие параметры платформ</div>
@@ -175,12 +175,12 @@
             <input type="range" id="param-platformCount" min="2" max="10" value="5">
         </div>
         <div class="control-group">
-            <label>Общий размах дуги: <span class="val" id="val-arcSpread">150</span>°</label>
-            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="150">
+            <label>Общий размах дуги: <span class="val" id="val-arcSpread">140</span>°</label>
+            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="140">
         </div>
         <div class="control-group">
-            <label>Поворот расстановки: <span class="val" id="val-arcRotation">-5</span>°</label>
-            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="-5">
+            <label>Поворот расстановки: <span class="val" id="val-arcRotation">0</span>°</label>
+            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="0">
         </div>
 
         <div class="section-title">Индивидуальная настройка платформ</div>
@@ -201,16 +201,16 @@
 
         <div class="section-title">Здание вокзала</div>
         <div class="control-group">
-            <label>Ширина здания: <span class="val" id="val-stationWidth">293</span>px</label>
-            <input type="range" id="param-stationWidth" min="140" max="400" value="293">
+            <label>Ширина здания: <span class="val" id="val-stationWidth">259</span>px</label>
+            <input type="range" id="param-stationWidth" min="140" max="400" value="259">
         </div>
         <div class="control-group">
-            <label>Высота здания: <span class="val" id="val-stationHeight">129</span>px</label>
-            <input type="range" id="param-stationHeight" min="50" max="180" value="129">
+            <label>Высота здания: <span class="val" id="val-stationHeight">117</span>px</label>
+            <input type="range" id="param-stationHeight" min="50" max="180" value="117">
         </div>
         <div class="control-group">
-            <label>Позиция Y здания: <span class="val" id="val-stationY">97</span>px</label>
-            <input type="range" id="param-stationY" min="10" max="250" value="97">
+            <label>Позиция Y здания: <span class="val" id="val-stationY">58</span>px</label>
+            <input type="range" id="param-stationY" min="10" max="250" value="58">
         </div>
 
         <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
@@ -222,21 +222,31 @@
         const ctx = canvas.getContext('2d');
 
         const params = {
-            roadWidth: 135,
-            roadStartY: 200,
-            platformCenterY: 150,
-            platformRadius: 276,
-            ringThickness: 62,
+            roadWidth: 98,
+            roadStartY: 398,
+            platformCenterY: 100,
+            platformRadius: 272,
+            ringThickness: 80,
             platformCount: 5,
-            arcSpread: 150,
-            arcRotation: -5,
-            stationWidth: 293,
-            stationHeight: 129,
-            stationY: 97
+            arcSpread: 140,
+            arcRotation: 0,
+            stationWidth: 259,
+            stationHeight: 117,
+            stationY: 58
         };
 
-        // Массив индивидуальных настроек для каждой платформы
-        let platformCustoms = Array.from({ length: 10 }, () => ({ angle: 0, offset: -22 }));
+        let platformCustoms = [
+            { angle: 5, offset: -19 },
+            { angle: 5, offset: -25 },
+            { angle: 0, offset: -22 },
+            { angle: -5, offset: -25 },
+            { angle: -5, offset: -18 },
+            { angle: 0, offset: -22 },
+            { angle: 0, offset: -22 },
+            { angle: 0, offset: -22 },
+            { angle: 0, offset: -22 },
+            { angle: 0, offset: -22 }
+        ];
         let selectedPlatformIndex = 0;
 
         const inputs = [
@@ -262,7 +272,6 @@
             });
         });
 
-        // Элементы индивидуального редактора
         const platformSelect = document.getElementById('selectPlatform');
         const indivAngleInput = document.getElementById('param-indivAngle');
         const indivOffsetInput = document.getElementById('param-indivOffset');
@@ -358,15 +367,19 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
             ctx.setLineDash([]);
 
             // Расчет радиусов асфальта
+            const outerRadius = params.platformRadius + params.ringThickness / 2;
             const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
 
-            // Отрисовка скругленной дуги асфальта
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = params.ringThickness;
-            ctx.lineCap = 'round';
+            // Продлеваем асфальт наверх за здание вокзала (прямоугольная площадка сверху)
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(CENTER_X - outerRadius, params.platformCenterY - outerRadius, outerRadius * 2, outerRadius);
 
+            // Основная полукруглая дуга асфальта снизу
             ctx.beginPath();
             ctx.arc(CENTER_X, params.platformCenterY, params.platformRadius, 0, Math.PI);
+            ctx.lineWidth = params.ringThickness;
+            ctx.strokeStyle = '#334155';
+            ctx.lineCap = 'round';
             ctx.stroke();
 
             // Внутренний островок газона (полукруг)
@@ -391,7 +404,6 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
                     angle = startAngle + (i / (params.platformCount - 1)) * (endAngle - startAngle);
                 }
 
-                // Индивидуальное смещение и угол
                 const custom = platformCustoms[i];
                 const placementRadius = innerRadius + custom.offset;
 
@@ -401,11 +413,9 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
                 ctx.save();
                 ctx.translate(pX, pY);
 
-                // Поворот платформы с учетом её индивидуального угла
                 const customAngleRad = (custom.angle * Math.PI) / 180;
                 ctx.rotate(customAngleRad);
 
-                // Выделение редактируемой платформы яркой рамкой
                 const isSelected = (i === selectedPlatformIndex);
 
                 // Платформа
@@ -424,7 +434,7 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
                 ctx.restore();
             }
 
-            // Здание вокзала
+            // Здание вокзала поверх асфальта
             const stationX = CENTER_X - params.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
             ctx.beginPath();
