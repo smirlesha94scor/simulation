@@ -103,7 +103,7 @@
 
         textarea {
             width: 100%;
-            height: 120px;
+            height: 130px;
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #38bdf8;
@@ -156,7 +156,11 @@
         </div>
         <div class="control-group">
             <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">140</span>°</label>
-            <input type="range" id="param-arcSpread" min="60" max="180" step="5" value="140">
+            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="140">
+        </div>
+        <div class="control-group">
+            <label>Поворот дуги (градусы): <span class="val" id="val-arcRotation">0</span>°</label>
+            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="0">
         </div>
 
         <div class="section-title">Здание вокзала</div>
@@ -188,7 +192,8 @@
             platformRadius: 200,
             ringThickness: 83,
             platformCount: 5,
-            arcSpread: 140, // градусы
+            arcSpread: 140,
+            arcRotation: 0,
             stationWidth: 251,
             stationHeight: 121,
             stationY: 122
@@ -197,7 +202,7 @@
         const inputs = [
             'roadWidth', 'roadStartY', 'platformCenterY', 
             'platformRadius', 'ringThickness', 'platformCount',
-            'arcSpread', 'stationWidth', 'stationHeight', 'stationY'
+            'arcSpread', 'arcRotation', 'stationWidth', 'stationHeight', 'stationY'
         ];
 
         inputs.forEach(key => {
@@ -221,6 +226,7 @@
 - Толщина асфальта: ${params.ringThickness}
 - Количество платформ: ${params.platformCount}
 - Размах дуги платформ: ${params.arcSpread}°
+- Поворот дуги платформ: ${params.arcRotation}°
 - Ширина вокзала: ${params.stationWidth}
 - Высота вокзала: ${params.stationHeight}
 - Y вокзала: ${params.stationY}`;
@@ -263,15 +269,18 @@
             ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Отрисовка платформ по дуге
+            // Отрисовка платформ по дуге с учетом поворота
             const spreadRad = (params.arcSpread * Math.PI) / 180;
-            const startAngle = Math.PI / 2 + (Math.PI - spreadRad) / 2;
-            const endAngle = Math.PI / 2 + Math.PI - (Math.PI - spreadRad) / 2;
+            const rotationRad = (params.arcRotation * Math.PI) / 180;
+
+            const baseCenterAngle = Math.PI; // Центр дуги снизу/посередине
+            const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
+            const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
 
             for (let i = 0; i < params.platformCount; i++) {
                 let angle;
                 if (params.platformCount === 1) {
-                    angle = Math.PI / 2 + Math.PI / 2;
+                    angle = baseCenterAngle + rotationRad;
                 } else {
                     angle = startAngle + (i / (params.platformCount - 1)) * (endAngle - startAngle);
                 }
