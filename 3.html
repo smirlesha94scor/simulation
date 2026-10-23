@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Движение Автобусов</title>
+    <title>Симуляция Автовокзала — Схема Маршрутов</title>
     <style>
         * {
             box-sizing: border-box;
@@ -18,228 +18,27 @@
             font-family: system-ui, -apple-system, sans-serif;
             display: flex;
             height: 100vh;
-            overflow: hidden;
-        }
-
-        #viewport {
-            flex: 1;
-            display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #1a2332;
-            position: relative;
+            overflow: hidden;
         }
 
         canvas {
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
-            cursor: crosshair;
-        }
-
-        #controls {
-            width: 380px;
-            background-color: #0f172a;
-            border-left: 1px solid #334155;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            overflow-y: auto;
-        }
-
-        h2 {
-            color: #38bdf8;
-            font-size: 1.2rem;
-            margin-bottom: 2px;
-        }
-
-        .section-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #64748b;
-            margin-top: 6px;
-            margin-bottom: 2px;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        label {
-            font-size: 0.82rem;
-            color: #cbd5e1;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        select, input[type="text"] {
-            width: 100%;
-            background-color: #1e293b;
-            color: #38bdf8;
-            border: 1px solid #334155;
-            padding: 7px;
-            border-radius: 6px;
-            font-weight: bold;
-            outline: none;
-            font-size: 0.85rem;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn {
-            flex: 1;
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 9px 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 0.82rem;
-            text-align: center;
-        }
-
-        .btn:hover {
-            background-color: #0369a1;
-        }
-
-        .btn-danger {
-            background-color: #ef4444;
-        }
-
-        .btn-danger:hover {
-            background-color: #dc2626;
-        }
-
-        .btn-secondary {
-            background-color: #475569;
-        }
-
-        .btn-secondary:hover {
-            background-color: #334155;
-        }
-
-        textarea {
-            width: 100%;
-            height: 140px;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: #38bdf8;
-            font-family: monospace;
-            font-size: 0.72rem;
-            padding: 8px;
-            border-radius: 6px;
-            resize: none;
-            user-select: text;
-        }
-
-        .point-list {
-            max-height: 160px;
-            overflow-y: auto;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            background-color: #1e293b;
-        }
-
-        .point-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 10px;
-            font-size: 0.8rem;
-            border-bottom: 1px solid #334155;
-        }
-
-        .point-item:last-child {
-            border-bottom: none;
-        }
-
-        .del-pt {
-            color: #f87171;
-            cursor: pointer;
-            font-weight: bold;
-            padding: 0 4px;
-        }
-
-        .del-pt:hover {
-            color: #ef4444;
-        }
-
-        .hint-box {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            background: #1e293b;
-            padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #38bdf8;
         }
     </style>
 </head>
 <body>
 
-    <div id="viewport">
-        <canvas id="simCanvas" width="900" height="750"></canvas>
-    </div>
-
-    <div id="controls">
-        <h2>Маршруты Автобусов</h2>
-        
-        <div class="hint-box">
-            5 автобусов движутся по своим путям с дистанцией. Кликайте по Canvas, чтобы править точки выбранного пути.
-        </div>
-
-        <div class="section-title">Управление Путями</div>
-        <div class="control-group">
-            <label>Выберите активный путь:</label>
-            <select id="selectPath"></select>
-        </div>
-
-        <div class="btn-row">
-            <button class="btn" id="btnAddPath">+ Новый путь</button>
-            <button class="btn btn-danger" id="btnDelPath">Удалить путь</button>
-        </div>
-
-        <div class="control-group">
-            <label>Имя маршрута:</label>
-            <input type="text" id="inputPathName" value="Заезд на П-1">
-        </div>
-
-        <div class="control-group">
-            <label>Привязка к платформе:</label>
-            <select id="selectTargetPlatform">
-                <option value="0">Платформа П-1</option>
-                <option value="1">Платформа П-2</option>
-                <option value="2">Платформа П-3</option>
-                <option value="3">Платформа П-4</option>
-                <option value="4">Платформа П-5</option>
-            </select>
-        </div>
-
-        <div class="section-title">Точки пути (Waypoints)</div>
-        <div class="point-list" id="pointList"></div>
-
-        <div class="btn-row">
-            <button class="btn btn-secondary" id="btnClearPoints">Очистить точки</button>
-        </div>
-
-        <div class="section-title">Экспорт конфигурации</div>
-        <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
-        <textarea id="configOutput" readonly></textarea>
-    </div>
+    <canvas id="simCanvas" width="900" height="750"></canvas>
 
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Параметры геометрии карты
+        // Фиксированная геометрия карты
         const MAP_PARAMS = {
             roadWidth: 98,
             roadStartY: 398,
@@ -261,14 +60,14 @@
             ]
         };
 
-        // Траектории движения автобусов
-        let paths = [
+        // Сохраненные пути движения
+        const paths = [
             {
                 name: 'Заезд на П-1',
                 targetPlatform: 0,
                 color: '#38bdf8',
                 points: [
-                    { x: 474, y: 720 },
+                    { x: 474, y: 692 },
                     { x: 474, y: 384 },
                     { x: 559, y: 365 },
                     { x: 619, y: 339 },
@@ -284,7 +83,7 @@
                 targetPlatform: 1,
                 color: '#f59e0b',
                 points: [
-                    { x: 472, y: 720 },
+                    { x: 472, y: 692 },
                     { x: 470, y: 389 },
                     { x: 525, y: 378 },
                     { x: 573, y: 362 },
@@ -298,7 +97,7 @@
                 targetPlatform: 2,
                 color: '#10b981',
                 points: [
-                    { x: 474, y: 720 },
+                    { x: 474, y: 692 },
                     { x: 473, y: 400 },
                     { x: 458, y: 366 },
                     { x: 450, y: 338 },
@@ -310,7 +109,7 @@
                 targetPlatform: 3,
                 color: '#ec4899',
                 points: [
-                    { x: 476, y: 720 },
+                    { x: 476, y: 692 },
                     { x: 472, y: 353 },
                     { x: 427, y: 349 },
                     { x: 391, y: 340 },
@@ -325,7 +124,7 @@
                 targetPlatform: 4,
                 color: '#8b5cf6',
                 points: [
-                    { x: 473, y: 720 },
+                    { x: 473, y: 692 },
                     { x: 472, y: 344 },
                     { x: 421, y: 342 },
                     { x: 375, y: 334 },
@@ -337,274 +136,6 @@
                 ]
             }
         ];
-
-        // Массив автобусов (по одному на каждый путь)
-        let buses = paths.map((p, index) => ({
-            pathIndex: index,
-            progress: -index * 0.18, // Создает дистанцию между автобусами
-            speed: 0.0035,           // Скорость движения
-            isWaiting: false,
-            waitTime: 0
-        }));
-
-        let selectedPathIndex = 0;
-        let draggingPoint = null;
-
-        const selectPathEl = document.getElementById('selectPath');
-        const inputPathNameEl = document.getElementById('inputPathName');
-        const selectTargetPlatformEl = document.getElementById('selectTargetPlatform');
-        const pointListEl = document.getElementById('pointList');
-        const configOutputEl = document.getElementById('configOutput');
-
-        function initUI() {
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-            requestAnimationFrame(mainLoop);
-        }
-
-        function renderPathSelect() {
-            selectPathEl.innerHTML = '';
-            paths.forEach((p, i) => {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = `🚌 ${p.name} (П-${p.targetPlatform + 1}) — ${p.points.length} т.`;
-                selectPathEl.appendChild(opt);
-            });
-            selectPathEl.value = selectedPathIndex;
-            if (paths[selectedPathIndex]) {
-                inputPathNameEl.value = paths[selectedPathIndex].name;
-                selectTargetPlatformEl.value = paths[selectedPathIndex].targetPlatform;
-            }
-        }
-
-        function renderPointList() {
-            pointListEl.innerHTML = '';
-            const currentPath = paths[selectedPathIndex];
-            if (!currentPath) return;
-
-            currentPath.points.forEach((pt, i) => {
-                const item = document.createElement('div');
-                item.className = 'point-item';
-                item.innerHTML = `
-                    <span><b>#${i + 1}</b> (X: ${Math.round(pt.x)}, Y: ${Math.round(pt.y)})</span>
-                    <span class="del-pt" data-index="${i}">✕</span>
-                `;
-                pointListEl.appendChild(item);
-            });
-
-            pointListEl.querySelectorAll('.del-pt').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const idx = parseInt(e.target.getAttribute('data-index'));
-                    currentPath.points.splice(idx, 1);
-                    renderPointList();
-                    renderPathSelect();
-                    updateConfigText();
-                });
-            });
-        }
-
-        selectPathEl.addEventListener('change', (e) => {
-            selectedPathIndex = parseInt(e.target.value);
-            inputPathNameEl.value = paths[selectedPathIndex].name;
-            selectTargetPlatformEl.value = paths[selectedPathIndex].targetPlatform;
-            renderPointList();
-        });
-
-        inputPathNameEl.addEventListener('input', (e) => {
-            if (paths[selectedPathIndex]) {
-                paths[selectedPathIndex].name = e.target.value;
-                renderPathSelect();
-                updateConfigText();
-            }
-        });
-
-        selectTargetPlatformEl.addEventListener('change', (e) => {
-            if (paths[selectedPathIndex]) {
-                paths[selectedPathIndex].targetPlatform = parseInt(e.target.value);
-                renderPathSelect();
-                updateConfigText();
-            }
-        });
-
-        document.getElementById('btnAddPath').addEventListener('click', () => {
-            const nextPlatformIndex = (paths.length) % MAP_PARAMS.platformCount;
-            paths.push({
-                name: `Маршрут к П-${nextPlatformIndex + 1}`,
-                targetPlatform: nextPlatformIndex,
-                color: getRandomColor(),
-                points: [{ x: 474, y: 720 }, { x: 474, y: 398 }]
-            });
-            buses.push({
-                pathIndex: paths.length - 1,
-                progress: -0.2,
-                speed: 0.0035,
-                isWaiting: false,
-                waitTime: 0
-            });
-            selectedPathIndex = paths.length - 1;
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-        });
-
-        document.getElementById('btnDelPath').addEventListener('click', () => {
-            if (paths.length <= 1) {
-                alert('Нельзя удалить единственный путь!');
-                return;
-            }
-            paths.splice(selectedPathIndex, 1);
-            buses = paths.map((p, index) => ({
-                pathIndex: index,
-                progress: -index * 0.18,
-                speed: 0.0035,
-                isWaiting: false,
-                waitTime: 0
-            }));
-            selectedPathIndex = Math.max(0, selectedPathIndex - 1);
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-        });
-
-        document.getElementById('btnClearPoints').addEventListener('click', () => {
-            if (paths[selectedPathIndex]) {
-                paths[selectedPathIndex].points = [];
-                renderPointList();
-                renderPathSelect();
-                updateConfigText();
-            }
-        });
-
-        function getRandomColor() {
-            const colors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
-            return colors[Math.floor(Math.random() * colors.length)];
-        }
-
-        // Интерактивное перетаскивание и добавление точек
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const currentPath = paths[selectedPathIndex];
-            if (!currentPath) return;
-
-            for (let i = 0; i < currentPath.points.length; i++) {
-                const pt = currentPath.points[i];
-                const dist = Math.hypot(pt.x - mouseX, pt.y - mouseY);
-                if (dist <= 12) {
-                    draggingPoint = pt;
-                    return;
-                }
-            }
-
-            currentPath.points.push({ x: mouseX, y: mouseY });
-            renderPointList();
-            renderPathSelect();
-            updateConfigText();
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (draggingPoint) {
-                const rect = canvas.getBoundingClientRect();
-                draggingPoint.x = Math.round(e.clientX - rect.left);
-                draggingPoint.y = Math.round(e.clientY - rect.top);
-                renderPointList();
-                updateConfigText();
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            draggingPoint = null;
-        });
-
-        function updateConfigText() {
-            let pathsFormatted = paths.map((p, idx) => {
-                const pts = p.points.map(pt => `[${Math.round(pt.x)}, ${Math.round(pt.y)}]`).join(', ');
-                return `  - Путь ${idx + 1} ("${p.name}", Платформа П-${p.targetPlatform + 1}): [${pts}]`;
-            }).join('\n');
-
-            const configStr = `Параметры геометрии карты:
-- Ширина дороги: ${MAP_PARAMS.roadWidth}
-- Высота начала дороги: ${MAP_PARAMS.roadStartY}
-- Центр Y полукруга: ${MAP_PARAMS.platformCenterY}
-- Радиус полукруга: ${MAP_PARAMS.platformRadius}
-- Толщина асфальта: ${MAP_PARAMS.ringThickness}
-- Количество платформ: ${MAP_PARAMS.platformCount}
-- Размах дуги платформ: ${MAP_PARAMS.arcSpread}°
-- Поворот дуги платформ: ${MAP_PARAMS.arcRotation}°
-- Ширина вокзала: ${MAP_PARAMS.stationWidth}
-- Высота вокзала: ${MAP_PARAMS.stationHeight}
-- Y вокзала: ${MAP_PARAMS.stationY}
-
-Траектории движения автобусов:
-${pathsFormatted}`;
-
-            configOutputEl.value = configStr;
-        }
-
-        // Интерполяция точек для плавного движения автобуса
-        function getPointOnPath(points, progress) {
-            if (!points || points.length === 0) return null;
-            if (points.length === 1) return points[0];
-
-            let totalLen = 0;
-            let segments = [];
-            for (let i = 0; i < points.length - 1; i++) {
-                let d = Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y);
-                segments.push({ p1: points[i], p2: points[i+1], len: d });
-                totalLen += d;
-            }
-
-            if (totalLen === 0) return points[0];
-
-            let targetDist = progress * totalLen;
-            let currentDist = 0;
-
-            for (let seg of segments) {
-                if (currentDist + seg.len >= targetDist) {
-                    let t = (targetDist - currentDist) / seg.len;
-                    let x = seg.p1.x + (seg.p2.x - seg.p1.x) * t;
-                    let y = seg.p1.y + (seg.p2.y - seg.p1.y) * t;
-                    // Вычисляем угол поворота автобуса
-                    let angle = Math.atan2(seg.p2.y - seg.p1.y, seg.p2.x - seg.p1.x);
-                    return { x, y, angle };
-                }
-                currentDist += seg.len;
-            }
-            return points[points.length - 1];
-        }
-
-        function updateBuses() {
-            buses.forEach(bus => {
-                let path = paths[bus.pathIndex];
-                if (!path || path.points.length < 2) return;
-
-                if (bus.isWaiting) {
-                    bus.waitTime--;
-                    if (bus.waitTime <= 0) {
-                        bus.isWaiting = false;
-                    }
-                    return;
-                }
-
-                bus.progress += bus.speed;
-
-                // Если доехал до конца маршрута
-                if (bus.progress >= 1) {
-                    bus.isWaiting = true;
-                    bus.waitTime = 120; // Кадров стоянки у платформы
-                    bus.progress = 0;   // Возврат на старт
-                }
-            });
-        }
-
-        function mainLoop() {
-            updateBuses();
-            drawMap();
-            requestAnimationFrame(mainLoop);
-        }
 
         function drawMap() {
             const CENTER_X = canvas.width / 2;
@@ -650,9 +181,6 @@ ${pathsFormatted}`;
             const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
             const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
 
-            const activePath = paths[selectedPathIndex];
-            const currentTargetPlatform = activePath ? activePath.targetPlatform : 0;
-
             for (let i = 0; i < MAP_PARAMS.platformCount; i++) {
                 let angle = startAngle + (i / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
                 const custom = MAP_PARAMS.platforms[i];
@@ -665,12 +193,10 @@ ${pathsFormatted}`;
                 ctx.translate(pX, pY);
                 ctx.rotate((custom.angle * Math.PI) / 180);
 
-                const isTarget = (i === currentTargetPlatform);
-
-                ctx.fillStyle = isTarget ? '#38bdf8' : '#22c55e';
+                ctx.fillStyle = '#22c55e';
                 ctx.fillRect(-12, -22, 24, 44);
-                ctx.strokeStyle = isTarget ? '#f59e0b' : '#ffffff';
-                ctx.lineWidth = isTarget ? 3 : 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
                 ctx.strokeRect(-12, -22, 24, 44);
 
                 ctx.fillStyle = '#ffffff';
@@ -693,72 +219,32 @@ ${pathsFormatted}`;
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка всех путей (активный ярче, остальные тусклее)
-            paths.forEach((p, idx) => {
+            // Отрисовка всех траекторий
+            paths.forEach(p => {
                 if (p.points.length < 2) return;
                 ctx.beginPath();
                 ctx.moveTo(p.points[0].x, p.points[0].y);
                 for (let i = 1; i < p.points.length; i++) {
                     ctx.lineTo(p.points[i].x, p.points[i].y);
                 }
-                ctx.strokeStyle = (idx === selectedPathIndex) ? (p.color || '#38bdf8') : 'rgba(56, 189, 248, 0.25)';
-                ctx.lineWidth = (idx === selectedPathIndex) ? 3 : 1.5;
+                ctx.strokeStyle = p.color || '#38bdf8';
+                ctx.lineWidth = 2.5;
                 ctx.stroke();
-            });
 
-            // Отрисовка точек только для активного пути
-            if (activePath && activePath.points.length > 0) {
-                activePath.points.forEach((pt, ptIdx) => {
+                // Точки путей
+                p.points.forEach((pt) => {
                     ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+                    ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
                     ctx.fillStyle = '#ffffff';
                     ctx.fill();
-                    ctx.strokeStyle = activePath.color;
-                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = p.color;
+                    ctx.lineWidth = 1.5;
                     ctx.stroke();
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 11px sans-serif';
-                    ctx.fillText(ptIdx + 1, pt.x, pt.y - 10);
                 });
-            }
-
-            // Отрисовка автобусов на путях
-            buses.forEach(bus => {
-                let path = paths[bus.pathIndex];
-                if (!path || bus.progress < 0) return;
-
-                let pos = getPointOnPath(path.points, bus.progress);
-                if (!pos) return;
-
-                ctx.save();
-                ctx.translate(pos.x, pos.y);
-                ctx.rotate(pos.angle + Math.PI / 2);
-
-                // Корпус автобуса
-                ctx.fillStyle = path.color || '#38bdf8';
-                ctx.beginPath();
-                ctx.roundRect(-10, -18, 20, 36, 5);
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // Лобовое стекло
-                ctx.fillStyle = '#0f172a';
-                ctx.fillRect(-7, -14, 14, 8);
-
-                ctx.restore();
             });
         }
 
-        document.getElementById('btnCopy').addEventListener('click', () => {
-            configOutputEl.select();
-            navigator.clipboard.writeText(configOutputEl.value);
-            alert('Конфигурация траекторий скопирована!');
-        });
-
-        initUI();
+        drawMap();
     </script>
 </body>
 </html>
