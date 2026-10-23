@@ -370,11 +370,11 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
             const outerRadius = params.platformRadius + params.ringThickness / 2;
             const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
 
-            // Продлеваем асфальт наверх за здание вокзала (прямоугольная площадка сверху)
-            ctx.fillStyle = '#334155';
+            // Верхняя область за вокзалом закрашена в цвет фона (#1e293b)
+            ctx.fillStyle = '#1e293b';
             ctx.fillRect(CENTER_X - outerRadius, params.platformCenterY - outerRadius, outerRadius * 2, outerRadius);
 
-            // Основная полукруглая дуга асфальта снизу
+            // Основная полукруглая дуга асфальта снизу (#334155)
             ctx.beginPath();
             ctx.arc(CENTER_X, params.platformCenterY, params.platformRadius, 0, Math.PI);
             ctx.lineWidth = params.ringThickness;
@@ -434,7 +434,7 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
                 ctx.restore();
             }
 
-            // Здание вокзала поверх асфальта
+            // Здание вокзала
             const stationX = CENTER_X - params.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
             ctx.beginPath();
