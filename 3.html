@@ -36,7 +36,7 @@
         }
 
         #controls {
-            width: 340px;
+            width: 360px;
             background-color: #0f172a;
             border-left: 1px solid #334155;
             padding: 20px;
@@ -79,10 +79,20 @@
             font-weight: bold;
         }
 
-        input[type="range"] {
+        input[type="range"], select {
             width: 100%;
             accent-color: #38bdf8;
             cursor: pointer;
+        }
+
+        select {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border: 1px solid #334155;
+            padding: 6px;
+            border-radius: 6px;
+            font-weight: bold;
+            outline: none;
         }
 
         .btn {
@@ -103,7 +113,7 @@
 
         textarea {
             width: 100%;
-            height: 130px;
+            height: 140px;
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #38bdf8;
@@ -113,6 +123,16 @@
             border-radius: 6px;
             resize: none;
             user-select: text;
+        }
+
+        .indiv-box {
+            background: #1e293b;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
     </style>
 </head>
@@ -149,26 +169,34 @@
             <input type="range" id="param-ringThickness" min="40" max="140" value="62">
         </div>
 
-        <div class="section-title">Платформы (Параллельность)</div>
-        <div class="control-group">
-            <label>Угол наклона платформ: <span class="val" id="val-platformAngle">0</span>°</label>
-            <input type="range" id="param-platformAngle" min="-180" max="180" step="5" value="0">
-        </div>
+        <div class="section-title">Общие параметры платформ</div>
         <div class="control-group">
             <label>Количество платформ: <span class="val" id="val-platformCount">5</span> шт</label>
             <input type="range" id="param-platformCount" min="2" max="10" value="5">
         </div>
         <div class="control-group">
-            <label>Смещение платформ: <span class="val" id="val-platformOffset">-22</span>px</label>
-            <input type="range" id="param-platformOffset" min="-80" max="80" step="1" value="-22">
-        </div>
-        <div class="control-group">
-            <label>Размах дуги (градусы): <span class="val" id="val-arcSpread">150</span>°</label>
+            <label>Общий размах дуги: <span class="val" id="val-arcSpread">150</span>°</label>
             <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="150">
         </div>
         <div class="control-group">
-            <label>Поворот расстановки (градусы): <span class="val" id="val-arcRotation">-5</span>°</label>
+            <label>Поворот расстановки: <span class="val" id="val-arcRotation">-5</span>°</label>
             <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="-5">
+        </div>
+
+        <div class="section-title">Индивидуальная настройка платформ</div>
+        <div class="indiv-box">
+            <div class="control-group">
+                <label>Выберите платформу:</label>
+                <select id="selectPlatform"></select>
+            </div>
+            <div class="control-group">
+                <label>Угол наклона: <span class="val" id="val-indivAngle">0</span>°</label>
+                <input type="range" id="param-indivAngle" min="-180" max="180" step="5" value="0">
+            </div>
+            <div class="control-group">
+                <label>Смещение от дуги: <span class="val" id="val-indivOffset">-22</span>px</label>
+                <input type="range" id="param-indivOffset" min="-80" max="80" step="1" value="-22">
+            </div>
         </div>
 
         <div class="section-title">Здание вокзала</div>
@@ -199,9 +227,7 @@
             platformCenterY: 150,
             platformRadius: 276,
             ringThickness: 62,
-            platformAngle: 0, // Фиксированный угол для параллельности
             platformCount: 5,
-            platformOffset: -22,
             arcSpread: 150,
             arcRotation: -5,
             stationWidth: 293,
@@ -209,9 +235,13 @@
             stationY: 97
         };
 
+        // Массив индивидуальных настроек для каждой платформы
+        let platformCustoms = Array.from({ length: 10 }, () => ({ angle: 0, offset: -22 }));
+        let selectedPlatformIndex = 0;
+
         const inputs = [
             'roadWidth', 'roadStartY', 'platformCenterY', 
-            'platformRadius', 'ringThickness', 'platformAngle', 'platformCount', 'platformOffset',
+            'platformRadius', 'ringThickness', 'platformCount',
             'arcSpread', 'arcRotation', 'stationWidth', 'stationHeight', 'stationY'
         ];
 
@@ -222,24 +252,85 @@
             el.addEventListener('input', (e) => {
                 params[key] = parseInt(e.target.value);
                 valEl.innerText = params[key];
+                
+                if (key === 'platformCount') {
+                    updatePlatformSelect();
+                }
+
                 drawMap();
                 updateConfigText();
             });
         });
 
+        // Элементы индивидуального редактора
+        const platformSelect = document.getElementById('selectPlatform');
+        const indivAngleInput = document.getElementById('param-indivAngle');
+        const indivOffsetInput = document.getElementById('param-indivOffset');
+        const indivAngleVal = document.getElementById('val-indivAngle');
+        const indivOffsetVal = document.getElementById('val-indivOffset');
+
+        function updatePlatformSelect() {
+            platformSelect.innerHTML = '';
+            for (let i = 0; i < params.platformCount; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Платформа П-${i + 1}`;
+                platformSelect.appendChild(opt);
+            }
+            if (selectedPlatformIndex >= params.platformCount) {
+                selectedPlatformIndex = 0;
+            }
+            platformSelect.value = selectedPlatformIndex;
+            loadIndivUI();
+        }
+
+        function loadIndivUI() {
+            const current = platformCustoms[selectedPlatformIndex];
+            indivAngleInput.value = current.angle;
+            indivOffsetInput.value = current.offset;
+            indivAngleVal.innerText = current.angle;
+            indivOffsetVal.innerText = current.offset;
+        }
+
+        platformSelect.addEventListener('change', (e) => {
+            selectedPlatformIndex = parseInt(e.target.value);
+            loadIndivUI();
+            drawMap();
+        });
+
+        indivAngleInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            platformCustoms[selectedPlatformIndex].angle = val;
+            indivAngleVal.innerText = val;
+            drawMap();
+            updateConfigText();
+        });
+
+        indivOffsetInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            platformCustoms[selectedPlatformIndex].offset = val;
+            indivOffsetVal.innerText = val;
+            drawMap();
+            updateConfigText();
+        });
+
         function updateConfigText() {
+            let indivText = '';
+            for (let i = 0; i < params.platformCount; i++) {
+                indivText += `  - П-${i + 1}: Наклон=${platformCustoms[i].angle}°, Смещение=${platformCustoms[i].offset}px\n`;
+            }
+
             const configStr = `Параметры геометрии и платформ:
 - Ширина дороги: ${params.roadWidth}
 - Высота начала дороги: ${params.roadStartY}
 - Центр Y полукруга: ${params.platformCenterY}
 - Радиус полукруга: ${params.platformRadius}
 - Толщина асфальта: ${params.ringThickness}
-- Угол наклона платформ: ${params.platformAngle}°
 - Количество платформ: ${params.platformCount}
-- Смещение платформ: ${params.platformOffset}
 - Размах дуги платформ: ${params.arcSpread}°
 - Поворот дуги платформ: ${params.arcRotation}°
-- Ширина вокзала: ${params.stationWidth}
+- Индивидуальные параметры платформ:
+${indivText}- Ширина вокзала: ${params.stationWidth}
 - Высота вокзала: ${params.stationHeight}
 - Y вокзала: ${params.stationY}`;
             document.getElementById('configOutput').value = configStr;
@@ -284,9 +375,6 @@
             ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI);
             ctx.fill();
 
-            // Точный расчет радиуса платформ
-            const placementRadius = innerRadius + params.platformOffset;
-
             // Отрисовка платформ по дуге
             const spreadRad = (params.arcSpread * Math.PI) / 180;
             const rotationRad = (params.arcRotation * Math.PI) / 180;
@@ -294,8 +382,6 @@
             const baseCenterAngle = Math.PI * 0.5; // Центр нижней дуги
             const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
             const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
-
-            const fixedPlatformAngleRad = (params.platformAngle * Math.PI) / 180;
 
             for (let i = 0; i < params.platformCount; i++) {
                 let angle;
@@ -305,21 +391,28 @@
                     angle = startAngle + (i / (params.platformCount - 1)) * (endAngle - startAngle);
                 }
 
-                // Позиционируем платформу по точке на полукруглой дуге
+                // Индивидуальное смещение и угол
+                const custom = platformCustoms[i];
+                const placementRadius = innerRadius + custom.offset;
+
                 const pX = CENTER_X + Math.cos(angle) * placementRadius;
                 const pY = params.platformCenterY + Math.sin(angle) * placementRadius;
 
                 ctx.save();
                 ctx.translate(pX, pY);
-                
-                // Вращаем платформу на ЕДИНЫЙ параллельный угол для всех платформ
-                ctx.rotate(fixedPlatformAngleRad);
+
+                // Поворот платформы с учетом её индивидуального угла
+                const customAngleRad = (custom.angle * Math.PI) / 180;
+                ctx.rotate(customAngleRad);
+
+                // Выделение редактируемой платформы яркой рамкой
+                const isSelected = (i === selectedPlatformIndex);
 
                 // Платформа
-                ctx.fillStyle = '#22c55e';
+                ctx.fillStyle = isSelected ? '#38bdf8' : '#22c55e';
                 ctx.fillRect(-12, -22, 24, 44);
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = isSelected ? '#f59e0b' : '#ffffff';
+                ctx.lineWidth = isSelected ? 3 : 2;
                 ctx.strokeRect(-12, -22, 24, 44);
 
                 // Номер платформы
@@ -352,6 +445,7 @@
             alert('Конфигурация скопирована!');
         });
 
+        updatePlatformSelect();
         updateConfigText();
         drawMap();
     </script>
