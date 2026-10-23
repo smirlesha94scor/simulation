@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Редактор Траекторий</title>
+    <title>Симуляция Автовокзала — Движение Автобусов</title>
     <style>
         * {
             box-sizing: border-box;
@@ -193,7 +193,7 @@
         <h2>Маршруты Автобусов</h2>
         
         <div class="hint-box">
-            Кликайте по Canvas, чтобы расставлять и перетаскивать точки выбранного пути.
+            5 автобусов движутся по своим путям с дистанцией. Кликайте по Canvas, чтобы править точки выбранного пути.
         </div>
 
         <div class="section-title">Управление Путями</div>
@@ -239,7 +239,7 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Геометрия карты
+        // Параметры геометрии карты
         const MAP_PARAMS = {
             roadWidth: 98,
             roadStartY: 398,
@@ -261,7 +261,7 @@
             ]
         };
 
-        // Набор путей по умолчанию
+        // Траектории движения автобусов
         let paths = [
             {
                 name: 'Заезд на П-1',
@@ -269,23 +269,83 @@
                 color: '#38bdf8',
                 points: [
                     { x: 474, y: 720 },
-                    { x: 474, y: 398 },
-                    { x: 550, y: 340 },
-                    { x: 670, y: 220 },
-                    { x: 685, y: 155 }
+                    { x: 474, y: 384 },
+                    { x: 559, y: 365 },
+                    { x: 619, y: 339 },
+                    { x: 657, y: 308 },
+                    { x: 688, y: 281 },
+                    { x: 694, y: 247 },
+                    { x: 696, y: 193 },
+                    { x: 694, y: 130 }
                 ]
             },
             {
-                name: 'Заезд на П-3',
+                name: 'Маршрут к П-2',
+                targetPlatform: 1,
+                color: '#f59e0b',
+                points: [
+                    { x: 472, y: 720 },
+                    { x: 470, y: 389 },
+                    { x: 525, y: 378 },
+                    { x: 573, y: 362 },
+                    { x: 588, y: 336 },
+                    { x: 592, y: 307 },
+                    { x: 594, y: 252 }
+                ]
+            },
+            {
+                name: 'Маршрут к П-3',
                 targetPlatform: 2,
                 color: '#10b981',
                 points: [
                     { x: 474, y: 720 },
-                    { x: 474, y: 398 },
-                    { x: 450, y: 340 }
+                    { x: 473, y: 400 },
+                    { x: 458, y: 366 },
+                    { x: 450, y: 338 },
+                    { x: 449, y: 293 }
+                ]
+            },
+            {
+                name: 'Маршрут к П-4',
+                targetPlatform: 3,
+                color: '#ec4899',
+                points: [
+                    { x: 476, y: 720 },
+                    { x: 472, y: 353 },
+                    { x: 427, y: 349 },
+                    { x: 391, y: 340 },
+                    { x: 341, y: 327 },
+                    { x: 313, y: 306 },
+                    { x: 308, y: 283 },
+                    { x: 305, y: 245 }
+                ]
+            },
+            {
+                name: 'Маршрут к П-5',
+                targetPlatform: 4,
+                color: '#8b5cf6',
+                points: [
+                    { x: 473, y: 720 },
+                    { x: 472, y: 344 },
+                    { x: 421, y: 342 },
+                    { x: 375, y: 334 },
+                    { x: 329, y: 318 },
+                    { x: 284, y: 293 },
+                    { x: 246, y: 263 },
+                    { x: 214, y: 225 },
+                    { x: 207, y: 127 }
                 ]
             }
         ];
+
+        // Массив автобусов (по одному на каждый путь)
+        let buses = paths.map((p, index) => ({
+            pathIndex: index,
+            progress: -index * 0.18, // Создает дистанцию между автобусами
+            speed: 0.0035,           // Скорость движения
+            isWaiting: false,
+            waitTime: 0
+        }));
 
         let selectedPathIndex = 0;
         let draggingPoint = null;
@@ -300,7 +360,7 @@
             renderPathSelect();
             renderPointList();
             updateConfigText();
-            drawMap();
+            requestAnimationFrame(mainLoop);
         }
 
         function renderPathSelect() {
@@ -340,7 +400,6 @@
                     renderPointList();
                     renderPathSelect();
                     updateConfigText();
-                    drawMap();
                 });
             });
         }
@@ -350,7 +409,6 @@
             inputPathNameEl.value = paths[selectedPathIndex].name;
             selectTargetPlatformEl.value = paths[selectedPathIndex].targetPlatform;
             renderPointList();
-            drawMap();
         });
 
         inputPathNameEl.addEventListener('input', (e) => {
@@ -366,7 +424,6 @@
                 paths[selectedPathIndex].targetPlatform = parseInt(e.target.value);
                 renderPathSelect();
                 updateConfigText();
-                drawMap();
             }
         });
 
@@ -376,13 +433,19 @@
                 name: `Маршрут к П-${nextPlatformIndex + 1}`,
                 targetPlatform: nextPlatformIndex,
                 color: getRandomColor(),
-                points: []
+                points: [{ x: 474, y: 720 }, { x: 474, y: 398 }]
+            });
+            buses.push({
+                pathIndex: paths.length - 1,
+                progress: -0.2,
+                speed: 0.0035,
+                isWaiting: false,
+                waitTime: 0
             });
             selectedPathIndex = paths.length - 1;
             renderPathSelect();
             renderPointList();
             updateConfigText();
-            drawMap();
         });
 
         document.getElementById('btnDelPath').addEventListener('click', () => {
@@ -391,11 +454,17 @@
                 return;
             }
             paths.splice(selectedPathIndex, 1);
+            buses = paths.map((p, index) => ({
+                pathIndex: index,
+                progress: -index * 0.18,
+                speed: 0.0035,
+                isWaiting: false,
+                waitTime: 0
+            }));
             selectedPathIndex = Math.max(0, selectedPathIndex - 1);
             renderPathSelect();
             renderPointList();
             updateConfigText();
-            drawMap();
         });
 
         document.getElementById('btnClearPoints').addEventListener('click', () => {
@@ -404,7 +473,6 @@
                 renderPointList();
                 renderPathSelect();
                 updateConfigText();
-                drawMap();
             }
         });
 
@@ -413,7 +481,7 @@
             return colors[Math.floor(Math.random() * colors.length)];
         }
 
-        // Клик и перетаскивание точек
+        // Интерактивное перетаскивание и добавление точек
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -435,7 +503,6 @@
             renderPointList();
             renderPathSelect();
             updateConfigText();
-            drawMap();
         });
 
         canvas.addEventListener('mousemove', (e) => {
@@ -445,7 +512,6 @@
                 draggingPoint.y = Math.round(e.clientY - rect.top);
                 renderPointList();
                 updateConfigText();
-                drawMap();
             }
         });
 
@@ -478,6 +544,68 @@ ${pathsFormatted}`;
             configOutputEl.value = configStr;
         }
 
+        // Интерполяция точек для плавного движения автобуса
+        function getPointOnPath(points, progress) {
+            if (!points || points.length === 0) return null;
+            if (points.length === 1) return points[0];
+
+            let totalLen = 0;
+            let segments = [];
+            for (let i = 0; i < points.length - 1; i++) {
+                let d = Math.hypot(points[i+1].x - points[i].x, points[i+1].y - points[i].y);
+                segments.push({ p1: points[i], p2: points[i+1], len: d });
+                totalLen += d;
+            }
+
+            if (totalLen === 0) return points[0];
+
+            let targetDist = progress * totalLen;
+            let currentDist = 0;
+
+            for (let seg of segments) {
+                if (currentDist + seg.len >= targetDist) {
+                    let t = (targetDist - currentDist) / seg.len;
+                    let x = seg.p1.x + (seg.p2.x - seg.p1.x) * t;
+                    let y = seg.p1.y + (seg.p2.y - seg.p1.y) * t;
+                    // Вычисляем угол поворота автобуса
+                    let angle = Math.atan2(seg.p2.y - seg.p1.y, seg.p2.x - seg.p1.x);
+                    return { x, y, angle };
+                }
+                currentDist += seg.len;
+            }
+            return points[points.length - 1];
+        }
+
+        function updateBuses() {
+            buses.forEach(bus => {
+                let path = paths[bus.pathIndex];
+                if (!path || path.points.length < 2) return;
+
+                if (bus.isWaiting) {
+                    bus.waitTime--;
+                    if (bus.waitTime <= 0) {
+                        bus.isWaiting = false;
+                    }
+                    return;
+                }
+
+                bus.progress += bus.speed;
+
+                // Если доехал до конца маршрута
+                if (bus.progress >= 1) {
+                    bus.isWaiting = true;
+                    bus.waitTime = 120; // Кадров стоянки у платформы
+                    bus.progress = 0;   // Возврат на старт
+                }
+            });
+        }
+
+        function mainLoop() {
+            updateBuses();
+            drawMap();
+            requestAnimationFrame(mainLoop);
+        }
+
         function drawMap() {
             const CENTER_X = canvas.width / 2;
 
@@ -500,7 +628,6 @@ ${pathsFormatted}`;
             ctx.setLineDash([]);
 
             // Асфальт полукруга
-            const outerRadius = MAP_PARAMS.platformRadius + MAP_PARAMS.ringThickness / 2;
             const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
 
             ctx.beginPath();
@@ -566,19 +693,21 @@ ${pathsFormatted}`;
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка выбранного пути
-            if (activePath && activePath.points.length > 0) {
+            // Отрисовка всех путей (активный ярче, остальные тусклее)
+            paths.forEach((p, idx) => {
+                if (p.points.length < 2) return;
                 ctx.beginPath();
-                ctx.moveTo(activePath.points[0].x, activePath.points[0].y);
-                for (let i = 1; i < activePath.points.length; i++) {
-                    ctx.lineTo(activePath.points[i].x, activePath.points[i].y);
+                ctx.moveTo(p.points[0].x, p.points[0].y);
+                for (let i = 1; i < p.points.length; i++) {
+                    ctx.lineTo(p.points[i].x, p.points[i].y);
                 }
-
-                ctx.strokeStyle = activePath.color || '#38bdf8';
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = (idx === selectedPathIndex) ? (p.color || '#38bdf8') : 'rgba(56, 189, 248, 0.25)';
+                ctx.lineWidth = (idx === selectedPathIndex) ? 3 : 1.5;
                 ctx.stroke();
+            });
 
-                // Точки (Waypoints)
+            // Отрисовка точек только для активного пути
+            if (activePath && activePath.points.length > 0) {
                 activePath.points.forEach((pt, ptIdx) => {
                     ctx.beginPath();
                     ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
@@ -593,6 +722,34 @@ ${pathsFormatted}`;
                     ctx.fillText(ptIdx + 1, pt.x, pt.y - 10);
                 });
             }
+
+            // Отрисовка автобусов на путях
+            buses.forEach(bus => {
+                let path = paths[bus.pathIndex];
+                if (!path || bus.progress < 0) return;
+
+                let pos = getPointOnPath(path.points, bus.progress);
+                if (!pos) return;
+
+                ctx.save();
+                ctx.translate(pos.x, pos.y);
+                ctx.rotate(pos.angle + Math.PI / 2);
+
+                // Корпус автобуса
+                ctx.fillStyle = path.color || '#38bdf8';
+                ctx.beginPath();
+                ctx.roundRect(-10, -18, 20, 36, 5);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Лобовое стекло
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(-7, -14, 14, 8);
+
+                ctx.restore();
+            });
         }
 
         document.getElementById('btnCopy').addEventListener('click', () => {
