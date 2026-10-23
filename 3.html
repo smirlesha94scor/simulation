@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Конструктор платформ</title>
+    <title>Симуляция Автовокзала — Редактор Траекторий</title>
     <style>
         * {
             box-sizing: border-box;
@@ -27,16 +27,18 @@
             justify-content: center;
             align-items: center;
             background-color: #1a2332;
+            position: relative;
         }
 
         canvas {
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
+            cursor: crosshair;
         }
 
         #controls {
-            width: 360px;
+            width: 380px;
             background-color: #0f172a;
             border-left: 1px solid #334155;
             padding: 20px;
@@ -79,36 +81,55 @@
             font-weight: bold;
         }
 
-        input[type="range"], select {
+        select, input[type="text"], input[type="number"] {
             width: 100%;
-            accent-color: #38bdf8;
-            cursor: pointer;
-        }
-
-        select {
             background-color: #1e293b;
             color: #38bdf8;
             border: 1px solid #334155;
-            padding: 6px;
+            padding: 7px;
             border-radius: 6px;
             font-weight: bold;
             outline: none;
+            font-size: 0.85rem;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
         }
 
         .btn {
+            flex: 1;
             background-color: #0284c7;
             color: white;
             border: none;
-            padding: 10px 14px;
+            padding: 9px 12px;
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s;
-            margin-top: 6px;
+            font-size: 0.82rem;
+            text-align: center;
         }
 
         .btn:hover {
             background-color: #0369a1;
+        }
+
+        .btn-danger {
+            background-color: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+
+        .btn-secondary {
+            background-color: #475569;
+        }
+
+        .btn-secondary:hover {
+            background-color: #334155;
         }
 
         textarea {
@@ -118,21 +139,57 @@
             border: 1px solid #334155;
             color: #38bdf8;
             font-family: monospace;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             padding: 8px;
             border-radius: 6px;
             resize: none;
             user-select: text;
         }
 
-        .indiv-box {
-            background: #1e293b;
-            padding: 10px;
-            border-radius: 8px;
+        .point-list {
+            max-height: 160px;
+            overflow-y: auto;
             border: 1px solid #334155;
+            border-radius: 6px;
+            background-color: #1e293b;
+        }
+
+        .point-item {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        .point-item:last-child {
+            border-bottom: none;
+        }
+
+        .point-item.active {
+            background-color: #0284c7;
+            color: white;
+        }
+
+        .del-pt {
+            color: #f87171;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0 4px;
+        }
+
+        .del-pt:hover {
+            color: #ef4444;
+        }
+
+        .hint-box {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            background: #1e293b;
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #38bdf8;
         }
     </style>
 </head>
@@ -143,76 +200,36 @@
     </div>
 
     <div id="controls">
-        <h2>Конструктор Автовокзала</h2>
+        <h2>Маршруты Автобусов</h2>
         
-        <div class="section-title">Геометрия</div>
-        <div class="control-group">
-            <label>Ширина дороги: <span class="val" id="val-roadWidth">98</span>px</label>
-            <input type="range" id="param-roadWidth" min="40" max="200" value="98">
-        </div>
-        <div class="control-group">
-            <label>Высота начала дороги: <span class="val" id="val-roadStartY">398</span>px</label>
-            <input type="range" id="param-roadStartY" min="150" max="600" value="398">
+        <div class="hint-box">
+            Кликните по Canvas, чтобы добавить точную точку (Waypoint) в активный маршрут. Нажмите на точку, чтобы перетащить ее.
         </div>
 
-        <div class="section-title">Полукруг / Дорога</div>
+        <div class="section-title">Управление Путями</div>
         <div class="control-group">
-            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">100</span>px</label>
-            <input type="range" id="param-platformCenterY" min="50" max="450" value="100">
-        </div>
-        <div class="control-group">
-            <label>Радиус полукруга: <span class="val" id="val-platformRadius">272</span>px</label>
-            <input type="range" id="param-platformRadius" min="100" max="400" value="272">
-        </div>
-        <div class="control-group">
-            <label>Толщина асфальта: <span class="val" id="val-ringThickness">80</span>px</label>
-            <input type="range" id="param-ringThickness" min="40" max="140" value="80">
+            <label>Выберите путь:</label>
+            <select id="selectPath"></select>
         </div>
 
-        <div class="section-title">Общие параметры платформ</div>
-        <div class="control-group">
-            <label>Количество платформ: <span class="val" id="val-platformCount">5</span> шт</label>
-            <input type="range" id="param-platformCount" min="2" max="10" value="5">
-        </div>
-        <div class="control-group">
-            <label>Общий размах дуги: <span class="val" id="val-arcSpread">140</span>°</label>
-            <input type="range" id="param-arcSpread" min="30" max="270" step="5" value="140">
-        </div>
-        <div class="control-group">
-            <label>Поворот расстановки: <span class="val" id="val-arcRotation">0</span>°</label>
-            <input type="range" id="param-arcRotation" min="-180" max="180" step="5" value="0">
+        <div class="btn-row">
+            <button class="btn" id="btnAddPath">+ Новый путь</button>
+            <button class="btn btn-danger" id="btnDelPath">Удалить путь</button>
         </div>
 
-        <div class="section-title">Индивидуальная настройка платформ</div>
-        <div class="indiv-box">
-            <div class="control-group">
-                <label>Выберите платформу:</label>
-                <select id="selectPlatform"></select>
-            </div>
-            <div class="control-group">
-                <label>Угол наклона: <span class="val" id="val-indivAngle">0</span>°</label>
-                <input type="range" id="param-indivAngle" min="-180" max="180" step="5" value="0">
-            </div>
-            <div class="control-group">
-                <label>Смещение от дуги: <span class="val" id="val-indivOffset">-22</span>px</label>
-                <input type="range" id="param-indivOffset" min="-80" max="80" step="1" value="-22">
-            </div>
+        <div class="control-group">
+            <label>Имя маршрута:</label>
+            <input type="text" id="inputPathName" value="Маршрут П-1">
         </div>
 
-        <div class="section-title">Здание вокзала</div>
-        <div class="control-group">
-            <label>Ширина здания: <span class="val" id="val-stationWidth">259</span>px</label>
-            <input type="range" id="param-stationWidth" min="140" max="400" value="259">
-        </div>
-        <div class="control-group">
-            <label>Высота здания: <span class="val" id="val-stationHeight">117</span>px</label>
-            <input type="range" id="param-stationHeight" min="50" max="180" value="117">
-        </div>
-        <div class="control-group">
-            <label>Позиция Y здания: <span class="val" id="val-stationY">58</span>px</label>
-            <input type="range" id="param-stationY" min="10" max="250" value="58">
+        <div class="section-title">Точки пути (Waypoints)</div>
+        <div class="point-list" id="pointList"></div>
+
+        <div class="btn-row">
+            <button class="btn btn-secondary" id="btnClearPoints">Очистить точки</button>
         </div>
 
+        <div class="section-title">Экспорт конфигурации</div>
         <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
         <textarea id="configOutput" readonly></textarea>
     </div>
@@ -221,128 +238,230 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        const params = {
+        // Фиксированные параметры карты из предыдущего шага
+        const MAP_PARAMS = {
             roadWidth: 98,
             roadStartY: 398,
-            platformCenterY: 100,
-            platformRadius: 272,
-            ringThickness: 80,
+            platformCenterY: 50,
+            platformRadius: 315,
+            ringThickness: 76,
             platformCount: 5,
             arcSpread: 140,
             arcRotation: 0,
             stationWidth: 259,
             stationHeight: 117,
-            stationY: 58
+            stationY: 58,
+            platforms: [
+                { angle: 5, offset: -19 },
+                { angle: 5, offset: -25 },
+                { angle: 0, offset: -22 },
+                { angle: -5, offset: -25 },
+                { angle: -5, offset: -18 }
+            ]
         };
 
-        let platformCustoms = [
-            { angle: 5, offset: -19 },
-            { angle: 5, offset: -25 },
-            { angle: 0, offset: -22 },
-            { angle: -5, offset: -25 },
-            { angle: -5, offset: -18 },
-            { angle: 0, offset: -22 },
-            { angle: 0, offset: -22 },
-            { angle: 0, offset: -22 },
-            { angle: 0, offset: -22 },
-            { angle: 0, offset: -22 }
+        // Структура путей
+        let paths = [
+            {
+                name: 'Въезд на П-1',
+                color: '#f59e0b',
+                points: [
+                    { x: 474, y: 720 },
+                    { x: 474, y: 410 },
+                    { x: 550, y: 340 },
+                    { x: 670, y: 220 },
+                    { x: 685, y: 155 }
+                ]
+            },
+            {
+                name: 'Заезд на П-3 (Центр)',
+                color: '#10b981',
+                points: [
+                    { x: 474, y: 720 },
+                    { x: 474, y: 400 },
+                    { x: 450, y: 340 }
+                ]
+            }
         ];
-        let selectedPlatformIndex = 0;
 
-        const inputs = [
-            'roadWidth', 'roadStartY', 'platformCenterY', 
-            'platformRadius', 'ringThickness', 'platformCount',
-            'arcSpread', 'arcRotation', 'stationWidth', 'stationHeight', 'stationY'
-        ];
+        let selectedPathIndex = 0;
+        let draggingPoint = null;
 
-        inputs.forEach(key => {
-            const el = document.getElementById(`param-${key}`);
-            const valEl = document.getElementById(`val-${key}`);
-            
-            el.addEventListener('input', (e) => {
-                params[key] = parseInt(e.target.value);
-                valEl.innerText = params[key];
-                
-                if (key === 'platformCount') {
-                    updatePlatformSelect();
-                }
+        const selectPathEl = document.getElementById('selectPath');
+        const inputPathNameEl = document.getElementById('inputPathName');
+        const pointListEl = document.getElementById('pointList');
+        const configOutputEl = document.getElementById('configOutput');
 
-                drawMap();
-                updateConfigText();
-            });
-        });
+        function initUI() {
+            renderPathSelect();
+            renderPointList();
+            updateConfigText();
+            drawMap();
+        }
 
-        const platformSelect = document.getElementById('selectPlatform');
-        const indivAngleInput = document.getElementById('param-indivAngle');
-        const indivOffsetInput = document.getElementById('param-indivOffset');
-        const indivAngleVal = document.getElementById('val-indivAngle');
-        const indivOffsetVal = document.getElementById('val-indivOffset');
-
-        function updatePlatformSelect() {
-            platformSelect.innerHTML = '';
-            for (let i = 0; i < params.platformCount; i++) {
+        function renderPathSelect() {
+            selectPathEl.innerHTML = '';
+            paths.forEach((p, i) => {
                 const opt = document.createElement('option');
                 opt.value = i;
-                opt.textContent = `Платформа П-${i + 1}`;
-                platformSelect.appendChild(opt);
+                opt.textContent = `${p.name} (${p.points.length} т.)`;
+                selectPathEl.appendChild(opt);
+            });
+            selectPathEl.value = selectedPathIndex;
+            if (paths[selectedPathIndex]) {
+                inputPathNameEl.value = paths[selectedPathIndex].name;
             }
-            if (selectedPlatformIndex >= params.platformCount) {
-                selectedPlatformIndex = 0;
-            }
-            platformSelect.value = selectedPlatformIndex;
-            loadIndivUI();
         }
 
-        function loadIndivUI() {
-            const current = platformCustoms[selectedPlatformIndex];
-            indivAngleInput.value = current.angle;
-            indivOffsetInput.value = current.offset;
-            indivAngleVal.innerText = current.angle;
-            indivOffsetVal.innerText = current.offset;
+        function renderPointList() {
+            pointListEl.innerHTML = '';
+            const currentPath = paths[selectedPathIndex];
+            if (!currentPath) return;
+
+            currentPath.points.forEach((pt, i) => {
+                const item = document.createElement('div');
+                item.className = 'point-item';
+                item.innerHTML = `
+                    <span><b>#${i + 1}</b> (X: ${Math.round(pt.x)}, Y: ${Math.round(pt.y)})</span>
+                    <span class="del-pt" data-index="${i}">✕</span>
+                `;
+                pointListEl.appendChild(item);
+            });
+
+            pointListEl.querySelectorAll('.del-pt').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-index'));
+                    currentPath.points.splice(idx, 1);
+                    renderPointList();
+                    renderPathSelect();
+                    updateConfigText();
+                    drawMap();
+                });
+            });
         }
 
-        platformSelect.addEventListener('change', (e) => {
-            selectedPlatformIndex = parseInt(e.target.value);
-            loadIndivUI();
+        selectPathEl.addEventListener('change', (e) => {
+            selectedPathIndex = parseInt(e.target.value);
+            inputPathNameEl.value = paths[selectedPathIndex].name;
+            renderPointList();
             drawMap();
         });
 
-        indivAngleInput.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            platformCustoms[selectedPlatformIndex].angle = val;
-            indivAngleVal.innerText = val;
-            drawMap();
-            updateConfigText();
+        inputPathNameEl.addEventListener('input', (e) => {
+            if (paths[selectedPathIndex]) {
+                paths[selectedPathIndex].name = e.target.value;
+                renderPathSelect();
+                updateConfigText();
+            }
         });
 
-        indivOffsetInput.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            platformCustoms[selectedPlatformIndex].offset = val;
-            indivOffsetVal.innerText = val;
-            drawMap();
+        document.getElementById('btnAddPath').addEventListener('click', () => {
+            const newIndex = paths.length + 1;
+            paths.push({
+                name: `Маршрут ${newIndex}`,
+                color: getRandomColor(),
+                points: []
+            });
+            selectedPathIndex = paths.length - 1;
+            renderPathSelect();
+            renderPointList();
             updateConfigText();
+            drawMap();
+        });
+
+        document.getElementById('btnDelPath').addEventListener('click', () => {
+            if (paths.length <= 1) {
+                alert('Нельзя удалить единственный путь!');
+                return;
+            }
+            paths.splice(selectedPathIndex, 1);
+            selectedPathIndex = Math.max(0, selectedPathIndex - 1);
+            renderPathSelect();
+            renderPointList();
+            updateConfigText();
+            drawMap();
+        });
+
+        document.getElementById('btnClearPoints').addEventListener('click', () => {
+            if (paths[selectedPathIndex]) {
+                paths[selectedPathIndex].points = [];
+                renderPointList();
+                renderPathSelect();
+                updateConfigText();
+                drawMap();
+            }
+        });
+
+        function getRandomColor() {
+            const colors = ['#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // Клик и перетаскивание точек по Canvas
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const currentPath = paths[selectedPathIndex];
+            if (!currentPath) return;
+
+            // Проверяем, попали ли в существуюущую точку для перетаскивания
+            for (let i = 0; i < currentPath.points.length; i++) {
+                const pt = currentPath.points[i];
+                const dist = Math.hypot(pt.x - mouseX, pt.y - mouseY);
+                if (dist <= 12) {
+                    draggingPoint = pt;
+                    return;
+                }
+            }
+
+            // Иначе добавляем новую точку
+            currentPath.points.push({ x: mouseX, y: mouseY });
+            renderPointList();
+            renderPathSelect();
+            updateConfigText();
+            drawMap();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingPoint) {
+                const rect = canvas.getBoundingClientRect();
+                draggingPoint.x = Math.round(e.clientX - rect.left);
+                draggingPoint.y = Math.round(e.clientY - rect.top);
+                renderPointList();
+                updateConfigText();
+                drawMap();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            draggingPoint = null;
         });
 
         function updateConfigText() {
-            let indivText = '';
-            for (let i = 0; i < params.platformCount; i++) {
-                indivText += `  - П-${i + 1}: Наклон=${platformCustoms[i].angle}°, Смещение=${platformCustoms[i].offset}px\n`;
-            }
+            let pathsFormatted = paths.map((p, idx) => {
+                const pts = p.points.map(pt => `[${Math.round(pt.x)}, ${Math.round(pt.y)}]`).join(', ');
+                return `  - Путь ${idx + 1} ("${p.name}"): [${pts}]`;
+            }).join('\n');
 
-            const configStr = `Параметры геометрии и платформ:
-- Ширина дороги: ${params.roadWidth}
-- Высота начала дороги: ${params.roadStartY}
-- Центр Y полукруга: ${params.platformCenterY}
-- Радиус полукруга: ${params.platformRadius}
-- Толщина асфальта: ${params.ringThickness}
-- Количество платформ: ${params.platformCount}
-- Размах дуги платформ: ${params.arcSpread}°
-- Поворот дуги платформ: ${params.arcRotation}°
-- Индивидуальные параметры платформ:
-${indivText}- Ширина вокзала: ${params.stationWidth}
-- Высота вокзала: ${params.stationHeight}
-- Y вокзала: ${params.stationY}`;
-            document.getElementById('configOutput').value = configStr;
+            const configStr = `Параметры геометрии карты:
+- Ширина дороги: ${MAP_PARAMS.roadWidth}
+- Высота начала дороги: ${MAP_PARAMS.roadStartY}
+- Центр Y полукруга: ${MAP_PARAMS.platformCenterY}
+- Радиус полукруга: ${MAP_PARAMS.platformRadius}
+- Толщина асфальта: ${MAP_PARAMS.ringThickness}
+- Количество платформ: ${MAP_PARAMS.platformCount}
+- Размах дуги платформ: ${MAP_PARAMS.arcSpread}°
+- Поворот дуги платформ: ${MAP_PARAMS.arcRotation}°
+- Ширина вокзала: ${MAP_PARAMS.stationWidth}
+- Высота вокзала: ${MAP_PARAMS.stationHeight}
+- Y вокзала: ${MAP_PARAMS.stationY}
+
+Траектории движения автобусов:
+${pathsFormatted}`;
+
+            configOutputEl.value = configStr;
         }
 
         function drawMap() {
@@ -354,85 +473,60 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
 
             // Главная дорога
             ctx.fillStyle = '#334155';
-            ctx.fillRect(CENTER_X - params.roadWidth / 2, params.roadStartY, params.roadWidth, canvas.height - params.roadStartY);
+            ctx.fillRect(CENTER_X - MAP_PARAMS.roadWidth / 2, MAP_PARAMS.roadStartY, MAP_PARAMS.roadWidth, canvas.height - MAP_PARAMS.roadStartY);
 
             // Разделительная линия
             ctx.strokeStyle = '#cbd5e1';
             ctx.lineWidth = 2;
             ctx.setLineDash([12, 12]);
             ctx.beginPath();
-            ctx.moveTo(CENTER_X, params.roadStartY + 10);
+            ctx.moveTo(CENTER_X, MAP_PARAMS.roadStartY + 10);
             ctx.lineTo(CENTER_X, canvas.height);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Расчет радиусов асфальта
-            const outerRadius = params.platformRadius + params.ringThickness / 2;
-            const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
+            // Асфальт полукруга
+            const outerRadius = MAP_PARAMS.platformRadius + MAP_PARAMS.ringThickness / 2;
+            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
 
-            // Сплошная заливка верхней зоны под зданием вокзала, чтобы асфальт уходил туда ровно
-            ctx.fillStyle = '#334155';
-            ctx.fillRect(CENTER_X - outerRadius, params.platformCenterY - outerRadius, outerRadius * 2, outerRadius);
-
-            // Перекрываем лишние бока цветом фона, оставляя ровную полукруглую площадку с прямым срезом под вокзалом
-            ctx.fillStyle = '#1e293b';
-            // Левый верхний угол
-            ctx.fillRect(CENTER_X - outerRadius - 50, params.platformCenterY - outerRadius - 50, outerRadius, outerRadius + 50);
-            // Правый верхний угол
-            ctx.fillRect(CENTER_X, params.platformCenterY - outerRadius - 50, outerRadius + 50, outerRadius + 50);
-
-            // Основная полукруглая дуга асфальта снизу
             ctx.beginPath();
-            ctx.arc(CENTER_X, params.platformCenterY, params.platformRadius, 0, Math.PI);
-            ctx.lineWidth = params.ringThickness;
+            ctx.arc(CENTER_X, MAP_PARAMS.platformCenterY, MAP_PARAMS.platformRadius, 0, Math.PI);
+            ctx.lineWidth = MAP_PARAMS.ringThickness;
             ctx.strokeStyle = '#334155';
             ctx.lineCap = 'butt';
             ctx.stroke();
 
-            // Внутренний островок газона (полукруг)
+            // Внутренний островок газона
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
-            ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI);
+            ctx.arc(CENTER_X, MAP_PARAMS.platformCenterY, innerRadius, 0, Math.PI);
             ctx.fill();
 
-            // Отрисовка платформ по дуге
-            const spreadRad = (params.arcSpread * Math.PI) / 180;
-            const rotationRad = (params.arcRotation * Math.PI) / 180;
-
-            const baseCenterAngle = Math.PI * 0.5; // Центр нижней дуги
+            // Платформы
+            const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
+            const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
+            const baseCenterAngle = Math.PI * 0.5;
             const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
             const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
 
-            for (let i = 0; i < params.platformCount; i++) {
-                let angle;
-                if (params.platformCount === 1) {
-                    angle = baseCenterAngle + rotationRad;
-                } else {
-                    angle = startAngle + (i / (params.platformCount - 1)) * (endAngle - startAngle);
-                }
-
-                const custom = platformCustoms[i];
+            for (let i = 0; i < MAP_PARAMS.platformCount; i++) {
+                let angle = startAngle + (i / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
+                const custom = MAP_PARAMS.platforms[i];
                 const placementRadius = innerRadius + custom.offset;
 
                 const pX = CENTER_X + Math.cos(angle) * placementRadius;
-                const pY = params.platformCenterY + Math.sin(angle) * placementRadius;
+                const pY = MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius;
 
                 ctx.save();
                 ctx.translate(pX, pY);
+                ctx.rotate((custom.angle * Math.PI) / 180);
 
-                const customAngleRad = (custom.angle * Math.PI) / 180;
-                ctx.rotate(customAngleRad);
-
-                const isSelected = (i === selectedPlatformIndex);
-
-                // Платформа
-                ctx.fillStyle = isSelected ? '#38bdf8' : '#22c55e';
+                ctx.fillStyle = '#22c55e';
                 ctx.fillRect(-12, -22, 24, 44);
-                ctx.strokeStyle = isSelected ? '#f59e0b' : '#ffffff';
-                ctx.lineWidth = isSelected ? 3 : 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
                 ctx.strokeRect(-12, -22, 24, 44);
 
-                // Номер платформы
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 11px sans-serif';
                 ctx.textAlign = 'center';
@@ -442,29 +536,62 @@ ${indivText}- Ширина вокзала: ${params.stationWidth}
             }
 
             // Здание вокзала
-            const stationX = CENTER_X - params.stationWidth / 2;
+            const stationX = CENTER_X - MAP_PARAMS.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
             ctx.beginPath();
-            ctx.roundRect(stationX, params.stationY, params.stationWidth, params.stationHeight, 10);
+            ctx.roundRect(stationX, MAP_PARAMS.stationY, MAP_PARAMS.stationWidth, MAP_PARAMS.stationHeight, 10);
             ctx.fill();
 
-            // Текст
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, params.stationY + params.stationHeight / 2 + 6);
+            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
+
+            // Отрисовка всех путей / траекторий
+            paths.forEach((p, idx) => {
+                const isSelected = (idx === selectedPlatformIndex || idx === selectedPathIndex);
+                
+                if (p.points.length > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(p.points[0].x, p.points[0].y);
+                    for (let i = 1; i < p.points.length; i++) {
+                        ctx.lineTo(p.points[i].x, p.points[i].y);
+                    }
+
+                    ctx.strokeStyle = p.color || '#38bdf8';
+                    ctx.lineWidth = isSelected ? 4 : 2;
+                    ctx.setLineDash(isSelected ? [] : [6, 6]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Отрисовка точек (Waypoints)
+                    p.points.forEach((pt, ptIdx) => {
+                        ctx.beginPath();
+                        ctx.arc(pt.x, pt.y, isSelected ? 7 : 5, 0, Math.PI * 2);
+                        ctx.fillStyle = isSelected ? '#ffffff' : p.color;
+                        ctx.fill();
+                        ctx.strokeStyle = p.color;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+
+                        // Номера точек
+                        if (isSelected) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 10px sans-serif';
+                            ctx.fillText(ptIdx + 1, pt.x, pt.y - 10);
+                        }
+                    });
+                }
+            });
         }
 
         document.getElementById('btnCopy').addEventListener('click', () => {
-            const textarea = document.getElementById('configOutput');
-            textarea.select();
-            navigator.clipboard.writeText(textarea.value);
-            alert('Конфигурация скопирована!');
+            configOutputEl.select();
+            navigator.clipboard.writeText(configOutputEl.value);
+            alert('Конфигурация траекторий скопирована!');
         });
 
-        updatePlatformSelect();
-        updateConfigText();
-        drawMap();
+        initUI();
     </script>
 </body>
 </html>
