@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала</title>
+    <title>Симуляция Автовокзала — Конфигуратор геометрии</title>
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            user-select: none;
         }
 
         body {
@@ -16,10 +17,16 @@
             color: #f8fafc;
             font-family: system-ui, -apple-system, sans-serif;
             display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #viewport {
+            flex: 1;
+            display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
+            background-color: #1a2332;
         }
 
         canvas {
@@ -27,76 +34,243 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
         }
+
+        #controls {
+            width: 320px;
+            background-color: #0f172a;
+            border-left: 1px solid #334155;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            color: #38bdf8;
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        span.val {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #38bdf8;
+            cursor: pointer;
+        }
+
+        .btn {
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background-color: #0369a1;
+        }
+
+        textarea {
+            width: 100%;
+            height: 110px;
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #38bdf8;
+            font-family: monospace;
+            font-size: 0.8rem;
+            padding: 8px;
+            border-radius: 6px;
+            resize: none;
+            user-select: text;
+        }
     </style>
 </head>
 <body>
 
-    <canvas id="simCanvas" width="900" height="750"></canvas>
+    <div id="viewport">
+        <canvas id="simCanvas" width="900" height="750"></canvas>
+    </div>
+
+    <div id="controls">
+        <h2>Настройки геометрии</h2>
+        
+        <div class="section-title">Главная дорога</div>
+        <div class="control-group">
+            <label>Ширина дороги: <span class="val" id="val-roadWidth">80</span>px</label>
+            <input type="range" id="param-roadWidth" min="40" max="160" value="80">
+        </div>
+        <div class="control-group">
+            <label>Высота начала дороги: <span class="val" id="val-roadStartY">350</span>px</label>
+            <input type="range" id="param-roadStartY" min="200" max="550" value="350">
+        </div>
+
+        <div class="section-title">Полукруг / Разворот</div>
+        <div class="control-group">
+            <label>Центр Y полукруга: <span class="val" id="val-platformCenterY">230</span>px</label>
+            <input type="range" id="param-platformCenterY" min="150" max="380" value="230">
+        </div>
+        <div class="control-group">
+            <label>Радиус полукруга: <span class="val" id="val-platformRadius">200</span>px</label>
+            <input type="range" id="param-platformRadius" min="100" max="300" value="200">
+        </div>
+        <div class="control-group">
+            <label>Толщина асфальта: <span class="val" id="val-ringThickness">80</span>px</label>
+            <input type="range" id="param-ringThickness" min="30" max="140" value="80">
+        </div>
+
+        <div class="section-title">Здание вокзала</div>
+        <div class="control-group">
+            <label>Ширина здания: <span class="val" id="val-stationWidth">280</span>px</label>
+            <input type="range" id="param-stationWidth" min="140" max="450" value="280">
+        </div>
+        <div class="control-group">
+            <label>Высота здания: <span class="val" id="val-stationHeight">90</span>px</label>
+            <input type="range" id="param-stationHeight" min="50" max="160" value="90">
+        </div>
+        <div class="control-group">
+            <label>Позиция Y здания: <span class="val" id="val-stationY">40</span>px</label>
+            <input type="range" id="param-stationY" min="10" max="150" value="40">
+        </div>
+
+        <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
+        <textarea id="configOutput" readonly></textarea>
+    </div>
 
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Основные параметры геометрии
-        const CENTER_X = canvas.width / 2;
-        const ROAD_WIDTH = 80;
-
-        // Здание вокзала (вверху по центру)
-        const station = {
-            x: CENTER_X - 140,
-            y: 40,
-            width: 280,
-            height: 90
+        const params = {
+            roadWidth: 80,
+            roadStartY: 350,
+            platformCenterY: 230,
+            platformRadius: 200,
+            ringThickness: 80,
+            stationWidth: 280,
+            stationHeight: 90,
+            stationY: 40
         };
 
-        // Параметры полукруглого разворота/перронов
-        const platformCenterY = 230;
-        const platformRadius = 200;
+        const inputs = [
+            'roadWidth', 'roadStartY', 'platformCenterY', 
+            'platformRadius', 'ringThickness', 'stationWidth', 
+            'stationHeight', 'stationY'
+        ];
+
+        inputs.forEach(key => {
+            const el = document.getElementById(`param-${key}`);
+            const valEl = document.getElementById(`val-${key}`);
+            
+            el.addEventListener('input', (e) => {
+                params[key] = parseInt(e.target.value);
+                valEl.innerText = params[key];
+                drawMap();
+                updateConfigText();
+            });
+        });
+
+        function updateConfigText() {
+            const configStr = `Параметры геометрии:
+- Ширина дороги: ${params.roadWidth}
+- Высота начала дороги: ${params.roadStartY}
+- Центр Y полукруга: ${params.platformCenterY}
+- Радиус полукруга: ${params.platformRadius}
+- Толщина асфальта: ${params.ringThickness}
+- Ширина вокзала: ${params.stationWidth}
+- Высота вокзала: ${params.stationHeight}
+- Y вокзала: ${params.stationY}`;
+            document.getElementById('configOutput').value = configStr;
+        }
 
         function drawMap() {
-            // Background
+            const CENTER_X = canvas.width / 2;
+
+            // Фон
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Главная дорога (снизу вверх до развязки)
+            // Главная дорога
             ctx.fillStyle = '#334155';
-            ctx.fillRect(CENTER_X - ROAD_WIDTH / 2, 350, ROAD_WIDTH, canvas.height - 350);
+            ctx.fillRect(CENTER_X - params.roadWidth / 2, params.roadStartY, params.roadWidth, canvas.height - params.roadStartY);
 
-            // Разделительная линия на главной дороге
+            // Разделительная линия
             ctx.strokeStyle = '#cbd5e1';
             ctx.lineWidth = 2;
             ctx.setLineDash([12, 12]);
             ctx.beginPath();
-            ctx.moveTo(CENTER_X, 360);
+            ctx.moveTo(CENTER_X, params.roadStartY + 10);
             ctx.lineTo(CENTER_X, canvas.height);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Асфальтированная площадка полукругом перед вокзалом
+            // Асфальтированная площадка полукругом
+            const outerRadius = params.platformRadius + params.ringThickness / 2;
+            const innerRadius = Math.max(10, params.platformRadius - params.ringThickness / 2);
+
             ctx.fillStyle = '#334155';
             ctx.beginPath();
-            ctx.arc(CENTER_X, platformCenterY, platformRadius + 35, 0, Math.PI * 2);
+            ctx.arc(CENTER_X, params.platformCenterY, outerRadius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Внутренний островок безопасности / газон
+            // Внутренний островок (газон)
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
-            ctx.arc(CENTER_X, platformCenterY, platformRadius - 45, 0, Math.PI * 2);
+            ctx.arc(CENTER_X, params.platformCenterY, innerRadius, 0, Math.PI * 2);
             ctx.fill();
 
             // Здание вокзала
+            const stationX = CENTER_X - params.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
             ctx.beginPath();
-            ctx.roundRect(station.x, station.y, station.width, station.height, 10);
+            ctx.roundRect(stationX, params.stationY, params.stationWidth, params.stationHeight, 10);
             ctx.fill();
 
-            // Текст вокзала
+            // Текст
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, station.y + 52);
+            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, params.stationY + params.stationHeight / 2 + 6);
         }
 
+        document.getElementById('btnCopy').addEventListener('click', () => {
+            const textarea = document.getElementById('configOutput');
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value);
+            alert('Скопировано! Вставь эти значения в чат.');
+        });
+
+        updateConfigText();
         drawMap();
     </script>
 </body>
