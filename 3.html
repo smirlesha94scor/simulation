@@ -257,7 +257,7 @@
         let schedule = [];
         let gameTimeMinutes = 6 * 60; // Старт в 06:00
         let isPlaying = true;
-        let timeSpeed = 1; // Базовая скорость: x1 (1 сек реала = 10 сек игры)
+        let timeSpeed = 1;
 
         // Генерация расписания без конфликтов
         function generateSchedule() {
@@ -351,8 +351,9 @@
         function updateSimulation(dt) {
             if (!isPlaying) return;
 
-            // Уменьшенная скорость: 1 сек реала = 10 игровых секунд (1/6 игровой минуты) при x1
-            gameTimeMinutes += (dt / 1000) * (60 / 6) * timeSpeed;
+            // 1 игровая минута = 5 секунд реального времени (при x1). 
+            // Значит за 1 реальную секунду проходит 1/5 игровой минуты.
+            gameTimeMinutes += (dt / 1000) * (1 / 5) * timeSpeed;
             if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
 
             document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
@@ -445,7 +446,7 @@
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
                 const pIdx = trip.platform;
                 
-                const travelDuration = 1.5; // Время в пути по дороге (1.5 минуты)
+                const travelDuration = 1.5; // Время в пути по дороге (1.5 игровых минуты)
                 const arrTime = trip.arrivalTime;
                 const depTime = trip.departureTime;
                 const startDriveIn = arrTime - travelDuration;
@@ -510,7 +511,7 @@
 
         const btnSpeed = document.getElementById('btnSpeed');
         let speedModes = [0.2, 0.5, 1, 2, 5];
-        let speedIdx = 2; // Старт на индексе 2 (это x1)
+        let speedIdx = 2; // Старт на x1
         btnSpeed.addEventListener('click', () => {
             speedIdx = (speedIdx + 1) % speedModes.length;
             timeSpeed = speedModes[speedIdx];
