@@ -34,6 +34,7 @@
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
+            cursor: pointer;
         }
 
         #sidebar {
@@ -187,6 +188,11 @@
             </div>
         </div>
 
+        <div class="hint-box">
+            • Перетаскивайте мышкой <b>белые точки у платформ</b>, чтобы подгнать точность остановки.<br>
+            • Минимальная разница прибытий на разные платформы: <b>от 5 минут</b>.
+        </div>
+
         <div class="btn-row">
             <button class="btn" id="btnGenerate">Новое расписание</button>
         </div>
@@ -255,25 +261,28 @@
         const busColors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6'];
 
         let schedule = [];
-        let gameTimeMinutes = 6 * 60; // Старт в 06:00
+        let gameTimeMinutes = 6 * 60;
         let isPlaying = true;
         let timeSpeed = 1;
+
+        // Перетаскивание конечных точек парковки
+        let draggingPlatformIdx = null;
 
         // Генерация расписания без конфликтов
         function generateSchedule() {
             schedule = [];
             let currentTime = 6 * 60;
             let platformFreeTime = [0, 0, 0, 0, 0];
-            let lastArrivalAnyPlatform = -3;
+            let lastArrivalAnyPlatform = -5;
 
             for (let i = 1; i <= 14; i++) {
                 let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
                 let dwellTime = Math.floor(Math.random() * 11) + 10; // Стоянка 10-20 мин
 
                 let minArrByPlatform = platformFreeTime[platformIdx] + 10;
-                let minArrByRoad = lastArrivalAnyPlatform + 3;
+                let minArrByRoad = lastArrivalAnyPlatform + 5; // МИНИМУМ 5 МИНУТ МЕЖДУ ПРИБЫТИЯМИ НА ЛЮБЫЕ ПЛАТФОРМЫ
 
-                let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad) + Math.floor(Math.random() * 4);
+                let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad) + Math.floor(Math.random() * 3);
                 let departureTime = arrivalTime + dwellTime;
 
                 platformFreeTime[platformIdx] = departureTime;
@@ -351,8 +360,7 @@
         function updateSimulation(dt) {
             if (!isPlaying) return;
 
-            // 1 игровая минута = 5 секунд реального времени (при x1). 
-            // Значит за 1 реальную секунду проходит 1/5 игровой минуты.
+            // 1 игровая минута = 5 секунд реального времени (при x1)
             gameTimeMinutes += (dt / 1000) * (1 / 5) * timeSpeed;
             if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
 
@@ -441,12 +449,29 @@
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
+            // Отрисовка ВИДИМЫХ ТОЧЕК парковки на платформах
+            paths.in.forEach((p, idx) => {
+                const lastPt = p[p.length - 1];
+                ctx.beginPath();
+                ctx.arc(lastPt[0], lastPt[1], 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`П-${idx + 1}`, lastPt[0], lastPt[1] - 9);
+            });
+
             // Обработка и отрисовка автобусов по расписанию
             schedule.forEach(trip => {
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
                 const pIdx = trip.platform;
                 
-                const travelDuration = 1.5; // Время в пути по дороге (1.5 игровых минуты)
+                const travelDuration = 1.5;
                 const arrTime = trip.arrivalTime;
                 const depTime = trip.departureTime;
                 const startDriveIn = arrTime - travelDuration;
@@ -459,16 +484,13 @@
                     let angleOffset = Math.PI / 2;
 
                     if (gameTimeMinutes < arrTime) {
-                        // Фаза 1: Въезд
                         let progress = (gameTimeMinutes - startDriveIn) / travelDuration;
                         busPos = getPointOnPath(paths.in[pIdx], progress);
                     } 
                     else if (gameTimeMinutes <= depTime) {
-                        // Фаза 2: Стоянка у платформы
                         busPos = getPointOnPath(paths.in[pIdx], 1.0);
                     } 
                     else {
-                        // Фаза 3: Выезд
                         let progress = (gameTimeMinutes - depTime) / travelDuration;
                         busPos = getPointOnPath(paths.out[pIdx], progress);
                     }
@@ -478,7 +500,6 @@
                         ctx.translate(busPos.x, busPos.y);
                         ctx.rotate(busPos.angle + angleOffset);
 
-                        // Корпус автобуса
                         ctx.fillStyle = trip.color;
                         ctx.beginPath();
                         ctx.roundRect(-10, -18, 20, 36, 5);
@@ -487,7 +508,6 @@
                         ctx.lineWidth = 2;
                         ctx.stroke();
 
-                        // Лобовое стекло
                         ctx.fillStyle = '#0f172a';
                         ctx.fillRect(-7, -14, 14, 8);
 
@@ -498,6 +518,39 @@
                 }
             });
         }
+
+        // Интерактивное регулирование положения остановки у платформ
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            for (let i = 0; i < paths.in.length; i++) {
+                const lastPt = paths.in[i][paths.in[i].length - 1];
+                const dist = Math.hypot(lastPt[0] - mouseX, lastPt[1] - mouseY);
+                if (dist <= 12) {
+                    draggingPlatformIdx = i;
+                    return;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingPlatformIdx !== null) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = Math.round(e.clientX - rect.left);
+                const mouseY = Math.round(e.clientY - rect.top);
+
+                // Синхронизируем конечную точку заезда и начальную точку выезда
+                const lastInIndex = paths.in[draggingPlatformIdx].length - 1;
+                paths.in[draggingPlatformIdx][lastInIndex] = [mouseX, mouseY];
+                paths.out[draggingPlatformIdx][0] = [mouseX, mouseY];
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            draggingPlatformIdx = null;
+        });
 
         // Кнопки управления
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
@@ -511,7 +564,7 @@
 
         const btnSpeed = document.getElementById('btnSpeed');
         let speedModes = [0.2, 0.5, 1, 2, 5];
-        let speedIdx = 2; // Старт на x1
+        let speedIdx = 2;
         btnSpeed.addEventListener('click', () => {
             speedIdx = (speedIdx + 1) % speedModes.length;
             timeSpeed = speedModes[speedIdx];
