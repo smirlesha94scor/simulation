@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Конструктор Маршрутов</title>
+    <title>Симуляция Автовокзала — Расписание</title>
     <style>
         * {
             box-sizing: border-box;
@@ -34,11 +34,10 @@
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
-            cursor: crosshair;
         }
 
-        #controls {
-            width: 380px;
+        #sidebar {
+            width: 420px;
             background-color: #0f172a;
             border-left: 1px solid #334155;
             padding: 20px;
@@ -63,31 +62,6 @@
             margin-bottom: 2px;
         }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        label {
-            font-size: 0.82rem;
-            color: #cbd5e1;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        select, input[type="text"] {
-            width: 100%;
-            background-color: #1e293b;
-            color: #38bdf8;
-            border: 1px solid #334155;
-            padding: 7px;
-            border-radius: 6px;
-            font-weight: bold;
-            outline: none;
-            font-size: 0.85rem;
-        }
-
         .btn-row {
             display: flex;
             gap: 8px;
@@ -98,12 +72,12 @@
             background-color: #0284c7;
             color: white;
             border: none;
-            padding: 9px 12px;
+            padding: 10px 14px;
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             text-align: center;
         }
 
@@ -111,66 +85,53 @@
             background-color: #0369a1;
         }
 
-        .btn-danger {
-            background-color: #ef4444;
-        }
-
-        .btn-danger:hover {
-            background-color: #dc2626;
-        }
-
-        .btn-secondary {
-            background-color: #475569;
-        }
-
-        .btn-secondary:hover {
-            background-color: #334155;
-        }
-
-        textarea {
-            width: 100%;
-            height: 150px;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: #38bdf8;
-            font-family: monospace;
-            font-size: 0.72rem;
-            padding: 8px;
-            border-radius: 6px;
-            resize: none;
-            user-select: text;
-        }
-
-        .point-list {
-            max-height: 150px;
+        .table-container {
+            flex: 1;
+            max-height: 480px;
             overflow-y: auto;
             border: 1px solid #334155;
             border-radius: 6px;
             background-color: #1e293b;
         }
 
-        .point-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 10px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
             font-size: 0.8rem;
-            border-bottom: 1px solid #334155;
+            text-align: left;
         }
 
-        .point-item:last-child {
+        th {
+            background-color: #0f172a;
+            color: #38bdf8;
+            padding: 8px 10px;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid #334155;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #334155;
+            color: #cbd5e1;
+        }
+
+        tr:last-child td {
             border-bottom: none;
         }
 
-        .del-pt {
-            color: #f87171;
-            cursor: pointer;
-            font-weight: bold;
-            padding: 0 4px;
+        tr:hover td {
+            background-color: #334155;
         }
 
-        .del-pt:hover {
-            color: #ef4444;
+        .platform-badge {
+            background-color: #22c55e;
+            color: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.75rem;
         }
 
         .hint-box {
@@ -180,6 +141,7 @@
             padding: 8px;
             border-radius: 6px;
             border-left: 3px solid #38bdf8;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -189,53 +151,34 @@
         <canvas id="simCanvas" width="900" height="750"></canvas>
     </div>
 
-    <div id="controls">
-        <h2>Редактор Путей Выезда / Въезда</h2>
-        
+    <div id="sidebar">
+        <h2>Расписание Автовокзала</h2>
+
         <div class="hint-box">
-            Кликайте по Canvas для добавления точек пути. Перетаскивайте точки мышью. Отображается только выбранный путь.
-        </div>
-
-        <div class="section-title">Управление Путями</div>
-        <div class="control-group">
-            <label>Выберите активный путь:</label>
-            <select id="selectPath"></select>
+            • Перерыв на платформе: <b>мин. 10 мин</b><br>
+            • Разница прибытий на любые платформы: <b>мин. 3–5 мин</b><br>
+            • Время стоянки: <b>10–20 мин</b>
         </div>
 
         <div class="btn-row">
-            <button class="btn" id="btnAddOutPath">+ Путь выезда (ОТ платформы)</button>
-        </div>
-        <div class="btn-row" style="margin-top: 4px;">
-            <button class="btn btn-secondary" id="btnAddInPath">+ Путь въезда</button>
-            <button class="btn btn-danger" id="btnDelPath">Удалить путь</button>
+            <button class="btn" id="btnGenerate">Сгенерировать расписание</button>
         </div>
 
-        <div class="control-group">
-            <label>Имя маршрута:</label>
-            <input type="text" id="inputPathName" value="Выезд с П-1">
+        <div class="section-title">График движения рейсов</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Рейс</th>
+                        <th>Платф.</th>
+                        <th>Прибытие</th>
+                        <th>Стоянка</th>
+                        <th>Отправление</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody"></tbody>
+            </table>
         </div>
-
-        <div class="control-group">
-            <label>Платформа назначения:</label>
-            <select id="selectTargetPlatform">
-                <option value="0">Платформа П-1</option>
-                <option value="1">Платформа П-2</option>
-                <option value="2">Платформа П-3</option>
-                <option value="3">Платформа П-4</option>
-                <option value="4">Платформа П-5</option>
-            </select>
-        </div>
-
-        <div class="section-title">Точки пути (Waypoints)</div>
-        <div class="point-list" id="pointList"></div>
-
-        <div class="btn-row">
-            <button class="btn btn-secondary" id="btnClearPoints">Очистить точки</button>
-        </div>
-
-        <div class="section-title">Экспорт конфигурации</div>
-        <button class="btn" id="btnCopy">Скопировать конфиг для чата</button>
-        <textarea id="configOutput" readonly></textarea>
     </div>
 
     <script>
@@ -264,255 +207,79 @@
             ]
         };
 
-        // Начальный набор путей (ваши 5 путей заезда + заготовка для выезда)
-        let paths = [
-            {
-                name: 'Заезд на П-1',
-                targetPlatform: 0,
-                type: 'in',
-                color: '#38bdf8',
-                points: [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [694, 247], [696, 193], [694, 130]].map(p => ({x: p[0], y: p[1]}))
-            },
-            {
-                name: 'Маршрут к П-2',
-                targetPlatform: 1,
-                type: 'in',
-                color: '#f59e0b',
-                points: [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [594, 252]].map(p => ({x: p[0], y: p[1]}))
-            },
-            {
-                name: 'Маршрут к П-3',
-                targetPlatform: 2,
-                type: 'in',
-                color: '#10b981',
-                points: [[474, 692], [473, 400], [458, 366], [450, 338], [449, 293]].map(p => ({x: p[0], y: p[1]}))
-            },
-            {
-                name: 'Маршрут к П-4',
-                targetPlatform: 3,
-                type: 'in',
-                color: '#ec4899',
-                points: [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [313, 306], [308, 283], [305, 245]].map(p => ({x: p[0], y: p[1]}))
-            },
-            {
-                name: 'Маршрут к П-5',
-                targetPlatform: 4,
-                type: 'in',
-                color: '#8b5cf6',
-                points: [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [246, 263], [214, 225], [207, 127]].map(p => ({x: p[0], y: p[1]}))
-            },
-            {
-                name: 'Выезд с П-1',
-                targetPlatform: 0,
-                type: 'out',
-                color: '#ef4444',
-                points: [{x: 694, y: 130}]
-            }
-        ];
+        const MIN_PLATFORM_BUFFER = 10; // Минимальный перерыв на платформе (мин)
+        const MIN_ARRIVAL_GAP = 3;       // Мин. разница во времени прибытия разных автобусов (мин)
+        const TOTAL_TRIPS = 15;          // Количество рейсов для генерации
 
-        let selectedPathIndex = 5; // По умолчанию выбираем создание Выезда с П-1
-        let draggingPoint = null;
+        let schedule = [];
 
-        const selectPathEl = document.getElementById('selectPath');
-        const inputPathNameEl = document.getElementById('inputPathName');
-        const selectTargetPlatformEl = document.getElementById('selectTargetPlatform');
-        const pointListEl = document.getElementById('pointList');
-        const configOutputEl = document.getElementById('configOutput');
-
-        function initUI() {
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-            drawMap();
+        // Форматирование минут в формат ЧЧ:ММ
+        function formatTime(totalMinutes) {
+            const hrs = Math.floor(totalMinutes / 60) % 24;
+            const mins = totalMinutes % 60;
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
         }
 
-        function renderPathSelect() {
-            selectPathEl.innerHTML = '';
-            paths.forEach((p, i) => {
-                const opt = document.createElement('option');
-                opt.value = i;
-                const prefix = p.type === 'out' ? '🚩 [ВЫЕЗД] ' : '🚌 [ВЪЕЗД] ';
-                opt.textContent = `${prefix}${p.name} (П-${p.targetPlatform + 1}) — ${p.points.length} т.`;
-                selectPathEl.appendChild(opt);
-            });
-            selectPathEl.value = selectedPathIndex;
-            if (paths[selectedPathIndex]) {
-                inputPathNameEl.value = paths[selectedPathIndex].name;
-                selectTargetPlatformEl.value = paths[selectedPathIndex].targetPlatform;
-            }
-        }
+        // Логика автоматического формирования расписания без конфликтов
+        function generateSchedule() {
+            schedule = [];
+            let currentTime = 6 * 60 + 0; // Старт работы вокзала в 06:00
+            
+            // Время освобождения каждой из 5 платформ (в минутах)
+            let platformFreeTime = [0, 0, 0, 0, 0];
+            let lastArrivalAnyPlatform = -MIN_ARRIVAL_GAP;
 
-        function renderPointList() {
-            pointListEl.innerHTML = '';
-            const currentPath = paths[selectedPathIndex];
-            if (!currentPath) return;
+            for (let i = 1; i <= TOTAL_TRIPS; i++) {
+                // Выбираем платформу случайным образом или по очереди
+                let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
 
-            currentPath.points.forEach((pt, i) => {
-                const item = document.createElement('div');
-                item.className = 'point-item';
-                item.innerHTML = `
-                    <span><b>#${i + 1}</b> (X: ${Math.round(pt.x)}, Y: ${Math.round(pt.y)})</span>
-                    <span class="del-pt" data-index="${i}">✕</span>
-                `;
-                pointListEl.appendChild(item);
-            });
+                // Случайная стоянка от 10 до 20 минут
+                let dwellTime = Math.floor(Math.random() * 11) + 10; 
 
-            pointListEl.querySelectorAll('.del-pt').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const idx = parseInt(e.target.getAttribute('data-index'));
-                    currentPath.points.splice(idx, 1);
-                    renderPointList();
-                    renderPathSelect();
-                    updateConfigText();
-                    drawMap();
+                // Рассчитываем самое раннее возможное время прибытия на выбранную платформу
+                let minArrByPlatform = platformFreeTime[platformIdx] + MIN_PLATFORM_BUFFER;
+                let minArrByRoad = lastArrivalAnyPlatform + MIN_ARRIVAL_GAP;
+
+                let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
+                
+                // Случайная небольшая добавка от 0 до 4 минут для естественности графика
+                arrivalTime += Math.floor(Math.random() * 5);
+
+                let departureTime = arrivalTime + dwellTime;
+
+                // Обновляем ограничения времени
+                platformFreeTime[platformIdx] = departureTime;
+                lastArrivalAnyPlatform = arrivalTime;
+                currentTime = arrivalTime;
+
+                schedule.push({
+                    id: i,
+                    busName: `№ ${100 + i * 5}`,
+                    platform: platformIdx + 1,
+                    arrivalTime: arrivalTime,
+                    dwellTime: dwellTime,
+                    departureTime: departureTime
                 });
-            });
+            }
+
+            renderSchedule();
         }
 
-        selectPathEl.addEventListener('change', (e) => {
-            selectedPathIndex = parseInt(e.target.value);
-            inputPathNameEl.value = paths[selectedPathIndex].name;
-            selectTargetPlatformEl.value = paths[selectedPathIndex].targetPlatform;
-            renderPointList();
-            drawMap();
-        });
+        function renderSchedule() {
+            const tbody = document.getElementById('scheduleBody');
+            tbody.innerHTML = '';
 
-        inputPathNameEl.addEventListener('input', (e) => {
-            if (paths[selectedPathIndex]) {
-                paths[selectedPathIndex].name = e.target.value;
-                renderPathSelect();
-                updateConfigText();
-            }
-        });
-
-        selectTargetPlatformEl.addEventListener('change', (e) => {
-            if (paths[selectedPathIndex]) {
-                paths[selectedPathIndex].targetPlatform = parseInt(e.target.value);
-                renderPathSelect();
-                updateConfigText();
-                drawMap();
-            }
-        });
-
-        document.getElementById('btnAddOutPath').addEventListener('click', () => {
-            const outCount = paths.filter(p => p.type === 'out').length + 1;
-            paths.push({
-                name: `Выезд с П-${outCount}`,
-                targetPlatform: Math.min(outCount - 1, 4),
-                type: 'out',
-                color: '#ef4444',
-                points: []
+            schedule.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><b>${item.busName}</b></td>
+                    <td><span class="platform-badge">П-${item.platform}</span></td>
+                    <td>${formatTime(item.arrivalTime)}</td>
+                    <td>${item.dwellTime} мин</td>
+                    <td><b>${formatTime(item.departureTime)}</b></td>
+                `;
+                tbody.appendChild(tr);
             });
-            selectedPathIndex = paths.length - 1;
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-            drawMap();
-        });
-
-        document.getElementById('btnAddInPath').addEventListener('click', () => {
-            const inCount = paths.filter(p => p.type === 'in').length + 1;
-            paths.push({
-                name: `Заезд на П-${inCount}`,
-                targetPlatform: Math.min(inCount - 1, 4),
-                type: 'in',
-                color: '#38bdf8',
-                points: []
-            });
-            selectedPathIndex = paths.length - 1;
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-            drawMap();
-        });
-
-        document.getElementById('btnDelPath').addEventListener('click', () => {
-            if (paths.length <= 1) {
-                alert('Нельзя удалить единственный путь!');
-                return;
-            }
-            paths.splice(selectedPathIndex, 1);
-            selectedPathIndex = Math.max(0, selectedPathIndex - 1);
-            renderPathSelect();
-            renderPointList();
-            updateConfigText();
-            drawMap();
-        });
-
-        document.getElementById('btnClearPoints').addEventListener('click', () => {
-            if (paths[selectedPathIndex]) {
-                paths[selectedPathIndex].points = [];
-                renderPointList();
-                renderPathSelect();
-                updateConfigText();
-                drawMap();
-            }
-        });
-
-        // Клик и перетаскивание точек
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const currentPath = paths[selectedPathIndex];
-            if (!currentPath) return;
-
-            for (let i = 0; i < currentPath.points.length; i++) {
-                const pt = currentPath.points[i];
-                const dist = Math.hypot(pt.x - mouseX, pt.y - mouseY);
-                if (dist <= 12) {
-                    draggingPoint = pt;
-                    return;
-                }
-            }
-
-            currentPath.points.push({ x: mouseX, y: mouseY });
-            renderPointList();
-            renderPathSelect();
-            updateConfigText();
-            drawMap();
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (draggingPoint) {
-                const rect = canvas.getBoundingClientRect();
-                draggingPoint.x = Math.round(e.clientX - rect.left);
-                draggingPoint.y = Math.round(e.clientY - rect.top);
-                renderPointList();
-                updateConfigText();
-                drawMap();
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            draggingPoint = null;
-        });
-
-        function updateConfigText() {
-            let pathsFormatted = paths.map((p, idx) => {
-                const pts = p.points.map(pt => `[${Math.round(pt.x)}, ${Math.round(pt.y)}]`).join(', ');
-                const typeLabel = p.type === 'out' ? 'Выезд' : 'Въезд';
-                return `  - Путь ${idx + 1} ("${p.name}", ${typeLabel}, Платформа П-${p.targetPlatform + 1}): [${pts}]`;
-            }).join('\n');
-
-            const configStr = `Параметры геометрии карты:
-- Ширина дороги: ${MAP_PARAMS.roadWidth}
-- Высота начала дороги: ${MAP_PARAMS.roadStartY}
-- Центр Y полукруга: ${MAP_PARAMS.platformCenterY}
-- Радиус полукруга: ${MAP_PARAMS.platformRadius}
-- Толщина асфальта: ${MAP_PARAMS.ringThickness}
-- Количество платформ: ${MAP_PARAMS.platformCount}
-- Размах дуги платформ: ${MAP_PARAMS.arcSpread}°
-- Поворот дуги платформ: ${MAP_PARAMS.arcRotation}°
-- Ширина вокзала: ${MAP_PARAMS.stationWidth}
-- Высота вокзала: ${MAP_PARAMS.stationHeight}
-- Y вокзала: ${MAP_PARAMS.stationY}
-
-Траектории движения автобусов:
-${pathsFormatted}`;
-
-            configOutputEl.value = configStr;
         }
 
         function drawMap() {
@@ -559,9 +326,6 @@ ${pathsFormatted}`;
             const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
             const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
 
-            const activePath = paths[selectedPathIndex];
-            const currentTargetPlatform = activePath ? activePath.targetPlatform : 0;
-
             for (let i = 0; i < MAP_PARAMS.platformCount; i++) {
                 let angle = startAngle + (i / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
                 const custom = MAP_PARAMS.platforms[i];
@@ -574,12 +338,10 @@ ${pathsFormatted}`;
                 ctx.translate(pX, pY);
                 ctx.rotate((custom.angle * Math.PI) / 180);
 
-                const isTarget = (i === currentTargetPlatform);
-
-                ctx.fillStyle = isTarget ? '#38bdf8' : '#22c55e';
+                ctx.fillStyle = '#22c55e';
                 ctx.fillRect(-12, -22, 24, 44);
-                ctx.strokeStyle = isTarget ? '#f59e0b' : '#ffffff';
-                ctx.lineWidth = isTarget ? 3 : 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
                 ctx.strokeRect(-12, -22, 24, 44);
 
                 ctx.fillStyle = '#ffffff';
@@ -601,47 +363,13 @@ ${pathsFormatted}`;
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
-
-            // Отрисовка ТОЛЬКО выбранного пути
-            if (activePath && activePath.points.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(activePath.points[0].x, activePath.points[0].y);
-                for (let i = 1; i < activePath.points.length; i++) {
-                    ctx.lineTo(activePath.points[i].x, activePath.points[i].y);
-                }
-
-                ctx.strokeStyle = activePath.color || '#38bdf8';
-                ctx.lineWidth = 3;
-                if (activePath.type === 'out') {
-                    ctx.setLineDash([8, 6]); // Пунктир для пути выезда
-                }
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                // Точки пути
-                activePath.points.forEach((pt, ptIdx) => {
-                    ctx.beginPath();
-                    ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fill();
-                    ctx.strokeStyle = activePath.color;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 11px sans-serif';
-                    ctx.fillText(ptIdx + 1, pt.x, pt.y - 10);
-                });
-            }
         }
 
-        document.getElementById('btnCopy').addEventListener('click', () => {
-            configOutputEl.select();
-            navigator.clipboard.writeText(configOutputEl.value);
-            alert('Конфигурация маршрутов скопирована!');
-        });
+        document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
 
-        initUI();
+        // Инициализация при старте
+        drawMap();
+        generateSchedule();
     </script>
 </body>
 </html>
