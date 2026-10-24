@@ -257,7 +257,7 @@
         let schedule = [];
         let gameTimeMinutes = 6 * 60; // Старт в 06:00
         let isPlaying = true;
-        let timeSpeed = 1;
+        let timeSpeed = 1; // Базовая скорость: x1 (1 сек реала = 10 сек игры)
 
         // Генерация расписания без конфликтов
         function generateSchedule() {
@@ -351,7 +351,8 @@
         function updateSimulation(dt) {
             if (!isPlaying) return;
 
-            gameTimeMinutes += (dt / 1000) * 60 * timeSpeed;
+            // Уменьшенная скорость: 1 сек реала = 10 игровых секунд (1/6 игровой минуты) при x1
+            gameTimeMinutes += (dt / 1000) * (60 / 6) * timeSpeed;
             if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
 
             document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
@@ -457,16 +458,16 @@
                     let angleOffset = Math.PI / 2;
 
                     if (gameTimeMinutes < arrTime) {
-                        // Фаза 1: Въезд (автобус едет к платформе и ровно в arrTime доезжает до конца)
+                        // Фаза 1: Въезд
                         let progress = (gameTimeMinutes - startDriveIn) / travelDuration;
                         busPos = getPointOnPath(paths.in[pIdx], progress);
                     } 
                     else if (gameTimeMinutes <= depTime) {
-                        // Фаза 2: Стоянка у платформы (время прибытия = автобус уже стоит)
+                        // Фаза 2: Стоянка у платформы
                         busPos = getPointOnPath(paths.in[pIdx], 1.0);
                     } 
                     else {
-                        // Фаза 3: Выезд от платформы
+                        // Фаза 3: Выезд
                         let progress = (gameTimeMinutes - depTime) / travelDuration;
                         busPos = getPointOnPath(paths.out[pIdx], progress);
                     }
@@ -508,8 +509,8 @@
         });
 
         const btnSpeed = document.getElementById('btnSpeed');
-        let speedModes = [1, 2, 5, 10];
-        let speedIdx = 0;
+        let speedModes = [0.2, 0.5, 1, 2, 5];
+        let speedIdx = 2; // Старт на индексе 2 (это x1)
         btnSpeed.addEventListener('click', () => {
             speedIdx = (speedIdx + 1) % speedModes.length;
             timeSpeed = speedModes[speedIdx];
