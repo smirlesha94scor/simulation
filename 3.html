@@ -34,6 +34,7 @@
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
+            cursor: pointer;
         }
 
         #sidebar {
@@ -249,6 +250,9 @@
         let isPlaying = true;
         let timeSpeed = 1;
 
+        // Перетаскивание точек для платформ 4 и 5
+        let draggingPoint = null; // { pIdx, ptIdx }
+
         function generateSchedule() {
             schedule = [];
             let currentTime = Math.floor(gameTimeMinutes);
@@ -437,6 +441,29 @@
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
+            // Отрисовка двух последних точек въезда для П-4 и П-5
+            [3, 4].forEach(pIdx => {
+                const pathIn = paths.in[pIdx];
+                const lastTwo = [pathIn.length - 2, pathIn.length - 1];
+
+                lastTwo.forEach(ptIdx => {
+                    const pt = pathIn[ptIdx];
+                    ctx.beginPath();
+                    ctx.arc(pt[0], pt[1], 6, 0, Math.PI * 2);
+                    ctx.fillStyle = ptIdx === pathIn.length - 1 ? '#ffffff' : '#f59e0b';
+                    ctx.fill();
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.font = 'bold 10px sans-serif';
+                    ctx.textAlign = 'center';
+                    const label = ptIdx === pathIn.length - 1 ? `П-${pIdx + 1}` : `П-${pIdx + 1} (пред.)`;
+                    ctx.fillText(label, pt[0], pt[1] - 9);
+                });
+            });
+
             // Отрисовка автобусов
             schedule.forEach(trip => {
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
@@ -489,6 +516,46 @@
                 }
             });
         }
+
+        // Перетаскивание двух последних точек мышкой для платформ 4 и 5
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            [3, 4].forEach(pIdx => {
+                const pathIn = paths.in[pIdx];
+                const lastTwo = [pathIn.length - 2, pathIn.length - 1];
+
+                lastTwo.forEach(ptIdx => {
+                    const pt = pathIn[ptIdx];
+                    const dist = Math.hypot(pt[0] - mouseX, pt[1] - mouseY);
+                    if (dist <= 12) {
+                        draggingPoint = { pIdx, ptIdx };
+                    }
+                });
+            });
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingPoint) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = Math.round(e.clientX - rect.left);
+                const mouseY = Math.round(e.clientY - rect.top);
+
+                const { pIdx, ptIdx } = draggingPoint;
+                paths.in[pIdx][ptIdx] = [mouseX, mouseY];
+
+                // Если перемещаем конечную точку въезда, синхронизируем её с начальной точкой выезда
+                if (ptIdx === paths.in[pIdx].length - 1) {
+                    paths.out[pIdx][0] = [mouseX, mouseY];
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            draggingPoint = null;
+        });
 
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
 
