@@ -189,282 +189,15 @@
         </div>
 
         <div class="hint-box">
-            • Перетаскивайте мышкой <b>белые точки у платформ</b> для подгонки парковки.<br>
-            • Рейсы автоматически удаляются из таблицы после отправления.
+            • Перетаскивайте мышкой <b>белые точки у платформ</b>, чтобы подгнать точность остановки.<br>
+            • Рейсы 자동으로 удаляются из таблицы после выезда с вокзала.
         </div>
 
         <div class="btn-row">
             <button class="btn" id="btnGenerate">Новое расписание</button>
         </div>
 
-        <div class="section-title">Список ближайших рейсов</div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Рейс</th>
-                        <th>Платф.</th>
-                        <th>Прибытие</th>
-                        <th>Стоянка</th>
-                        <th>Отправление</th>
-                    </tr>
-                </thead>
-                <tbody id="scheduleBody"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-
-        // Геометрия карты
-        const MAP_PARAMS = {
-            roadWidth: 98,
-            roadStartY: 398,
-            platformCenterY: 50,
-            platformRadius: 315,
-            ringThickness: 76,
-            platformCount: 5,
-            arcSpread: 140,
-            arcRotation: 0,
-            stationWidth: 259,
-            stationHeight: 117,
-            stationY: 58,
-            platforms: [
-                { angle: 5, offset: -19 },
-                { angle: 5, offset: -25 },
-                { angle: 0, offset: -22 },
-                { angle: -5, offset: -25 },
-                { angle: -5, offset: -18 }
-            ]
-        };
-
-        // Загруженные пути (въезды и выезды для каждой платформы)
-        const paths = {
-            in: [
-                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [694, 247], [696, 193], [694, 130]],
-                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [594, 252]],
-                [[474, 692], [473, 400], [458, 366], [450, 338], [449, 293]],
-                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [313, 306], [308, 283], [305, 245]],
-                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [246, 263], [214, 225], [207, 127]]
-            ],
-            out: [
-                [[693, 144], [691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
-                [[596, 248], [592, 303], [564, 319], [527, 333], [479, 344], [426, 349], [423, 692]],
-                [[450, 299], [451, 346], [425, 381], [423, 691]],
-                [[305, 246], [311, 353], [352, 370], [425, 387], [427, 692]],
-                [[206, 127], [217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
-            ]
-        };
-
-        const busДобавил динамическое удаление рейсов: теперь, когда автобус завершает свой рейс (отправляется от платформы и доезжает до конца пути выезда), **рейс автоматически удаляется из расписания и таблицы**. 
-
-Когда все рейсы в списке завершаются, симуляция автоматически генерирует следующее расписание.
-
-Вот обновленный полный код:
-
-```html
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Динамическое Расписание</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-        }
-
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: system-ui, -apple-system, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #viewport {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #1a2332;
-            position: relative;
-        }
-
-        canvas {
-            background-color: #1e293b;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            border-radius: 12px;
-            cursor: pointer;
-        }
-
-        #sidebar {
-            width: 440px;
-            background-color: #0f172a;
-            border-left: 1px solid #334155;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            overflow-y: auto;
-        }
-
-        h2 {
-            color: #38bdf8;
-            font-size: 1.2rem;
-            margin-bottom: 2px;
-        }
-
-        .section-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #64748b;
-            margin-top: 6px;
-            margin-bottom: 2px;
-        }
-
-        .clock-box {
-            background: #1e293b;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .clock-time {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: #38bdf8;
-            font-family: monospace;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn {
-            flex: 1;
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 9px 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 0.82rem;
-            text-align: center;
-        }
-
-        .btn:hover {
-            background-color: #0369a1;
-        }
-
-        .btn-secondary {
-            background-color: #475569;
-        }
-
-        .btn-secondary:hover {
-            background-color: #334155;
-        }
-
-        .table-container {
-            flex: 1;
-            max-height: 420px;
-            overflow-y: auto;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            background-color: #1e293b;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.78rem;
-            text-align: left;
-        }
-
-        th {
-            background-color: #0f172a;
-            color: #38bdf8;
-            padding: 8px 10px;
-            position: sticky;
-            top: 0;
-            border-bottom: 1px solid #334155;
-            font-weight: 600;
-        }
-
-        td {
-            padding: 7px 10px;
-            border-bottom: 1px solid #334155;
-            color: #cbd5e1;
-        }
-
-        tr.active-trip td {
-            background-color: rgba(56, 189, 248, 0.15);
-            color: #ffffff;
-        }
-
-        .platform-badge {
-            background-color: #22c55e;
-            color: #0f172a;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 0.75rem;
-        }
-
-        .hint-box {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            background: #1e293b;
-            padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #38bdf8;
-            line-height: 1.4;
-        }
-    </style>
-</head>
-<body>
-
-    <div id="viewport">
-        <canvas id="simCanvas" width="900" height="750"></canvas>
-    </div>
-
-    <div id="sidebar">
-        <h2>Симуляция по Расписанию</h2>
-
-        <div class="clock-box">
-            <div>
-                <div style="font-size: 0.75rem; color: #94a3b8;">ИГРОВОЕ ВРЕМЯ</div>
-                <div class="clock-time" id="clockDisplay">06:00</div>
-            </div>
-            <div style="display: flex; gap: 6px;">
-                <button class="btn" id="btnTogglePlay" style="padding: 6px 12px;">Пауза</button>
-                <button class="btn btn-secondary" id="btnSpeed" style="padding: 6px 10px;">x1</button>
-            </div>
-        </div>
-
-        <div class="hint-box">
-            • Перетаскивайте мышкой <b>белые точки у платформ</b>, чтобы подгнать точность остановки.<br>
-            • Рейсы <b>автоматически удаляются</b> из таблицы после выезда с вокзала.
-        </div>
-
-        <div class="btn-row">
-            <button class="btn" id="btnGenerate">Пересоздать расписание</button>
-        </div>
-
-        <div class="section-title">Текущие рейсы</div>
+        <div class="section-title">Список рейсов</div>
         <div class="table-container">
             <table>
                 <thead>
@@ -528,7 +261,7 @@
         const busColors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6'];
 
         let schedule = [];
-        let gameTimeMinutes = 6 * 60;
+        let gameTimeMinutes = 6 * 60; // Старт в 06:00
         let isPlaying = true;
         let timeSpeed = 1;
 
@@ -537,9 +270,9 @@
         // Генерация расписания без конфликтов
         function generateSchedule() {
             schedule = [];
-            let currentTime = Math.floor(gameTimeMinutes);
+            let currentTime = 6 * 60;
             let platformFreeTime = [0, 0, 0, 0, 0];
-            let lastArrivalAnyPlatform = currentTime - 5;
+            let lastArrivalAnyPlatform = -5;
 
             for (let i = 1; i <= 14; i++) {
                 let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
@@ -565,6 +298,7 @@
                     color: busColors[(i - 1) % busColors.length]
                 });
             }
+            gameTimeMinutes = 5 * 60 + 55;
             renderScheduleTable();
         }
 
@@ -631,7 +365,7 @@
 
             document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
 
-            // Фильтрация: Удаляем из расписания рейсы, время выезда которых полностью завершилось
+            // Автоматическое удаление рейсов после выезда
             const travelDuration = 1.5;
             const initialLength = schedule.length;
             
@@ -640,12 +374,10 @@
                 return gameTimeMinutes < endDriveOut;
             });
 
-            // Если какой-то рейс завершился, обновляем таблицу
             if (schedule.length !== initialLength) {
                 renderScheduleTable();
             }
 
-            // Если все рейсы в расписании закончились, генерируем следующие
             if (schedule.length === 0) {
                 generateSchedule();
             }
@@ -803,7 +535,7 @@
             });
         }
 
-        // Подгонка точности остановки мышкой
+        // Подгонка парковки мышкой
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
