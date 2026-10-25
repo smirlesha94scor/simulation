@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала — Живое Расписание</title>
+    <title>Симуляция Автовокзала</title>
     <style>
         * {
             box-sizing: border-box;
@@ -34,11 +34,10 @@
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
-            cursor: pointer;
         }
 
         #sidebar {
-            width: 440px;
+            width: 380px;
             background-color: #0f172a;
             border-left: 1px solid #334155;
             padding: 20px;
@@ -113,7 +112,7 @@
 
         .table-container {
             flex: 1;
-            max-height: 320px;
+            max-height: 480px;
             overflow-y: auto;
             border: 1px solid #334155;
             border-radius: 6px;
@@ -166,20 +165,6 @@
             border-left: 3px solid #38bdf8;
             line-height: 1.4;
         }
-
-        textarea {
-            width: 100%;
-            height: 90px;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: #38bdf8;
-            font-family: monospace;
-            font-size: 0.72rem;
-            padding: 8px;
-            border-radius: 6px;
-            resize: none;
-            user-select: text;
-        }
     </style>
 </head>
 <body>
@@ -203,17 +188,13 @@
         </div>
 
         <div class="hint-box">
-            • Интервал между прибытиями (на разные платформы): <b>мин. 10 минут</b>.<br>
-            • Интервал на одной платформе: <b>мин. 30 минут</b>.
+            • Межрейсовый интервал (на разные платформы): <b>мин. 10 мин</b>.<br>
+            • Интервал на одной платформе: <b>мин. 30 мин</b>.
         </div>
 
         <div class="btn-row">
-            <button class="btn" id="btnGenerate">Пересоздать расписание</button>
+            <button class="btn" id="btnGenerate">Обновить расписание</button>
         </div>
-
-        <div class="section-title">Координаты парковок</div>
-        <button class="btn btn-secondary" id="btnCopyCoords">Скопировать координаты платформ</button>
-        <textarea id="coordsOutput" readonly></textarea>
 
         <div class="section-title">Текущие рейсы</div>
         <div class="table-container">
@@ -258,21 +239,21 @@
             ]
         };
 
-        // Загруженные пути (въезды и выезды для каждой платформы)
+        // Пути с вашими сохраненными точками парковки
         const paths = {
             in: [
-                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [694, 247], [696, 193], [694, 130]],
-                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [594, 252]],
-                [[474, 692], [473, 400], [458, 366], [450, 338], [449, 293]],
-                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [313, 306], [308, 283], [305, 245]],
-                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [246, 263], [214, 225], [207, 127]]
+                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [693, 138]], // П-1
+                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [595, 257]],          // П-2
+                [[474, 692], [473, 400], [458, 366], [450, 305]],                                  // П-3
+                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [306, 256]],          // П-4
+                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [206, 138]] // П-5
             ],
             out: [
-                [[693, 144], [691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
-                [[596, 248], [592, 303], [564, 319], [527, 333], [479, 344], [426, 349], [423, 692]],
-                [[450, 299], [451, 346], [425, 381], [423, 691]],
-                [[305, 246], [311, 353], [352, 370], [425, 387], [427, 692]],
-                [[206, 127], [217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
+                [[693, 138], [691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
+                [[595, 257], [592, 303], [564, 319], [527, 333], [479, 344], [426, 349], [423, 692]],
+                [[450, 305], [451, 346], [425, 381], [423, 691]],
+                [[306, 256], [311, 353], [352, 370], [425, 387], [427, 692]],
+                [[206, 138], [217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
             ]
         };
 
@@ -283,20 +264,7 @@
         let isPlaying = true;
         let timeSpeed = 1;
 
-        let draggingPlatformIdx = null;
-
-        const coordsOutputEl = document.getElementById('coordsOutput');
-
-        function updateCoordsDisplay() {
-            let res = "Координаты конечных точек на платформах:\n";
-            paths.in.forEach((p, i) => {
-                const pt = p[p.length - 1];
-                res += `Платформа П-${i + 1}: [${pt[0]}, ${pt[1]}]\n`;
-            });
-            coordsOutputEl.value = res;
-        }
-
-        // Генерация расписания: мин. 30 мин на одной платформе, мин. 10 мин между прибытиями на разные
+        // Генерация расписания: мин. 30 мин на одной платформе, мин. 10 мин между прибытиями
         function generateSchedule() {
             schedule = [];
             let currentTime = Math.floor(gameTimeMinutes);
@@ -307,8 +275,8 @@
                 let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
                 let dwellTime = Math.floor(Math.random() * 11) + 10; // Стоянка 10-20 мин
 
-                let minArrByPlatform = platformFreeTime[platformIdx] + 30; // 30 минут на одной платформе
-                let minArrByRoad = lastArrivalAnyPlatform + 10;             // 10 минут между прибытиями на разные платформы
+                let minArrByPlatform = platformFreeTime[platformIdx] + 30;
+                let minArrByRoad = lastArrivalAnyPlatform + 10;
 
                 let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
                 let departureTime = arrivalTime + dwellTime;
@@ -491,7 +459,7 @@
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка точек парковки на платформах
+            // Отрисовка видимых точек парковки на платформах
             paths.in.forEach((p, idx) => {
                 const lastPt = p[p.length - 1];
                 ctx.beginPath();
@@ -561,47 +529,8 @@
             });
         }
 
-        // Подгонка парковки мышкой
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            for (let i = 0; i < paths.in.length; i++) {
-                const lastPt = paths.in[i][paths.in[i].length - 1];
-                const dist = Math.hypot(lastPt[0] - mouseX, lastPt[1] - mouseY);
-                if (dist <= 12) {
-                    draggingPlatformIdx = i;
-                    return;
-                }
-            }
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (draggingPlatformIdx !== null) {
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = Math.round(e.clientX - rect.left);
-                const mouseY = Math.round(e.clientY - rect.top);
-
-                const lastInIndex = paths.in[draggingPlatformIdx].length - 1;
-                paths.in[draggingPlatformIdx][lastInIndex] = [mouseX, mouseY];
-                paths.out[draggingPlatformIdx][0] = [mouseX, mouseY];
-                updateCoordsDisplay();
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            draggingPlatformIdx = null;
-        });
-
         // Кнопки управления
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
-
-        document.getElementById('btnCopyCoords').addEventListener('click', () => {
-            coordsOutputEl.select();
-            navigator.clipboard.writeText(coordsOutputEl.value);
-            alert('Координаты платформ скопированы в буфер обмена!');
-        });
 
         const btnTogglePlay = document.getElementById('btnTogglePlay');
         btnTogglePlay.addEventListener('click', () => {
@@ -630,7 +559,6 @@
         }
 
         // Запуск
-        updateCoordsDisplay();
         generateSchedule();
         requestAnimationFrame(mainLoop);
     </script>
