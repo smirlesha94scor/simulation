@@ -112,7 +112,7 @@
 
         .table-container {
             flex: 1;
-            max-height: 480px;
+            max-height: 520px;
             overflow-y: auto;
             border: 1px solid #334155;
             border-radius: 6px;
@@ -155,16 +155,6 @@
             font-weight: bold;
             font-size: 0.75rem;
         }
-
-        .hint-box {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            background: #1e293b;
-            padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #38bdf8;
-            line-height: 1.4;
-        }
     </style>
 </head>
 <body>
@@ -185,11 +175,6 @@
                 <button class="btn" id="btnTogglePlay" style="padding: 6px 12px;">Пауза</button>
                 <button class="btn btn-secondary" id="btnSpeed" style="padding: 6px 10px;">x1</button>
             </div>
-        </div>
-
-        <div class="hint-box">
-            • Межрейсовый интервал (на разные платформы): <b>мин. 10 мин</b>.<br>
-            • Интервал на одной платформе: <b>мин. 30 мин</b>.
         </div>
 
         <div class="btn-row">
@@ -239,7 +224,7 @@
             ]
         };
 
-        // Пути с вашими сохраненными точками парковки
+        // Точные точки парковки
         const paths = {
             in: [
                 [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [693, 138]], // П-1
@@ -264,7 +249,6 @@
         let isPlaying = true;
         let timeSpeed = 1;
 
-        // Генерация расписания: мин. 30 мин на одной платформе, мин. 10 мин между прибытиями
         function generateSchedule() {
             schedule = [];
             let currentTime = Math.floor(gameTimeMinutes);
@@ -273,10 +257,11 @@
 
             for (let i = 1; i <= 14; i++) {
                 let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
-                let dwellTime = Math.floor(Math.random() * 11) + 10; // Стоянка 10-20 мин
+                let dwellTime = Math.floor(Math.random() * 11) + 10;
 
                 let minArrByPlatform = platformFreeTime[platformIdx] + 30;
-                let minArrByRoad = lastArrivalAnyPlatform + 10;
+                let randomRoadGap = Math.floor(Math.random() * 11) + 5; 
+                let minArrByRoad = lastArrivalAnyPlatform + randomRoadGap;
 
                 let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
                 let departureTime = arrivalTime + dwellTime;
@@ -380,15 +365,12 @@
         function drawMap() {
             const CENTER_X = canvas.width / 2;
 
-            // Фон
             ctx.fillStyle = '#1e293b';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Главная дорога
             ctx.fillStyle = '#334155';
             ctx.fillRect(CENTER_X - MAP_PARAMS.roadWidth / 2, MAP_PARAMS.roadStartY, MAP_PARAMS.roadWidth, canvas.height - MAP_PARAMS.roadStartY);
 
-            // Разделительная линия
             ctx.strokeStyle = '#cbd5e1';
             ctx.lineWidth = 2;
             ctx.setLineDash([12, 12]);
@@ -398,7 +380,6 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Асфальт полукруга
             const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
 
             ctx.beginPath();
@@ -408,13 +389,11 @@
             ctx.lineCap = 'butt';
             ctx.stroke();
 
-            // Внутренний островок газона
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
             ctx.arc(CENTER_X, MAP_PARAMS.platformCenterY, innerRadius, 0, Math.PI);
             ctx.fill();
 
-            // Платформы
             const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
             const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
             const baseCenterAngle = Math.PI * 0.5;
@@ -447,7 +426,6 @@
                 ctx.restore();
             }
 
-            // Здание вокзала
             const stationX = CENTER_X - MAP_PARAMS.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
             ctx.beginPath();
@@ -458,23 +436,6 @@
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
-
-            // Отрисовка видимых точек парковки на платформах
-            paths.in.forEach((p, idx) => {
-                const lastPt = p[p.length - 1];
-                ctx.beginPath();
-                ctx.arc(lastPt[0], lastPt[1], 6, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffffff';
-                ctx.fill();
-                ctx.strokeStyle = '#38bdf8';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.fillStyle = '#38bdf8';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(`П-${idx + 1}`, lastPt[0], lastPt[1] - 9);
-            });
 
             // Отрисовка автобусов
             schedule.forEach(trip => {
@@ -529,7 +490,6 @@
             });
         }
 
-        // Кнопки управления
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
 
         const btnTogglePlay = document.getElementById('btnTogglePlay');
@@ -558,7 +518,6 @@
             requestAnimationFrame(mainLoop);
         }
 
-        // Запуск
         generateSchedule();
         requestAnimationFrame(mainLoop);
     </script>
