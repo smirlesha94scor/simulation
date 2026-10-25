@@ -44,7 +44,7 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
             overflow-y: auto;
         }
 
@@ -59,7 +59,7 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #64748b;
-            margin-top: 6px;
+            margin-top: 4px;
             margin-bottom: 2px;
         }
 
@@ -113,7 +113,7 @@
 
         .table-container {
             flex: 1;
-            max-height: 420px;
+            max-height: 320px;
             overflow-y: auto;
             border: 1px solid #334155;
             border-radius: 6px;
@@ -166,6 +166,20 @@
             border-left: 3px solid #38bdf8;
             line-height: 1.4;
         }
+
+        textarea {
+            width: 100%;
+            height: 90px;
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #38bdf8;
+            font-family: monospace;
+            font-size: 0.72rem;
+            padding: 8px;
+            border-radius: 6px;
+            resize: none;
+            user-select: text;
+        }
     </style>
 </head>
 <body>
@@ -189,15 +203,19 @@
         </div>
 
         <div class="hint-box">
-            • Перетаскивайте мышкой <b>белые точки у платформ</b>, чтобы подгнать точность остановки.<br>
-            • Рейсы 자동으로 удаляются из таблицы после выезда с вокзала.
+            • Интервал между прибытиями (на разные платформы): <b>мин. 10 минут</b>.<br>
+            • Интервал на одной платформе: <b>мин. 30 минут</b>.
         </div>
 
         <div class="btn-row">
-            <button class="btn" id="btnGenerate">Новое расписание</button>
+            <button class="btn" id="btnGenerate">Пересоздать расписание</button>
         </div>
 
-        <div class="section-title">Список рейсов</div>
+        <div class="section-title">Координаты парковок</div>
+        <button class="btn btn-secondary" id="btnCopyCoords">Скопировать координаты платформ</button>
+        <textarea id="coordsOutput" readonly></textarea>
+
+        <div class="section-title">Текущие рейсы</div>
         <div class="table-container">
             <table>
                 <thead>
@@ -261,27 +279,38 @@
         const busColors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6'];
 
         let schedule = [];
-        let gameTimeMinutes = 6 * 60; // Старт в 06:00
+        let gameTimeMinutes = 6 * 60;
         let isPlaying = true;
         let timeSpeed = 1;
 
         let draggingPlatformIdx = null;
 
-        // Генерация расписания без конфликтов
+        const coordsOutputEl = document.getElementById('coordsOutput');
+
+        function updateCoordsDisplay() {
+            let res = "Координаты конечных точек на платформах:\n";
+            paths.in.forEach((p, i) => {
+                const pt = p[p.length - 1];
+                res += `Платформа П-${i + 1}: [${pt[0]}, ${pt[1]}]\n`;
+            });
+            coordsOutputEl.value = res;
+        }
+
+        // Генерация расписания: мин. 30 мин на одной платформе, мин. 10 мин между прибытиями на разные
         function generateSchedule() {
             schedule = [];
-            let currentTime = 6 * 60;
+            let currentTime = Math.floor(gameTimeMinutes);
             let platformFreeTime = [0, 0, 0, 0, 0];
-            let lastArrivalAnyPlatform = -5;
+            let lastArrivalAnyPlatform = currentTime - 10;
 
             for (let i = 1; i <= 14; i++) {
                 let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
                 let dwellTime = Math.floor(Math.random() * 11) + 10; // Стоянка 10-20 мин
 
-                let minArrByPlatform = platformFreeTime[platformIdx] + 10;
-                let minArrByRoad = lastArrivalAnyPlatform + 5;
+                let minArrByPlatform = platformFreeTime[platformIdx] + 30; // 30 минут на одной платформе
+                let minArrByRoad = lastArrivalAnyPlatform + 10;             // 10 минут между прибытиями на разные платформы
 
-                let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad) + Math.floor(Math.random() * 3);
+                let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
                 let departureTime = arrivalTime + dwellTime;
 
                 platformFreeTime[platformIdx] = departureTime;
@@ -298,7 +327,6 @@
                     color: busColors[(i - 1) % busColors.length]
                 });
             }
-            gameTimeMinutes = 5 * 60 + 55;
             renderScheduleTable();
         }
 
@@ -359,13 +387,11 @@
         function updateSimulation(dt) {
             if (!isPlaying) return;
 
-            // 1 игровая минута = 5 секунд реала (при x1)
             gameTimeMinutes += (dt / 1000) * (1 / 5) * timeSpeed;
             if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
 
             document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
 
-            // Автоматическое удаление рейсов после выезда
             const travelDuration = 1.5;
             const initialLength = schedule.length;
             
@@ -465,7 +491,7 @@
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка видимых точек парковки на платформах
+            // Отрисовка точек парковки на платформах
             paths.in.forEach((p, idx) => {
                 const lastPt = p[p.length - 1];
                 ctx.beginPath();
@@ -482,7 +508,7 @@
                 ctx.fillText(`П-${idx + 1}`, lastPt[0], lastPt[1] - 9);
             });
 
-            // Отрисовка активных автобусов
+            // Отрисовка автобусов
             schedule.forEach(trip => {
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
                 const pIdx = trip.platform;
@@ -560,6 +586,7 @@
                 const lastInIndex = paths.in[draggingPlatformIdx].length - 1;
                 paths.in[draggingPlatformIdx][lastInIndex] = [mouseX, mouseY];
                 paths.out[draggingPlatformIdx][0] = [mouseX, mouseY];
+                updateCoordsDisplay();
             }
         });
 
@@ -569,6 +596,12 @@
 
         // Кнопки управления
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
+
+        document.getElementById('btnCopyCoords').addEventListener('click', () => {
+            coordsOutputEl.select();
+            navigator.clipboard.writeText(coordsOutputEl.value);
+            alert('Координаты платформ скопированы в буфер обмена!');
+        });
 
         const btnTogglePlay = document.getElementById('btnTogglePlay');
         btnTogglePlay.addEventListener('click', () => {
@@ -597,6 +630,7 @@
         }
 
         // Запуск
+        updateCoordsDisplay();
         generateSchedule();
         requestAnimationFrame(mainLoop);
     </script>
