@@ -34,7 +34,6 @@
             background-color: #1e293b;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 12px;
-            cursor: pointer;
         }
 
         #sidebar {
@@ -113,7 +112,7 @@
 
         .table-container {
             flex: 1;
-            max-height: 380px;
+            max-height: 520px;
             overflow-y: auto;
             border: 1px solid #334155;
             border-radius: 6px;
@@ -156,20 +155,6 @@
             font-weight: bold;
             font-size: 0.75rem;
         }
-
-        textarea {
-            width: 100%;
-            height: 85px;
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: #38bdf8;
-            font-family: monospace;
-            font-size: 0.72rem;
-            padding: 8px;
-            border-radius: 6px;
-            resize: none;
-            user-select: text;
-        }
     </style>
 </head>
 <body>
@@ -195,10 +180,6 @@
         <div class="btn-row">
             <button class="btn" id="btnGenerate">Обновить расписание</button>
         </div>
-
-        <div class="section-title">Точки П-4 и П-5</div>
-        <button class="btn btn-secondary" id="btnCopyCoords">Скопировать точки П-4 и П-5</button>
-        <textarea id="coordsOutput" readonly></textarea>
 
         <div class="section-title">Текущие рейсы</div>
         <div class="table-container">
@@ -243,7 +224,7 @@
             ]
         };
 
-        // Точные точки парковки с учетом новых координат для П-4 и П-5
+        // Точные сохраненные координаты путей
         const paths = {
             in: [
                 [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [693, 138]],          // П-1
@@ -268,33 +249,27 @@
         let isPlaying = true;
         let timeSpeed = 1;
 
-        let draggingPoint = null;
-
-        const coordsOutputEl = document.getElementById('coordsOutput');
-
-        function updateCoordsDisplay() {
-            let res = "Координаты точек П-4 и П-5:\n";
-            [3, 4].forEach(pIdx => {
-                const pathIn = paths.in[pIdx];
-                const prevPt = pathIn[pathIn.length - 2];
-                const lastPt = pathIn[pathIn.length - 1];
-                res += `П-${pIdx + 1}: Предпоследняя [${prevPt[0]}, ${prevPt[1]}], Финиш [${lastPt[0]}, ${lastPt[1]}]\n`;
-            });
-            coordsOutputEl.value = res;
-        }
-
+        // Генерация расписания без подряд идущих платформ
         function generateSchedule() {
             schedule = [];
             let currentTime = Math.floor(gameTimeMinutes);
             let platformFreeTime = [0, 0, 0, 0, 0];
             let lastArrivalAnyPlatform = currentTime - 10;
+            let lastUsedPlatform = -1;
 
             for (let i = 1; i <= 14; i++) {
-                let platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
-                let dwellTime = Math.floor(Math.random() * 11) + 10;
+                let platformIdx;
+                // Исключаем повторение платформы подряд
+                do {
+                    platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
+                } while (platformIdx === lastUsedPlatform);
 
-                let minArrByPlatform = platformFreeTime[platformIdx] + 30;
-                let randomRoadGap = Math.floor(Math.random() * 11) + 5; 
+                lastUsedPlatform = platformIdx;
+
+                let dwellTime = Math.floor(Math.random() * 11) + 10; // Стоянка 10-20 мин
+
+                let minArrByPlatform = platformFreeTime[platformIdx] + 30; // Мин. 30 мин на той же платформе
+                let randomRoadGap = Math.floor(Math.random() * 11) + 5;    // От 5 до 15 мин между разными платформой
                 let minArrByRoad = lastArrivalAnyPlatform + randomRoadGap;
 
                 let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
@@ -471,30 +446,7 @@
             ctx.textAlign = 'center';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
 
-            // Отрисовка двух последних точек въезда для П-4 и П-5 для наглядности
-            [3, 4].forEach(pIdx => {
-                const pathIn = paths.in[pIdx];
-                const lastTwo = [pathIn.length - 2, pathIn.length - 1];
-
-                lastTwo.forEach(ptIdx => {
-                    const pt = pathIn[ptIdx];
-                    ctx.beginPath();
-                    ctx.arc(pt[0], pt[1], 6, 0, Math.PI * 2);
-                    ctx.fillStyle = ptIdx === pathIn.length - 1 ? '#ffffff' : '#f59e0b';
-                    ctx.fill();
-                    ctx.strokeStyle = '#38bdf8';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#38bdf8';
-                    ctx.font = 'bold 10px sans-serif';
-                    ctx.textAlign = 'center';
-                    const label = ptIdx === pathIn.length - 1 ? `П-${pIdx + 1}` : `П-${pIdx + 1} (пред.)`;
-                    ctx.fillText(label, pt[0], pt[1] - 9);
-                });
-            });
-
-            // Отрисовка автобусов
+            // Отрисовка активных автобусов
             schedule.forEach(trip => {
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
                 const pIdx = trip.platform;
@@ -547,53 +499,7 @@
             });
         }
 
-        // Перетаскивание точек для платформ 4 и 5 мышкой
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            [3, 4].forEach(pIdx => {
-                const pathIn = paths.in[pIdx];
-                const lastTwo = [pathIn.length - 2, pathIn.length - 1];
-
-                lastTwo.forEach(ptIdx => {
-                    const pt = pathIn[ptIdx];
-                    const dist = Math.hypot(pt[0] - mouseX, pt[1] - mouseY);
-                    if (dist <= 12) {
-                        draggingPoint = { pIdx, ptIdx };
-                    }
-                });
-            });
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (draggingPoint) {
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = Math.round(e.clientX - rect.left);
-                const mouseY = Math.round(e.clientY - rect.top);
-
-                const { pIdx, ptIdx } = draggingPoint;
-                paths.in[pIdx][ptIdx] = [mouseX, mouseY];
-
-                if (ptIdx === paths.in[pIdx].length - 1) {
-                    paths.out[pIdx][0] = [mouseX, mouseY];
-                }
-                updateCoordsDisplay();
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            draggingPoint = null;
-        });
-
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
-
-        document.getElementById('btnCopyCoords').addEventListener('click', () => {
-            coordsOutputEl.select();
-            navigator.clipboard.writeText(coordsOutputEl.value);
-            alert('Координаты точек П-4 и П-5 скопированы в буфер обмена!');
-        });
 
         const btnTogglePlay = document.getElementById('btnTogglePlay');
         btnTogglePlay.addEventListener('click', () => {
@@ -621,7 +527,6 @@
             requestAnimationFrame(mainLoop);
         }
 
-        updateCoordsDisplay();
         generateSchedule();
         requestAnimationFrame(mainLoop);
     </script>
