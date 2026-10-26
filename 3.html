@@ -264,11 +264,30 @@
         let isPlaying = true;
         let timeSpeed = 1;
 
-        // Координаты зон вокзала
-        const TOP_ENTRANCE = { x: 450, y: 58 };                 // Верхний вход (город)
-        const TICKET_BOX = { x: 450, y: 85 };                    // Касса
-        const WAITING_AREA = { x: 410, y: 110 };                 // Зал ожидания
-        const BOTTOM_EXIT = { x: 450, y: 58 + 117 };             // Нижний выход к перронам (Y = 175)
+        const TOP_ENTRANCE = { x: 450, y: 58 };
+        const TICKET_BOX = { x: 450, y: 85 };
+        const WAITING_AREA = { x: 410, y: 110 };
+        const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
+
+        // Точные расчетные координаты центров платформ для ожидания пассажиров
+        function getPlatformCoords(idx) {
+            const CENTER_X = canvas.width / 2;
+            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
+            const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
+            const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
+            const baseCenterAngle = Math.PI * 0.5;
+            const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
+            const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
+
+            let angle = startAngle + (idx / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
+            const custom = MAP_PARAMS.platforms[idx];
+            const placementRadius = innerRadius + custom.offset;
+
+            return {
+                x: CENTER_X + Math.cos(angle) * placementRadius,
+                y: MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius
+            };
+        }
 
         function generateSchedule() {
             schedule = [];
@@ -321,7 +340,6 @@
                         arrivalTime: trip.arrivalTime,
                         isAdvanceBuyer: isAdvanceBuyer,
                         state: isAdvanceBuyer ? 'buying_advance' : 'waiting_in_hall',
-                        // Появление СВЕРХУ над вокзалом
                         x: TOP_ENTRANCE.x + (Math.random() * 40 - 20),
                         y: TOP_ENTRANCE.y - 35 - (Math.random() * 20),
                         targetX: TICKET_BOX.x + (Math.random() * 30 - 15),
@@ -391,7 +409,7 @@
 
             document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
 
-            // Проверка объявления диктора за 10 минут до прибытия
+            // Объявление за 10 минут до прибытия
             schedule.forEach(trip => {
                 let timeUntilArrival = trip.arrivalTime - gameTimeMinutes;
 
@@ -399,33 +417,32 @@
                     trip.announced = true;
                     playAnnouncement(`Внимание! Рейс ${trip.busName} прибывает на платформу №${trip.platform + 1} через 10 минут. Просим пассажиров пройти на посадку.`);
 
-                    // Пассажиры в зале ожидания выходят СНИЗУ здания и идут к платформе
+                    // Пассажиры выходят ТОЛЬКО ПОСЛЕ объявления
                     passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall').forEach(p => {
                         p.state = 'leaving_building_bottom';
-                        p.targetX = BOTTOM_EXIT.x + (Math.random() * 30 - 15);
+                        p.targetX = BOTTOM_EXIT.x + (Math.random() * 20 - 10);
                         p.targetY = BOTTOM_EXIT.y + 10;
                     });
                 }
             });
 
-            // Заранее купившие пассажиры приходят за 15 минут
+            // Купившие билет заранее приходят за 15 минут
             passengers.forEach(p => {
                 if (p.isAdvanceBuyer && p.state === 'waiting_at_home') {
                     if (p.arrivalTime - gameTimeMinutes <= 15) {
                         p.state = 'leaving_building_bottom';
                         p.x = TOP_ENTRANCE.x + (Math.random() * 20 - 10);
                         p.y = TOP_ENTRANCE.y - 20;
-                        p.targetX = BOTTOM_EXIT.x + (Math.random() * 30 - 15);
+                        p.targetX = BOTTOM_EXIT.x + (Math.random() * 20 - 10);
                         p.targetY = BOTTOM_EXIT.y + 10;
                     }
                 }
             });
 
-            // Движение пассажиров по этапам
+            // Движение пассажиров
             passengers.forEach(p => {
                 if (p.state === 'buying_advance') {
                     if (moveTowards(p, p.targetX, p.targetY)) {
-                        // Купил билет на завтра -> возвращается Наверх (домой)
                         p.state = 'going_home';
                         p.targetX = TOP_ENTRANCE.x + (Math.random() * 20 - 10);
                         p.targetY = TOP_ENTRANCE.y - 40;
@@ -445,17 +462,18 @@
                     moveTowards(p, p.targetX, p.targetY);
                 }
                 else if (p.state === 'leaving_building_bottom') {
-                    // Выходят снизу вокзала и направляются к платформе
                     if (moveTowards(p, p.targetX, p.targetY)) {
-                        p.state = 'heading_to_platform';
-                        const platPt = paths.in[p.platform][paths.in[p.platform].length - 1];
-                        p.targetX = platPt[0] + (Math.random() * 16 - 8);
-                        p.targetY = platPt[1] + (Math.random() * 16 - 8);
+                        p.state = 'waiting_on_platform_crowd';
+                        // Плотная толпа прямо на посадочной площадке платформы (зеленом островке)
+                        const platPos = getPlatformCoords(p.platform);
+                        p.targetX = platPos.x + (Math.random() * 12 - 6);
+                        p.targetY = platPos.y + (Math.random() * 12 - 6);
                     }
                 }
-                else if (p.state === 'heading_to_platform') {
+                else if (p.state === 'waiting_on_platform_crowd') {
                     moveTowards(p, p.targetX, p.targetY);
 
+                    // Когда автобус припарковался у платформы, заходят внутрь
                     let trip = schedule.find(s => s.id === p.tripId);
                     if (trip && gameTimeMinutes >= trip.arrivalTime && gameTimeMinutes <= trip.departureTime) {
                         p.state = 'boarding';
@@ -549,7 +567,7 @@
             ctx.arc(CENTER_X, MAP_PARAMS.platformCenterY, innerRadius, 0, Math.PI);
             ctx.fill();
 
-            // Отрисовка платформ
+            // Платформы
             const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
             const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
             const baseCenterAngle = Math.PI * 0.5;
@@ -582,14 +600,13 @@
                 ctx.restore();
             }
 
-            // Здание вокзала
+            // Вокзал
             const stationX = CENTER_X - MAP_PARAMS.stationWidth / 2;
             ctx.fillStyle = '#0284c7';
             ctx.beginPath();
             ctx.roundRect(stationX, MAP_PARAMS.stationY, MAP_PARAMS.stationWidth, MAP_PARAMS.stationHeight, 10);
             ctx.fill();
 
-            // Внутренние зоны вокзала
             ctx.fillStyle = '#0369a1';
             ctx.fillRect(TICKET_BOX.x - 20, TICKET_BOX.y - 12, 40, 10);
             ctx.fillStyle = '#ffffff';
@@ -606,7 +623,7 @@
             ctx.font = 'bold 14px sans-serif';
             ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight - 10);
 
-            // Отрисовка пассажиров
+            // Пассажиры
             passengers.forEach(p => {
                 if (p.state !== 'done' && p.state !== 'waiting_at_home') {
                     ctx.beginPath();
@@ -619,7 +636,7 @@
                 }
             });
 
-            // Отрисовка автобусов
+            // Автобусы
             schedule.forEach(trip => {
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
                 const pIdx = trip.platform;
