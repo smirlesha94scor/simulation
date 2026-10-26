@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала</title>
+    <title>Симуляция Автовокзала с Пассажирами</title>
     <style>
         * {
             box-sizing: border-box;
@@ -37,7 +37,7 @@
         }
 
         #sidebar {
-            width: 380px;
+            width: 440px;
             background-color: #0f172a;
             border-left: 1px solid #334155;
             padding: 20px;
@@ -79,6 +79,17 @@
             font-family: monospace;
         }
 
+        .announcement-banner {
+            background-color: #f59e0b;
+            color: #0f172a;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: none;
+            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
+        }
+
         .btn-row {
             display: flex;
             gap: 8px;
@@ -112,7 +123,7 @@
 
         .table-container {
             flex: 1;
-            max-height: 520px;
+            max-height: 460px;
             overflow-y: auto;
             border: 1px solid #334155;
             border-radius: 6px;
@@ -122,14 +133,14 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             text-align: left;
         }
 
         th {
             background-color: #0f172a;
             color: #38bdf8;
-            padding: 8px 10px;
+            padding: 8px 8px;
             position: sticky;
             top: 0;
             border-bottom: 1px solid #334155;
@@ -137,7 +148,7 @@
         }
 
         td {
-            padding: 7px 10px;
+            padding: 7px 8px;
             border-bottom: 1px solid #334155;
             color: #cbd5e1;
         }
@@ -150,10 +161,10 @@
         .platform-badge {
             background-color: #22c55e;
             color: #0f172a;
-            padding: 2px 6px;
+            padding: 2px 5px;
             border-radius: 4px;
             font-weight: bold;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
         }
     </style>
 </head>
@@ -164,7 +175,7 @@
     </div>
 
     <div id="sidebar">
-        <h2>Симуляция по Расписанию</h2>
+        <h2>Автовокзал — Живое Табло</h2>
 
         <div class="clock-box">
             <div>
@@ -177,16 +188,20 @@
             </div>
         </div>
 
+        <div id="announcerBox" class="announcement-banner">
+            📢 <span id="announcerText">Внимание! Объявляется посадка...</span>
+        </div>
+
         <div class="btn-row">
             <button class="btn" id="btnGenerate">Обновить расписание</button>
         </div>
 
-        <div class="section-title">Текущие рейсы</div>
+        <div class="section-title">Табло рейсов</div>
         <div class="table-container">
             <table>
                 <thead>
                     <tr>
-                        <th>Рейс</th>
+                        <th>Рейс / Направление</th>
                         <th>Платф.</th>
                         <th>Прибытие</th>
                         <th>Стоянка</th>
@@ -202,7 +217,6 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Геометрия карты
         const MAP_PARAMS = {
             roadWidth: 98,
             roadStartY: 398,
@@ -224,34 +238,39 @@
             ]
         };
 
-        // Точные сохраненные координаты путей
         const paths = {
             in: [
-                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [693, 138]],          // П-1
-                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [595, 257]],                   // П-2
-                [[474, 692], [473, 400], [458, 366], [450, 305]],                                           // П-3
-                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304], [306, 256]],       // П-4
-                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221], [207, 139]] // П-5
+                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [693, 138]],
+                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [594, 252]],
+                [[474, 692], [473, 400], [458, 366], [450, 293]],
+                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304], [306, 256]],
+                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221], [207, 139]]
             ],
             out: [
                 [[693, 138], [691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
-                [[595, 257], [592, 303], [564, 319], [527, 333], [479, 344], [426, 349], [423, 692]],
-                [[450, 305], [451, 346], [425, 381], [423, 691]],
+                [[594, 252], [592, 303], [564, 319], [527, 333], [479, 344], [426, 349], [423, 692]],
+                [[450, 293], [451, 346], [425, 381], [423, 691]],
                 [[306, 256], [311, 353], [352, 370], [425, 387], [427, 692]],
                 [[207, 139], [217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
             ]
         };
 
         const busColors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6'];
+        const destinations = ["№502 Областной центр", "№124 Заречное", "№310 Пригородное", "№715 Северный", "№208 Мельницы", "№441 Каменка", "№112 Степное", "№630 Южный", "№225 Лесное"];
 
         let schedule = [];
+        let passengers = [];
         let gameTimeMinutes = 6 * 60;
         let isPlaying = true;
         let timeSpeed = 1;
 
-        // Генерация расписания без подряд идущих платформ
+        const TICKET_BOX = { x: 450, y: 115 };
+        const WAITING_AREA = { x: 410, y: 100 };
+        const ENTRANCE = { x: 450, y: 170 };
+
         function generateSchedule() {
             schedule = [];
+            passengers = [];
             let currentTime = Math.floor(gameTimeMinutes);
             let platformFreeTime = [0, 0, 0, 0, 0];
             let lastArrivalAnyPlatform = currentTime - 10;
@@ -259,17 +278,15 @@
 
             for (let i = 1; i <= 14; i++) {
                 let platformIdx;
-                // Исключаем повторение платформы подряд
                 do {
                     platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
                 } while (platformIdx === lastUsedPlatform);
 
                 lastUsedPlatform = platformIdx;
 
-                let dwellTime = Math.floor(Math.random() * 11) + 10; // Стоянка 10-20 мин
-
-                let minArrByPlatform = platformFreeTime[platformIdx] + 30; // Мин. 30 мин на той же платформе
-                let randomRoadGap = Math.floor(Math.random() * 11) + 5;    // От 5 до 15 мин между разными платформой
+                let dwellTime = Math.floor(Math.random() * 11) + 10;
+                let minArrByPlatform = platformFreeTime[platformIdx] + 30;
+                let randomRoadGap = Math.floor(Math.random() * 11) + 5; 
                 let minArrByRoad = lastArrivalAnyPlatform + randomRoadGap;
 
                 let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
@@ -279,15 +296,37 @@
                 lastArrivalAnyPlatform = arrivalTime;
                 currentTime = arrivalTime;
 
-                schedule.push({
+                let trip = {
                     id: Date.now() + i,
-                    busName: `Рейс ${100 + i * 7}`,
+                    busName: destinations[Math.floor(Math.random() * destinations.length)],
                     platform: platformIdx,
                     arrivalTime: arrivalTime,
                     dwellTime: dwellTime,
                     departureTime: departureTime,
-                    color: busColors[(i - 1) % busColors.length]
-                });
+                    color: busColors[(i - 1) % busColors.length],
+                    announced: false
+                };
+
+                schedule.push(trip);
+
+                let passCount = Math.floor(Math.random() * 3) + 3;
+                for (let p = 0; p < passCount; p++) {
+                    let isAdvanceBuyer = Math.random() < 0.35;
+                    passengers.push({
+                        id: `p_${trip.id}_${p}`,
+                        tripId: trip.id,
+                        platform: trip.platform,
+                        arrivalTime: trip.arrivalTime,
+                        isAdvanceBuyer: isAdvanceBuyer,
+                        state: isAdvanceBuyer ? 'buying_advance' : 'waiting_in_hall',
+                        x: ENTRANCE.x + (Math.random() * 20 - 10),
+                        y: 700 + (Math.random() * 40),
+                        targetX: TICKET_BOX.x + (Math.random() * 30 - 15),
+                        targetY: TICKET_BOX.y + (Math.random() * 10 - 5),
+                        speed: 1.2 + Math.random() * 0.5,
+                        color: ['#e2e8f0', '#f43f5e', '#a855f7', '#06b6d4', '#f97316'][p % 5]
+                    });
+                }
             }
             renderScheduleTable();
         }
@@ -296,6 +335,17 @@
             const hrs = Math.floor(totalMinutes / 60) % 24;
             const mins = Math.floor(totalMinutes % 60);
             return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        }
+
+        function play Announcement(text) {
+            const announcerBox = document.getElementById('announcerBox');
+            const announcerText = document.getElementById('announcerText');
+            announcerText.textContent = text;
+            announcerBox.style.display = 'block';
+
+            setTimeout(() => {
+                announcerBox.style.display = 'none';
+            }, 6000);
         }
 
         function renderScheduleTable() {
@@ -314,6 +364,110 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function moveTowards(p, tx, ty) {
+            let dx = tx - p.x;
+            let dy = ty - p.y;
+            let dist = Math.hypot(dx, dy);
+            if (dist < p.speed) {
+                p.x = tx;
+                p.y = ty;
+                return true;
+            }
+            p.x += (dx / dist) * p.speed;
+            p.y += (dy / dist) * p.speed;
+            return false;
+        }
+
+        function updateSimulation(dt) {
+            if (!isPlaying) return;
+
+            gameTimeMinutes += (dt / 1000) * (1 / 5) * timeSpeed;
+            if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
+
+            document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
+
+            schedule.forEach(trip => {
+                let timeUntilArrival = trip.arrivalTime - gameTimeMinutes;
+
+                if (timeUntilArrival <= 10 && timeUntilArrival > 0 && !trip.announced) {
+                    trip.announced = true;
+                    playAnnouncement(`Внимание! Рейс ${trip.busName} прибывает на платформу №${trip.platform + 1} через 10 минут. Просим пассажиров пройти на посадку.`);
+
+                    passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall').forEach(p => {
+                        p.state = 'heading_to_platform';
+                        const platPt = paths.in[p.platform][paths.in[p.platform].length - 1];
+                        p.targetX = platPt[0] + (Math.random() * 16 - 8);
+                        p.targetY = platPt[1] + (Math.random() * 16 - 8);
+                    });
+                }
+            });
+
+            passengers.forEach(p => {
+                if (p.isAdvanceBuyer && p.state === 'waiting_at_home') {
+                    if (p.arrivalTime - gameTimeMinutes <= 15) {
+                        p.state = 'heading_to_platform';
+                        p.x = ENTRANCE.x + (Math.random() * 20 - 10);
+                        p.y = 700;
+                        const platPt = paths.in[p.platform][paths.in[p.platform].length - 1];
+                        p.targetX = platPt[0] + (Math.random() * 16 - 8);
+                        p.targetY = platPt[1] + (Math.random() * 16 - 8);
+                    }
+                }
+            });
+
+            passengers.forEach(p => {
+                if (p.state === 'buying_advance') {
+                    if (moveTowards(p, p.targetX, p.targetY)) {
+                        p.state = 'going_home';
+                        p.targetX = ENTRANCE.x + (Math.random() * 20 - 10);
+                        p.targetY = 720;
+                    }
+                }
+                else if (p.state === 'going_home') {
+                    if (moveTowards(p, p.targetX, p.targetY)) {
+                        p.state = 'waiting_at_home';
+                    }
+                }
+                else if (p.state === 'waiting_in_hall') {
+                    if (!p.hallSeat) {
+                        p.targetX = WAITING_AREA.x + (Math.random() * 60 - 30);
+                        p.targetY = WAITING_AREA.y + (Math.random() * 20 - 10);
+                        p.hallSeat = true;
+                    }
+                    moveTowards(p, p.targetX, p.targetY);
+                }
+                else if (p.state === 'heading_to_platform') {
+                    moveTowards(p, p.targetX, p.targetY);
+
+                    let trip = schedule.find(s => s.id === p.tripId);
+                    if (trip && gameTimeMinutes >= trip.arrivalTime && gameTimeMinutes <= trip.departureTime) {
+                        p.state = 'boarding';
+                    }
+                }
+                else if (p.state === 'boarding') {
+                    let platPt = paths.in[p.platform][paths.in[p.platform].length - 1];
+                    if (moveTowards(p, platPt[0], platPt[1])) {
+                        p.state = 'done';
+                    }
+                }
+            });
+
+            const travelDuration = 1.5;
+            const initialLength = schedule.length;
+            
+            schedule = schedule.filter(trip => {
+                return gameTimeMinutes < trip.departureTime + travelDuration;
+            });
+
+            if (schedule.length !== initialLength) {
+                renderScheduleTable();
+            }
+
+            if (schedule.length === 0) {
+                generateSchedule();
+            }
         }
 
         function getPointOnPath(points, progress) {
@@ -344,31 +498,6 @@
                 currentDist += seg.len;
             }
             return pts[pts.length - 1];
-        }
-
-        function updateSimulation(dt) {
-            if (!isPlaying) return;
-
-            gameTimeMinutes += (dt / 1000) * (1 / 5) * timeSpeed;
-            if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
-
-            document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
-
-            const travelDuration = 1.5;
-            const initialLength = schedule.length;
-            
-            schedule = schedule.filter(trip => {
-                const endDriveOut = trip.departureTime + travelDuration;
-                return gameTimeMinutes < endDriveOut;
-            });
-
-            if (schedule.length !== initialLength) {
-                renderScheduleTable();
-            }
-
-            if (schedule.length === 0) {
-                generateSchedule();
-            }
         }
 
         function drawMap() {
@@ -441,12 +570,34 @@
             ctx.roundRect(stationX, MAP_PARAMS.stationY, MAP_PARAMS.stationWidth, MAP_PARAMS.stationHeight, 10);
             ctx.fill();
 
+            ctx.fillStyle = '#0369a1';
+            ctx.fillRect(TICKET_BOX.x - 20, TICKET_BOX.y - 15, 40, 10);
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 16px sans-serif';
+            ctx.font = 'bold 9px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight / 2 + 6);
+            ctx.fillText('КАССА', TICKET_BOX.x, TICKET_BOX.y - 17);
 
-            // Отрисовка активных автобусов
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(WAITING_AREA.x - 40, WAITING_AREA.y - 10, 80, 20);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('ЗАЛ ОЖИДАНИЯ', WAITING_AREA.x, WAITING_AREA.y + 4);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 15px sans-serif';
+            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight - 12);
+
+            passengers.forEach(p => {
+                if (p.state !== 'done' && p.state !== 'waiting_at_home') {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            });
+
             schedule.forEach(trip => {
                 const rowEl = document.getElementById(`trip-row-${trip.id}`);
                 const pIdx = trip.platform;
