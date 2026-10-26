@@ -264,9 +264,10 @@
         let isPlaying = true;
         let timeSpeed = 1;
 
+        // Координаты важных зон вокзала (главный вход снизу здания: Y = 58 + 117 = 175)
         const TICKET_BOX = { x: 450, y: 115 };
         const WAITING_AREA = { x: 410, y: 100 };
-        const ENTRANCE = { x: 450, y: 170 };
+        const MAIN_ENTRANCE = { x: 450, y: 175 }; // Вход снизу здания
 
         function generateSchedule() {
             schedule = [];
@@ -319,8 +320,9 @@
                         arrivalTime: trip.arrivalTime,
                         isAdvanceBuyer: isAdvanceBuyer,
                         state: isAdvanceBuyer ? 'buying_advance' : 'waiting_in_hall',
-                        x: ENTRANCE.x + (Math.random() * 20 - 10),
-                        y: 700 + (Math.random() * 40),
+                        // Появление пассажиров снизу от главного входа вокзала (на дороге)
+                        x: MAIN_ENTRANCE.x + (Math.random() * 30 - 15),
+                        y: MAIN_ENTRANCE.y + 30 + (Math.random() * 20),
                         targetX: TICKET_BOX.x + (Math.random() * 30 - 15),
                         targetY: TICKET_BOX.y + (Math.random() * 10 - 5),
                         speed: 1.2 + Math.random() * 0.5,
@@ -408,8 +410,8 @@
                 if (p.isAdvanceBuyer && p.state === 'waiting_at_home') {
                     if (p.arrivalTime - gameTimeMinutes <= 15) {
                         p.state = 'heading_to_platform';
-                        p.x = ENTRANCE.x + (Math.random() * 20 - 10);
-                        p.y = 700;
+                        p.x = MAIN_ENTRANCE.x + (Math.random() * 20 - 10);
+                        p.y = MAIN_ENTRANCE.y + 20;
                         const platPt = paths.in[p.platform][paths.in[p.platform].length - 1];
                         p.targetX = platPt[0] + (Math.random() * 16 - 8);
                         p.targetY = platPt[1] + (Math.random() * 16 - 8);
@@ -421,8 +423,8 @@
                 if (p.state === 'buying_advance') {
                     if (moveTowards(p, p.targetX, p.targetY)) {
                         p.state = 'going_home';
-                        p.targetX = ENTRANCE.x + (Math.random() * 20 - 10);
-                        p.targetY = 720;
+                        p.targetX = MAIN_ENTRANCE.x + (Math.random() * 20 - 10);
+                        p.targetY = MAIN_ENTRANCE.y + 40;
                     }
                 }
                 else if (p.state === 'going_home') {
