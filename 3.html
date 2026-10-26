@@ -222,7 +222,7 @@
             roadStartY: 398,
             platformCenterY: 50,
             platformRadius: 315,
-            ringThickness: 76,
+            ringThickness: 105, // Увеличен радиус асфальта вокруг здания
             platformCount: 5,
             arcSpread: 140,
             arcRotation: 0,
@@ -269,13 +269,12 @@
         const WAITING_AREA = { x: 410, y: 110 };
         const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
 
-        // Расчет координат РЯДОМ с платформой (чуть выше/в сторону вокзала от самой платформы)
+        // Расчет координат РЯДОМ с платформой (на асфальтированной дорожке перед платформой, не на зеленой зоне)
         function getPlatformCrowdCoords(idx) {
             const pos = getPlatformCoords(idx);
-            // Смещаем точку ожидания толпы чуть выше (ближе к центру полукруга/вокзалу)
             return {
                 x: pos.x,
-                y: pos.y - 18
+                y: pos.y - 30 // Сдвиг толпы назад на асфальт к вокзалу от зеленой зоны платформы
             };
         }
 
@@ -469,7 +468,7 @@
                 else if (p.state === 'leaving_building_bottom') {
                     if (moveTowards(p, p.targetX, p.targetY)) {
                         p.state = 'waiting_on_platform_crowd';
-                        // Толпа собирается РЯДОМ с платформой (чуть выше её центра)
+                        // Толпа собирается строго РЯДОМ с платформой на асфальте, не на зеленой зоне
                         const crowdPos = getPlatformCrowdCoords(p.platform);
                         p.targetX = crowdPos.x + (Math.random() * 16 - 8);
                         p.targetY = crowdPos.y + (Math.random() * 16 - 8);
