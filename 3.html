@@ -121,6 +121,15 @@
             background-color: #334155;
         }
 
+        .btn-test {
+            background-color: #eab308;
+            color: #0f172a;
+        }
+
+        .btn-test:hover {
+            background-color: #ca8a04;
+        }
+
         .table-container {
             flex: 1;
             max-height: 460px;
@@ -194,6 +203,7 @@
 
         <div class="btn-row">
             <button class="btn" id="btnGenerate">Обновить расписание</button>
+            <button class="btn btn-test" id="btnTestFull">Тест: Все платформы</button>
         </div>
 
         <div class="section-title">Табло рейсов</div>
@@ -221,8 +231,8 @@
             roadWidth: 98,
             roadStartY: 398,
             platformCenterY: 50,
-            platformRadius: 325, // Увеличен радиус полукруга
-            ringThickness: 110,   // Увеличен радиус/толщина асфальта вокруг вокзала
+            platformRadius: 325,
+            ringThickness: 110,
             platformCount: 5,
             arcSpread: 140,
             arcRotation: 0,
@@ -238,14 +248,13 @@
             ]
         };
 
-        // Точно скорректированные траектории: автобусы останавливаются прямо у платформ
         const paths = {
             in: [
-                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [698, 162]],          // П-1
-                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [598, 280]],           // П-2
-                [[474, 692], [473, 400], [458, 366], [450, 328]],                                           // П-3 (исправлена глубина остановки)
-                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304], [302, 280]],       // П-4
-                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221], [202, 162]] // П-5
+                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [698, 162]],
+                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [598, 280]],
+                [[474, 692], [473, 400], [458, 366], [450, 328]],
+                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304], [302, 280]],
+                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221], [202, 162]]
             ],
             out: [
                 [[698, 162], [691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
@@ -360,6 +369,48 @@
             renderScheduleTable();
         }
 
+        // Кнопка теста всех платформ одновременно
+        function runTestAllPlatforms() {
+            schedule = [];
+            passengers = [];
+            let currentTime = Math.floor(gameTimeMinutes);
+
+            for (let i = 0; i < MAP_PARAMS.platformCount; i++) {
+                let trip = {
+                    id: Date.now() + i + 1,
+                    busName: destinations[i % destinations.length],
+                    platform: i,
+                    arrivalTime: currentTime - 2,
+                    dwellTime: 20,
+                    departureTime: currentTime + 18,
+                    color: busColors[i % busColors.length],
+                    announced: true
+                };
+                schedule.push(trip);
+
+                const crowdPos = getPlatformCrowdCoords(i);
+                for (let p = 0; p < 30; p++) {
+                    passengers.push({
+                        id: `test_p_${i}_${p}`,
+                        tripId: trip.id,
+                        platform: i,
+                        arrivalTime: trip.arrivalTime,
+                        isAdvanceBuyer: false,
+                        state: 'waiting_on_platform_crowd',
+                        x: crowdPos.x + (Math.random() * 34 - 17),
+                        y: crowdPos.y + (Math.random() * 34 - 17),
+                        targetX: crowdPos.x + (Math.random() * 34 - 17),
+                        targetY: crowdPos.y + (Math.random() * 34 - 17),
+                        speed: 1.2 + Math.random() * 0.5,
+                        color: ['#e2e8f0', '#f43f5e', '#a855f7', '#06b6d4', '#f97316'][p % 5]
+                    });
+                }
+            }
+
+            playAnnouncement("ТЕСТ: На всех 5 платформах стоят автобусы, возле платформ находятся по 30 пассажиров!");
+            renderScheduleTable();
+        }
+
         function formatTime(totalMinutes) {
             const hrs = Math.floor(totalMinutes / 60) % 24;
             const mins = Math.floor(totalMinutes % 60);
@@ -469,8 +520,8 @@
                     if (moveTowards(p, p.targetX, p.targetY)) {
                         p.state = 'waiting_on_platform_crowd';
                         const crowdPos = getPlatformCrowdCoords(p.platform);
-                        p.targetX = crowdPos.x + (Math.random() * 16 - 8);
-                        p.targetY = crowdPos.y + (Math.random() * 16 - 8);
+                        p.targetX = crowdPos.x + (Math.random() * 24 - 12);
+                        p.targetY = crowdPos.y + (Math.random() * 24 - 12);
                     }
                 }
                 else if (p.state === 'waiting_on_platform_crowd') {
@@ -686,6 +737,7 @@
         }
 
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
+        document.getElementById('btnTestFull').addEventListener('click', runTestAllPlatforms);
 
         const btnTogglePlay = document.getElementById('btnTogglePlay');
         btnTogglePlay.addEventListener('click', () => {
