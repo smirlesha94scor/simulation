@@ -248,7 +248,6 @@
             ]
         };
 
-        // Траектории движения (без последнего статичного фрагмента, так как остановка вычисляется динамически)
         const pathRoutes = {
             in: [
                 [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281]],
@@ -280,7 +279,6 @@
         const WAITING_AREA = { x: 410, y: 110 };
         const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
 
-        // Точное вычисление координат и угла платформы
         function getPlatformCoords(idx) {
             const CENTER_X = canvas.width / 2;
             const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
@@ -297,15 +295,27 @@
             return {
                 x: CENTER_X + Math.cos(angle) * placementRadius,
                 y: MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius,
-                customAngleRad: (custom.angle * Math.PI) / 180
+                customAngleRad: (custom.angle * Math.PI) / 180,
+                angle: angle
             };
         }
 
-        function getPlatformCrowdCoords(idx) {
+        // Генерация распределенной толпы без наложения (сегмент дуги перед платформой)
+        function getDistributedCrowdCoords(idx, personIndex, totalPersons) {
             const pos = getPlatformCoords(idx);
+            // Распределяем 30 человек полукругом с радиусом около 25-35 пикселей вокруг центра платформы со стороны вокзала
+            const spreadRadius = 28 + (personIndex % 3) * 6; // Несколько рядов в глубину
+            const angleOffset = (personIndex / totalPersons - 0.5) * 0.7; // Дуга разброса в радианах
+            const crowdAngle = pos.angle + angleOffset;
+
+            const CENTER_X = canvas.width / 2;
+            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
+            const custom = MAP_PARAMS.platforms[idx];
+            const baseRadius = innerRadius + custom.offset - spreadRadius;
+
             return {
-                x: pos.x,
-                y: pos.y - 35
+                x: CENTER_X + Math.cos(crowdAngle) * baseRadius + (Math.random() * 6 - 3),
+                y: MAP_PARAMS.platformCenterY + Math.sin(crowdAngle) * baseRadius + (Math.random() * 6 - 3)
             };
         }
 
@@ -390,8 +400,9 @@
                 };
                 schedule.push(trip);
 
-                const crowdPos = getPlatformCrowdCoords(i);
+                // Ровно 30 пассажиров распределяются по индивидуальным точкам без наложения
                 for (let p = 0; p < 30; p++) {
+                    const crowdPos = getDistributedCrowdCoords(i, p, 30);
                     passengers.push({
                         id: `test_p_${i}_${p}`,
                         tripId: trip.id,
@@ -399,17 +410,17 @@
                         arrivalTime: trip.arrivalTime,
                         isAdvanceBuyer: false,
                         state: 'waiting_on_platform_crowd',
-                        x: crowdPos.x + (Math.random() * 34 - 17),
-                        y: crowdPos.y + (Math.random() * 34 - 17),
-                        targetX: crowdPos.x + (Math.random() * 34 - 17),
-                        targetY: crowdPos.y + (Math.random() * 34 - 17),
+                        x: crowdPos.x,
+                        y: crowdPos.y,
+                        targetX: crowdPos.x,
+                        targetY: crowdPos.y,
                         speed: 1.2 + Math.random() * 0.5,
                         color: ['#e2e8f0', '#f43f5e', '#a855f7', '#06b6d4', '#f97316'][p % 5]
                     });
                 }
             }
 
-            playAnnouncement("ТЕСТ: На всех 5 платформах стоят автобусы, возле платформ находятся по 30 пассажиров!");
+            playAnnouncement("ТЕСТ: На всех 5 платформах стоят автобусы, возле платформ стоят по 30 пассажиров в рассыпную!");
             renderScheduleTable();
         }
 
@@ -477,10 +488,12 @@
                     trip.announced = true;
                     playAnnouncement(`Внимание! Рейс ${trip.busName} прибывает на платформу №${trip.platform + 1} через 10 минут. Просим пассажиров пройти на посадку.`);
 
-                    passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall').forEach(p => {
+                    let hallPassengers = passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall');
+                    hallPassengers.forEach((p, idx) => {
                         p.state = 'leaving_building_bottom';
-                        p.targetX = BOTTOM_EXIT.x + (Math.random() * 20 - 10);
-                        p.targetY = BOTTOM_EXIT.y + 10;
+                        const crowdPos = getDistributedCrowdCoords(p.platform, idx, Math.max(1, hallPassengers.length));
+                        p.targetX = crowdPos.x;
+                        p.targetY = crowdPos.y;
                     });
                 }
             });
@@ -521,9 +534,6 @@
                 else if (p.state === 'leaving_building_bottom') {
                     if (moveTowards(p, p.targetX, p.targetY)) {
                         p.state = 'waiting_on_platform_crowd';
-                        const crowdPos = getPlatformCrowdCoords(p.platform);
-                        p.targetX = crowdPos.x + (Math.random() * 24 - 12);
-                        p.targetY = crowdPos.y + (Math.random() * 24 - 12);
                     }
                 }
                 else if (p.state === 'waiting_on_platform_crowd') {
@@ -706,7 +716,7 @@
                         let progress = (gameTimeMinutes - startDriveIn) / travelDuration;
                         let inPoints = [...pathRoutes.in[pIdx]];
                         let platInfo = getPlatformCoords(pIdx);
-                        inPoints.push([platInfo.x, platPos.y]);
+                        inPoints.push([platInfo.x, platInfo.y]);
                         busPos = getPointOnPath(inPoints, progress);
                     } 
                     else if (gameTimeMinutes <= depTime) {
@@ -721,7 +731,6 @@
 
                     ctx.save();
                     if (isParked) {
-                        // Точное совпадение позиционирования и поворота с платформой
                         let platInfo = getPlatformCoords(pIdx);
                         ctx.translate(platInfo.x, platInfo.y);
                         ctx.rotate(platInfo.customAngleRad);
