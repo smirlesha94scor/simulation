@@ -248,20 +248,21 @@
             ]
         };
 
-        const paths = {
+        // Траектории движения (без последнего статичного фрагмента, так как остановка вычисляется динамически)
+        const pathRoutes = {
             in: [
-                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281], [698, 162]],
-                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307], [598, 280]],
-                [[474, 692], [473, 400], [458, 366], [450, 328]],
-                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304], [302, 280]],
-                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221], [202, 162]]
+                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281]],
+                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307]],
+                [[474, 692], [473, 400], [458, 366]],
+                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304]],
+                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221]]
             ],
             out: [
-                [[698, 162], [691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
-                [[598, 280], [592, 315], [564, 330], [527, 345], [479, 355], [426, 360], [423, 692]],
-                [[450, 328], [451, 360], [425, 390], [423, 691]],
-                [[302, 280], [311, 360], [352, 375], [425, 390], [427, 692]],
-                [[202, 162], [217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
+                [[691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
+                [[592, 315], [564, 330], [527, 345], [479, 355], [426, 360], [423, 692]],
+                [[451, 360], [425, 390], [423, 691]],
+                [[311, 360], [352, 375], [425, 390], [427, 692]],
+                [[217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
             ]
         };
 
@@ -279,14 +280,7 @@
         const WAITING_AREA = { x: 410, y: 110 };
         const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
 
-        function getPlatformCrowdCoords(idx) {
-            const pos = getPlatformCoords(idx);
-            return {
-                x: pos.x,
-                y: pos.y - 35
-            };
-        }
-
+        // Точное вычисление координат и угла платформы
         function getPlatformCoords(idx) {
             const CENTER_X = canvas.width / 2;
             const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
@@ -302,7 +296,16 @@
 
             return {
                 x: CENTER_X + Math.cos(angle) * placementRadius,
-                y: MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius
+                y: MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius,
+                customAngleRad: (custom.angle * Math.PI) / 180
+            };
+        }
+
+        function getPlatformCrowdCoords(idx) {
+            const pos = getPlatformCoords(idx);
+            return {
+                x: pos.x,
+                y: pos.y - 35
             };
         }
 
@@ -369,7 +372,6 @@
             renderScheduleTable();
         }
 
-        // Кнопка теста всех платформ одновременно
         function runTestAllPlatforms() {
             schedule = [];
             passengers = [];
@@ -533,8 +535,8 @@
                     }
                 }
                 else if (p.state === 'boarding') {
-                    let platPt = paths.in[p.platform][paths.in[p.platform].length - 1];
-                    if (moveTowards(p, platPt[0], platPt[1])) {
+                    let platPos = getPlatformCoords(p.platform);
+                    if (moveTowards(p, platPos.x, platPos.y)) {
                         p.state = 'done';
                     }
                 }
@@ -698,38 +700,48 @@
                     if (rowEl) rowEl.classList.add('active-trip');
 
                     let busPos = null;
-                    let angleOffset = Math.PI / 2;
+                    let isParked = false;
 
                     if (gameTimeMinutes < arrTime) {
                         let progress = (gameTimeMinutes - startDriveIn) / travelDuration;
-                        busPos = getPointOnPath(paths.in[pIdx], progress);
+                        let inPoints = [...pathRoutes.in[pIdx]];
+                        let platInfo = getPlatformCoords(pIdx);
+                        inPoints.push([platInfo.x, platPos.y]);
+                        busPos = getPointOnPath(inPoints, progress);
                     } 
                     else if (gameTimeMinutes <= depTime) {
-                        busPos = getPointOnPath(paths.in[pIdx], 1.0);
+                        isParked = true;
                     } 
                     else {
                         let progress = (gameTimeMinutes - depTime) / travelDuration;
-                        busPos = getPointOnPath(paths.out[pIdx], progress);
+                        let platInfo = getPlatformCoords(pIdx);
+                        let outPoints = [[platInfo.x, platInfo.y], ...pathRoutes.out[pIdx]];
+                        busPos = getPointOnPath(outPoints, progress);
                     }
 
-                    if (busPos) {
-                        ctx.save();
+                    ctx.save();
+                    if (isParked) {
+                        // Точное совпадение позиционирования и поворота с платформой
+                        let platInfo = getPlatformCoords(pIdx);
+                        ctx.translate(platInfo.x, platInfo.y);
+                        ctx.rotate(platInfo.customAngleRad);
+                    } else if (busPos) {
                         ctx.translate(busPos.x, busPos.y);
-                        ctx.rotate(busPos.angle + angleOffset);
-
-                        ctx.fillStyle = trip.color;
-                        ctx.beginPath();
-                        ctx.roundRect(-10, -18, 20, 36, 5);
-                        ctx.fill();
-                        ctx.strokeStyle = '#ffffff';
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillRect(-7, -14, 14, 8);
-
-                        ctx.restore();
+                        ctx.rotate(busPos.angle + Math.PI / 2);
                     }
+
+                    ctx.fillStyle = trip.color;
+                    ctx.beginPath();
+                    ctx.roundRect(-10, -18, 20, 36, 5);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(-7, -14, 14, 8);
+
+                    ctx.restore();
                 } else {
                     if (rowEl) rowEl.classList.remove('active-trip');
                 }
