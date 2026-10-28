@@ -273,6 +273,7 @@
         let gameTimeMinutes = 6 * 60;
         let isPlaying = true;
         let timeSpeed = 1;
+        let isTestMode = false;
 
         const TOP_ENTRANCE = { x: 450, y: 58 };
         const TICKET_BOX = { x: 450, y: 85 };
@@ -300,12 +301,10 @@
             };
         }
 
-        // Генерация распределенной толпы без наложения (сегмент дуги перед платформой)
         function getDistributedCrowdCoords(idx, personIndex, totalPersons) {
             const pos = getPlatformCoords(idx);
-            // Распределяем 30 человек полукругом с радиусом около 25-35 пикселей вокруг центра платформы со стороны вокзала
-            const spreadRadius = 28 + (personIndex % 3) * 6; // Несколько рядов в глубину
-            const angleOffset = (personIndex / totalPersons - 0.5) * 0.7; // Дуга разброса в радианах
+            const spreadRadius = 28 + (personIndex % 3) * 6;
+            const angleOffset = (personIndex / totalPersons - 0.5) * 0.7;
             const crowdAngle = pos.angle + angleOffset;
 
             const CENTER_X = canvas.width / 2;
@@ -320,6 +319,7 @@
         }
 
         function generateSchedule() {
+            isTestMode = false;
             schedule = [];
             passengers = [];
             let currentTime = Math.floor(gameTimeMinutes);
@@ -383,6 +383,7 @@
         }
 
         function runTestAllPlatforms() {
+            isTestMode = true;
             schedule = [];
             passengers = [];
             let currentTime = Math.floor(gameTimeMinutes);
@@ -393,14 +394,13 @@
                     busName: destinations[i % destinations.length],
                     platform: i,
                     arrivalTime: currentTime - 2,
-                    dwellTime: 20,
-                    departureTime: currentTime + 18,
+                    dwellTime: 200, // Автобусы стоят долго
+                    departureTime: currentTime + 200,
                     color: busColors[i % busColors.length],
                     announced: true
                 };
                 schedule.push(trip);
 
-                // Ровно 30 пассажиров распределяются по индивидуальным точкам без наложения
                 for (let p = 0; p < 30; p++) {
                     const crowdPos = getDistributedCrowdCoords(i, p, 30);
                     passengers.push({
@@ -420,7 +420,7 @@
                 }
             }
 
-            playAnnouncement("ТЕСТ: На всех 5 платформах стоят автобусы, возле платформ стоят по 30 пассажиров в рассыпную!");
+            playAnnouncement("ТЕСТ: Все платформы заняты, пассажиры стоят у платформ и НЕ садятся!");
             renderScheduleTable();
         }
 
@@ -481,22 +481,24 @@
 
             document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
 
-            schedule.forEach(trip => {
-                let timeUntilArrival = trip.arrivalTime - gameTimeMinutes;
+            if (!isTestMode) {
+                schedule.forEach(trip => {
+                    let timeUntilArrival = trip.arrivalTime - gameTimeMinutes;
 
-                if (timeUntilArrival <= 10 && timeUntilArrival > 0 && !trip.announced) {
-                    trip.announced = true;
-                    playAnnouncement(`Внимание! Рейс ${trip.busName} прибывает на платформу №${trip.platform + 1} через 10 минут. Просим пассажиров пройти на посадку.`);
+                    if (timeUntilArrival <= 10 && timeUntilArrival > 0 && !trip.announced) {
+                        trip.announced = true;
+                        playAnnouncement(`Внимание! Рейс ${trip.busName} прибывает на платформу №${trip.platform + 1} через 10 минут. Просим пассажиров пройти на посадку.`);
 
-                    let hallPassengers = passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall');
-                    hallPassengers.forEach((p, idx) => {
-                        p.state = 'leaving_building_bottom';
-                        const crowdPos = getDistributedCrowdCoords(p.platform, idx, Math.max(1, hallPassengers.length));
-                        p.targetX = crowdPos.x;
-                        p.targetY = crowdPos.y;
-                    });
-                }
-            });
+                        let hallPassengers = passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall');
+                        hallPassengers.forEach((p, idx) => {
+                            p.state = 'leaving_building_bottom';
+                            const crowdPos = getDistributedCrowdCoords(p.platform, idx, Math.max(1, hallPassengers.length));
+                            p.targetX = crowdPos.x;
+                            p.targetY = crowdPos.y;
+                        });
+                    }
+                });
+            }
 
             passengers.forEach(p => {
                 if (p.isAdvanceBuyer && p.state === 'waiting_at_home') {
@@ -539,9 +541,12 @@
                 else if (p.state === 'waiting_on_platform_crowd') {
                     moveTowards(p, p.targetX, p.targetY);
 
-                    let trip = schedule.find(s => s.id === p.tripId);
-                    if (trip && gameTimeMinutes >= trip.arrivalTime && gameTimeMinutes <= trip.departureTime) {
-                        p.state = 'boarding';
+                    // В тестовом режиме посадка НЕ происходит
+                    if (!isTestMode) {
+                        let trip = schedule.find(s => s.id === p.tripId);
+                        if (trip && gameTimeMinutes >= trip.arrivalTime && gameTimeMinutes <= trip.departureTime) {
+                            p.state = 'boarding';
+                        }
                     }
                 }
                 else if (p.state === 'boarding') {
@@ -563,7 +568,7 @@
                 renderScheduleTable();
             }
 
-            if (schedule.length === 0) {
+            if (schedule.length === 0 && !isTestMode) {
                 generateSchedule();
             }
         }
