@@ -301,20 +301,22 @@
             };
         }
 
+        // Позиционирование пассажиров строго СПРАВА от платформы без наложения
         function getDistributedCrowdCoords(idx, personIndex, totalPersons) {
             const pos = getPlatformCoords(idx);
-            const spreadRadius = 28 + (personIndex % 3) * 6;
-            const angleOffset = (personIndex / totalPersons - 0.5) * 0.7;
-            const crowdAngle = pos.angle + angleOffset;
+            
+            const platAngle = pos.customAngleRad + Math.PI / 2;
+            const rightVectorX = Math.cos(platAngle);
+            const rightVectorY = Math.sin(platAngle);
+            const forwardVectorX = -Math.sin(platAngle);
+            const forwardVectorY = Math.cos(platAngle);
 
-            const CENTER_X = canvas.width / 2;
-            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
-            const custom = MAP_PARAMS.platforms[idx];
-            const baseRadius = innerRadius + custom.offset - spreadRadius;
+            const rowSideOffset = 22 + (personIndex % 3) * 7;
+            const forwardOffset = (Math.floor(personIndex / 3) / (totalPersons / 3) - 0.5) * 40;
 
             return {
-                x: CENTER_X + Math.cos(crowdAngle) * baseRadius + (Math.random() * 6 - 3),
-                y: MAP_PARAMS.platformCenterY + Math.sin(crowdAngle) * baseRadius + (Math.random() * 6 - 3)
+                x: pos.x + rightVectorX * rowSideOffset + forwardVectorX * forwardOffset + (Math.random() * 4 - 2),
+                y: pos.y + rightVectorY * rowSideOffset + forwardVectorY * forwardOffset + (Math.random() * 4 - 2)
             };
         }
 
@@ -394,7 +396,7 @@
                     busName: destinations[i % destinations.length],
                     platform: i,
                     arrivalTime: currentTime - 2,
-                    dwellTime: 200, // Автобусы стоят долго
+                    dwellTime: 200,
                     departureTime: currentTime + 200,
                     color: busColors[i % busColors.length],
                     announced: true
@@ -420,7 +422,7 @@
                 }
             }
 
-            playAnnouncement("ТЕСТ: Все платформы заняты, пассажиры стоят у платформ и НЕ садятся!");
+            playAnnouncement("ТЕСТ: Все платформы заняты, 30 пассажиров стоят СПРАВА от каждой платформы!");
             renderScheduleTable();
         }
 
@@ -541,7 +543,6 @@
                 else if (p.state === 'waiting_on_platform_crowd') {
                     moveTowards(p, p.targetX, p.targetY);
 
-                    // В тестовом режиме посадка НЕ происходит
                     if (!isTestMode) {
                         let trip = schedule.find(s => s.id === p.tripId);
                         if (trip && gameTimeMinutes >= trip.arrivalTime && gameTimeMinutes <= trip.departureTime) {
