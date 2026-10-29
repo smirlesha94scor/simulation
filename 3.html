@@ -185,7 +185,7 @@
             font-size: 0.7rem;
         }
 
-        /* Модальное окно */
+        /* Стили модального окна */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -204,7 +204,7 @@
             background: #1e293b;
             border: 1px solid #334155;
             border-radius: 12px;
-            width: 560px;
+            width: 620px;
             max-width: 95%;
             padding: 20px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
@@ -214,7 +214,7 @@
         }
 
         .modal-header {
-            font-size: 1.05rem;
+            font-size: 1.1rem;
             font-weight: bold;
             color: #38bdf8;
             border-bottom: 1px solid #334155;
@@ -222,12 +222,12 @@
         }
 
         .modal-body {
-            font-size: 0.8rem;
-            line-height: 1.4;
+            font-size: 0.82rem;
+            line-height: 1.45;
             color: #cbd5e1;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
 
         .modal-footer {
@@ -253,7 +253,7 @@
             </div>
             <div style="display: flex; gap: 6px;">
                 <button class="btn" id="btnTogglePlay" style="padding: 6px 12px;">Пауза</button>
-                <button class="btn btn-secondary" id="btnSpeed" style="padding: 6px 10px;">x1</i></button>
+                <button class="btn btn-secondary" id="btnSpeed" style="padding: 6px 10px;">x1</button>
             </div>
         </div>
 
@@ -267,7 +267,7 @@
         </div>
 
         <div class="btn-row">
-            <button class="btn btn-info" id="btnExplainVectors">💡 Графическая схема векторов</button>
+            <button class="btn btn-info" id="btnExplainVectors">📊 Подробная графическая схема векторов</button>
         </div>
 
         <div class="section-title">Табло рейсов</div>
@@ -287,17 +287,19 @@
         </div>
     </div>
 
-    <!-- Модальное окно с графической схемой -->
+    <!-- Модальное окно со схемой векторов -->
     <div class="modal-overlay" id="vectorModal">
         <div class="modal-card">
-            <div class="modal-header">Графический разбор: почему пассажиры уходили вниз?</div>
+            <div class="modal-header">Графический анализ: почему пассажиры уходили вниз</div>
             <div class="modal-body">
-                <p>На схеме ниже показана одна повернутая платформа. Без локальных векторов отступы прибавлялись по мировым осям экрана (вниз по оси Y), из-за чего на полукруге толпа сбивалась на проезжую часть:</p>
-                <!-- Графическая мини-схема -->
-                <div style="background: #0f172a; border-radius: 8px; padding: 10px; display: flex; justify-content: center;">
-                    <canvas id="schemaCanvas" width="480" height="180" style="background:#0f172a; border-radius:4px;"></canvas>
+                <p>На схеме ниже наглядно показано различие между глобальными экранными осями и локальными векторами платформы:</p>
+                
+                <!-- Холст с интерактивной схемой векторов -->
+                <div style="background: #0f172a; border-radius: 8px; padding: 8px; display: flex; justify-content: center;">
+                    <canvas id="detailedSchemaCanvas" width="560" height="230"></canvas>
                 </div>
-                <p><b>Решение:</b> Использование локального базиса <code>rightVector</code> поворачивает смещение вместе с углом платформы, оставляя пассажиров <b>строго с правого бока</b>.</p>
+
+                <p><b>Вывод:</b> Без использования локального базиса смещения умножались на мировую вертикальную ось $Y$ (направленную вниз экрана), из-за чего на полукруге толпа сбивалась на проезжую часть. Локальный вектор $R$ решает эту проблему.</p>
             </div>
             <div class="modal-footer">
                 <button class="btn" id="btnCloseModal">Понятно</button>
@@ -362,85 +364,109 @@
         const WAITING_AREA = { x: 410, y: 110 };
         const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
 
-        // Управление модальным окном
         const modal = document.getElementById('vectorModal');
         document.getElementById('btnExplainVectors').addEventListener('click', () => {
             modal.style.display = 'flex';
-            drawSchema(); // Отрисовка схемы при открытии
+            drawDetailedSchema();
         });
         document.getElementById('btnCloseModal').addEventListener('click', () => {
             modal.style.display = 'none';
         });
 
-        // Функция отрисовки графической схемы в модальном окне
-        function drawSchema() {
-            const sCanvas = document.getElementById('schemaCanvas');
+        // Отрисовка графической схемы внутри модального окна
+        function drawDetailedSchema() {
+            const sCanvas = document.getElementById('detailedSchemaCanvas');
             const sCtx = sCanvas.getContext('2d');
             sCtx.clearRect(0, 0, sCanvas.width, sCanvas.height);
 
-            // Слева: Ошибка (пассажиры снизу по оси Y)
-            sCtx.fillStyle = '#94a3b8';
-            sCtx.font = 'bold 11px sans-serif';
-            sCtx.fillText('❌ ОШИБКА (Смещение по оси Y)', 20, 20);
+            // 1. Левая часть: Ошибка (мировой Y)
+            sCtx.fillStyle = '#f43f5e';
+            sCtx.font = 'bold 12px sans-serif';
+            sCtx.fillText('❌ Ошибка: Мировой вектор Y', 25, 25);
 
-            // Платформа слева
+            sCtx.strokeStyle = '#475569';
+            sCtx.lineWidth = 1;
+            sCtx.setLineDash([4, 4]);
+            sCtx.beginPath();
+            sCtx.moveTo(40, 40); sCtx.lineTo(40, 200);
+            sCtx.stroke();
+            sCtx.setLineDash([]);
+            sCtx.fillStyle = '#64748b';
+            sCtx.font = '10px monospace';
+            sCtx.fillText('Ось Y (+Y вниз)', 45, 50);
+
             sCtx.save();
-            sCtx.translate(110, 90);
-            sCtx.rotate(-0.4); // Наклонная платформа
+            sCtx.translate(140, 110);
+            sCtx.rotate(-0.5);
             sCtx.fillStyle = '#22c55e';
-            sCtx.fillRect(-12, -22, 24, 44);
+            sCtx.fillRect(-16, -30, 32, 60);
+            sCtx.strokeStyle = '#ffffff';
+            sCtx.strokeRect(-16, -30, 32, 60);
+            sCtx.fillStyle = '#ffffff';
+            sCtx.font = 'bold 11px sans-serif';
+            sCtx.fillText('П-5', -10, 4);
             sCtx.restore();
 
-            // Толпа, улетевшая вниз по мировым координатам
-            sCtx.fillStyle = '#f43f5e';
-            for(let i=0; i<5; i++) {
-                sCtx.beginPath();
-                sCtx.arc(110 + i*7, 130, 4, 0, Math.PI*2); // Сбились вниз экрана
-                sCtx.fill();
-            }
-            sCtx.fillStyle = '#f43f5e';
-            sCtx.font = '10px sans-serif';
-            sCtx.fillText('Толпа ушла вниз', 70, 160);
-
-            // Разделительная линия
-            sCtx.strokeStyle = '#334155';
-            sCtx.lineWidth = 1;
-            sCtx.beginPath();
-            sCtx.moveTo(240, 10);
-            sCtx.lineTo(240, 170);
-            sCtx.stroke();
-
-            // Справа: Правильно (строго справа от платформы)
-            sCtx.fillStyle = '#38bdf8';
-            sCtx.font = 'bold 11px sans-serif';
-            sCtx.fillText('✅ ПРАВИЛЬНО (Локальные векторы)', 270, 20);
-
-            sCtx.save();
-            sCtx.translate(350, 90);
-            const theta = -0.4;
-            sCtx.rotate(theta);
-            sCtx.fillStyle = '#22c55e';
-            sCtx.fillRect(-12, -22, 24, 44);
-
-            // Векторные оси право/вперед
-            sCtx.strokeStyle = '#38bdf8';
+            sCtx.strokeStyle = '#f43f5e';
             sCtx.lineWidth = 2;
             sCtx.beginPath();
-            sCtx.moveTo(12, 0); sCtx.lineTo(35, 0); // Вправо
+            sCtx.moveTo(140, 110);
+            sCtx.lineTo(140, 185);
             sCtx.stroke();
 
-            // Пассажиры строго справа от платформы в локальных координатах
-            sCtx.fillStyle = '#38bdf8';
-            for(let i=0; i<5; i++) {
+            sCtx.fillStyle = '#f43f5e';
+            for (let i = 0; i < 4; i++) {
                 sCtx.beginPath();
-                sCtx.arc(24, -15 + i*8, 4, 0, Math.PI*2);
+                sCtx.arc(125 + i * 10, 185, 5, 0, Math.PI * 2);
+                sCtx.fill();
+            }
+            sCtx.fillText('Пассажиры ушли вниз', 75, 205);
+
+            // Разделитель
+            sCtx.strokeStyle = '#334155';
+            sCtx.lineWidth = 1.5;
+            sCtx.beginPath();
+            sCtx.moveTo(280, 15);
+            sCtx.lineTo(280, 215);
+            sCtx.stroke();
+
+            // 2. Правая часть: Правильно (Локальный базис R)
+            sCtx.fillStyle = '#38bdf8';
+            sCtx.font = 'bold 12px sans-serif';
+            sCtx.fillText('✅ Правильно: Локальный базис R', 305, 25);
+
+            sCtx.save();
+            sCtx.translate(410, 110);
+            const theta = -0.5;
+            sCtx.rotate(theta);
+
+            sCtx.fillStyle = '#22c55e';
+            sCtx.fillRect(-16, -30, 32, 60);
+            sCtx.strokeStyle = '#ffffff';
+            sCtx.strokeRect(-16, -30, 32, 60);
+            sCtx.fillStyle = '#ffffff';
+            sCtx.font = 'bold 11px sans-serif';
+            sCtx.fillText('П-5', -10, 4);
+
+            // Вектор R (Вправо)
+            sCtx.strokeStyle = '#38bdf8';
+            sCtx.lineWidth = 2.5;
+            sCtx.beginPath();
+            sCtx.moveTo(0, 0); sCtx.lineTo(45, 0);
+            sCtx.stroke();
+            sCtx.fillStyle = '#38bdf8';
+            sCtx.fillText('Вектор R', 48, 4);
+
+            for (let i = 0; i < 5; i++) {
+                sCtx.beginPath();
+                sCtx.arc(32, -20 + i * 10, 5, 0, Math.PI * 2);
                 sCtx.fill();
             }
             sCtx.restore();
-            
-            sCtx.fillStyle = '#22c55e';
+
+            sCtx.fillStyle = '#38bdf8';
             sCtx.font = '10px sans-serif';
-            sCtx.fillText('Толпа справа с боку', 290, 160);
+            sCtx.fillText('Толпа строго с правого бока', 340, 205);
         }
 
         function getPlatformData(idx) {
@@ -924,10 +950,6 @@
                 }
             });
         }
-
-        document.getElementById('btnCloseModal').addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
 
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
         document.getElementById('btnTestFull').addEventListener('click', runTestAllPlatforms);
