@@ -280,7 +280,7 @@
         const WAITING_AREA = { x: 410, y: 110 };
         const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
 
-        function getPlatformCoords(idx) {
+        function getPlatformData(idx) {
             const CENTER_X = canvas.width / 2;
             const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
             const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
@@ -301,24 +301,37 @@
             };
         }
 
-        // Позиционирование пассажиров строго СПРАВА от платформы без наложения
+        // ==========================================
+        // ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ ВЕКТОРНЫЙ КОД
+        // ==========================================
         function getDistributedCrowdCoords(idx, personIndex, totalPersons) {
-            const pos = getPlatformCoords(idx);
-            
-            const platAngle = pos.customAngleRad + Math.PI / 2;
-            const rightVectorX = Math.cos(platAngle);
-            const rightVectorY = Math.sin(platAngle);
-            const forwardVectorX = -Math.sin(platAngle);
-            const forwardVectorY = Math.cos(platAngle);
+            const pos = getPlatformData(idx);
+            const theta = pos.customAngleRad; // Угол поворота платформы
 
-            const rowSideOffset = 22 + (personIndex % 3) * 7;
-            const forwardOffset = (Math.floor(personIndex / 3) / (totalPersons / 3) - 0.5) * 40;
+            // Базовые векторы ориентации платформы
+            const rightX = Math.cos(theta);
+            const rightY = Math.sin(theta);
+            const forwardX = -Math.sin(theta);
+            const forwardY = Math.cos(theta);
+
+            // Отступы для распределения толпы справа
+            const sideDistance = 22 + (personIndex % 3) * 7;
+            const lengthDistance = ((Math.floor(personIndex / 3) / (totalPersons / 3)) - 0.5) * 38;
+
+            const targetX = pos.x + (rightX * sideDistance) + (forwardX * lengthDistance);
+            const targetY = pos.y + (rightY * sideDistance) + (forwardY * lengthDistance);
+
+            // Временный вывод в консоль для проверки дебага (нажмите F12 в браузере)
+            if (personIndex === 0) {
+                console.log(`[DEBUG] Платформа #${idx + 1}: угол=${theta.toFixed(2)}, центр=(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
+            }
 
             return {
-                x: pos.x + rightVectorX * rowSideOffset + forwardVectorX * forwardOffset + (Math.random() * 4 - 2),
-                y: pos.y + rightVectorY * rowSideOffset + forwardVectorY * forwardOffset + (Math.random() * 4 - 2)
+                x: targetX + (Math.random() * 4 - 2),
+                y: targetY + (Math.random() * 4 - 2)
             };
         }
+        // ==========================================
 
         function generateSchedule() {
             isTestMode = false;
@@ -422,7 +435,7 @@
                 }
             }
 
-            playAnnouncement("ТЕСТ: Все платформы заняты, 30 пассажиров стоят СПРАВА от каждой платформы!");
+            playAnnouncement("ТЕСТ: Все платформы заняты, пассажиры стоят справа с помощью векторов!");
             renderScheduleTable();
         }
 
@@ -551,7 +564,7 @@
                     }
                 }
                 else if (p.state === 'boarding') {
-                    let platPos = getPlatformCoords(p.platform);
+                    let platPos = getPlatformData(p.platform);
                     if (moveTowards(p, platPos.x, platPos.y)) {
                         p.state = 'done';
                     }
@@ -721,7 +734,7 @@
                     if (gameTimeMinutes < arrTime) {
                         let progress = (gameTimeMinutes - startDriveIn) / travelDuration;
                         let inPoints = [...pathRoutes.in[pIdx]];
-                        let platInfo = getPlatformCoords(pIdx);
+                        let platInfo = getPlatformData(pIdx);
                         inPoints.push([platInfo.x, platInfo.y]);
                         busPos = getPointOnPath(inPoints, progress);
                     } 
@@ -730,14 +743,14 @@
                     } 
                     else {
                         let progress = (gameTimeMinutes - depTime) / travelDuration;
-                        let platInfo = getPlatformCoords(pIdx);
+                        let platInfo = getPlatformData(pIdx);
                         let outPoints = [[platInfo.x, platInfo.y], ...pathRoutes.out[pIdx]];
                         busPos = getPointOnPath(outPoints, progress);
                     }
 
                     ctx.save();
                     if (isParked) {
-                        let platInfo = getPlatformCoords(pIdx);
+                        let platInfo = getPlatformData(pIdx);
                         ctx.translate(platInfo.x, platInfo.y);
                         ctx.rotate(platInfo.customAngleRad);
                     } else if (busPos) {
