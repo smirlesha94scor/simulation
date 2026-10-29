@@ -130,6 +130,15 @@
             background-color: #ca8a04;
         }
 
+        .btn-info {
+            background-color: #8b5cf6;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background-color: #7c3aed;
+        }
+
         .table-container {
             flex: 1;
             max-height: 460px;
@@ -175,6 +184,64 @@
             font-weight: bold;
             font-size: 0.7rem;
         }
+
+        /* Модальное окно */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            width: 520px;
+            max-width: 90%;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .modal-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #38bdf8;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+        }
+
+        .modal-body {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .modal-body ul {
+            padding-left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -206,6 +273,10 @@
             <button class="btn btn-test" id="btnTestFull">Тест: Все платформы</button>
         </div>
 
+        <div class="btn-row">
+            <button class="btn btn-info" id="btnExplainVectors">💡 Объяснить смещение векторов</button>
+        </div>
+
         <div class="section-title">Табло рейсов</div>
         <div class="table-container">
             <table>
@@ -223,6 +294,25 @@
         </div>
     </div>
 
+    <!-- Модальное окно с объяснением причин смещения -->
+    <div class="modal-overlay" id="vectorModal">
+        <div class="modal-card">
+            <div class="modal-header">Почему векторный расчет смещал толпу вниз?</div>
+            <div class="modal-body">
+                <p>Главная причина смещения заключалась в разнице между <b>глобальной системой координат Canvas</b> и <b>локальным поворотом каждой платформы</b>:</p>
+                <ul>
+                    <li><b>Разные углы наклона на полукруге:</b> Платформы распределены по дуге, и у каждой из них задан свой угол поворота <code>customAngleRad</code>.</li>
+                    <li><b>Ошибка направления векторов:</b> Вектор «вправо» вычислялся как <code>rightX = cos(theta)</code>, <code>rightY = sin(theta)</code>. При повороте платформы на дуге этот вектор проецировал отступ не строго с бока прямоугольника платформы, а под наклоном к экранной оси Y, из-за чего на боковых платформах пассажиров уносило вниз на проезжую часть.</li>
+                    <li><b>Отсутствие привязки к зелёной зоне:</b> Не учитывалось, что толпа должна стоять исключительно на серых асфальтовых путях со стороны здания вокзала, а не внутри контура самой платформы или дороги.</li>
+                </ul>
+                <p><b>Решение:</b> Мы перешли на локальный базис <code>rightVector</code> и <code>forwardVector</code>, рассчитываемый относительно точного центра и угла каждой конкретной платформы, вынеся толпу строго на её правый фланг.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="btnCloseModal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
@@ -231,8 +321,8 @@
             roadWidth: 98,
             roadStartY: 398,
             platformCenterY: 50,
-            platformRadius: 325,
-            ringThickness: 110,
+            platformRadius: 315,
+            ringThickness: 105, // Радиус асфальта вокруг здания
             platformCount: 5,
             arcSpread: 140,
             arcRotation: 0,
@@ -301,37 +391,33 @@
             };
         }
 
-        // ==========================================
-        // ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ ВЕКТОРНЫЙ КОД
-        // ==========================================
+        // Векторный расчет координат рассыпанных пассажиров строго справа от платформы без нахождения на зеленой платформе
         function getDistributedCrowdCoords(idx, personIndex, totalPersons) {
             const pos = getPlatformData(idx);
-            const theta = pos.customAngleRad; // Угол поворота платформы
+            const theta = pos.customAngleRad;
 
-            // Базовые векторы ориентации платформы
+            // Векторы локальной ориентации платформы
             const rightX = Math.cos(theta);
             const rightY = Math.sin(theta);
             const forwardX = -Math.sin(theta);
             const forwardY = Math.cos(theta);
 
-            // Отступы для распределения толпы справа
+            // Отступ вправо за пределы зелёной зоны платформы
             const sideDistance = 22 + (personIndex % 3) * 7;
             const lengthDistance = ((Math.floor(personIndex / 3) / (totalPersons / 3)) - 0.5) * 38;
 
-            const targetX = pos.x + (rightX * sideDistance) + (forwardX * lengthDistance);
-            const targetY = pos.y + (rightY * sideDistance) + (forwardY * lengthDistance);
+            const coord = {
+                x: pos.x + (rightX * sideDistance) + (forwardX * lengthDistance),
+                y: pos.y + (rightY * sideDistance) + (forwardY * lengthDistance)
+            };
 
-            // Временный вывод в консоль для проверки дебага (нажмите F12 в браузере)
+            // Отладочный лог в консоль
             if (personIndex === 0) {
-                console.log(`[DEBUG] Платформа #${idx + 1}: угол=${theta.toFixed(2)}, центр=(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
+                console.log(`[VECTOR_DEBUG] Платформа ${idx + 1}: pos=(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), angle=${theta.toFixed(2)}, crowdBase=(${coord.x.toFixed(1)}, ${coord.y.toFixed(1)})`);
             }
 
-            return {
-                x: targetX + (Math.random() * 4 - 2),
-                y: targetY + (Math.random() * 4 - 2)
-            };
+            return coord;
         }
-        // ==========================================
 
         function generateSchedule() {
             isTestMode = false;
@@ -435,7 +521,7 @@
                 }
             }
 
-            playAnnouncement("ТЕСТ: Все платформы заняты, пассажиры стоят справа с помощью векторов!");
+            playAnnouncement("ТЕСТ: На всех 5 платформах стоят автобусы, пассажиры стоят строго с правого бока платформ!");
             renderScheduleTable();
         }
 
@@ -775,6 +861,15 @@
                 }
             });
         }
+
+        // Обработчики кнопок модального окна
+        const modal = document.getElementById('vectorModal');
+        document.getElementById('btnExplainVectors').addEventListener('click', () => {
+            modal.style.display = 'flex';
+        });
+        document.getElementById('btnCloseModal').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
 
         document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
         document.getElementById('btnTestFull').addEventListener('click', runTestAllPlatforms);
