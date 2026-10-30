@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Полная библиотека ГОСТ</title>
+    <title>CV Circuit Scanner - ГОСТ Транзисторы</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -118,12 +118,12 @@
             color: #00ff66;
             display: block;
         }
-        .close-btn { background: #555; margin-top: 20px; }
+        .close-btn {background: #555; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Полная база ГОСТ с четкими стрелками транзисторов</h1>
+    <h1>⚡ Сканер схем: Исправленное положение стрелок эмиттера</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
@@ -152,66 +152,31 @@
 
     <div id="modal-info">
         <div class="modal-content">
-            <h3>📖 Полный каталог ГОСТ элементов</h3>
-            <p>Векторные символы со всеми электрическими элементами и четкими крупными стрелками эмиттера для NPN и PNP транзисторов:</p>
+            <h3>📖 Каталог элементов ГОСТ</h3>
+            <p>Стрелки эмиттера точно спозиционированы на линии эмиттера:</p>
 
             <div class="svg-preview-grid">
                 <div class="preview-card">
                     <svg viewBox="-40 -30 80 60">
                         <circle cx="0" cy="0" r="22" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <line x1="-32" y1="0" x2="-8" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-8" y1="-14" x2="-8" y2="14" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="-8" y1="-6" x2="16" y2="-18" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-8" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="6,10 18,21 11,11" fill="#00ff66" stroke="none"/>
+                        <line x1="-32" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="-14" x2="-10" y2="14" stroke="#00ff66" stroke-width="2.5"/>
+                        <line x1="-10" y1="-6" x2="16" y2="-18" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
+                        <polygon points="8,15 15,22 13,13" fill="#00ff66"/>
                     </svg>
                     <span>NPN Транзистор</span>
                 </div>
                 <div class="preview-card">
                     <svg viewBox="-40 -30 80 60">
                         <circle cx="0" cy="0" r="22" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <line x1="-32" y1="0" x2="-8" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-8" y1="-14" x2="-8" y2="14" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="-8" y1="-6" x2="16" y2="-18" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-8" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="-3,2 9,12 3,17" fill="#00ff66" stroke="none"/>
+                        <line x1="-32" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="-14" x2="-10" y2="14" stroke="#00ff66" stroke-width="2.5"/>
+                        <line x1="-10" y1="-6" x2="16" y2="-18" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
+                        <polygon points="-2,10 5,17 7,8" fill="#00ff66"/>
                     </svg>
                     <span>PNP Транзистор</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-40 -30 80 60">
-                        <rect x="-24" y="-12" width="48" height="24" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <line x1="-36" y1="0" x2="-24" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="24" y1="0" x2="36" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    </svg>
-                    <span>Резистор (R)</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-40 -30 80 60">
-                        <line x1="-30" y1="0" x2="-8" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="30" y1="0" x2="8" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-8" y1="-16" x2="-8" y2="16" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="8" y1="-16" x2="8" y2="16" stroke="#00ff66" stroke-width="2.5"/>
-                    </svg>
-                    <span>Конденсатор (C)</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-40 -30 80 60">
-                        <line x1="-30" y1="0" x2="30" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="-10,-12 -10,12 10,0" fill="#00ff66" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="10" y1="-12" x2="10" y2="12" stroke="#00ff66" stroke-width="2"/>
-                    </svg>
-                    <span>Диод (VD)</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-40 -30 80 60">
-                        <rect x="-18" y="-22" width="36" height="44" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <line x1="-30" y1="-10" x2="-18" y2="-10" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-30" y1="10" x2="-18" y2="10" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="18" y1="-10" x2="30" y2="-10" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="18" y1="10" x2="30" y2="10" stroke="#00ff66" stroke-width="2"/>
-                    </svg>
-                    <span>Динамик / Трансформатор</span>
                 </div>
             </div>
 
@@ -274,7 +239,7 @@
         }
     }
 
-    // Полная библиотека ГОСТ символов с четкими стрелками эмиттера для транзисторов
+    // Точные векторные SVG-символы с пересчитанными координатами полигонов стрелок
     function getSvgSymbol(type, label) {
         switch(type) {
             case 'transistor_npn':
@@ -284,7 +249,7 @@
                     <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="2.5"/>
                     <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
                     <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <polygon points="8,12 18,20 11,11" fill="#00ff66" stroke="none"/>
+                    <polygon points="8,15 15,22 13,13" fill="#00ff66" stroke="none"/>
                     <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
                     <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
                     <text x="14" y="28" fill="#00ff66" font-size="10">E</text>
@@ -297,7 +262,7 @@
                     <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="2.5"/>
                     <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
                     <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <polygon points="-3,2 9,12 3,17" fill="#00ff66" stroke="none"/>
+                    <polygon points="-2,10 5,17 7,8" fill="#00ff66" stroke="none"/>
                     <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
                     <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
                     <text x="14" y="28" fill="#00ff66" font-size="10">E</text>
@@ -351,12 +316,11 @@
 
         log("=== ЭТАП 1: Сканирование контуров ===");
         runContourScanAnimation(async () => {
-            log("=== ЭТАП 2: Распознавание элементов через Gemini Vision ===");
+            log("=== ЭТАPS 2: Распознавание элементов через Gemini Vision ===");
             const base64Data = await toBase64(fileInput);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-            const promptText = `Распознай все элементы на схеме (транзисторы npn/pnp, резисторы, конденсаторы, диоды, динамики/источники). 
-            Для транзисторов укажи тип: transistor_npn или transistor_pnp. Для резисторов: resistor. Для конденсаторов: capacitor. Для диодов: diode. Для динамиков: speaker.
+            const promptText = `Распознай все элементы на схеме. Для транзисторов укажи тип: transistor_npn или transistor_pnp. Для резисторов: resistor. Для конденсаторов: capacitor. Для диодов: diode. Для динамиков: speaker.
             Верни ТОЛЬКО валидный JSON без markdown:
             {
               "components": [
