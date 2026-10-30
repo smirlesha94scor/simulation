@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner with SchematicSymbolsSVG</title>
+    <title>CV Circuit Scanner - ГОСТ Символы</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -57,11 +57,11 @@
             cursor: pointer;
             transition: transform 0.3s;
         }
-        .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line {
+        .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polyline {
             stroke: #00ff66;
             fill: none;
         }
-        .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line {
+        .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line, .svg-symbol.selected polyline {
             stroke: #ff0055;
             filter: drop-shadow(0px 0px 10px #ff0055);
         }
@@ -119,7 +119,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем с библиотекой SchematicSymbolsSVG</h1>
+    <h1>⚡ Сканер схем с точными ГОСТ символами (Резистор и Транзистор)</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
@@ -131,7 +131,7 @@
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         <button onclick="startTwoPhaseScan()">Запустить поэтапное сканирование</button>
-        <button class="btn-info" onclick="openInfoModal()">Каталог SchematicSymbolsSVG</button>
+        <button class="btn-info" onclick="openInfoModal()">Каталог ГОСТ символов</button>
     </div>
 
     <div class="card">
@@ -148,38 +148,28 @@
 
     <div id="modal-info">
         <div class="modal-content">
-            <h3>📖 Каталог SchematicSymbolsSVG</h3>
-            <p>Стандартизированные векторные элементы из репозитория:</p>
+            <h3>📖 Точные ГОСТ элементы</h3>
+            <p>Исправленные контуры резисторов (прямоугольник) и транзисторов (круг, база, правильные линии коллектора/эмиттера со стрелками):</p>
 
-            <h4>📦 Библиотечные символы</h4>
             <div class="svg-preview-grid">
                 <div class="preview-card">
-                    <svg viewBox="-30 -30 60 60">
-                        <path d="M-20,0 L-10,0 L-5,-10 L5,10 L15,-10 L20,10 L25,0 L30,0" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <svg viewBox="-40 -30 80 60">
+                        <rect x="-24" y="-12" width="48" height="24" stroke="#00ff66" stroke-width="2" fill="none"/>
+                        <line x1="-38" y1="0" x2="-24" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="24" y1="0" x2="38" y2="0" stroke="#00ff66" stroke-width="2"/>
                     </svg>
-                    <span>Резистор (IEC)</span>
+                    <span>Резистор (ГОСТ)</span>
                 </div>
                 <div class="preview-card">
-                    <svg viewBox="-30 -30 60 60">
-                        <path d="M-20,0 L-5,0 M-5,-15 L-5,15 M5,-15 L5,15 M5,0 L20,0" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    </svg>
-                    <span>Конденсатор</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-30 -30 60 60">
+                    <svg viewBox="-40 -30 80 60">
                         <circle cx="0" cy="0" r="20" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <path d="M-10,0 L10,0 M-10,-8 L14,-18 M-10,8 L14,18" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <polygon points="6,13 14,18 9,10" fill="#00ff66"/>
+                        <line x1="-28" y1="0" x2="-8" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-8" y1="-12" x2="-8" y2="12" stroke="#00ff66" stroke-width="2.5"/>
+                        <line x1="-8" y1="-5" x2="14" y2="-16" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-8" y1="5" x2="14" y2="16" stroke="#00ff66" stroke-width="2"/>
+                        <polygon points="6,10 14,16 9,8" fill="#00ff66"/>
                     </svg>
                     <span>NPN Транзистор</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-30 -30 60 60">
-                        <circle cx="0" cy="0" r="20" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <path d="M-10,0 L10,0 M-10,-8 L14,-18 M-10,8 L14,18" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <polygon points="-2,3 6,8 2,12" fill="#00ff66"/>
-                    </svg>
-                    <span>PNP Транзистор</span>
                 </div>
             </div>
 
@@ -242,44 +232,56 @@
         }
     }
 
-    // Подключение векторных паттернов из SchematicSymbolsSVG
+    // Точные векторные ГОСТ элементы (исправлен резистор на прямоугольник и транзистор)
     function getSvgSymbol(type, label) {
         switch(type) {
             case 'transistor_npn':
                 return `
-                    <circle cx="0" cy="0" r="24" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.1)"/>
-                    <path d="M-30,0 L-10,0 M-10,-14 L-10,14 M-10,-6 L16,-20 M-10,6 L16,20" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <polygon points="8,12 16,20 10,15" fill="#00ff66" stroke="none"/>
-                    <text x="-24" y="-8" fill="#00ff66" font-size="9">B</text>
-                    <text x="12" y="-14" fill="#00ff66" font-size="9">C</text>
-                    <text x="12" y="28" fill="#00ff66" font-size="9">E</text>
-                    <text x="0" y="-32" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.1)"/>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="2.5"/>
+                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                    <polygon points="8,12 18,20 11,11" fill="#00ff66" stroke="none"/>
+                    <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
+                    <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
+                    <text x="14" y="28" fill="#00ff66" font-size="10">E</text>
+                    <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">NPN ${label}</text>
                 `;
             case 'transistor_pnp':
                 return `
-                    <circle cx="0" cy="0" r="24" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.1)"/>
-                    <path d="M-30,0 L-10,0 M-10,-14 L-10,14 M-10,-6 L16,-20 M-10,6 L16,20" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <polygon points="-2,2 6,8 2,13" fill="#00ff66" stroke="none"/>
-                    <text x="-24" y="-8" fill="#00ff66" font-size="9">B</text>
-                    <text x="12" y="-14" fill="#00ff66" font-size="9">C</text>
-                    <text x="12" y="28" fill="#00ff66" font-size="9">E</text>
-                    <text x="0" y="-32" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.1)"/>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="2.5"/>
+                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                    <polygon points="-2,2 8,9 3,14" fill="#00ff66" stroke="none"/>
+                    <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
+                    <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
+                    <text x="14" y="28" fill="#00ff66" font-size="10">E</text>
+                    <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">PNP ${label}</text>
                 `;
             case 'resistor':
                 return `
-                    <path d="M-35,0 L-25,0 L-20,-10 L-10,10 L0,-10 L10,10 L20,-10 L25,0 L35,0" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                    <rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.15)"/>
+                    <line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
                 `;
             case 'capacitor':
                 return `
-                    <path d="M-35,0 L-10,0 M-10,-18 L-10,18 M10,-18 L10,18 M10,0 L35,0" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <text x="0" y="-24" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="35" y1="0" x2="10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="-18" x2="-10" y2="18" stroke="#00ff66" stroke-width="2.5"/>
+                    <line x1="10" y1="-18" x2="10" y2="18" stroke="#00ff66" stroke-width="2.5"/>
+                    <text x="0" y="-24" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
                 `;
             case 'diode':
                 return `
-                    <path d="M-35,0 L35,0 M-10,-12 L-10,12 L12,0 Z" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.15)"/>
-                    <path d="M12,-12 L12,12" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                    <line x1="-35" y1="0" x2="35" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <polygon points="-10,-12 -10,12 10,0" fill="rgba(0,255,102,0.15)" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="10" y1="-12" x2="10" y2="12" stroke="#00ff66" stroke-width="2"/>
+                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
                 `;
             default:
                 return `
@@ -298,13 +300,13 @@
             return;
         }
 
-        log("=== ЭТАП 1: Сканирование контуров (SchematicSymbolsSVG) ===");
+        log("=== ЭТАП 1: Сканирование контуров ===");
         runContourScanAnimation(async () => {
             log("=== ЭТАП 2: Распознавание элементов через Gemini Vision ===");
             const base64Data = await toBase64(fileInput);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-            const promptText = `Распознай элементы на схеме. Для транзисторов укажи точный тип: transistor_npn или transistor_pnp.
+            const promptText = `Распознай элементы на схеме. Для транзисторов укажи точный тип: transistor_npn или transistor_pnp. Для резисторов тип: resistor.
             Верни ТОЛЬКО валидный JSON без markdown:
             {
               "components": [
@@ -332,7 +334,7 @@
                 const data = JSON.parse(cleanJson);
                 scanData = data.components;
 
-                log(`Распознано: ${scanData.length}. Применение векторных символов...`);
+                log(`Распознано: ${scanData.length}. Применение точных ГОСТ символов...`);
                 materializeElements(scanData);
 
             } catch (e) {
