@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Точные ГОСТ Символы</title>
+    <title>CV Circuit Scanner - Выбор SVG Библиотек</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        input, button { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
+        input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
+        select { background: #2a2a36; color: #00ff66; border: 1px solid #444; border-radius: 4px; font-weight: bold; }
         .btn-info { background: #00bcd4; margin-left: 10px; }
         .btn-info:hover { background: #008ba3; }
 
@@ -27,16 +28,14 @@
         #cv-canvas {
             position: absolute;
             top: 0; left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             object-fit: contain;
         }
 
         #svg-layer {
             position: absolute;
             top: 0; left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             pointer-events: auto;
             z-index: 10;
         }
@@ -53,77 +52,37 @@
             100% { stroke-opacity: 1; }
         }
 
-        .svg-symbol {
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
+        .svg-symbol { cursor: pointer; transition: transform 0.3s; }
         .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polygon {
-            stroke: #00ff66;
-            fill: none;
+            stroke: #00ff66; fill: none;
         }
-        .svg-symbol polygon {
-            fill: #00ff66;
-        }
+        .svg-symbol polygon.filled { fill: #00ff66; }
         .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line, .svg-symbol.selected polygon {
-            stroke: #ff0055;
-            fill: #ff0055;
-            filter: drop-shadow(0px 0px 10px #ff0055);
+            stroke: #ff0055; fill: none; filter: drop-shadow(0px 0px 10px #ff0055);
         }
+        .svg-symbol.selected polygon.filled { fill: #ff0055; }
 
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
 
         #modal-info {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;
         }
         .modal-content {
-            background: #1e1e28;
-            padding: 25px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 700px;
-            max-height: 85vh;
-            overflow-y: auto;
-            border: 2px solid #00bcd4;
-            box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
+            background: #1e1e28; padding: 25px; border-radius: 10px; width: 90%; max-width: 750px;
+            max-height: 85vh; overflow-y: auto; border: 2px solid #00bcd4; box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
         }
         .modal-content h3 { margin-top: 0; color: #00bcd4; }
-        .modal-content h4 { color: #ff007f; margin-top: 15px; margin-bottom: 8px; }
-        
-        .svg-preview-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .preview-card {
-            background: #121218;
-            border: 1px solid #333;
-            border-radius: 6px;
-            padding: 10px;
-            text-align: center;
-        }
-        .preview-card svg {
-            width: 100%;
-            height: 70px;
-            margin-bottom: 5px;
-        }
-        .preview-card span {
-            font-size: 12px;
-            color: #00ff66;
-            display: block;
-        }
+        .svg-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+        .preview-card { background: #121218; border: 1px solid #333; border-radius: 6px; padding: 12px; text-align: center; }
+        .preview-card svg { width: 100%; height: 80px; margin-bottom: 5px; }
+        .preview-card span { font-size: 12px; color: #00ff66; display: block; }
         .close-btn { background: #555; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Библиотечное распознавание ГОСТ</h1>
+    <h1>⚡ Сканер схем: Выбор стиля библиотеки SVG</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
@@ -133,9 +92,18 @@
     </div>
 
     <div class="card">
+        <label>Выбор стиля библиотеки: </label>
+        <select id="libraryStyle" onchange="changeLibraryStyle()">
+            <option value="gost">1. ГОСТ 2.730-73 (Точные математические углы)</option>
+            <option value="kicad">2. KiCad CAD Style (Инженерный с узлами)</option>
+            <option value="iec">3. IEC 60617 (Европейский тонкий контур)</option>
+        </select>
+        <button class="btn-info" onclick="openInfoModal()">Сравнить стили в каталоге</button>
+    </div>
+
+    <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         <button onclick="startTwoPhaseScan()">Запустить поэтапное сканирование</button>
-        <button class="btn-info" onclick="openInfoModal()">Эталоны библиотеки ГОСТ</button>
     </div>
 
     <div class="card">
@@ -152,33 +120,10 @@
 
     <div id="modal-info">
         <div class="modal-content">
-            <h3>📖 Эталоны библиотеки ГОСТ</h3>
-            <p>Система подставляет строго запрограммированные векторные паттерны для транзисторов NPN и PNP:</p>
+            <h3>📖 Предпросмотр выбранной библиотеки SVG</h3>
+            <p id="styleDescription">Текущий стиль: ГОСТ 2.730-73</p>
 
-            <div class="svg-preview-grid">
-                <div class="preview-card">
-                    <svg viewBox="-40 -30 80 60">
-                        <circle cx="0" cy="0" r="22" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <line x1="-32" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-10" y1="-14" x2="-10" y2="14" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="-10" y1="-6" x2="16" y2="-18" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-10" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="8,15 15,22 13,13" fill="#00ff66"/>
-                    </svg>
-                    <span>transistor_npn (Библиотечный)</span>
-                </div>
-                <div class="preview-card">
-                    <svg viewBox="-40 -30 80 60">
-                        <circle cx="0" cy="0" r="22" stroke="#00ff66" stroke-width="2" fill="none"/>
-                        <line x1="-32" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-10" y1="-14" x2="-10" y2="14" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="-10" y1="-6" x2="16" y2="-18" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-10" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="-2,10 5,17 7,8" fill="#00ff66"/>
-                    </svg>
-                    <span>transistor_pnp (Библиотечный)</span>
-                </div>
-            </div>
+            <div class="svg-preview-grid" id="previewGrid"></div>
 
             <button class="close-btn" onclick="closeInfoModal()">Закрыть</button>
         </div>
@@ -187,6 +132,7 @@
 <script>
     let imgElement = new Image();
     let scanData = [];
+    let currentStyle = 'gost';
 
     window.onload = () => {
         const savedKey = localStorage.getItem('gemini_api_key');
@@ -195,6 +141,7 @@
             document.getElementById('keyStatus').textContent = "● Ключ подключен";
             document.getElementById('keyStatus').style.color = "#00ff66";
         }
+        updateModalPreview();
     };
 
     function saveKey() {
@@ -211,6 +158,15 @@
         const box = document.getElementById('log');
         box.innerHTML += `<div>> ${text}</div>`;
         box.scrollTop = box.scrollHeight;
+    }
+
+    function changeLibraryStyle() {
+        currentStyle = document.getElementById('libraryStyle').value;
+        log(`Стиль библиотеки изменен на: ${currentStyle.toUpperCase()}`);
+        if (scanData.length > 0) {
+            materializeElements(scanData);
+        }
+        updateModalPreview();
     }
 
     function openInfoModal() {
@@ -239,70 +195,134 @@
         }
     }
 
-    // Жестко запрограммированные библиотечные ГОСТ символы
+    // Векторные библиотеки элементов
     function getSvgSymbol(type, label) {
-        switch(type) {
-            case 'transistor_npn':
-                return `
-                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.08)"/>
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="2.5"/>
-                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <polygon points="8,15 15,22 13,13" fill="#00ff66" stroke="none"/>
-                    <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
-                    <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
-                    <text x="14" y="28" fill="#00ff66" font-size="10">E</text>
-                    <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">NPN ${label}</text>
-                `;
-            case 'transistor_pnp':
-                return `
-                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.08)"/>
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="2.5"/>
-                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <polygon points="-2,10 5,17 7,8" fill="#00ff66" stroke="none"/>
-                    <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
-                    <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
-                    <text x="14" y="28" fill="#00ff66" font-size="10">E</text>
-                    <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">PNP ${label}</text>
-                `;
-            case 'resistor':
-                return `
-                    <rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.12)"/>
-                    <line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
-                `;
-            case 'capacitor':
-                return `
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="35" y1="0" x2="10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="-18" x2="-10" y2="18" stroke="#00ff66" stroke-width="2.5"/>
-                    <line x1="10" y1="-18" x2="10" y2="18" stroke="#00ff66" stroke-width="2.5"/>
-                    <text x="0" y="-24" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
-                `;
-            case 'diode':
-                return `
-                    <line x1="-35" y1="0" x2="35" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <polygon points="-10,-12 -10,12 10,0" fill="rgba(0,255,102,0.15)" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="10" y1="-12" x2="10" y2="12" stroke="#00ff66" stroke-width="2"/>
-                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
-                `;
-            case 'speaker':
-                return `
-                    <rect x="-20" y="-20" width="40" height="40" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.12)"/>
-                    <line x1="-35" y1="-10" x2="-20" y2="-10" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-35" y1="10" x2="-20" y2="10" stroke="#00ff66" stroke-width="2"/>
-                    <text x="0" y="-26" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>
-                `;
-            default:
-                return `
-                    <rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.15)"/>
-                    <text x="0" y="4" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
-                `;
+        if (currentStyle === 'gost') {
+            switch(type) {
+                case 'transistor_npn':
+                    return `
+                        <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
+                        <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                        <g transform="translate(18,20) rotate(26)">
+                            <polygon points="0,0 -10,-4 -8,0 -10,4" class="filled" />
+                        </g>
+                        <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
+                        <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
+                        <text x="14" y="30" fill="#00ff66" font-size="10">E</text>
+                        <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">NPN ${label}</text>
+                    `;
+                case 'transistor_pnp':
+                    return `
+                        <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
+                        <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                        <g transform="translate(-10,6) rotate(206)">
+                            <polygon points="0,0 -10,-4 -8,0 -10,4" class="filled" />
+                        </g>
+                        <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
+                        <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
+                        <text x="14" y="30" fill="#00ff66" font-size="10">E</text>
+                        <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">PNP ${label}</text>
+                    `;
+                case 'resistor':
+                    return `<rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/><text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>`;
+                default:
+                    return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2"/><text x="0" y="4" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>`;
+            }
+        } else if (currentStyle === 'kicad') {
+            switch(type) {
+                case 'transistor_npn':
+                    return `
+                        <circle cx="-35" cy="0" r="3" class="filled"/>
+                        <circle cx="18" cy="-20" r="3" class="filled"/>
+                        <circle cx="18" cy="20" r="3" class="filled"/>
+                        <circle cx="0" cy="0" r="28" stroke="#00ff66" stroke-width="1.5" stroke-dasharray="4"/>
+                        <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="-18" x2="-10" y2="18" stroke="#00ff66" stroke-width="3.5"/>
+                        <line x1="-10" y1="-8" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="8" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                        <g transform="translate(18,20) rotate(23)">
+                            <polygon points="0,0 -12,-5 -12,5" class="filled" />
+                        </g>
+                        <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">KiCad NPN ${label}</text>
+                    `;
+                case 'transistor_pnp':
+                    return `
+                        <circle cx="-35" cy="0" r="3" class="filled"/>
+                        <circle cx="18" cy="-20" r="3" class="filled"/>
+                        <circle cx="18" cy="20" r="3" class="filled"/>
+                        <circle cx="0" cy="0" r="28" stroke="#00ff66" stroke-width="1.5" stroke-dasharray="4"/>
+                        <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="-18" x2="-10" y2="18" stroke="#00ff66" stroke-width="3.5"/>
+                        <line x1="-10" y1="-8" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-10" y1="8" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                        <g transform="translate(-10,8) rotate(203)">
+                            <polygon points="0,0 -12,-5 -12,5" class="filled" />
+                        </g>
+                        <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">KiCad PNP ${label}</text>
+                    `;
+                case 'resistor':
+                    return `<rect x="-35" y="-10" width="70" height="20" stroke="#00ff66" stroke-width="2"/><line x1="-50" y1="0" x2="-35" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="35" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/><circle cx="-50" cy="0" r="3" class="filled"/><circle cx="50" cy="0" r="3" class="filled"/><text x="0" y="-16" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>`;
+                default:
+                    return `<rect x="-30" y="-16" width="60" height="32" stroke="#00ff66" stroke-width="2"/><text x="0" y="4" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>`;
+            }
+        } else {
+            // IEC 60617
+            switch(type) {
+                case 'transistor_npn':
+                    return `
+                        <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="1.5"/>
+                        <line x1="-12" y1="-18" x2="-12" y2="18" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-12" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="1.5"/>
+                        <line x1="-12" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="1.5"/>
+                        <g transform="translate(18,20) rotate(25)">
+                            <path d="M0,0 L-8,-3 L-8,3 Z" fill="#00ff66"/>
+                        </g>
+                        <text x="0" y="-28" text-anchor="middle" fill="#00ff66" font-size="10">IEC NPN ${label}</text>
+                    `;
+                case 'transistor_pnp':
+                    return `
+                        <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="1.5"/>
+                        <line x1="-12" y1="-18" x2="-12" y2="18" stroke="#00ff66" stroke-width="2"/>
+                        <line x1="-12" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="1.5"/>
+                        <line x1="-12" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="1.5"/>
+                        <g transform="translate(-12,6) rotate(205)">
+                            <path d="M0,0 L-8,-3 L-8,3 Z" fill="#00ff66"/>
+                        </g>
+                        <text x="0" y="-28" text-anchor="middle" fill="#00ff66" font-size="10">IEC PNP ${label}</text>
+                    `;
+                case 'resistor':
+                    return `<rect x="-30" y="-8" width="60" height="16" stroke="#00ff66" stroke-width="1.5"/><line x1="-50" y1="0" x2="-30" y2="0" stroke="#00ff66" stroke-width="1.5"/><line x1="30" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="1.5"/><text x="0" y="-14" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>`;
+                default:
+                    return `<rect x="-28" y="-14" width="56" height="28" stroke="#00ff66" stroke-width="1.5"/><text x="0" y="4" text-anchor="middle" fill="#00ff66" font-size="10">${label}</text>`;
+            }
         }
+    }
+
+    function updateModalPreview() {
+        const grid = document.getElementById('previewGrid');
+        const desc = document.getElementById('styleDescription');
+        
+        desc.textContent = `Текущий выбранный стиль: ${currentStyle.toUpperCase()}`;
+        grid.innerHTML = `
+            <div class="preview-card">
+                <svg viewBox="-50 -40 100 80">${getSvgSymbol('transistor_npn', 'VT1')}</svg>
+                <span>NPN Транзистор</span>
+            </div>
+            <div class="preview-card">
+                <svg viewBox="-50 -40 100 80">${getSvgSymbol('transistor_pnp', 'VT2')}</svg>
+                <span>PNP Транзистор</span>
+            </div>
+            <div class="preview-card">
+                <svg viewBox="-60 -30 120 60">${getSvgSymbol('resistor', 'R1')}</svg>
+                <span>Резистор</span>
+            </div>
+        `;
     }
 
     async function startTwoPhaseScan() {
@@ -316,19 +336,11 @@
 
         log("=== ЭТАП 1: Сканирование контуров ===");
         runContourScanAnimation(async () => {
-            log("=== ЭТАП 2: Сопоставление с библиотекой ГОСТ через Gemini Vision ===");
+            log("=== ЭТАП 2: Распознавание элементов через Gemini Vision ===");
             const base64Data = await toBase64(fileInput);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-            // Жестко инструктируем модель выбирать типы ТОЛЬКО из нашей библиотеки
-            const promptText = `Проанализируй чертеж и классифицируй найденные радиодетали, используя СТРОГО следующие типы из библиотеки:
-            - "transistor_npn" (если транзистор имеет стрелку эмиттера наружу)
-            - "transistor_pnp" (если транзистор имеет стрелку эмиттера внутрь)
-            - "resistor"
-            - "capacitor"
-            - "diode"
-            - "speaker"
-
+            const promptText = `Распознай элементы на схеме. Для транзисторов укажи тип: transistor_npn или transistor_pnp. Для резисторов: resistor.
             Верни ТОЛЬКО валидный JSON без markdown:
             {
               "components": [
@@ -356,7 +368,7 @@
                 const data = JSON.parse(cleanJson);
                 scanData = data.components;
 
-                log(`Распознано: ${scanData.length}. Подстановка точных библиотечных символов...`);
+                log(`Распознано: ${scanData.length}. Материализация выбранного стиля SVG...`);
                 materializeElements(scanData);
 
             } catch (e) {
@@ -404,6 +416,7 @@
 
     function materializeElements(components) {
         const svgLayer = document.getElementById('svg-layer');
+        svgLayer.innerHTML = '';
 
         components.forEach((comp, idx) => {
             setTimeout(() => {
@@ -416,7 +429,7 @@
                 };
                 g.innerHTML = getSvgSymbol(comp.type, comp.label);
                 svgLayer.appendChild(g);
-                log(`[Библиотечный символ] ${comp.label} (${comp.type})`);
+                log(`[Символ добавлен] ${comp.label} (${comp.type}) [Стиль: ${currentStyle}]`);
             }, idx * 300);
         });
     }
