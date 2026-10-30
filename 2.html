@@ -82,18 +82,21 @@
             padding: 25px;
             border-radius: 10px;
             width: 90%;
-            max-width: 500px;
+            max-width: 580px;
+            max-height: 80vh;
+            overflow-y: auto;
             border: 2px solid #00bcd4;
             box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
         }
         .modal-content h3 { margin-top: 0; color: #00bcd4; }
-        .modal-content ul { padding-left: 20px; line-height: 1.6; color: #ddd; }
+        .modal-content h4 { color: #ff007f; margin-bottom: 5px; }
+        .modal-content ul { padding-left: 20px; line-height: 1.5; color: #ddd; font-size: 13px; }
         .close-btn { background: #555; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Двухэтапный Сканер схем с Computer Vision</h1>
+    <h1>⚡ Двухэтапный Сканер схем c поддержкой THT и SMD компонентов</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
@@ -105,7 +108,7 @@
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         <button onclick="startTwoPhaseScan()">Запустить поэтапное сканирование</button>
-        <button class="btn-info" onclick="openInfoModal()">Что распознает Vision API?</button>
+        <button class="btn-info" onclick="openInfoModal()">Каталог THT и SMD элементов</button>
     </div>
 
     <div class="card">
@@ -120,19 +123,29 @@
         <div id="log">Загрузите схему...</div>
     </div>
 
-    <!-- Модальное окно со справочником элементов -->
+    <!-- Модальное окно со справочником THT и SMD элементов -->
     <div id="modal-info">
         <div class="modal-content">
-            <h3>📖 Каталог распознаваемых элементов</h3>
-            <p>Мультимодальное зрение модели распознает следующие радиокомпоненты на чертежах и схемах:</p>
+            <h3>📖 Распознаваемые THT и SMD элементы</h3>
+            <p>Модель распознает как выводные компоненты (THT), так и компоненты поверхностного монтажа (SMD):</p>
+
+            <h4>📦 Выводные элементы (THT / Through-Hole)</h4>
             <ul>
-                <li>🔹 <b>Резисторы:</b> постоянные, переменные, подстроечные (с номиналами вроде 750k, 10k).</li>
-                <li>🔹 <b>Конденсаторы:</b> керамические, электролитические (полярные/неполярные).</li>
-                <li>🔹 <b>Полупроводники:</b> диоды, стабилитроны, светодиоды (например, Д9Б).</li>
-                <li>🔹 <b>Транзисторы:</b> биполярные (NPN/PNP, например КТ315, КТ361), полевые (MOSFET).</li>
-                <li>🔹 <b>Источники питания:</b> батарейки, аккумуляторы, шины питания (+V, GND).</li>
-                <li>🔹 <b>Прочее:</b> динамики (BF1), катушки индуктивности, трансформаторы и узлы соединений.</li>
+                <li>🔹 <b>Резисторы:</b> классические прямоугольники/полосатые корпуса.</li>
+                <li>🔹 <b>Конденсаторы:</b> керамические «диски», цилиндрические электролиты.</li>
+                <li>🔹 <b>Диоды / Диодные мосты:</b> выпрямительные диоды, Д9Б, КД202.</li>
+                <li>🔹 <b>Транзисторы:</b> КТ315, КТ361, TO-92, TO-220.</li>
             </ul>
+
+            <h4>🔍 SMD-компоненты (Surface Mount Device)</h4>
+            <ul>
+                <li>🔸 <b>SMD-Резисторы (Chip Resistors):</b> корпуса 0402, 0603, 0805, 1206 (маркировки типа 103, 472).</li>
+                <li>🔸 <b>SMD-Конденсаторы (MLCC & Tantalum):</b> чип-керамика, полярные тантал-конденсаторы (A, B, C, D кейсы).</li>
+                <li>🔸 <b>SMD-Диоды и Светодиоды:</b> корпуса SOD-123, SOD-323, SMA/SMB, чип-LED (0805/1206).</li>
+                <li>🔸 <b>SMD-Транзисторы:</b> корпуса SOT-23, SOT-89, SOT-223 (NPN, PNP, MOSFET).</li>
+                <li>🔸 <b>SMD-Микросхемы:</b> планарные корпуса SOIC-8/16, SSOP, QFN, TQFP с выводами по бокам.</li>
+            </ul>
+
             <button class="close-btn" onclick="closeInfoModal()">Закрыть</button>
         </div>
     </div>
@@ -191,8 +204,24 @@
         }
     }
 
+    // Генерация SVG-графики (поддерживает как THT, так и SMD корпус)
     function getSvgSymbol(type, label) {
         switch(type) {
+            case 'smd_resistor':
+                return `
+                    <rect x="-20" y="-10" width="40" height="20" fill="#222" stroke="#00ff66" stroke-width="2"/>
+                    <rect x="-25" y="-10" width="5" height="20" fill="#aaa"/>
+                    <rect x="20" y="-10" width="5" height="20" fill="#aaa"/>
+                    <text x="0" y="-15" text-anchor="middle" fill="#00ff66" font-size="11">SMD ${label}</text>
+                `;
+            case 'smd_transistor': // SOT-23
+                return `
+                    <rect x="-15" y="-12" width="30" height="24" rx="2" fill="#222" stroke="#00ff66" stroke-width="2"/>
+                    <rect x="-18" y="-8" width="3" height="5" fill="#aaa"/>
+                    <rect x="-18" y="3" width="3" height="5" fill="#aaa"/>
+                    <rect x="15" y="-2" width="3" height="5" fill="#aaa"/>
+                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                `;
             case 'resistor':
                 return `<rect x="-35" y="-14" width="70" height="28" /><line x1="-55" y1="0" x2="-35" y2="0" /><line x1="35" y1="0" x2="55" y2="0" /><text x="0" y="-20" text-anchor="middle" fill="#00ff66" font-size="13">${label}</text>`;
             case 'capacitor':
@@ -215,22 +244,22 @@
             return;
         }
 
-        log("=== ЭТАП 1: Сканирование очертаний и границ элементов ===");
+        log("=== ЭТАП 1: Сканирование очертаний и границ компонентов (THT / SMD) ===");
         runContourScanAnimation(async () => {
-            log("=== ЭТАП 2: Компьютерное зрение анализирует типы элементов ===");
+            log("=== ЭТАП 2: Распознавание типов и корпусов элементов ===");
             const base64Data = await toBase64(fileInput);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-            const promptText = `Проанализируй очертания элементов на схеме. 
+            const promptText = `Проанализируй очертания элементов на схеме или плату. Учитывай как THT, так и SMD корпуса.
             Верни ТОЛЬКО валидный JSON без markdown:
             {
               "components": [
-                {"label": "R1 750k", "type": "resistor", "cx": 220, "cy": 320},
+                {"label": "R1 10k", "type": "smd_resistor", "cx": 220, "cy": 320},
                 {"label": "VD1 Д9Б", "type": "diode", "cx": 470, "cy": 160},
-                {"label": "VT1 КТ315А", "type": "transistor", "cx": 580, "cy": 340}
+                {"label": "VT1 SOT23", "type": "smd_transistor", "cx": 580, "cy": 340}
               ]
             }
-            Координаты cx, cy в системе 1000x600.`;
+            Типы могут быть: resistor, smd_resistor, capacitor, diode, transistor, smd_transistor, ic. Координаты cx, cy (0..1000, 0..600).`;
 
             try {
                 const response = await fetch(url, {
@@ -278,7 +307,7 @@
                 tempBox.setAttribute("width", "120");
                 tempBox.setAttribute("height", "60");
                 svgLayer.appendChild(tempBox);
-                log(`[Edge Detect] Найден контур объекта на Y=${currentY}px`);
+                log(`[Contour Detect] Найден контур на Y=${currentY}px`);
             }
 
             currentY += 5;
@@ -307,7 +336,7 @@
                 };
                 g.innerHTML = getSvgSymbol(comp.type, comp.label);
                 svgLayer.appendChild(g);
-                log(`[Классификация] Элемент подтвержден: ${comp.label} (${comp.type})`);
+                log(`[Классификация] Подтвержден элемент: ${comp.label}`);
             }, idx * 300);
         });
     }
