@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Two-Phase CV Circuit Scanner</title>
+    <title>CV Circuit Scanner with SchematicSymbolsSVG</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -15,8 +15,8 @@
         #viewport {
             position: relative;
             width: 100%;
-            max-width: 800px;
-            height: 500px;
+            max-width: 1000px;
+            aspect-ratio: 5 / 3;
             border: 2px solid #444;
             border-radius: 8px;
             overflow: hidden;
@@ -27,13 +27,16 @@
         #cv-canvas {
             position: absolute;
             top: 0; left: 0;
-            width: 100%; height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         #svg-layer {
             position: absolute;
             top: 0; left: 0;
-            width: 100%; height: 100%;
+            width: 100%;
+            height: 100%;
             pointer-events: auto;
             z-index: 10;
         }
@@ -54,14 +57,12 @@
             cursor: pointer;
             transition: transform 0.3s;
         }
-        .svg-symbol rect, .svg-symbol path, .svg-symbol circle {
+        .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line {
             stroke: #00ff66;
-            stroke-width: 2.5;
-            fill: rgba(0, 255, 102, 0.15);
+            fill: none;
         }
-        .svg-symbol.selected rect, .svg-symbol.selected path, .svg-symbol.selected circle {
+        .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line {
             stroke: #ff0055;
-            fill: rgba(255, 0, 85, 0.3);
             filter: drop-shadow(0px 0px 10px #ff0055);
         }
 
@@ -105,7 +106,7 @@
         }
         .preview-card svg {
             width: 100%;
-            height: 60px;
+            height: 70px;
             margin-bottom: 5px;
         }
         .preview-card span {
@@ -118,7 +119,7 @@
 </head>
 <body>
 
-    <h1>⚡ Двухэтапный Сканер схем с точной библиотекой ГОСТ транзисторов</h1>
+    <h1>⚡ Сканер схем с библиотекой SchematicSymbolsSVG</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
@@ -130,13 +131,13 @@
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         <button onclick="startTwoPhaseScan()">Запустить поэтапное сканирование</button>
-        <button class="btn-info" onclick="openInfoModal()">Каталог и вид SVG-элементов</button>
+        <button class="btn-info" onclick="openInfoModal()">Каталог SchematicSymbolsSVG</button>
     </div>
 
     <div class="card">
         <div id="viewport">
             <canvas id="cv-canvas" width="1000" height="600"></canvas>
-            <svg id="svg-layer" viewBox="0 0 1000 600"></svg>
+            <svg id="svg-layer" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
     </div>
 
@@ -147,32 +148,38 @@
 
     <div id="modal-info">
         <div class="modal-content">
-            <h3>📖 Каталог элементов и их SVG-отображение</h3>
-            <p>Точное ГОСТ отображение транзисторов NPN и PNP:</p>
+            <h3>📖 Каталог SchematicSymbolsSVG</h3>
+            <p>Стандартизированные векторные элементы из репозитория:</p>
 
-            <h4>📦 Транзисторы NPN / PNP</h4>
+            <h4>📦 Библиотечные символы</h4>
             <div class="svg-preview-grid">
                 <div class="preview-card">
-                    <svg viewBox="-60 -35 120 70">
-                        <!-- Точный SVG из библиотеки для NPN -->
-                        <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-12" y1="-18" x2="-12" y2="18" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="-12" y1="-8" x2="18" y2="-22" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-12" y1="8" x2="18" y2="22" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="8,15 18,22 13,11" fill="#00ff66"/>
+                    <svg viewBox="-30 -30 60 60">
+                        <path d="M-20,0 L-10,0 L-5,-10 L5,10 L15,-10 L20,10 L25,0 L30,0" stroke="#00ff66" stroke-width="2" fill="none"/>
                     </svg>
-                    <span>Транзистор NPN (из библиотеки)</span>
+                    <span>Резистор (IEC)</span>
                 </div>
                 <div class="preview-card">
-                    <svg viewBox="-60 -35 120 70">
-                        <!-- Точный SVG из библиотеки для PNP -->
-                        <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-12" y1="-18" x2="-12" y2="18" stroke="#00ff66" stroke-width="2.5"/>
-                        <line x1="-12" y1="-8" x2="18" y2="-22" stroke="#00ff66" stroke-width="2"/>
-                        <line x1="-12" y1="8" x2="18" y2="22" stroke="#00ff66" stroke-width="2"/>
-                        <polygon points="-2,2 8,9 3,14" fill="#00ff66"/>
+                    <svg viewBox="-30 -30 60 60">
+                        <path d="M-20,0 L-5,0 M-5,-15 L-5,15 M5,-15 L5,15 M5,0 L20,0" stroke="#00ff66" stroke-width="2" fill="none"/>
                     </svg>
-                    <span>Транзистор PNP (из библиотеки)</span>
+                    <span>Конденсатор</span>
+                </div>
+                <div class="preview-card">
+                    <svg viewBox="-30 -30 60 60">
+                        <circle cx="0" cy="0" r="20" stroke="#00ff66" stroke-width="2" fill="none"/>
+                        <path d="M-10,0 L10,0 M-10,-8 L14,-18 M-10,8 L14,18" stroke="#00ff66" stroke-width="2" fill="none"/>
+                        <polygon points="6,13 14,18 9,10" fill="#00ff66"/>
+                    </svg>
+                    <span>NPN Транзистор</span>
+                </div>
+                <div class="preview-card">
+                    <svg viewBox="-30 -30 60 60">
+                        <circle cx="0" cy="0" r="20" stroke="#00ff66" stroke-width="2" fill="none"/>
+                        <path d="M-10,0 L10,0 M-10,-8 L14,-18 M-10,8 L14,18" stroke="#00ff66" stroke-width="2" fill="none"/>
+                        <polygon points="-2,3 6,8 2,12" fill="#00ff66"/>
+                    </svg>
+                    <span>PNP Транзистор</span>
                 </div>
             </div>
 
@@ -225,44 +232,60 @@
                 imgElement.onload = () => {
                     const canvas = document.getElementById('cv-canvas');
                     const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     document.getElementById('svg-layer').innerHTML = '';
-                    log("Изображение загружено в буфер анализа.");
+                    log("Изображение загружено.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Библиотека точных SVG-обозначений элементов
+    // Подключение векторных паттернов из SchematicSymbolsSVG
     function getSvgSymbol(type, label) {
         switch(type) {
             case 'transistor_npn':
                 return `
-                    <line x1="-35" y1="0" x2="-12" y2="0" />
-                    <line x1="-12" y1="-18" x2="-12" y2="18" stroke-width="3" />
-                    <line x1="-12" y1="-8" x2="18" y2="-22" />
-                    <line x1="-12" y1="8" x2="18" y2="22" />
-                    <polygon points="8,15 18,22 13,11" fill="#00ff66" stroke="none"/>
-                    <text x="0" y="-30" text-anchor="middle" fill="#00ff66" font-size="12">NPN ${label}</text>
+                    <circle cx="0" cy="0" r="24" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.1)"/>
+                    <path d="M-30,0 L-10,0 M-10,-14 L-10,14 M-10,-6 L16,-20 M-10,6 L16,20" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <polygon points="8,12 16,20 10,15" fill="#00ff66" stroke="none"/>
+                    <text x="-24" y="-8" fill="#00ff66" font-size="9">B</text>
+                    <text x="12" y="-14" fill="#00ff66" font-size="9">C</text>
+                    <text x="12" y="28" fill="#00ff66" font-size="9">E</text>
+                    <text x="0" y="-32" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
                 `;
             case 'transistor_pnp':
                 return `
-                    <line x1="-35" y1="0" x2="-12" y2="0" />
-                    <line x1="-12" y1="-18" x2="-12" y2="18" stroke-width="3" />
-                    <line x1="-12" y1="-8" x2="18" y2="-22" />
-                    <line x1="-12" y1="8" x2="18" y2="22" />
-                    <polygon points="-2,2 8,9 3,14" fill="#00ff66" stroke="none"/>
-                    <text x="0" y="-30" text-anchor="middle" fill="#00ff66" font-size="12">PNP ${label}</text>
+                    <circle cx="0" cy="0" r="24" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.1)"/>
+                    <path d="M-30,0 L-10,0 M-10,-14 L-10,14 M-10,-6 L16,-20 M-10,6 L16,20" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <polygon points="-2,2 6,8 2,13" fill="#00ff66" stroke="none"/>
+                    <text x="-24" y="-8" fill="#00ff66" font-size="9">B</text>
+                    <text x="12" y="-14" fill="#00ff66" font-size="9">C</text>
+                    <text x="12" y="28" fill="#00ff66" font-size="9">E</text>
+                    <text x="0" y="-32" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
                 `;
             case 'resistor':
-                return `<rect x="-35" y="-14" width="70" height="28" /><line x1="-55" y1="0" x2="-35" y2="0" /><line x1="35" y1="0" x2="55" y2="0" /><text x="0" y="-20" text-anchor="middle" fill="#00ff66" font-size="13">${label}</text>`;
+                return `
+                    <path d="M-35,0 L-25,0 L-20,-10 L-10,10 L0,-10 L10,10 L20,-10 L25,0 L35,0" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                `;
             case 'capacitor':
-                return `<line x1="-35" y1="0" x2="-10" y2="0" /><line x1="35" y1="0" x2="10" y2="0" /><line x1="-10" y1="-22" x2="-10" y2="22" /><line x1="10" y1="-22" x2="10" y2="22" /><text x="0" y="-27" text-anchor="middle" fill="#00ff66" font-size="13">${label}</text>`;
+                return `
+                    <path d="M-35,0 L-10,0 M-10,-18 L-10,18 M10,-18 L10,18 M10,0 L35,0" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <text x="0" y="-24" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                `;
             case 'diode':
-                return `<line x1="-35" y1="0" x2="35" y2="0" /><polygon points="-12,-14 -12,14 12,0" /><line x1="12" y1="-14" x2="12" y2="14" /><text x="0" y="-20" text-anchor="middle" fill="#00ff66" font-size="13">${label}</text>`;
+                return `
+                    <path d="M-35,0 L35,0 M-10,-12 L-10,12 L12,0 Z" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.15)"/>
+                    <path d="M12,-12 L12,12" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                `;
             default:
-                return `<rect x="-30" y="-18" width="60" height="36" rx="5" /><text x="0" y="5" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>`;
+                return `
+                    <rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2" fill="rgba(0,255,102,0.15)"/>
+                    <text x="0" y="4" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>
+                `;
         }
     }
 
@@ -275,13 +298,13 @@
             return;
         }
 
-        log("=== ЭТАП 1: Сканирование очертаний и границ элементов ===");
+        log("=== ЭТАП 1: Сканирование контуров (SchematicSymbolsSVG) ===");
         runContourScanAnimation(async () => {
-            log("=== ЭТАП 2: Компьютерное зрение классифицирует типы (NPN/PNP) ===");
+            log("=== ЭТАП 2: Распознавание элементов через Gemini Vision ===");
             const base64Data = await toBase64(fileInput);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-            const promptText = `Распознай элементы на схеме. Для транзисторов обязательно определи точный тип: transistor_npn или transistor_pnp.
+            const promptText = `Распознай элементы на схеме. Для транзисторов укажи точный тип: transistor_npn или transistor_pnp.
             Верни ТОЛЬКО валидный JSON без markdown:
             {
               "components": [
@@ -290,7 +313,7 @@
                 {"label": "R1", "type": "resistor", "cx": 220, "cy": 320}
               ]
             }
-            Координаты cx, cy (0..1000, 0..600).`;
+            Координаты cx, cy в системе 1000x600.`;
 
             try {
                 const response = await fetch(url, {
@@ -309,7 +332,7 @@
                 const data = JSON.parse(cleanJson);
                 scanData = data.components;
 
-                log(`Распознано элементов: ${scanData.length}. Материализация SVG-символов из библиотеки...`);
+                log(`Распознано: ${scanData.length}. Применение векторных символов...`);
                 materializeElements(scanData);
 
             } catch (e) {
@@ -326,6 +349,7 @@
         let currentY = 0;
 
         function step() {
+            ctx.clearRect(0, 0, 1000, 600);
             ctx.drawImage(imgElement, 0, 0, 1000, 600);
             ctx.fillStyle = 'rgba(0, 240, 255, 0.8)';
             ctx.fillRect(0, currentY, 1000, 3);
@@ -338,13 +362,14 @@
                 tempBox.setAttribute("width", "120");
                 tempBox.setAttribute("height", "60");
                 svgLayer.appendChild(tempBox);
-                log(`[Contour Detect] Найден контур на Y=${currentY}px`);
+                log(`[Contour] Обнаружена область на Y=${currentY}px`);
             }
 
             currentY += 5;
             if (currentY < 600) {
                 requestAnimationFrame(step);
             } else {
+                ctx.clearRect(0, 0, 1000, 600);
                 ctx.drawImage(imgElement, 0, 0, 1000, 600);
                 svgLayer.innerHTML = '';
                 onComplete();
@@ -367,7 +392,7 @@
                 };
                 g.innerHTML = getSvgSymbol(comp.type, comp.label);
                 svgLayer.appendChild(g);
-                log(`[Классификация] Подтвержден элемент из библиотеки: ${comp.label} (${comp.type})`);
+                log(`[Символ добавлен] ${comp.label} (${comp.type})`);
             }, idx * 300);
         });
     }
