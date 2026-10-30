@@ -17,7 +17,7 @@
         .component { cursor: pointer; transition: 0.2s; }
         .component:hover rect, .component:hover circle { stroke: #ff9800; stroke-width: 3; }
         .component.selected rect, .component.selected circle { stroke: #e91e63; stroke-width: 3; fill: #ffebee; }
-        #log { background: #222; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
+        #log { background: #222; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -51,7 +51,7 @@
     </div>
 
 <script>
-    // Загрузка ключа из localStorage
+    // Загрузка ключа из localStorage при запуске
     window.onload = () => {
         const savedKey = localStorage.getItem('gemini_api_key');
         if (savedKey) document.getElementById('apiKey').value = savedKey;
@@ -89,13 +89,20 @@
 
         log("Отправка запроса в Gemini Vision API...");
         
-        // Используем актуальную модель Gemini
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // Используем актуальную модель gemini-2.5-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
         
-        const promptText = `Распознай эту электрическую схему. Верни ТОЛЬКО валидный JSON-объект без markdown-разметки (без \`\`\`json), содержащий:
-        1. "components": массив объектов с полями id, type (resistor, capacitor, source, etc), label (например R1, C1), x, y.
-        2. "wires": массив объектов с полями id, from (id компонента), to (id компонента).
-        Пример: {"components": [{"id":"c1","type":"source","label":"U1","x":100,"y":200}], "wires": []}`;
+        const promptText = `Распознай эту электрическую схему. Верни ТОЛЬКО валидный JSON-объект без markdown-разметки (никаких кодовых блоков \`\`\`json), содержащий строго структуру:
+        {
+          "components": [
+            {"id": "c1", "type": "source", "label": "U1", "x": 100, "y": 200},
+            {"id": "c2", "type": "resistor", "label": "R1", "x": 300, "y": 200}
+          ],
+          "wires": [
+            {"id": "w1", "from": "c1", "to": "c2"}
+          ]
+        }
+        Координаты x (от 50 до 550) и y (от 50 до 350) расставь примерно по расположению элементов на картинке.`;
 
         const payload = {
             contents: [{
@@ -120,16 +127,23 @@
             }
 
             const rawText = result.candidates[0].content.parts[0].text;
-            log("Ответ получен успешно!");
+            log("Ответ от модели получен!");
             
             // Очищаем ответ от возможных markdown-тегов
-            const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const circuitData = JSON.parse(cleanJson);
+            let cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            
+            // Защита на случай, если модель добавила текст вокруг JSON
+            const firstBrace = cleanJson.indexOf('{');
+            const lastBrace = cleanJson.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+            }
 
+            const circuitData = JSON.parse(cleanJson);
             renderSvg(circuitData);
 
         } catch (err) {
-            log("Ошибка: " + err.message);
+            log("Ошибка разбора или запроса: " + err.message);
         }
     }
 
@@ -152,7 +166,7 @@
                 let fromComp = data.components.find(c => c.id === w.from);
                 let toComp = data.components.find(c => c.id === w.to);
                 if (fromComp && toComp) {
-                    svgHtml += `<line class="wire" x1="${fromComp.x}" y1="${fromComp.y}" x2="${toComp.x}" y2="${toComp.y}" />`;
+                    svgHtml += `<line class="wire ${isCurrentFlowing ? 'animated' : ''}" x1="${fromComp.x}" y1="${fromComp.y}" x2="${toComp.x}" y2="${toComp.y}" />`;
                 }
             });
         }
@@ -162,8 +176,8 @@
             data.components.forEach(c => {
                 svgHtml += `
                     <g class="component" onclick="selectComponent(this, '${c.label}')" transform="translate(${c.x}, ${c.y})">
-                        <rect x="-25" y="-15" width="50" height="30" rx="5" fill="#fff" stroke="#333" stroke-width="2"/>
-                        <text x="0" y="5" font-size="12" text-anchor="middle" fill="#333">${c.label}</text>
+                        <rect x="-30" y="-18" width="60" height="36" rx="6" fill="#fff" stroke="#333" stroke-width="2"/>
+                        <text x="0" y="5" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">${c.label}</text>
                     </g>
                 `;
             });
@@ -186,7 +200,7 @@
             if (isCurrentFlowing) w.classList.add('animated');
             else w.classList.remove('animated');
         });
-        log(isCurrentFlowing ? "Анимация тока запущенна ⚡" : "Анимация остановлена.");
+        log(isCurrentFlowing ? "Анимация тока запущена ⚡" : "Анимация остановлена.");
     }
 </script>
 
