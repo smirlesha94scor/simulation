@@ -18,6 +18,9 @@
         .component:hover rect, .component:hover circle { stroke: #ff9800; stroke-width: 3; }
         .component.selected rect, .component.selected circle { stroke: #e91e63; stroke-width: 3; fill: #ffebee; }
         #log { background: #222; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
+        .status-badge { display: inline-block; margin-left: 10px; font-size: 13px; font-weight: bold; }
+        .status-badge.connected { color: #28a745; }
+        .status-badge.empty { color: #dc3545; }
     </style>
 </head>
 <body>
@@ -27,8 +30,9 @@
     <div class="card">
         <h3>1. Настройки</h3>
         <label>Gemini API Key: </label><br>
-        <input type="password" id="apiKey" placeholder="Вставьте ваш ключ (сохранится в браузере)" style="width: 300px;">
+        <input type="password" id="apiKey" placeholder="Вставьте ваш ключ" style="width: 300px;">
         <button onclick="saveKey()">Сохранить ключ</button>
+        <span id="keyStatus" class="status-badge empty">● Ключ не задан</span>
     </div>
 
     <div class="card">
@@ -51,15 +55,37 @@
     </div>
 
 <script>
+    // Проверка ключа при загрузке страницы
     window.onload = () => {
         const savedKey = localStorage.getItem('gemini_api_key');
-        if (savedKey) document.getElementById('apiKey').value = savedKey;
+        if (savedKey) {
+            document.getElementById('apiKey').value = savedKey;
+            updateKeyStatus(true);
+        }
     };
 
     function saveKey() {
         const key = document.getElementById('apiKey').value.trim();
-        localStorage.setItem('gemini_api_key', key);
-        log("API ключ сохранен в браузере.");
+        if (key) {
+            localStorage.setItem('gemini_api_key', key);
+            updateKeyStatus(true);
+            log("API ключ успешно сохранен в браузере.");
+        } else {
+            localStorage.removeItem('gemini_api_key');
+            updateKeyStatus(false);
+            log("API ключ удален.");
+        }
+    }
+
+    function updateKeyStatus(isConnected) {
+        const statusSpan = document.getElementById('keyStatus');
+        if (isConnected) {
+            statusSpan.textContent = "● Ключ подключен";
+            statusSpan.className = "status-badge connected";
+        } else {
+            statusSpan.textContent = "● Ключ не задан";
+            statusSpan.className = "status-badge empty";
+        }
     }
 
     function log(text) {
@@ -75,7 +101,7 @@
         const fileInput = document.getElementById('imageInput').files[0];
 
         if (!apiKey) {
-            alert('Введите API ключ Gemini!');
+            alert('Сначала введите и сохраните API ключ Gemini!');
             return;
         }
         if (!fileInput) {
@@ -88,7 +114,6 @@
 
         log("Отправка запроса в Gemini Vision API...");
         
-        // Используем актуальную модель gemini-3.8-flash
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
         
         const promptText = `Распознай эту электрическую схему. Верни ТОЛЬКО валидный JSON-объект без markdown-разметки (никаких кодовых блоков \`\`\`json), содержащий строго структуру:
