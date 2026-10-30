@@ -2,112 +2,104 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>AI Circuit Realtime Scanner</title>
+    <title>AI Realtime Schematic Overlay</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #1e1e2f; color: #fff; }
-        .card { background: #27293d; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        body { font-family: sans-serif; margin: 20px; background: #121218; color: #fff; }
+        .card { background: #1e1e28; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         input, button { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
-        button { background: #e14eca; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #e14eca_cc; }
+        button { background: #00d2ff; color: #121218; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00a8cc; }
 
-        /* Контейнер сканера */
-        #scanner-viewport {
+        /* Контейнер подложки схемы */
+        #viewport {
             position: relative;
             width: 100%;
-            max-width: 700px;
-            height: 450px;
-            border: 2px solid #e14eca;
+            max-width: 800px;
+            height: 500px;
+            border: 2px solid #333;
             border-radius: 8px;
             overflow: hidden;
-            background: #111;
+            background: #000;
             margin: 0 auto;
         }
 
-        #uploaded-img {
+        #bg-image {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
         }
 
-        /* Сканирующий лазер */
-        #scan-line {
-            display: none;
+        /* SVG-слой наложения */
+        #svg-layer {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 4px;
-            background: #00f0ff;
-            box-shadow: 0 0 15px #00f0ff, 0 0 30px #00f0ff;
-            animation: scanAnim 2s infinite linear;
-            z-index: 10;
-        }
-
-        @keyframes scanAnim {
-            0% { top: 0%; }
-            50% { top: 98%; }
-            100% { top: 0%; }
-        }
-
-        /* SVG наложение поверх картинки */
-        #svg-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             pointer-events: auto;
             z-index: 5;
         }
 
-        .found-element {
-            fill: rgba(0, 240, 255, 0.15);
+        /* Анимация и стили накладываемых SVG деталей */
+        .svg-symbol {
+            cursor: pointer;
+            transition: transform 0.2s, filter 0.2s;
+        }
+        .svg-symbol:hover {
+            filter: drop-shadow(0px 0px 8px #00f0ff);
+        }
+        .svg-symbol rect, .svg-symbol path, .svg-symbol circle {
             stroke: #00f0ff;
             stroke-width: 2;
-            cursor: pointer;
-            transition: all 0.3s;
+            fill: rgba(0, 240, 255, 0.1);
+        }
+        .svg-symbol.selected rect, .svg-symbol.selected path, .svg-symbol.selected circle {
+            stroke: #ff0055;
+            fill: rgba(255, 0, 85, 0.2);
+            filter: drop-shadow(0px 0px 10px #ff0055);
         }
 
-        .found-element:hover {
-            fill: rgba(225, 78, 202, 0.4);
-            stroke: #e14eca;
-            stroke-width: 3;
+        /* Лазер сканирования */
+        #laser-line {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: #00f0ff;
+            box-shadow: 0 0 15px #00f0ff;
+            animation: scan 1.8s infinite linear;
+            z-index: 10;
         }
+        @keyframes scan { 0% { top: 0%; } 50% { top: 98%; } 100% { top: 0%; } }
 
-        .wire-path {
-            stroke: #00ff66;
-            stroke-dasharray: 6;
-            animation: flow 0.8s linear infinite;
-        }
-
-        @keyframes flow { to { stroke-dashoffset: -12; } }
-
-        #log { background: #000; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
+        #log { background: #08080c; color: #00f0ff; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <h1>🔍 AI Сканер Схем в Реальном Времени</h1>
+    <h1>📐 Реальное наложение SVG-элементов на схему</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
         <input type="password" id="apiKey" style="width: 280px;">
-        <button onclick="saveKey()">Сохранить</button>
+        <button onclick="saveKey()">Сохранить ключ</button>
         <span id="keyStatus" style="margin-left: 10px; font-weight: bold; color: #ff5e5e;">● Ключ не задан</span>
     </div>
 
     <div class="card">
-        <input type="file" id="imageInput" accept="image/*" onchange="previewImage(this)">
-        <button onclick="startScanning()">Запустить Сканирование</button>
+        <input type="file" id="imageInput" accept="image/*" onchange="loadPreview(this)">
+        <button onclick="scanAndOverlay()">Сканировать и Наложить SVG</button>
     </div>
 
     <div class="card">
-        <h3>Результат сканирования (Интерактивный пласт):</h3>
-        <div id="scanner-viewport">
-            <img id="uploaded-img" src="" alt="Загрузите схему" style="display:none;">
-            <div id="scan-line"></div>
-            <svg id="svg-overlay" viewBox="0 0 1000 600"></svg>
+        <div id="viewport">
+            <img id="bg-image" src="" alt="Загрузите фото схемы" style="display:none;">
+            <div id="laser-line"></div>
+            <svg id="svg-layer" viewBox="0 0 1000 600"></svg>
         </div>
     </div>
 
     <div class="card">
-        <h3>Лог сканирования:</h3>
-        <div id="log">Готов к работе...</div>
+        <h3>Лог работы:</h3>
+        <div id="log">Ожидание действий...</div>
     </div>
 
 <script>
@@ -116,7 +108,7 @@
         if (savedKey) {
             document.getElementById('apiKey').value = savedKey;
             document.getElementById('keyStatus').textContent = "● Ключ подключен";
-            document.getElementById('keyStatus').style.color = "#00ff66";
+            document.getElementById('keyStatus').style.color = "#00f0ff";
         }
     };
 
@@ -125,8 +117,8 @@
         if(key) {
             localStorage.setItem('gemini_api_key', key);
             document.getElementById('keyStatus').textContent = "● Ключ подключен";
-            document.getElementById('keyStatus').style.color = "#00ff66";
-            log("Ключ сохранен!");
+            document.getElementById('keyStatus').style.color = "#00f0ff";
+            log("Ключ сохранен.");
         }
     }
 
@@ -136,46 +128,89 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    function previewImage(input) {
+    function loadPreview(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const img = document.getElementById('uploaded-img');
+                const img = document.getElementById('bg-image');
                 img.src = e.target.result;
                 img.style.display = 'block';
-                document.getElementById('svg-overlay').innerHTML = '';
-                log("Изображение загружено. Нажмите 'Запустить Сканирование'.");
+                document.getElementById('svg-layer').innerHTML = '';
+                log("Изображение загружено подложкой.");
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    async function startScanning() {
+    // Векторная библиотека радиоэлементов (SVG-символы)
+    function getSvgSymbol(type, label) {
+        switch(type) {
+            case 'resistor':
+                return `
+                    <rect x="-30" y="-12" width="60" height="24" />
+                    <line x1="-50" y1="0" x2="-30" y2="0" />
+                    <line x1="30" y1="0" x2="50" y2="0" />
+                    <text x="0" y="-18" text-anchor="middle" fill="#00f0ff" font-size="12">${label}</text>
+                `;
+            case 'capacitor':
+                return `
+                    <line x1="-30" y1="0" x2="-8" y2="0" />
+                    <line x1="30" y1="0" x2="8" y2="0" />
+                    <line x1="-8" y1="-20" x2="-8" y2="20" />
+                    <line x1="8" y1="-20" x2="8" y2="20" />
+                    <text x="0" y="-25" text-anchor="middle" fill="#00f0ff" font-size="12">${label}</text>
+                `;
+            case 'diode':
+                return `
+                    <line x1="-30" y1="0" x2="30" y2="0" />
+                    <polygon points="-10,-12 -10,12 10,0" />
+                    <line x1="10" y1="-12" x2="10" y2="12" />
+                    <text x="0" y="-18" text-anchor="middle" fill="#00f0ff" font-size="12">${label}</text>
+                `;
+            case 'transistor':
+                return `
+                    <circle cx="0" cy="0" r="22" />
+                    <line x1="-10" y1="-14" x2="-10" y2="14" />
+                    <line x1="-30" y1="0" x2="-10" y2="0" />
+                    <line x1="-10" y1="-7" x2="15" y2="-18" />
+                    <line x1="-10" y1="7" x2="15" y2="18" />
+                    <text x="0" y="-28" text-anchor="middle" fill="#00f0ff" font-size="12">${label}</text>
+                `;
+            default: // Универсальный блок
+                return `
+                    <rect x="-25" y="-15" width="50" height="30" rx="4" />
+                    <text x="0" y="4" text-anchor="middle" fill="#00f0ff" font-size="11">${label}</text>
+                `;
+        }
+    }
+
+    async function scanAndOverlay() {
         const apiKey = document.getElementById('apiKey').value.trim();
         const fileInput = document.getElementById('imageInput').files[0];
 
         if (!apiKey || !fileInput) {
-            alert('Проверьте наличие ключа и выбранного файла!');
+            alert('Загрузите файл и укажите API key!');
             return;
         }
 
-        // Включаем визуал лазера сканирования
-        document.getElementById('scan-line').style.display = 'block';
-        log("Запуск оптического сканера...");
-        log("Считывание компонентов: VT1, VT2, VD1, R1, R2, C1, C2...");
+        document.getElementById('laser-line').style.display = 'block';
+        log("Сканирование подложки в реальном времени...");
 
         const base64Data = await toBase64(fileInput);
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-        const promptText = `Найти все электронные компоненты на схеме.
-        Верни ТОЛЬКО валидный JSON со строгой структурой без кодовых блоков markdown:
+        const promptText = `Определи положение и тип радиодеталей на схеме. 
+        Верни ТОЛЬКО валидный JSON со списком компонентов (без markdown):
         {
           "components": [
-            {"label": "R1 750k", "type": "resistor", "x": 180, "y": 320, "width": 80, "height": 40},
-            {"label": "VT1 KT315A", "type": "transistor", "x": 520, "y": 350, "width": 70, "height": 70}
+            {"label": "R1 750k", "type": "resistor", "cx": 220, "cy": 320},
+            {"label": "VD1 Д9Б", "type": "diode", "cx": 470, "cy": 160},
+            {"label": "VT1 КТ315А", "type": "transistor", "cx": 580, "cy": 340},
+            {"label": "C1 47n", "type": "capacitor", "cx": 380, "cy": 220}
           ]
         }
-        Система координат: x от 0 до 1000, y от 0 до 600. Укажи точные bounding box (x, y, width, height) для каждого элемента R1, R2, C1, C2, VD1, BF1, GB1, VT1, VT2, E1, E2.`;
+        Система координат: cx (от 0 до 1000) и cy (от 0 до 600) — это ТОЧНЫЙ ЦЕНТР каждого элемента на картинке.
+        Возможные type: resistor, capacitor, diode, transistor, battery, unknown.`;
 
         try {
             const response = await fetch(url, {
@@ -192,44 +227,55 @@
             });
 
             const result = await response.json();
-            document.getElementById('scan-line').style.display = 'none';
+            document.getElementById('laser-line').style.display = 'none';
 
             if (result.error) {
-                log("Ошибка: " + result.error.message);
+                log("Ошибка API: " + result.error.message);
                 return;
             }
 
             let rawText = result.candidates[0].content.parts[0].text;
             let cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const circuitData = JSON.parse(cleanJson);
+            
+            const firstBrace = cleanJson.indexOf('{');
+            const lastBrace = cleanJson.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+            }
 
-            log("Сканирование завершено! Найдено элементов: " + circuitData.components.length);
-            renderOverlay(circuitData.components);
+            const data = JSON.parse(cleanJson);
+            log("Найдено деталей: " + data.components.length);
+
+            // Поочередное наложение элементов в реальном времени (анимация появления)
+            renderRealtimeOverlay(data.components);
 
         } catch (e) {
-            document.getElementById('scan-line').style.display = 'none';
+            document.getElementById('laser-line').style.display = 'none';
             log("Ошибка обработчика: " + e.message);
         }
     }
 
-    function renderOverlay(components) {
-        const svg = document.getElementById('svg-overlay');
-        let html = '';
+    function renderRealtimeOverlay(components) {
+        const svgLayer = document.getElementById('svg-layer');
+        svgLayer.innerHTML = '';
 
-        components.forEach((c, idx) => {
-            html += `
-                <g class="found-element" onclick="highlightElement('${c.label}')">
-                    <rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="5"/>
-                    <text x="${c.x + 5}" y="${c.y - 8}" fill="#00f0ff" font-size="14" font-weight="bold">${c.label}</text>
-                </g>
-            `;
+        components.forEach((comp, i) => {
+            // Задержка для каждого элемента создает эффект «проявления» в реальном времени
+            setTimeout(() => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("class", "svg-symbol");
+                g.setAttribute("transform", `translate(${comp.cx}, ${comp.cy})`);
+                g.onclick = () => {
+                    g.classList.toggle('selected');
+                    log(`Клик по элементу: ${comp.label}`);
+                };
+
+                g.innerHTML = getSvgSymbol(comp.type, comp.label);
+                svgLayer.appendChild(g);
+
+                log(`[Отрендерен SVG] ${comp.label} -> X:${comp.cx}, Y:${comp.cy}`);
+            }, i * 250); // Появляются каждые 250 мс
         });
-
-        svg.innerHTML = html;
-    }
-
-    function highlightElement(label) {
-        log("Выбран элемент: " + label + " (Готов к симуляции)");
     }
 
     function toBase64(file) {
