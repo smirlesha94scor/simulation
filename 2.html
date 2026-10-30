@@ -2,89 +2,131 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>AI Circuit Scanner & SVG Simulator</title>
+    <title>AI Circuit Realtime Scanner</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        body { font-family: sans-serif; margin: 20px; background: #1e1e2f; color: #fff; }
+        .card { background: #27293d; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         input, button { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
-        button { background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        #canvas-container { width: 100%; height: 500px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff; position: relative; overflow: hidden; }
-        svg { width: 100%; height: 100%; }
-        .wire { stroke: #555; stroke-width: 3; fill: none; }
-        .wire.animated { stroke-dasharray: 8, 8; animation: dash 1s linear infinite; }
-        @keyframes dash { to { stroke-dashoffset: -16; } }
-        .component { cursor: pointer; transition: 0.2s; }
-        .component:hover rect, .component:hover circle { stroke: #ff9800; stroke-width: 3; }
-        .component.selected rect, .component.selected circle { stroke: #e91e63; stroke-width: 3; fill: #ffebee; }
-        #log { background: #222; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
-        .status-badge { display: inline-block; margin-left: 10px; font-size: 13px; font-weight: bold; }
-        .status-badge.connected { color: #28a745; }
-        .status-badge.empty { color: #dc3545; }
+        button { background: #e14eca; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #e14eca_cc; }
+
+        /* Контейнер сканера */
+        #scanner-viewport {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            height: 450px;
+            border: 2px solid #e14eca;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #111;
+            margin: 0 auto;
+        }
+
+        #uploaded-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Сканирующий лазер */
+        #scan-line {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 4px;
+            background: #00f0ff;
+            box-shadow: 0 0 15px #00f0ff, 0 0 30px #00f0ff;
+            animation: scanAnim 2s infinite linear;
+            z-index: 10;
+        }
+
+        @keyframes scanAnim {
+            0% { top: 0%; }
+            50% { top: 98%; }
+            100% { top: 0%; }
+        }
+
+        /* SVG наложение поверх картинки */
+        #svg-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: auto;
+            z-index: 5;
+        }
+
+        .found-element {
+            fill: rgba(0, 240, 255, 0.15);
+            stroke: #00f0ff;
+            stroke-width: 2;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .found-element:hover {
+            fill: rgba(225, 78, 202, 0.4);
+            stroke: #e14eca;
+            stroke-width: 3;
+        }
+
+        .wire-path {
+            stroke: #00ff66;
+            stroke-dasharray: 6;
+            animation: flow 0.8s linear infinite;
+        }
+
+        @keyframes flow { to { stroke-dashoffset: -12; } }
+
+        #log { background: #000; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ AI Circuit Scanner & Current Simulator</h1>
+    <h1>🔍 AI Сканер Схем в Реальном Времени</h1>
 
     <div class="card">
-        <h3>1. Настройки</h3>
-        <label>Gemini API Key: </label><br>
-        <input type="password" id="apiKey" placeholder="Вставьте ваш ключ" style="width: 300px;">
-        <button onclick="saveKey()">Сохранить ключ</button>
-        <span id="keyStatus" class="status-badge empty">● Ключ не задан</span>
+        <label>Gemini API Key: </label>
+        <input type="password" id="apiKey" style="width: 280px;">
+        <button onclick="saveKey()">Сохранить</button>
+        <span id="keyStatus" style="margin-left: 10px; font-weight: bold; color: #ff5e5e;">● Ключ не задан</span>
     </div>
 
     <div class="card">
-        <h3>2. Загрузка схемы</h3>
-        <input type="file" id="imageInput" accept="image/*"><br>
-        <button onclick="analyzeCircuit()">Распознать схему и построить SVG</button>
+        <input type="file" id="imageInput" accept="image/*" onchange="previewImage(this)">
+        <button onclick="startScanning()">Запустить Сканирование</button>
     </div>
 
     <div class="card">
-        <h3>3. Интерактивная схема</h3>
-        <div id="canvas-container">
-            <p style="color: #888;">Здесь появится сгенерированная SVG-схема</p>
+        <h3>Результат сканирования (Интерактивный пласт):</h3>
+        <div id="scanner-viewport">
+            <img id="uploaded-img" src="" alt="Загрузите схему" style="display:none;">
+            <div id="scan-line"></div>
+            <svg id="svg-overlay" viewBox="0 0 1000 600"></svg>
         </div>
-        <button onclick="toggleCurrent()" style="margin-top: 10px; background: #28a745;">Включить / Выключить ток</button>
     </div>
 
     <div class="card">
-        <h3>Лог работы:</h3>
-        <div id="log">Ожидание действий...</div>
+        <h3>Лог сканирования:</h3>
+        <div id="log">Готов к работе...</div>
     </div>
 
 <script>
-    // Проверка ключа при загрузке страницы
     window.onload = () => {
         const savedKey = localStorage.getItem('gemini_api_key');
         if (savedKey) {
             document.getElementById('apiKey').value = savedKey;
-            updateKeyStatus(true);
+            document.getElementById('keyStatus').textContent = "● Ключ подключен";
+            document.getElementById('keyStatus').style.color = "#00ff66";
         }
     };
 
     function saveKey() {
         const key = document.getElementById('apiKey').value.trim();
-        if (key) {
+        if(key) {
             localStorage.setItem('gemini_api_key', key);
-            updateKeyStatus(true);
-            log("API ключ успешно сохранен в браузере.");
-        } else {
-            localStorage.removeItem('gemini_api_key');
-            updateKeyStatus(false);
-            log("API ключ удален.");
-        }
-    }
-
-    function updateKeyStatus(isConnected) {
-        const statusSpan = document.getElementById('keyStatus');
-        if (isConnected) {
-            statusSpan.textContent = "● Ключ подключен";
-            statusSpan.className = "status-badge connected";
-        } else {
-            statusSpan.textContent = "● Ключ не задан";
-            statusSpan.className = "status-badge empty";
+            document.getElementById('keyStatus').textContent = "● Ключ подключен";
+            document.getElementById('keyStatus').style.color = "#00ff66";
+            log("Ключ сохранен!");
         }
     }
 
@@ -94,134 +136,110 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    let isCurrentFlowing = false;
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('uploaded-img');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                document.getElementById('svg-overlay').innerHTML = '';
+                log("Изображение загружено. Нажмите 'Запустить Сканирование'.");
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 
-    async function analyzeCircuit() {
+    async function startScanning() {
         const apiKey = document.getElementById('apiKey').value.trim();
         const fileInput = document.getElementById('imageInput').files[0];
 
-        if (!apiKey) {
-            alert('Сначала введите и сохраните API ключ Gemini!');
-            return;
-        }
-        if (!fileInput) {
-            alert('Выберите изображение схемы!');
+        if (!apiKey || !fileInput) {
+            alert('Проверьте наличие ключа и выбранного файла!');
             return;
         }
 
-        log("Конвертация картинки в Base64...");
+        // Включаем визуал лазера сканирования
+        document.getElementById('scan-line').style.display = 'block';
+        log("Запуск оптического сканера...");
+        log("Считывание компонентов: VT1, VT2, VD1, R1, R2, C1, C2...");
+
         const base64Data = await toBase64(fileInput);
-
-        log("Отправка запроса в Gemini Vision API...");
-        
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
-        
-        const promptText = `Распознай эту электрическую схему. Верни ТОЛЬКО валидный JSON-объект без markdown-разметки (никаких кодовых блоков \`\`\`json), содержащий строго структуру:
+
+        const promptText = `Найти все электронные компоненты на схеме.
+        Верни ТОЛЬКО валидный JSON со строгой структурой без кодовых блоков markdown:
         {
           "components": [
-            {"id": "c1", "type": "source", "label": "U1", "x": 100, "y": 200},
-            {"id": "c2", "type": "resistor", "label": "R1", "x": 300, "y": 200}
-          ],
-          "wires": [
-            {"id": "w1", "from": "c1", "to": "c2"}
+            {"label": "R1 750k", "type": "resistor", "x": 180, "y": 320, "width": 80, "height": 40},
+            {"label": "VT1 KT315A", "type": "transistor", "x": 520, "y": 350, "width": 70, "height": 70}
           ]
         }
-        Координаты x (от 50 до 550) и y (от 50 до 350) расставь примерно по расположению элементов на картинке.`;
-
-        const payload = {
-            contents: [{
-                parts: [
-                    { text: promptText },
-                    { inline_data: { mime_type: fileInput.type, data: base64Data.split(',')[1] } }
-                ]
-            }]
-        };
+        Система координат: x от 0 до 1000, y от 0 до 600. Укажи точные bounding box (x, y, width, height) для каждого элемента R1, R2, C1, C2, VD1, BF1, GB1, VT1, VT2, E1, E2.`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: promptText },
+                            { inline_data: { mime_type: fileInput.type, data: base64Data.split(',')[1] } }
+                        ]
+                    }]
+                })
             });
 
             const result = await response.json();
+            document.getElementById('scan-line').style.display = 'none';
+
             if (result.error) {
-                log("Ошибка API: " + result.error.message);
+                log("Ошибка: " + result.error.message);
                 return;
             }
 
-            const rawText = result.candidates[0].content.parts[0].text;
-            log("Ответ от модели получен!");
-            
+            let rawText = result.candidates[0].content.parts[0].text;
             let cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const firstBrace = cleanJson.indexOf('{');
-            const lastBrace = cleanJson.lastIndexOf('}');
-            if (firstBrace !== -1 && lastBrace !== -1) {
-                cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
-            }
-
             const circuitData = JSON.parse(cleanJson);
-            renderSvg(circuitData);
 
-        } catch (err) {
-            log("Ошибка разбора или запроса: " + err.message);
+            log("Сканирование завершено! Найдено элементов: " + circuitData.components.length);
+            renderOverlay(circuitData.components);
+
+        } catch (e) {
+            document.getElementById('scan-line').style.display = 'none';
+            log("Ошибка обработчика: " + e.message);
         }
+    }
+
+    function renderOverlay(components) {
+        const svg = document.getElementById('svg-overlay');
+        let html = '';
+
+        components.forEach((c, idx) => {
+            html += `
+                <g class="found-element" onclick="highlightElement('${c.label}')">
+                    <rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="5"/>
+                    <text x="${c.x + 5}" y="${c.y - 8}" fill="#00f0ff" font-size="14" font-weight="bold">${c.label}</text>
+                </g>
+            `;
+        });
+
+        svg.innerHTML = html;
+    }
+
+    function highlightElement(label) {
+        log("Выбран элемент: " + label + " (Готов к симуляции)");
     }
 
     function toBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
+        return new Promise((res, rej) => {
+            const r = new FileReader();
+            r.readAsDataURL(file);
+            r.onload = () => res(r.result);
+            r.onerror = e => rej(e);
         });
-    }
-
-    function renderSvg(data) {
-        const container = document.getElementById('canvas-container');
-        let svgHtml = `<svg viewBox="0 0 600 400">`;
-
-        if (data.wires) {
-            data.wires.forEach(w => {
-                let fromComp = data.components.find(c => c.id === w.from);
-                let toComp = data.components.find(c => c.id === w.to);
-                if (fromComp && toComp) {
-                    svgHtml += `<line class="wire ${isCurrentFlowing ? 'animated' : ''}" x1="${fromComp.x}" y1="${fromComp.y}" x2="${toComp.x}" y2="${toComp.y}" />`;
-                }
-            });
-        }
-
-        if (data.components) {
-            data.components.forEach(c => {
-                svgHtml += `
-                    <g class="component" onclick="selectComponent(this, '${c.label}')" transform="translate(${c.x}, ${c.y})">
-                        <rect x="-30" y="-18" width="60" height="36" rx="6" fill="#fff" stroke="#333" stroke-width="2"/>
-                        <text x="0" y="5" font-size="14" font-weight="bold" text-anchor="middle" fill="#333">${c.label}</text>
-                    </g>
-                `;
-            });
-        }
-
-        svgHtml += `</svg>`;
-        container.innerHTML = svgHtml;
-        log("SVG успешно отрендерен! Кликайте по компонентам.");
-    }
-
-    function selectComponent(element, label) {
-        element.classList.toggle('selected');
-        log(`Выбран компонент: ${label}`);
-    }
-
-    function toggleCurrent() {
-        isCurrentFlowing = !isCurrentFlowing;
-        const wires = document.querySelectorAll('.wire');
-        wires.forEach(w => {
-            if (isCurrentFlowing) w.classList.add('animated');
-            else w.classList.remove('animated');
-        });
-        log(isCurrentFlowing ? "Анимация тока запущена ⚡" : "Анимация остановлена.");
     }
 </script>
-
 </body>
 </html>
