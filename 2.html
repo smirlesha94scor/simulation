@@ -51,7 +51,6 @@
     </div>
 
 <script>
-    // Загрузка ключа из localStorage при запуске
     window.onload = () => {
         const savedKey = localStorage.getItem('gemini_api_key');
         if (savedKey) document.getElementById('apiKey').value = savedKey;
@@ -89,8 +88,8 @@
 
         log("Отправка запроса в Gemini Vision API...");
         
-        // Используем актуальную модель gemini-2.5-flash
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        // Используем актуальную модель gemini-3.8-flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
         
         const promptText = `Распознай эту электрическую схему. Верни ТОЛЬКО валидный JSON-объект без markdown-разметки (никаких кодовых блоков \`\`\`json), содержащий строго структуру:
         {
@@ -129,10 +128,7 @@
             const rawText = result.candidates[0].content.parts[0].text;
             log("Ответ от модели получен!");
             
-            // Очищаем ответ от возможных markdown-тегов
             let cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            
-            // Защита на случай, если модель добавила текст вокруг JSON
             const firstBrace = cleanJson.indexOf('{');
             const lastBrace = cleanJson.lastIndexOf('}');
             if (firstBrace !== -1 && lastBrace !== -1) {
@@ -160,7 +156,6 @@
         const container = document.getElementById('canvas-container');
         let svgHtml = `<svg viewBox="0 0 600 400">`;
 
-        // Рисуем провода
         if (data.wires) {
             data.wires.forEach(w => {
                 let fromComp = data.components.find(c => c.id === w.from);
@@ -171,7 +166,6 @@
             });
         }
 
-        // Рисуем компоненты
         if (data.components) {
             data.components.forEach(c => {
                 svgHtml += `
