@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Circuit Scanner & SVG Simulator</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, button { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
+        button { background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #canvas-container { width: 100%; height: 500px; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff; position: relative; overflow: hidden; }
+        svg { width: 100%; height: 100%; }
+        .wire { stroke: #555; stroke-width: 3; fill: none; }
+        .wire.animated { stroke-dasharray: 8, 8; animation: dash 1s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -16; } }
+        .component { cursor: pointer; transition: 0.2s; }
+        .component:hover rect, .component:hover circle { stroke: #ff9800; stroke-width: 3; }
+        .component.selected rect, .component.selected circle { stroke: #e91e63; stroke-width: 3; fill: #ffebee; }
+        #log { background: #222; color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <h1>⚡ AI Circuit Scanner & Current Simulator</h1>
+
+    <div class="card">
+        <h3>1. Настройки</h3>
+        <label>Gemini API Key: </label><br>
+        <input type="password" id="apiKey" placeholder="Вставьте ваш ключ (сохранится в браузере)" style="width: 300px;">
+        <button onclick="saveKey()">Сохранить ключ</button>
+    </div>
+
+    <div class="card">
+        <h3>2. Загрузка схемы</h3>
+        <input type="file" id="imageInput" accept="image/*"><br>
+        <button onclick="analyzeCircuit()">Распознать схему и построить SVG</button>
+    </div>
+
+    <div class="card">
+        <h3>3. Интерактивная схема</h3>
+        <div id="canvas-container">
+            <p style="color: #888;">Здесь появится сгенерированная SVG-схема</p>
+        </div>
+        <button onclick="toggleCurrent()" style="margin-top: 10px; background: #28a745;">Включить / Выключить ток</button>
+    </div>
+
+    <div class="card">
+        <h3>Лог работы:</h3>
+        <div id="log">Ожидание действий...</div>
+    </div>
+
+<script>
+    // Загрузка ключа из localStorage
+    window.onload = () => {
+        const savedKey = localStorage.getItem('gemini_api_key');
+        if (savedKey) document.getElementById('apiKey').value = savedKey;
+    };
+
+    function saveKey() {
+        const key = document.getElementById('apiKey').value.trim();
+        localStorage.setItem('gemini_api_key', key);
+        log("API ключ сохранен в браузере.");
+    }
+
+    function log(text) {
+        const box = document.getElementById('log');
+        box.innerHTML += `<div>> ${text}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    let isCurrentFlowing = false;
+
+    async function analyzeCircuit() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const fileInput = document.getElementById('imageInput').files[0];
+
+        if (!apiKey) {
+            alert('Введите API ключ Gemini!');
+            return;
+        }
+        if (!fileInput) {
+            alert('Выберите изображение схемы!');
+            return;
+        }
+
+        log("Конвертация картинки в Base64...");
+        const base64Data = await toBase64(fileInput);
+
+        log("Отправка запроса в Gemini Vision API...");
+        
+        // Используем актуальную модель Gemini
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        
+        const promptText = `Распознай эту электрическую схему. Верни ТОЛЬКО валидный JSON-объект без markdown-разметки (без \`\`\`json), содержащий:
+        1. "components": массив объектов с полями id, type (resistor, capacitor, source, etc), label (например R1, C1), x, y.
+        2. "wires": массив объектов с полями id, from (id компонента), to (id компонента).
+        Пример: {"components": [{"id":"c1","type":"source","label":"U1","x":100,"y":200}], "wires": []}`;
+
+        const payload = {
+            contents: [{
+                parts: [
+                    { text: promptText },
+                    { inline_data: { mime_type: fileInput.type, data: base64Data.split(',')[1] } }
+                ]
+            }]
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            if (result.error) {
+                log("Ошибка API: " + result.error.message);
+                return;
+            }
+
+            const rawText = result.candidates[0].content.parts[0].text;
+            log("Ответ получен успешно!");
+            
+            // Очищаем ответ от возможных markdown-тегов
+            const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const circuitData = JSON.parse(cleanJson);
+
+            renderSvg(circuitData);
+
+        } catch (err) {
+            log("Ошибка: " + err.message);
+        }
+    }
+
+    function toBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    function renderSvg(data) {
+        const container = document.getElementById('canvas-container');
+        let svgHtml = `<svg viewBox="0 0 600 400">`;
+
+        // Рисуем провода
+        if (data.wires) {
+            data.wires.forEach(w => {
+                let fromComp = data.components.find(c => c.id === w.from);
+                let toComp = data.components.find(c => c.id === w.to);
+                if (fromComp && toComp) {
+                    svgHtml += `<line class="wire" x1="${fromComp.x}" y1="${fromComp.y}" x2="${toComp.x}" y2="${toComp.y}" />`;
+                }
+            });
+        }
+
+        // Рисуем компоненты
+        if (data.components) {
+            data.components.forEach(c => {
+                svgHtml += `
+                    <g class="component" onclick="selectComponent(this, '${c.label}')" transform="translate(${c.x}, ${c.y})">
+                        <rect x="-25" y="-15" width="50" height="30" rx="5" fill="#fff" stroke="#333" stroke-width="2"/>
+                        <text x="0" y="5" font-size="12" text-anchor="middle" fill="#333">${c.label}</text>
+                    </g>
+                `;
+            });
+        }
+
+        svgHtml += `</svg>`;
+        container.innerHTML = svgHtml;
+        log("SVG успешно отрендерен! Кликайте по компонентам.");
+    }
+
+    function selectComponent(element, label) {
+        element.classList.toggle('selected');
+        log(`Выбран компонент: ${label}`);
+    }
+
+    function toggleCurrent() {
+        isCurrentFlowing = !isCurrentFlowing;
+        const wires = document.querySelectorAll('.wire');
+        wires.forEach(w => {
+            if (isCurrentFlowing) w.classList.add('animated');
+            else w.classList.remove('animated');
+        });
+        log(isCurrentFlowing ? "Анимация тока запущенна ⚡" : "Анимация остановлена.");
+    }
+</script>
+
+</body>
+</html>
