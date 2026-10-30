@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - ГОСТ Транзисторы</title>
+    <title>CV Circuit Scanner - Точные ГОСТ Символы</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -118,12 +118,12 @@
             color: #00ff66;
             display: block;
         }
-        .close-btn {background: #555; margin-top: 20px; }
+        .close-btn { background: #555; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Исправленное положение стрелок эмиттера</h1>
+    <h1>⚡ Сканер схем: Библиотечное распознавание ГОСТ</h1>
 
     <div class="card">
         <label>Gemini API Key: </label>
@@ -135,7 +135,7 @@
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         <button onclick="startTwoPhaseScan()">Запустить поэтапное сканирование</button>
-        <button class="btn-info" onclick="openInfoModal()">Каталог элементов ГОСТ</button>
+        <button class="btn-info" onclick="openInfoModal()">Эталоны библиотеки ГОСТ</button>
     </div>
 
     <div class="card">
@@ -152,8 +152,8 @@
 
     <div id="modal-info">
         <div class="modal-content">
-            <h3>📖 Каталог элементов ГОСТ</h3>
-            <p>Стрелки эмиттера точно спозиционированы на линии эмиттера:</p>
+            <h3>📖 Эталоны библиотеки ГОСТ</h3>
+            <p>Система подставляет строго запрограммированные векторные паттерны для транзисторов NPN и PNP:</p>
 
             <div class="svg-preview-grid">
                 <div class="preview-card">
@@ -165,7 +165,7 @@
                         <line x1="-10" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
                         <polygon points="8,15 15,22 13,13" fill="#00ff66"/>
                     </svg>
-                    <span>NPN Транзистор</span>
+                    <span>transistor_npn (Библиотечный)</span>
                 </div>
                 <div class="preview-card">
                     <svg viewBox="-40 -30 80 60">
@@ -176,7 +176,7 @@
                         <line x1="-10" y1="6" x2="16" y2="18" stroke="#00ff66" stroke-width="2"/>
                         <polygon points="-2,10 5,17 7,8" fill="#00ff66"/>
                     </svg>
-                    <span>PNP Транзистор</span>
+                    <span>transistor_pnp (Библиотечный)</span>
                 </div>
             </div>
 
@@ -239,7 +239,7 @@
         }
     }
 
-    // Точные векторные SVG-символы с пересчитанными координатами полигонов стрелок
+    // Жестко запрограммированные библиотечные ГОСТ символы
     function getSvgSymbol(type, label) {
         switch(type) {
             case 'transistor_npn':
@@ -316,11 +316,19 @@
 
         log("=== ЭТАП 1: Сканирование контуров ===");
         runContourScanAnimation(async () => {
-            log("=== ЭТАPS 2: Распознавание элементов через Gemini Vision ===");
+            log("=== ЭТАП 2: Сопоставление с библиотекой ГОСТ через Gemini Vision ===");
             const base64Data = await toBase64(fileInput);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
-            const promptText = `Распознай все элементы на схеме. Для транзисторов укажи тип: transistor_npn или transistor_pnp. Для резисторов: resistor. Для конденсаторов: capacitor. Для диодов: diode. Для динамиков: speaker.
+            // Жестко инструктируем модель выбирать типы ТОЛЬКО из нашей библиотеки
+            const promptText = `Проанализируй чертеж и классифицируй найденные радиодетали, используя СТРОГО следующие типы из библиотеки:
+            - "transistor_npn" (если транзистор имеет стрелку эмиттера наружу)
+            - "transistor_pnp" (если транзистор имеет стрелку эмиттера внутрь)
+            - "resistor"
+            - "capacitor"
+            - "diode"
+            - "speaker"
+
             Верни ТОЛЬКО валидный JSON без markdown:
             {
               "components": [
@@ -348,7 +356,7 @@
                 const data = JSON.parse(cleanJson);
                 scanData = data.components;
 
-                log(`Распознано: ${scanData.length}. Применение точных ГОСТ символов...`);
+                log(`Распознано: ${scanData.length}. Подстановка точных библиотечных символов...`);
                 materializeElements(scanData);
 
             } catch (e) {
@@ -408,7 +416,7 @@
                 };
                 g.innerHTML = getSvgSymbol(comp.type, comp.label);
                 svgLayer.appendChild(g);
-                log(`[Символ добавлен] ${comp.label} (${comp.type})`);
+                log(`[Библиотечный символ] ${comp.label} (${comp.type})`);
             }, idx * 300);
         });
     }
