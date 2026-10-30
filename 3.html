@@ -3,985 +3,564 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Симуляция Автовокзала с Пассажирами</title>
+    <title>Excel Детектор: Адаптивный поиск утечек</title>
     <style>
+        :root {
+            --excel-green: #107c41;
+            --excel-light-green: #e6f2ed;
+            --border-color: #d4d4d4;
+            --header-bg: #f3f3f3;
+            --cell-selected: #e7f3fd;
+            --cell-border-selected: #106ebe;
+            --danger-bg: #fde8e8;
+            --danger-color: #9b1c1c;
+            --warning-bg: #fef3c7;
+            --warning-color: #92400e;
+            --helper-bg: #0f172a;
+            --helper-text: #f8fafc;
+            --helper-accent: #38bdf8;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Запрет внешней прокрутки страницы */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background-color: #f8fafc;
+            color: #333;
         }
 
         body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: system-ui, -apple-system, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #viewport {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #1a2332;
-            position: relative;
-        }
-
-        canvas {
-            background-color: #1e293b;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            border-radius: 12px;
-        }
-
-        #sidebar {
-            width: 440px;
-            background-color: #0f172a;
-            border-left: 1px solid #334155;
-            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            overflow-y: auto;
         }
 
-        h2 {
-            color: #38bdf8;
-            font-size: 1.2rem;
-            margin-bottom: 2px;
+        header {
+            background-color: var(--excel-green);
+            color: white;
+            padding: 6px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
         }
 
-        .section-title {
+        header h1 {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* Строка формул */
+        .formula-bar-container {
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding: 3px 6px;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .cell-address {
+            width: 50px;
+            padding: 2px 4px;
+            border: 1px solid var(--border-color);
+            background-color: #f8f9fa;
+            font-weight: bold;
+            text-align: center;
             font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #64748b;
-            margin-top: 4px;
-            margin-bottom: 2px;
+            border-radius: 2px;
         }
 
-        .clock-box {
-            background: #1e293b;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #334155;
+        .fx-label {
+            font-weight: bold;
+            color: #666;
+            font-style: italic;
+            font-size: 0.85rem;
+        }
+
+        .formula-input {
+            flex: 1;
+            padding: 3px 6px;
+            border: 1px solid var(--border-color);
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        /* Панель детектора утечек */
+        .live-helper {
+            background-color: var(--helper-bg);
+            color: var(--helper-text);
+            padding: 8px 12px;
+            border-bottom: 2px solid var(--helper-accent);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .helper-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .clock-time {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: #38bdf8;
-            font-family: monospace;
-        }
-
-        .announcement-banner {
-            background-color: #f59e0b;
-            color: #0f172a;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            display: none;
-            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
-        }
-
-        .btn-row {
+        .helper-title-group {
             display: flex;
+            align-items: center;
             gap: 8px;
         }
 
-        .btn {
-            flex: 1;
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            padding: 9px 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 0.82rem;
-            text-align: center;
-        }
-
-        .btn:hover {
-            background-color: #0369a1;
-        }
-
-        .btn-secondary {
-            background-color: #475569;
-        }
-
-        .btn-secondary:hover {
-            background-color: #334155;
-        }
-
-        .btn-test {
-            background-color: #eab308;
+        .helper-badge {
+            background-color: var(--helper-accent);
             color: #0f172a;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
         }
 
-        .btn-test:hover {
-            background-color: #ca8a04;
+        .helper-cell-ref {
+            color: #facc15;
+            font-family: monospace;
+            font-size: 0.85rem;
+            font-weight: bold;
         }
 
-        .btn-info {
-            background-color: #8b5cf6;
-            color: white;
+        .helper-instruction {
+            line-height: 1.3;
+            color: #e2e8f0;
+            background: #1e293b;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border-left: 3px solid var(--helper-accent);
         }
 
-        .btn-info:hover {
-            background-color: #7c3aed;
-        }
-
-        .table-container {
-            flex: 1;
-            max-height: 460px;
-            overflow-y: auto;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            background-color: #1e293b;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.75rem;
-            text-align: left;
-        }
-
-        th {
+        .helper-code {
             background-color: #0f172a;
             color: #38bdf8;
-            padding: 8px 8px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-family: monospace;
+        }
+
+        /* Область сетки Excel с изолированной прокруткой */
+        .sheet-container {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            background-color: #fff;
+        }
+
+        table.excel-grid {
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 0.8rem;
+            width: 100%;
+        }
+
+        table.excel-grid th, table.excel-grid td {
+            border: 1px solid var(--border-color);
+            height: 22px;
+            padding: 0 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        table.excel-grid th {
+            background-color: var(--header-bg);
+            color: #555;
+            font-weight: 600;
+            text-align: center;
+            user-select: none;
             position: sticky;
             top: 0;
-            border-bottom: 1px solid #334155;
-            font-weight: 600;
+            z-index: 2;
         }
 
-        td {
-            padding: 7px 8px;
-            border-bottom: 1px solid #334155;
-            color: #cbd5e1;
+        table.excel-grid th.col-header { min-width: 100px; }
+        table.excel-grid th.row-header { width: 35px; min-width: 35px; position: sticky; left: 0; z-index: 3; }
+
+        table.excel-grid td {
+            background-color: #fff;
+            cursor: cell;
         }
 
-        tr.active-trip td {
-            background-color: rgba(56, 189, 248, 0.15);
-            color: #ffffff;
+        table.excel-grid td.selected {
+            outline: 2px solid var(--cell-border-selected);
+            outline-offset: -2px;
+            background-color: var(--cell-selected) !important;
         }
 
-        .platform-badge {
-            background-color: #22c55e;
-            color: #0f172a;
-            padding: 2px 5px;
-            border-radius: 4px;
+        td.cell-leak {
+            background-color: var(--danger-bg) !important;
+            color: var(--danger-color);
             font-weight: bold;
-            font-size: 0.7rem;
         }
 
-        /* Стили модального окна */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.85);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            backdrop-filter: blur(4px);
-        }
-
-        .modal-card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            width: 620px;
-            max-width: 95%;
-            padding: 20px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .modal-header {
-            font-size: 1.1rem;
+        td.cell-overspend {
+            background-color: var(--warning-bg) !important;
+            color: var(--warning-color);
             font-weight: bold;
-            color: #38bdf8;
-            border-bottom: 1px solid #334155;
-            padding-bottom: 8px;
         }
 
-        .modal-body {
-            font-size: 0.82rem;
-            line-height: 1.45;
-            color: #cbd5e1;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        td.section-header {
+            background-color: var(--excel-light-green) !important;
+            font-weight: bold;
+            color: var(--excel-green);
         }
 
-        .modal-footer {
+        footer {
+            background-color: #f1f5f9;
+            border-top: 1px solid var(--border-color);
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: #475569;
             display: flex;
-            justify-content: flex-end;
-            margin-top: 4px;
+            justify-content: space-between;
+            flex-shrink: 0;
         }
     </style>
 </head>
 <body>
 
-    <div id="viewport">
-        <canvas id="simCanvas" width="900" height="750"></canvas>
-    </div>
+<header>
+    <h1>🟢 Excel Детектор: Адаптивная диагностика утечек</h1>
+    <button onclick="resetSheet()" style="background:#fff; color:var(--excel-green); border:none; padding:2px 8px; font-size:0.75rem; font-weight:bold; cursor:pointer; border-radius:3px;">Сбросить таблицу</button>
+</header>
 
-    <div id="sidebar">
-        <h2>Автовокзал — Живое Табло</h2>
+<!-- Строка формул -->
+<div class="formula-bar-container">
+    <div class="cell-address" id="active-cell-id">A1</div>
+    <div class="fx-label">fx</div>
+    <input type="text" class="formula-input" id="formula-input" placeholder="Введите значение или формулу" oninput="liveUpdateFormulaInput()" onkeydown="handleFormulaKey(event)">
+</div>
 
-        <div class="clock-box">
-            <div>
-                <div style="font-size: 0.75rem; color: #94a3b8;">ИГРОВОЕ ВРЕМЯ</div>
-                <div class="clock-time" id="clockDisplay">06:00</div>
-            </div>
-            <div style="display: flex; gap: 6px;">
-                <button class="btn" id="btnTogglePlay" style="padding: 6px 12px;">Пауза</button>
-                <button class="btn btn-secondary" id="btnSpeed" style="padding: 6px 10px;">x1</button>
-            </div>
-        </div>
-
-        <div id="announcerBox" class="announcement-banner">
-            📢 <span id="announcerText">Внимание! Объявляется посадка...</span>
-        </div>
-
-        <div class="btn-row">
-            <button class="btn" id="btnGenerate">Обновить расписание</button>
-            <button class="btn btn-test" id="btnTestFull">Тест: Все платформы</button>
-        </div>
-
-        <div class="btn-row">
-            <button class="btn btn-info" id="btnExplainVectors">📊 Подробная графическая схема векторов</button>
-        </div>
-
-        <div class="section-title">Табло рейсов</div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Рейс / Направление</th>
-                        <th>Платф.</th>
-                        <th>Прибытие</th>
-                        <th>Стоянка</th>
-                        <th>Отправление</th>
-                    </tr>
-                </thead>
-                <tbody id="scheduleBody"></tbody>
-            </table>
+<!-- ПОМОЩНИК-ДЕТЕКТОР В РЕАЛЬНОМ ВРЕМЕНИ -->
+<div class="live-helper">
+    <div class="helper-header">
+        <div class="helper-title-group">
+            <span class="helper-badge">🔍 Детектор Утечек</span>
+            <span>Выбранная ячейка: <span class="helper-cell-ref" id="helper-cell-id">A1</span></span>
         </div>
     </div>
-
-    <!-- Модальное окно со схемой векторов -->
-    <div class="modal-overlay" id="vectorModal">
-        <div class="modal-card">
-            <div class="modal-header">Графический анализ: почему пассажиры уходили вниз</div>
-            <div class="modal-body">
-                <p>На схеме ниже наглядно показано различие между глобальными экранными осями и локальными векторами платформы:</p>
-                
-                <!-- Холст с интерактивной схемой векторов -->
-                <div style="background: #0f172a; border-radius: 8px; padding: 8px; display: flex; justify-content: center;">
-                    <canvas id="detailedSchemaCanvas" width="560" height="230"></canvas>
-                </div>
-
-                <p><b>Вывод:</b> Без использования локального базиса смещения умножались на мировую вертикальную ось $Y$ (направленную вниз экрана), из-за чего на полукруге толпа сбивалась на проезжую часть. Локальный вектор $R$ решает эту проблему.</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" id="btnCloseModal">Понятно</button>
-            </div>
-        </div>
+    <div class="helper-instruction" id="helper-text">
+        Кликните по любой ячейке таблицы для анализа.
     </div>
+</div>
 
-    <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
+<!-- Сетка с компактным размещением -->
+<div class="sheet-container">
+    <table class="excel-grid" id="excel-grid"></table>
+</div>
 
-        const MAP_PARAMS = {
-            roadWidth: 98,
-            roadStartY: 398,
-            platformCenterY: 50,
-            platformRadius: 315,
-            ringThickness: 105,
-            platformCount: 5,
-            arcSpread: 140,
-            arcRotation: 0,
-            stationWidth: 259,
-            stationHeight: 117,
-            stationY: 58,
-            platforms: [
-                { angle: 5, offset: -19 },
-                { angle: 5, offset: -25 },
-                { angle: 0, offset: -22 },
-                { angle: -5, offset: -25 },
-                { angle: -5, offset: -18 }
-            ]
+<footer>
+    <div id="status-summary">Идет диагностика расходов...</div>
+    <div>Кликните по ячейке для деталей.</div>
+</footer>
+
+<script>
+    const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+    const ROWS_COUNT = 30;
+
+    let cellData = {};
+    let selectedCell = 'A1';
+
+    function getInitialData() {
+        return {
+            'A1': 'Категория', 'B1': 'Запланировано ($)', 'C1': 'Фактически ($)', 'D1': 'Отклонение ($)',
+            'A2': 'Продукты', 'B2': '400', 'C2': '=СУММЕСЛИ(C18:C28; A2; D18:D28)', 'D2': '=C2-B2',
+            'A3': 'Подписки и сервисы', 'B3': '30', 'C3': '=СУММЕСЛИ(C18:C28; A3; D18:D28)', 'D3': '=C3-B3',
+            'A4': 'Развлечения и кафе', 'B4': '150', 'C4': '=СУММЕСЛИ(C18:C28; A4; D18:D28)', 'D4': '=C4-B4',
+            'A5': 'Транспорт', 'B5': '80', 'C5': '=СУММЕСЛИ(C18:C28; A5; D18:D28)', 'D5': '=C5-B5',
+            'A6': 'Итого', 'B6': '=СУММ(B2:B5)', 'C6': '=СУММ(C2:C5)', 'D6': '=СУММ(D2:D5)',
+
+            'F1': 'Белый список сервисов', 'G1': 'Категория', 'H1': 'Ожидается ($)',
+            'F2': 'Netflix', 'G2': 'Подписки и сервисы', 'H2': '15',
+            'F3': 'Spotify', 'G3': 'Подписки и сервисы', 'H3': '10',
+            'F4': 'Мобильная связь', 'G4': 'Подписки и сервисы', 'H4': '15',
+
+            'A17': 'Дата', 'B17': 'Описание / Магазин', 'C17': 'Категория', 'D17': 'Сумма ($)', 'E17': 'Статус подписки',
+            'A18': '01.10', 'B18': 'Супермаркет', 'C18': 'Продукты', 'D18': '65', 'E18': '=ЕСЛИ(C18="Подписки и сервисы"; ВПР(B18; F2:F10; 1); "ОК")',
+            'A19': '02.10', 'B19': 'Кофейня', 'C19': 'Развлечения и кафе', 'D19': '5', 'E19': '=ЕСЛИ(C19="Подписки и сервисы"; ВПР(B19; F2:F10; 1); "ОК")',
+            'A20': '04.10', 'B20': 'Cloud Storage', 'C20': 'Подписки и сервисы', 'D20': '8', 'E20': '=ЕСЛИ(C20="Подписки и сервисы"; ВПР(B20; F2:F10; 1); "ОК")',
+            'A21': '05.10', 'B21': 'Netflix', 'C21': 'Подписки и сервисы', 'D21': '15', 'E21': '=ЕСЛИ(C21="Подписки и сервисы"; ВПР(B21; F2:F10; 1); "ОК")',
+            'A22': '10.10', 'B22': 'Ресторан', 'C22': 'Развлечения и кафе', 'D22': '85', 'E22': '=ЕСЛИ(C22="Подписки и сервисы"; ВПР(B22; F2:F10; 1); "ОК")',
+            'A23': '12.10', 'B23': 'Spotify', 'C23': 'Подписки и сервисы', 'D23': '10', 'E23': '=ЕСЛИ(C23="Подписки и сервисы"; ВПР(B23; F2:F10; 1); "ОК")',
+            'A24': '15.10', 'B24': 'Игровой сервис', 'C24': 'Подписки и сервисы', 'D24': '15', 'E24': '=ЕСЛИ(C24="Подписки и сервисы"; ВПР(B24; F2:F10; 1); "ОК")',
+            'A25': '18.10', 'B25': 'Заказ еды', 'C25': 'Продукты', 'D25': '95', 'E25': '=ЕСЛИ(C25="Подписки и сервисы"; ВПР(B25; F2:F10; 1); "ОК")',
+            'A26': '20.10', 'B26': 'Мобильная связь', 'C26': 'Подписки и сервисы', 'D26': '15', 'E26': '=ЕСЛИ(C26="Подписки и сервисы"; ВПР(B26; F2:F10; 1); "ОК")',
+            'A27': '22.10', 'B27': 'Такси', 'C27': 'Транспорт', 'D27': '35', 'E27': '=ЕСЛИ(C27="Подписки и сервисы"; ВПР(B27; F2:F10; 1); "ОК")',
+            'A28': '25.10', 'B28': 'Кинотеатр', 'C28': 'Развлечения и кафе', 'D28': '40', 'E28': '=ЕСЛИ(C28="Подписки и сервисы"; ВПР(B28; F2:F10; 1); "ОК")'
         };
+    }
 
-        const pathRoutes = {
-            in: [
-                [[474, 692], [474, 384], [559, 365], [619, 339], [657, 308], [688, 281]],
-                [[472, 692], [470, 389], [525, 378], [573, 362], [588, 336], [592, 307]],
-                [[474, 692], [473, 400], [458, 366]],
-                [[476, 692], [472, 353], [427, 349], [391, 340], [341, 327], [311, 304]],
-                [[473, 692], [472, 344], [421, 342], [375, 334], [329, 318], [284, 293], [214, 221]]
-            ],
-            out: [
-                [[691, 209], [675, 240], [611, 298], [511, 338], [426, 347], [425, 692]],
-                [[592, 315], [564, 330], [527, 345], [479, 355], [426, 360], [423, 692]],
-                [[451, 360], [425, 390], [423, 691]],
-                [[311, 360], [352, 375], [425, 390], [427, 692]],
-                [[217, 286], [241, 313], [285, 342], [348, 367], [425, 389], [426, 691]]
-            ]
-        };
+    function init() {
+        cellData = getInitialData();
+        buildGrid();
+        selectCell('E20');
+        recalculate();
+    }
 
-        const busColors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6'];
-        const destinations = ["№502 Областной центр", "№124 Заречное", "№310 Пригородное", "№715 Северный", "№208 Мельницы", "№441 Каменка", "№112 Степное", "№630 Южный", "№225 Лесное"];
+    function resetSheet() {
+        cellData = getInitialData();
+        recalculate();
+        selectCell('E20');
+    }
 
-        let schedule = [];
-        let passengers = [];
-        let gameTimeMinutes = 6 * 60;
-        let isPlaying = true;
-        let timeSpeed = 1;
-        let isTestMode = false;
+    function buildGrid() {
+        const grid = document.getElementById('excel-grid');
+        grid.innerHTML = '';
 
-        const TOP_ENTRANCE = { x: 450, y: 58 };
-        const TICKET_BOX = { x: 450, y: 85 };
-        const WAITING_AREA = { x: 410, y: 110 };
-        const BOTTOM_EXIT = { x: 450, y: 58 + 117 };
+        let headerRow = '<tr><th class="row-header"></th>';
+        COLS.forEach(col => { headerRow += `<th class="col-header">${col}</th>`; });
+        headerRow += '</tr>';
+        grid.innerHTML += headerRow;
 
-        const modal = document.getElementById('vectorModal');
-        document.getElementById('btnExplainVectors').addEventListener('click', () => {
-            modal.style.display = 'flex';
-            drawDetailedSchema();
-        });
-        document.getElementById('btnCloseModal').addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-
-        // Отрисовка графической схемы внутри модального окна
-        function drawDetailedSchema() {
-            const sCanvas = document.getElementById('detailedSchemaCanvas');
-            const sCtx = sCanvas.getContext('2d');
-            sCtx.clearRect(0, 0, sCanvas.width, sCanvas.height);
-
-            // 1. Левая часть: Ошибка (мировой Y)
-            sCtx.fillStyle = '#f43f5e';
-            sCtx.font = 'bold 12px sans-serif';
-            sCtx.fillText('❌ Ошибка: Мировой вектор Y', 25, 25);
-
-            sCtx.strokeStyle = '#475569';
-            sCtx.lineWidth = 1;
-            sCtx.setLineDash([4, 4]);
-            sCtx.beginPath();
-            sCtx.moveTo(40, 40); sCtx.lineTo(40, 200);
-            sCtx.stroke();
-            sCtx.setLineDash([]);
-            sCtx.fillStyle = '#64748b';
-            sCtx.font = '10px monospace';
-            sCtx.fillText('Ось Y (+Y вниз)', 45, 50);
-
-            sCtx.save();
-            sCtx.translate(140, 110);
-            sCtx.rotate(-0.5);
-            sCtx.fillStyle = '#22c55e';
-            sCtx.fillRect(-16, -30, 32, 60);
-            sCtx.strokeStyle = '#ffffff';
-            sCtx.strokeRect(-16, -30, 32, 60);
-            sCtx.fillStyle = '#ffffff';
-            sCtx.font = 'bold 11px sans-serif';
-            sCtx.fillText('П-5', -10, 4);
-            sCtx.restore();
-
-            sCtx.strokeStyle = '#f43f5e';
-            sCtx.lineWidth = 2;
-            sCtx.beginPath();
-            sCtx.moveTo(140, 110);
-            sCtx.lineTo(140, 185);
-            sCtx.stroke();
-
-            sCtx.fillStyle = '#f43f5e';
-            for (let i = 0; i < 4; i++) {
-                sCtx.beginPath();
-                sCtx.arc(125 + i * 10, 185, 5, 0, Math.PI * 2);
-                sCtx.fill();
-            }
-            sCtx.fillText('Пассажиры ушли вниз', 75, 205);
-
-            // Разделитель
-            sCtx.strokeStyle = '#334155';
-            sCtx.lineWidth = 1.5;
-            sCtx.beginPath();
-            sCtx.moveTo(280, 15);
-            sCtx.lineTo(280, 215);
-            sCtx.stroke();
-
-            // 2. Правая часть: Правильно (Локальный базис R)
-            sCtx.fillStyle = '#38bdf8';
-            sCtx.font = 'bold 12px sans-serif';
-            sCtx.fillText('✅ Правильно: Локальный базис R', 305, 25);
-
-            sCtx.save();
-            sCtx.translate(410, 110);
-            const theta = -0.5;
-            sCtx.rotate(theta);
-
-            sCtx.fillStyle = '#22c55e';
-            sCtx.fillRect(-16, -30, 32, 60);
-            sCtx.strokeStyle = '#ffffff';
-            sCtx.strokeRect(-16, -30, 32, 60);
-            sCtx.fillStyle = '#ffffff';
-            sCtx.font = 'bold 11px sans-serif';
-            sCtx.fillText('П-5', -10, 4);
-
-            // Вектор R (Вправо)
-            sCtx.strokeStyle = '#38bdf8';
-            sCtx.lineWidth = 2.5;
-            sCtx.beginPath();
-            sCtx.moveTo(0, 0); sCtx.lineTo(45, 0);
-            sCtx.stroke();
-            sCtx.fillStyle = '#38bdf8';
-            sCtx.fillText('Вектор R', 48, 4);
-
-            for (let i = 0; i < 5; i++) {
-                sCtx.beginPath();
-                sCtx.arc(32, -20 + i * 10, 5, 0, Math.PI * 2);
-                sCtx.fill();
-            }
-            sCtx.restore();
-
-            sCtx.fillStyle = '#38bdf8';
-            sCtx.font = '10px sans-serif';
-            sCtx.fillText('Толпа строго с правого бока', 340, 205);
-        }
-
-        function getPlatformData(idx) {
-            const CENTER_X = canvas.width / 2;
-            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
-            const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
-            const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
-            const baseCenterAngle = Math.PI * 0.5;
-            const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
-            const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
-
-            let angle = startAngle + (idx / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
-            const custom = MAP_PARAMS.platforms[idx];
-            const placementRadius = innerRadius + custom.offset;
-
-            return {
-                x: CENTER_X + Math.cos(angle) * placementRadius,
-                y: MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius,
-                customAngleRad: (custom.angle * Math.PI) / 180,
-                angle: angle
-            };
-        }
-
-        function getDistributedCrowdCoords(idx, personIndex, totalPersons) {
-            const pos = getPlatformData(idx);
-            const theta = pos.customAngleRad;
-
-            const rightX = Math.cos(theta);
-            const rightY = Math.sin(theta);
-            const forwardX = -Math.sin(theta);
-            const forwardY = Math.cos(theta);
-
-            const sideDistance = 22 + (personIndex % 3) * 7;
-            const lengthDistance = ((Math.floor(personIndex / 3) / (totalPersons / 3)) - 0.5) * 38;
-
-            return {
-                x: pos.x + (rightX * sideDistance) + (forwardX * lengthDistance) + (Math.random() * 4 - 2),
-                y: pos.y + (rightY * sideDistance) + (forwardY * lengthDistance) + (Math.random() * 4 - 2)
-            };
-        }
-
-        function generateSchedule() {
-            isTestMode = false;
-            schedule = [];
-            passengers = [];
-            let currentTime = Math.floor(gameTimeMinutes);
-            let platformFreeTime = [0, 0, 0, 0, 0];
-            let lastArrivalAnyPlatform = currentTime - 10;
-            let lastUsedPlatform = -1;
-
-            for (let i = 1; i <= 14; i++) {
-                let platformIdx;
-                do {
-                    platformIdx = Math.floor(Math.random() * MAP_PARAMS.platformCount);
-                } while (platformIdx === lastUsedPlatform);
-
-                lastUsedPlatform = platformIdx;
-
-                let dwellTime = Math.floor(Math.random() * 11) + 10;
-                let minArrByPlatform = platformFreeTime[platformIdx] + 30;
-                let randomRoadGap = Math.floor(Math.random() * 11) + 5; 
-                let minArrByRoad = lastArrivalAnyPlatform + randomRoadGap;
-
-                let arrivalTime = Math.max(currentTime, minArrByPlatform, minArrByRoad);
-                let departureTime = arrivalTime + dwellTime;
-
-                platformFreeTime[platformIdx] = departureTime;
-                lastArrivalAnyPlatform = arrivalTime;
-                currentTime = arrivalTime;
-
-                let trip = {
-                    id: Date.now() + i,
-                    busName: destinations[Math.floor(Math.random() * destinations.length)],
-                    platform: platformIdx,
-                    arrivalTime: arrivalTime,
-                    dwellTime: dwellTime,
-                    departureTime: departureTime,
-                    color: busColors[(i - 1) % busColors.length],
-                    announced: false
-                };
-
-                schedule.push(trip);
-
-                let passCount = Math.floor(Math.random() * 3) + 3;
-                for (let p = 0; p < passCount; p++) {
-                    let isAdvanceBuyer = Math.random() < 0.35;
-                    passengers.push({
-                        id: `p_${trip.id}_${p}`,
-                        tripId: trip.id,
-                        platform: trip.platform,
-                        arrivalTime: trip.arrivalTime,
-                        isAdvanceBuyer: isAdvanceBuyer,
-                        state: isAdvanceBuyer ? 'buying_advance' : 'waiting_in_hall',
-                        x: TOP_ENTRANCE.x + (Math.random() * 40 - 20),
-                        y: TOP_ENTRANCE.y - 35 - (Math.random() * 20),
-                        targetX: TICKET_BOX.x + (Math.random() * 30 - 15),
-                        targetY: TICKET_BOX.y + (Math.random() * 10 - 5),
-                        speed: 1.2 + Math.random() * 0.5,
-                        color: ['#e2e8f0', '#f43f5e', '#a855f7', '#06b6d4', '#f97316'][p % 5]
-                    });
-                }
-            }
-            renderScheduleTable();
-        }
-
-        function runTestAllPlatforms() {
-            isTestMode = true;
-            schedule = [];
-            passengers = [];
-            let currentTime = Math.floor(gameTimeMinutes);
-
-            for (let i = 0; i < MAP_PARAMS.platformCount; i++) {
-                let trip = {
-                    id: Date.now() + i + 1,
-                    busName: destinations[i % destinations.length],
-                    platform: i,
-                    arrivalTime: currentTime - 2,
-                    dwellTime: 200,
-                    departureTime: currentTime + 200,
-                    color: busColors[i % busColors.length],
-                    announced: true
-                };
-                schedule.push(trip);
-
-                for (let p = 0; p < 30; p++) {
-                    const crowdPos = getDistributedCrowdCoords(i, p, 30);
-                    passengers.push({
-                        id: `test_p_${i}_${p}`,
-                        tripId: trip.id,
-                        platform: i,
-                        arrivalTime: trip.arrivalTime,
-                        isAdvanceBuyer: false,
-                        state: 'waiting_on_platform_crowd',
-                        x: crowdPos.x,
-                        y: crowdPos.y,
-                        targetX: crowdPos.x,
-                        targetY: crowdPos.y,
-                        speed: 1.2 + Math.random() * 0.5,
-                        color: ['#e2e8f0', '#f43f5e', '#a855f7', '#06b6d4', '#f97316'][p % 5]
-                    });
-                }
-            }
-
-            playAnnouncement("ТЕСТ: На всех 5 платформах стоят автобусы, пассажиры стоят строго справа!");
-            renderScheduleTable();
-        }
-
-        function formatTime(totalMinutes) {
-            const hrs = Math.floor(totalMinutes / 60) % 24;
-            const mins = Math.floor(totalMinutes % 60);
-            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-        }
-
-        function playAnnouncement(text) {
-            const announcerBox = document.getElementById('announcerBox');
-            const announcerText = document.getElementById('announcerText');
-            announcerText.textContent = text;
-            announcerBox.style.display = 'block';
-
-            setTimeout(() => {
-                announcerBox.style.display = 'none';
-            }, 6000);
-        }
-
-        function renderScheduleTable() {
-            const tbody = document.getElementById('scheduleBody');
-            tbody.innerHTML = '';
-
-            schedule.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.id = `trip-row-${item.id}`;
-                tr.innerHTML = `
-                    <td><b>${item.busName}</b></td>
-                    <td><span class="platform-badge">П-${item.platform + 1}</span></td>
-                    <td>${formatTime(item.arrivalTime)}</td>
-                    <td>${item.dwellTime} мин</td>
-                    <td><b>${formatTime(item.departureTime)}</b></td>
-                `;
-                tbody.appendChild(tr);
+        for (let r = 1; r <= ROWS_COUNT; r++) {
+            let rowHtml = `<tr><th class="row-header">${r}</th>`;
+            COLS.forEach(col => {
+                const cellId = `${col}${r}`;
+                rowHtml += `<td id="cell-${cellId}" onclick="selectCell('${cellId}')"></td>`;
             });
+            rowHtml += '</tr>';
+            grid.innerHTML += rowHtml;
+        }
+    }
+
+    function selectCell(id) {
+        if (selectedCell) {
+            const prev = document.getElementById(`cell-${selectedCell}`);
+            if (prev) prev.classList.remove('selected');
         }
 
-        function moveTowards(p, tx, ty) {
-            let dx = tx - p.x;
-            let dy = ty - p.y;
-            let dist = Math.hypot(dx, dy);
-            if (dist < p.speed) {
-                p.x = tx;
-                p.y = ty;
-                return true;
+        selectedCell = id;
+        const current = document.getElementById(`cell-${selectedCell}`);
+        if (current) current.classList.add('selected');
+
+        document.getElementById('active-cell-id').innerText = id;
+        document.getElementById('formula-input').value = cellData[id] || '';
+
+        updateHelper();
+    }
+
+    function liveUpdateFormulaInput() {
+        const val = document.getElementById('formula-input').value;
+        cellData[selectedCell] = val;
+        recalculate();
+        updateHelper();
+    }
+
+    function handleFormulaKey(e) {
+        if (e.key === 'Enter') {
+            recalculate();
+            updateHelper();
+        }
+    }
+
+    function updateHelper() {
+        const cellId = selectedCell;
+        const raw = cellData[cellId] || '';
+        const computed = evaluateCell(cellId);
+
+        document.getElementById('helper-cell-id').innerText = cellId;
+        const helperText = document.getElementById('helper-text');
+
+        if (String(computed).includes('УТЕЧКА')) {
+            const rowNum = cellId.replace(/[A-Z]/g, '');
+            const serviceName = evaluateCell(`B${rowNum}`);
+            const sumVal = evaluateCell(`D${rowNum}`);
+            helperText.innerHTML = `🚨 <strong style="color: #ef4444;">УТЕЧКА:</strong> Списание <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке (F2:F10).`;
+            return;
+        }
+
+        if (['D2', 'D3', 'D4', 'D5'].includes(cellId) && parseFloat(computed) > 0) {
+            const catName = evaluateCell(`A${cellId.replace('D', '')}`);
+            helperText.innerHTML = `⚠️ <strong style="color: #f59e0b;">ПЕРЕРАСХОД:</strong> Категория <strong>"${catName}"</strong> превышена на <strong>+$${computed}</strong>.`;
+            return;
+        }
+
+        if (raw.startsWith('=')) {
+            helperText.innerHTML = `Формула <span class="helper-code">${raw}</span> = <strong>${computed}</strong>.`;
+        } else if (raw) {
+            helperText.innerHTML = `Значение ячейки: <strong>"${raw}"</strong>.`;
+        } else {
+            helperText.innerHTML = `Пустая ячейка ${cellId}.`;
+        }
+    }
+
+    function parseRange(rangeStr) {
+        const parts = rangeStr.trim().split(':');
+        if (parts.length === 1) return [parts[0]];
+
+        const startCol = parts[0].charAt(0);
+        const startRow = parseInt(parts[0].slice(1));
+        const endCol = parts[1].charAt(0);
+        const endRow = parseInt(parts[1].slice(1));
+
+        let result = [];
+        let colStartIdx = COLS.indexOf(startCol);
+        let colEndIdx = COLS.indexOf(endCol);
+
+        for (let c = colStartIdx; c <= colEndIdx; c++) {
+            for (let r = startRow; r <= endRow; r++) {
+                result.push(`${COLS[c]}${r}`);
             }
-            p.x += (dx / dist) * p.speed;
-            p.y += (dy / dist) * p.speed;
-            return false;
         }
+        return result;
+    }
 
-        function updateSimulation(dt) {
-            if (!isPlaying) return;
+    function evaluateCell(id) {
+        const raw = cellData[id];
+        if (!raw) return '';
+        if (!raw.startsWith('=')) return raw;
 
-            gameTimeMinutes += (dt / 1000) * (1 / 5) * timeSpeed;
-            if (gameTimeMinutes >= 24 * 60) gameTimeMinutes = 6 * 60;
+        try {
+            let expr = raw.substring(1).trim();
 
-            document.getElementById('clockDisplay').textContent = formatTime(gameTimeMinutes);
+            if (expr.startsWith('СУММЕСЛИ')) {
+                const inner = expr.match(/СУММЕСЛИ\((.*)\)/i)[1];
+                const args = inner.split(';').map(s => s.trim());
+                const condRange = parseRange(args[0]);
+                let condition = args[1];
+                if (cellData[condition] !== undefined || document.getElementById(`cell-${condition}`)) {
+                    condition = evaluateCell(condition);
+                } else {
+                    condition = condition.replace(/^["']|["']$/g, '');
+                }
+                const sumRange = parseRange(args[2]);
 
-            if (!isTestMode) {
-                schedule.forEach(trip => {
-                    let timeUntilArrival = trip.arrivalTime - gameTimeMinutes;
-
-                    if (timeUntilArrival <= 10 && timeUntilArrival > 0 && !trip.announced) {
-                        trip.announced = true;
-                        playAnnouncement(`Внимание! Рейс ${trip.busName} прибывает на платформу №${trip.platform + 1} через 10 минут. Просим пассажиров пройти на посадку.`);
-
-                        let hallPassengers = passengers.filter(p => p.tripId === trip.id && p.state === 'waiting_in_hall');
-                        hallPassengers.forEach((p, idx) => {
-                            p.state = 'leaving_building_bottom';
-                            const crowdPos = getDistributedCrowdCoords(p.platform, idx, Math.max(1, hallPassengers.length));
-                            p.targetX = crowdPos.x;
-                            p.targetY = crowdPos.y;
-                        });
+                let sum = 0;
+                condRange.forEach((cId, idx) => {
+                    const val = evaluateCell(cId);
+                    if (String(val).trim().toLowerCase() === String(condition).trim().toLowerCase()) {
+                        const sumVal = parseFloat(evaluateCell(sumRange[idx])) || 0;
+                        sum += sumVal;
                     }
                 });
+                return sum;
             }
 
-            passengers.forEach(p => {
-                if (p.isAdvanceBuyer && p.state === 'waiting_at_home') {
-                    if (p.arrivalTime - gameTimeMinutes <= 15) {
-                        p.state = 'leaving_building_bottom';
-                        p.x = TOP_ENTRANCE.x + (Math.random() * 20 - 10);
-                        p.y = TOP_ENTRANCE.y - 20;
-                        p.targetX = BOTTOM_EXIT.x + (Math.random() * 20 - 10);
-                        p.targetY = BOTTOM_EXIT.y + 10;
-                    }
-                }
-            });
-
-            passengers.forEach(p => {
-                if (p.state === 'buying_advance') {
-                    if (moveTowards(p, p.targetX, p.targetY)) {
-                        p.state = 'going_home';
-                        p.targetX = TOP_ENTRANCE.x + (Math.random() * 20 - 10);
-                        p.targetY = TOP_ENTRANCE.y - 40;
-                    }
-                }
-                else if (p.state === 'going_home') {
-                    if (moveTowards(p, p.targetX, p.targetY)) {
-                        p.state = 'waiting_at_home';
-                    }
-                }
-                else if (p.state === 'waiting_in_hall') {
-                    if (!p.hallSeat) {
-                        p.targetX = WAITING_AREA.x + (Math.random() * 60 - 30);
-                        p.targetY = WAITING_AREA.y + (Math.random() * 20 - 10);
-                        p.hallSeat = true;
-                    }
-                    moveTowards(p, p.targetX, p.targetY);
-                }
-                else if (p.state === 'leaving_building_bottom') {
-                    if (moveTowards(p, p.targetX, p.targetY)) {
-                        p.state = 'waiting_on_platform_crowd';
-                    }
-                }
-                else if (p.state === 'waiting_on_platform_crowd') {
-                    moveTowards(p, p.targetX, p.targetY);
-
-                    if (!isTestMode) {
-                        let trip = schedule.find(s => s.id === p.tripId);
-                        if (trip && gameTimeMinutes >= trip.arrivalTime && gameTimeMinutes <= trip.departureTime) {
-                            p.state = 'boarding';
-                        }
-                    }
-                }
-                else if (p.state === 'boarding') {
-                    let platPos = getPlatformData(p.platform);
-                    if (moveTowards(p, platPos.x, platPos.y)) {
-                        p.state = 'done';
-                    }
-                }
-            });
-
-            const travelDuration = 1.5;
-            const initialLength = schedule.length;
-            
-            schedule = schedule.filter(trip => {
-                return gameTimeMinutes < trip.departureTime + travelDuration;
-            });
-
-            if (schedule.length !== initialLength) {
-                renderScheduleTable();
+            if (expr.startsWith('СУММ')) {
+                const inner = expr.match(/СУММ\((.*)\)/i)[1];
+                const range = parseRange(inner);
+                let sum = 0;
+                range.forEach(cId => { sum += parseFloat(evaluateCell(cId)) || 0; });
+                return sum;
             }
 
-            if (schedule.length === 0 && !isTestMode) {
-                generateSchedule();
-            }
-        }
-
-        function getPointOnPath(points, progress) {
-            if (!points || points.length === 0) return null;
-            let pts = points.map(p => ({x: p[0], y: p[1]}));
-            if (pts.length === 1) return pts[0];
-
-            let totalLen = 0;
-            let segments = [];
-            for (let i = 0; i < pts.length - 1; i++) {
-                let d = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
-                segments.push({ p1: pts[i], p2: pts[i+1], len: d });
-                totalLen += d;
-            }
-
-            if (totalLen === 0) return pts[0];
-            let targetDist = progress * totalLen;
-            let currentDist = 0;
-
-            for (let seg of segments) {
-                if (currentDist + seg.len >= targetDist) {
-                    let t = (targetDist - currentDist) / seg.len;
-                    let x = seg.p1.x + (seg.p2.x - seg.p1.x) * t;
-                    let y = seg.p1.y + (seg.p2.y - seg.p1.y) * t;
-                    let angle = Math.atan2(seg.p2.y - seg.p1.y, seg.p2.x - seg.p1.x);
-                    return { x, y, angle };
+            if (expr.startsWith('ВПР')) {
+                const inner = expr.match(/ВПР\((.*)\)/i)[1];
+                const args = inner.split(';').map(s => s.trim());
+                let lookupVal = args[0];
+                if (cellData[lookupVal] !== undefined || document.getElementById(`cell-${lookupVal}`)) {
+                    lookupVal = evaluateCell(lookupVal);
                 }
-                currentDist += seg.len;
-            }
-            return pts[pts.length - 1];
-        }
 
-        function drawMap() {
-            const CENTER_X = canvas.width / 2;
+                const range = parseRange(args[1]);
+                let found = false;
+                range.forEach(cId => {
+                    if (String(evaluateCell(cId)).trim().toLowerCase() === String(lookupVal).trim().toLowerCase()) {
+                        found = true;
+                    }
+                });
 
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = '#334155';
-            ctx.fillRect(CENTER_X - MAP_PARAMS.roadWidth / 2, MAP_PARAMS.roadStartY, MAP_PARAMS.roadWidth, canvas.height - MAP_PARAMS.roadStartY);
-
-            ctx.strokeStyle = '#cbd5e1';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([12, 12]);
-            ctx.beginPath();
-            ctx.moveTo(CENTER_X, MAP_PARAMS.roadStartY + 10);
-            ctx.lineTo(CENTER_X, canvas.height);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            const innerRadius = Math.max(10, MAP_PARAMS.platformRadius - MAP_PARAMS.ringThickness / 2);
-
-            ctx.beginPath();
-            ctx.arc(CENTER_X, MAP_PARAMS.platformCenterY, MAP_PARAMS.platformRadius, 0, Math.PI);
-            ctx.lineWidth = MAP_PARAMS.ringThickness;
-            ctx.strokeStyle = '#334155';
-            ctx.lineCap = 'butt';
-            ctx.stroke();
-
-            ctx.fillStyle = '#0f172a';
-            ctx.beginPath();
-            ctx.arc(CENTER_X, MAP_PARAMS.platformCenterY, innerRadius, 0, Math.PI);
-            ctx.fill();
-
-            const spreadRad = (MAP_PARAMS.arcSpread * Math.PI) / 180;
-            const rotationRad = (MAP_PARAMS.arcRotation * Math.PI) / 180;
-            const baseCenterAngle = Math.PI * 0.5;
-            const startAngle = baseCenterAngle - spreadRad / 2 + rotationRad;
-            const endAngle = baseCenterAngle + spreadRad / 2 + rotationRad;
-
-            for (let i = 0; i < MAP_PARAMS.platformCount; i++) {
-                let angle = startAngle + (i / (MAP_PARAMS.platformCount - 1)) * (endAngle - startAngle);
-                const custom = MAP_PARAMS.platforms[i];
-                const placementRadius = innerRadius + custom.offset;
-
-                const pX = CENTER_X + Math.cos(angle) * placementRadius;
-                const pY = MAP_PARAMS.platformCenterY + Math.sin(angle) * placementRadius;
-
-                ctx.save();
-                ctx.translate(pX, pY);
-                ctx.rotate((custom.angle * Math.PI) / 180);
-
-                ctx.fillStyle = '#22c55e';
-                ctx.fillRect(-12, -22, 24, 44);
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(-12, -22, 24, 44);
-
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 11px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(`П-${i + 1}`, 0, 4);
-
-                ctx.restore();
+                return found ? 'ОК' : '⚠️ УТЕЧКА';
             }
 
-            const stationX = CENTER_X - MAP_PARAMS.stationWidth / 2;
-            ctx.fillStyle = '#0284c7';
-            ctx.beginPath();
-            ctx.roundRect(stationX, MAP_PARAMS.stationY, MAP_PARAMS.stationWidth, MAP_PARAMS.stationHeight, 10);
-            ctx.fill();
-
-            ctx.fillStyle = '#0369a1';
-            ctx.fillRect(TICKET_BOX.x - 20, TICKET_BOX.y - 12, 40, 10);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 9px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('КАССА', TICKET_BOX.x, TICKET_BOX.y - 14);
-
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(WAITING_AREA.x - 40, WAITING_AREA.y - 10, 80, 20);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText('ЗАЛ ОЖИДАНИЯ', WAITING_AREA.x, WAITING_AREA.y + 4);
-
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 14px sans-serif';
-            ctx.fillText('АВТОВОКЗАЛ', CENTER_X, MAP_PARAMS.stationY + MAP_PARAMS.stationHeight - 10);
-
-            passengers.forEach(p => {
-                if (p.state !== 'done' && p.state !== 'waiting_at_home') {
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = p.color;
-                    ctx.fill();
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                }
-            });
-
-            schedule.forEach(trip => {
-                const rowEl = document.getElementById(`trip-row-${trip.id}`);
-                const pIdx = trip.platform;
+            if (expr.startsWith('ЕСЛИ')) {
+                const inner = expr.match(/ЕСЛИ\((.*)\)/i)[1];
+                const args = inner.split(';').map(s => s.trim());
                 
-                const travelDuration = 1.5;
-                const arrTime = trip.arrivalTime;
-                const depTime = trip.departureTime;
-                const startDriveIn = arrTime - travelDuration;
-                const endDriveOut = depTime + travelDuration;
+                const condParts = args[0].split('=');
+                let leftVal = condParts[0].trim();
+                let rightVal = condParts[1].trim().replace(/^["']|["']$/g, '');
 
-                if (gameTimeMinutes >= startDriveIn && gameTimeMinutes <= endDriveOut) {
-                    if (rowEl) rowEl.classList.add('active-trip');
+                if (cellData[leftVal] !== undefined || document.getElementById(`cell-${leftVal}`)) {
+                    leftVal = evaluateCell(leftVal);
+                }
 
-                    let busPos = null;
-                    let isParked = false;
-
-                    if (gameTimeMinutes < arrTime) {
-                        let progress = (gameTimeMinutes - startDriveIn) / travelDuration;
-                        let inPoints = [...pathRoutes.in[pIdx]];
-                        let platInfo = getPlatformData(pIdx);
-                        inPoints.push([platInfo.x, platInfo.y]);
-                        busPos = getPointOnPath(inPoints, progress);
-                    } 
-                    else if (gameTimeMinutes <= depTime) {
-                        isParked = true;
-                    } 
-                    else {
-                        let progress = (gameTimeMinutes - depTime) / travelDuration;
-                        let platInfo = getPlatformData(pIdx);
-                        let outPoints = [[platInfo.x, platInfo.y], ...pathRoutes.out[pIdx]];
-                        busPos = getPointOnPath(outPoints, progress);
-                    }
-
-                    ctx.save();
-                    if (isParked) {
-                        let platInfo = getPlatformData(pIdx);
-                        ctx.translate(platInfo.x, platInfo.y);
-                        ctx.rotate(platInfo.customAngleRad);
-                    } else if (busPos) {
-                        ctx.translate(busPos.x, busPos.y);
-                        ctx.rotate(busPos.angle + Math.PI / 2);
-                    }
-
-                    ctx.fillStyle = trip.color;
-                    ctx.beginPath();
-                    ctx.roundRect(-10, -18, 20, 36, 5);
-                    ctx.fill();
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(-7, -14, 14, 8);
-
-                    ctx.restore();
+                if (String(leftVal).trim() === String(rightVal).trim()) {
+                    return evaluateExpr(args[1]);
                 } else {
-                    if (rowEl) rowEl.classList.remove('active-trip');
+                    return evaluateExpr(args[2]);
+                }
+            }
+
+            return evaluateExpr(expr);
+
+        } catch (e) {
+            return '#ОШИБКА!';
+        }
+    }
+
+    function evaluateExpr(expr) {
+        expr = expr.replace(/^["']|["']$/g, '');
+        if (expr === 'ОК' || expr.includes('⚠️')) return expr;
+
+        let parsedExpr = expr.replace(/([A-I][1-2][0-9]|[A-I][1-9])/g, (match) => {
+            const val = evaluateCell(match);
+            return isNaN(val) ? 0 : val;
+        });
+
+        try {
+            return Function(`'use strict'; return (${parsedExpr})`)();
+        } catch {
+            return expr;
+        }
+    }
+
+    function recalculate() {
+        let leakCount = 0;
+        let totalOverspend = 0;
+
+        for (let r = 1; r <= ROWS_COUNT; r++) {
+            COLS.forEach(col => {
+                const id = `${col}${r}`;
+                const cellTd = document.getElementById(`cell-${id}`);
+                if (!cellTd) return;
+
+                const computedValue = evaluateCell(id);
+                cellTd.innerText = computedValue;
+
+                cellTd.className = cellTd.classList.contains('selected') ? 'selected' : '';
+
+                if (['A1', 'B1', 'C1', 'D1', 'F1', 'G1', 'H1', 'A17', 'B17', 'C17', 'D17', 'E17'].includes(id)) {
+                    cellTd.classList.add('section-header');
+                }
+
+                if (['D2', 'D3', 'D4', 'D5'].includes(id)) {
+                    const num = parseFloat(computedValue);
+                    if (num > 0) {
+                        cellTd.classList.add('cell-overspend');
+                        totalOverspend += num;
+                    }
+                }
+
+                if (col === 'E' && String(computedValue).includes('⚠️ УТЕЧКА')) {
+                    cellTd.classList.add('cell-leak');
+                    leakCount++;
                 }
             });
         }
 
-        document.getElementById('btnGenerate').addEventListener('click', generateSchedule);
-        document.getElementById('btnTestFull').addEventListener('click', runTestAllPlatforms);
+        document.getElementById('status-summary').innerHTML = `
+            <strong>Анализ:</strong> Неучтенных подписок: <span style="color:#ef4444; font-weight:bold;">${leakCount}</span> | Перерасход: <span style="color:#f59e0b; font-weight:bold;">+$${totalOverspend}</span>
+        `;
+    }
 
-        const btnTogglePlay = document.getElementById('btnTogglePlay');
-        btnTogglePlay.addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            btnTogglePlay.textContent = isPlaying ? 'Пауза' : 'Старт';
-            btnTogglePlay.style.backgroundColor = isPlaying ? '#0284c7' : '#10b981';
-        });
-
-        const btnSpeed = document.getElementById('btnSpeed');
-        let speedModes = [0.2, 0.5, 1, 2, 5];
-        let speedIdx = 2;
-        btnSpeed.addEventListener('click', () => {
-            speedIdx = (speedIdx + 1) % speedModes.length;
-            timeSpeed = speedModes[speedIdx];
-            btnSpeed.textContent = `x${timeSpeed}`;
-        });
-
-        let lastTime = performance.now();
-        function mainLoop(now) {
-            let dt = now - lastTime;
-            lastTime = now;
-
-            updateSimulation(dt);
-            drawMap();
-            requestAnimationFrame(mainLoop);
-        }
-
-        generateSchedule();
-        requestAnimationFrame(mainLoop);
-    </script>
+    window.onload = init;
+</script>
 </body>
 </html>
