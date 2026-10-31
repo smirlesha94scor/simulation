@@ -35,13 +35,14 @@
             width: 100%; height: 100%;
             object-fit: contain;
             cursor: crosshair;
+            z-index: 1;
         }
 
         #svg-layer {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            pointer-events: auto;
+            pointer-events: none; /* Пропускает клики на canvas под ним */
             z-index: 10;
         }
 
@@ -51,6 +52,7 @@
             stroke-width: 2;
             stroke-dasharray: 4;
             cursor: pointer;
+            pointer-events: auto;
         }
         .contour-box:hover {
             fill: rgba(255, 0, 127, 0.2);
@@ -62,13 +64,14 @@
             stroke-width: 3;
             stroke-dasharray: 6 6;
             animation: flowCurrent 1s linear infinite;
+            pointer-events: none;
         }
         @keyframes flowCurrent {
             from { stroke-dashoffset: 12; }
             to { stroke-dashoffset: 0; }
         }
 
-        .svg-symbol { cursor: pointer; transition: transform 0.3s; }
+        .svg-symbol { cursor: pointer; transition: transform 0.3s; pointer-events: auto; }
         .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polygon {
             stroke-width: 2; fill: none;
         }
@@ -156,7 +159,7 @@
     let imgElement = new Image();
     let detectedRegions = [];
     let activeConfigIndex = null;
-    let selectedColorRgb = null; // Выбранный пользователем цвет
+    let selectedColorRgb = null;
 
     window.onload = () => {
         updateModalPreview();
@@ -189,18 +192,22 @@
                     document.getElementById('scanBtn').disabled = true;
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
-                    log("Изображение загружено. Кликните по холсту, чтобы выбрать цвет линий.");
+                    log("Изображение загружено. Кликните по линии на холсте.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Взятие образца цвета по клику на холсте
+    // Обработчик выбора цвета пипеткой
     function setupCanvasEyedropper() {
         const canvas = document.getElementById('cv-canvas');
+
         canvas.addEventListener('click', (e) => {
-            if (!imgElement.src) return;
+            if (!imgElement.src) {
+                log("⚠️ Сначала загрузите изображение схемы!");
+                return;
+            }
 
             const rect = canvas.getBoundingClientRect();
             const scaleX = 1000 / rect.width;
@@ -209,24 +216,28 @@
             const x = Math.floor((e.clientX - rect.left) * scaleX);
             const y = Math.floor((e.clientY - rect.top) * scaleY);
 
-            const ctx = canvas.getContext('2d');
-            const pixel = ctx.getImageData(x, y, 1, 1).data;
+            try {
+                const ctx = canvas.getContext('2d');
+                const pixel = ctx.getImageData(x, y, 1, 1).data;
 
-            selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+                selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
 
-            const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-            const colorBox = document.getElementById('colorBox');
-            colorBox.style.background = colorHex;
-            colorBox.style.display = 'inline-block';
+                const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                const colorBox = document.getElementById('colorBox');
+                colorBox.style.background = colorHex;
+                colorBox.style.display = 'inline-block';
 
-            document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-            document.getElementById('scanBtn').disabled = false;
+                document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                document.getElementById('scanBtn').disabled = false;
 
-            log(`Цвет выбран: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Нажмите кнопку сканирования.`);
+                log(`🎨 Выбран цвет в точке [${x}, ${y}]: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`);
+            } catch (err) {
+                log("❌ Ошибка считывания цвета: " + err.message);
+            }
         });
     }
 
-    // Фильтрация фоновых пикселей и запуск сканирования
+    // Очистка фона и сканирование оставшихся пикселей
     function runFilterAndScan() {
         if (!selectedColorRgb) {
             alert('Сначала кликните по линии на схеме!');
@@ -241,18 +252,17 @@
         const imgData = ctx.getImageData(0, 0, 1000, 600);
         const data = imgData.data;
 
-        // Фильтрация: оставляем только выбранный цвет и его ближайшие оттенки
+        // Фильтрация пикселей по евклидовому расстоянию цвета
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
 
-            // Евклидово расстояние между пикселем и выбранным эталонным цветом
             let distance = Math.sqrt(
                 Math.pow(r - selectedColorRgb.r, 2) +
                 Math.pow(g - selectedColorRgb.g, 2) +
                 Math.pow(b - selectedColorRgb.b, 2)
             );
 
-            // Если пиксель выкладывается за допуск чувствительности — заменяем на белый (#ffffff)
+            // Если отличие больше допуска — заменяем пиксель на белый
             if (distance > tolerance) {
                 data[i] = 255;
                 data[i+1] = 255;
@@ -261,9 +271,9 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("Фон очищен до белого. Поиск элементов по фильтрованному цвету...");
+        log("Фон заменен на белый. Сканирование оставшихся контуров...");
 
-        // Сканирование оставшихся не белых областей
+        // Сканирование зон с оставшимся фокусным цветом
         detectedRegions = [];
         const gridStep = 80;
         for (let y = 40; y < 560; y += gridStep) {
@@ -292,7 +302,7 @@
             }
         }
 
-        log(`Обнаружено элементов по данному цвету: ${detectedRegions.length}`);
+        log(`Обнаружено областей компонентов: ${detectedRegions.length}`);
         renderRegions();
         updateModalPreview();
     }
