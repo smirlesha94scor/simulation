@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Преобладающий цвет и белый фон</title>
+    <title>CV Circuit Scanner - Выбор цвета и сканирование</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
+        button:disabled { background: #444; cursor: not-allowed; }
         .btn-sim { background: #00ff66; color: #000; }
         .btn-sim:hover { background: #00cc52; }
         select { background: #2a2a36; color: #00ff66; border: 1px solid #444; border-radius: 4px; font-weight: bold; }
@@ -24,7 +25,7 @@
             border: 2px solid #444;
             border-radius: 8px;
             overflow: hidden;
-            background: #fff; /* Белая подложка для холста */
+            background: #fff;
             margin: 0 auto;
         }
 
@@ -33,6 +34,7 @@
             top: 0; left: 0;
             width: 100%; height: 100%;
             object-fit: contain;
+            cursor: crosshair;
         }
 
         #svg-layer {
@@ -87,21 +89,27 @@
         }
         .modal-content h3 { margin-top: 0; color: #00bcd4; }
         .close-btn { background: #555; margin-top: 15px; }
-        .color-preview { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 5px; }
+        .color-preview { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 5px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Фильтр белого фона и преобладающий цвет</h1>
+    <h1>⚡ Сканер схем: Выбор эталонного цвета и очистка фона</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
-        <label>Порог распознавания цвета: <span id="sensValue">40</span></label><br>
-        <input type="range" id="sensitivity" min="10" max="150" value="40" oninput="document.getElementById('sensValue').textContent=this.value"><br>
-        <button onclick="processImageAndScan()">1. Очистить фон и сканировать</button>
-        <button class="btn-sim" onclick="runCurrentSimulation()">2. Запустить симуляцию тока</button>
+        
+        <div style="margin: 10px 0;">
+            <label>Допуск близких оттенков: <span id="sensValue">50</span></label><br>
+            <input type="range" id="sensitivity" min="10" max="150" value="50" oninput="document.getElementById('sensValue').textContent=this.value">
+        </div>
+
+        <span id="selectedColorStatus">1. Кликните по линии на схеме для выбора цвета</span>
+        <span id="colorBox" class="color-preview" style="display:none;"></span><br><br>
+
+        <button id="scanBtn" onclick="runFilterAndScan()" disabled>2. Оставить этот цвет и запустить сканирование</button>
+        <button class="btn-sim" onclick="runCurrentSimulation()">3. Симуляция тока</button>
         <button class="btn-info" onclick="openInfoModal()">Каталог элементов</button>
-        <span id="dominantColorStatus" style="margin-left: 15px; font-size: 14px;"></span>
     </div>
 
     <div class="card">
@@ -113,7 +121,7 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите схему для обработки пикселей...</div>
+        <div id="log">Загрузите изображение и пипеткой выберите цвет линии...</div>
     </div>
 
     <div id="modal-config">
@@ -148,10 +156,11 @@
     let imgElement = new Image();
     let detectedRegions = [];
     let activeConfigIndex = null;
-    let dominantColor = "#000000"; // По умолчанию черный цвет линий
+    let selectedColorRgb = null; // Выбранный пользователем цвет
 
     window.onload = () => {
         updateModalPreview();
+        setupCanvasEyedropper();
     };
 
     function log(text) {
@@ -176,80 +185,101 @@
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     document.getElementById('svg-layer').innerHTML = '';
                     detectedRegions = [];
-                    log("Изображение загружено.");
+                    selectedColorRgb = null;
+                    document.getElementById('scanBtn').disabled = true;
+                    document.getElementById('colorBox').style.display = 'none';
+                    document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
+                    log("Изображение загружено. Кликните по холсту, чтобы выбрать цвет линий.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Анализ преобладающего цвета линий, отсечение фона в белый и сканирование
-    function processImageAndScan() {
-        if (!imgElement.src) {
-            alert('Сначала загрузите изображение!');
+    // Взятие образца цвета по клику на холсте
+    function setupCanvasEyedropper() {
+        const canvas = document.getElementById('cv-canvas');
+        canvas.addEventListener('click', (e) => {
+            if (!imgElement.src) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            const ctx = canvas.getContext('2d');
+            const pixel = ctx.getImageData(x, y, 1, 1).data;
+
+            selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+
+            const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+            const colorBox = document.getElementById('colorBox');
+            colorBox.style.background = colorHex;
+            colorBox.style.display = 'inline-block';
+
+            document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+            document.getElementById('scanBtn').disabled = false;
+
+            log(`Цвет выбран: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Нажмите кнопку сканирования.`);
+        });
+    }
+
+    // Фильтрация фоновых пикселей и запуск сканирования
+    function runFilterAndScan() {
+        if (!selectedColorRgb) {
+            alert('Сначала кликните по линии на схеме!');
             return;
         }
 
-        const sensitivity = parseInt(document.getElementById('sensitivity').value);
+        const tolerance = parseInt(document.getElementById('sensitivity').value);
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
+        
         ctx.drawImage(imgElement, 0, 0, 1000, 600);
-
         const imgData = ctx.getImageData(0, 0, 1000, 600);
         const data = imgData.data;
 
-        // Определяем фоновый цвет по углам изображения
-        const bgR = data[0], bgG = data[1], bgB = data[2];
-        
-        let sumR = 0, sumG = 0, sumB = 0, linePixelCount = 0;
-
-        // ЭТАП 1: Анализ пикселей на линии и замена фона на чистый белый (#ffffff)
+        // Фильтрация: оставляем только выбранный цвет и его ближайшие оттенки
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
-            let diff = Math.sqrt(Math.pow(r - bgR, 2) + Math.pow(g - bgG, 2) + Math.pow(b - bgB, 2));
 
-            if (diff > sensitivity) {
-                // Пиксель принадлежит линии элемента
-                sumR += r; sumG += g; sumB += b;
-                linePixelCount++;
-            } else {
-                // Все остальные пиксели превращаем в белый фон
+            // Евклидово расстояние между пикселем и выбранным эталонным цветом
+            let distance = Math.sqrt(
+                Math.pow(r - selectedColorRgb.r, 2) +
+                Math.pow(g - selectedColorRgb.g, 2) +
+                Math.pow(b - selectedColorRgb.b, 2)
+            );
+
+            // Если пиксель выкладывается за допуск чувствительности — заменяем на белый (#ffffff)
+            if (distance > tolerance) {
                 data[i] = 255;
                 data[i+1] = 255;
                 data[i+2] = 255;
             }
         }
 
-        // Перерисовываем очищенный холст с белым фоном
         ctx.putImageData(imgData, 0, 0);
+        log("Фон очищен до белого. Поиск элементов по фильтрованному цвету...");
 
-        // Рассчитываем средний преобладающий цвет элементов
-        if (linePixelCount > 0) {
-            let avgR = Math.round(sumR / linePixelCount);
-            let avgG = Math.round(sumG / linePixelCount);
-            let avgB = Math.round(sumB / linePixelCount);
-            dominantColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
-            log(`Преобладающий цвет линий: ${dominantColor}`);
-            document.getElementById('dominantColorStatus').innerHTML = 
-                `Главный цвет элементов: <span class="color-preview" style="background:${dominantColor}"></span>`;
-        }
-
-        // ЭТАП 2: Поиск областей расположения деталей
+        // Сканирование оставшихся не белых областей
         detectedRegions = [];
         const gridStep = 80;
         for (let y = 40; y < 560; y += gridStep) {
             for (let x = 40; x < 960; x += gridStep) {
-                let darkCount = 0;
+                let targetPixelCount = 0;
+
                 for (let dy = -25; dy <= 25; dy += 8) {
                     for (let dx = -25; dx <= 25; dx += 8) {
                         let idx = ((y + dy) * 1000 + (x + dx)) * 4;
                         if (data[idx] !== 255 || data[idx+1] !== 255 || data[idx+2] !== 255) {
-                            darkCount++;
+                            targetPixelCount++;
                         }
                     }
                 }
 
-                if (darkCount > 6) {
+                if (targetPixelCount > 6) {
                     let isDuplicate = detectedRegions.some(reg => Math.hypot(reg.cx - x, reg.cy - y) < 60);
                     if (!isDuplicate) {
                         detectedRegions.push({
@@ -262,7 +292,7 @@
             }
         }
 
-        log(`Фон очищен до белого. Обнаружено областей: ${detectedRegions.length}`);
+        log(`Обнаружено элементов по данному цвету: ${detectedRegions.length}`);
         renderRegions();
         updateModalPreview();
     }
@@ -328,9 +358,8 @@
         });
     }
 
-    // Генерация SVG элементов с использованием преобладающего цвета
     function getSvgSymbol(type, label) {
-        const strokeColor = dominantColor;
+        const strokeColor = selectedColorRgb ? `rgb(${selectedColorRgb.r}, ${selectedColorRgb.g}, ${selectedColorRgb.b})` : "#000000";
         switch(type) {
             case 'transistor_npn':
                 return `
