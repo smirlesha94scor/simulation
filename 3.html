@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тренажер: Сквозная сверка Бюджета и Белого списка</title>
+    <title>Тренажер: Сквозной аудит Бюджета и Белого списка</title>
     <style>
         :root {
             --excel-green: #107c41;
@@ -297,6 +297,7 @@
             color: #166534;
             padding: 1px 5px;
             border-radius: 3px;
+            font-weight: bold;
             font-size: 0.7rem;
         }
 
@@ -961,14 +962,23 @@
             if (cellId.startsWith('E') && parseInt(cellId.replace('E', '')) >= 18) {
                 const rowNum = cellId.replace('E', '');
                 const serviceName = evaluateCell(`B${rowNum}`);
+                const catName = evaluateCell(`C${rowNum}`);
                 const sumVal = evaluateCell(`D${rowNum}`);
                 const isFlagged = !!userFlaggedLeaks[cellId];
 
-                if (computed === '⚠️ УТЕЧКА') {
+                let whitelistNames = [];
+                for (let r = 2; r < 2 + currentWhitelistCount; r++) {
+                    let val = evaluateCell(`F${r}`);
+                    if (val) whitelistNames.push(String(val).trim().toLowerCase());
+                }
+
+                let isLeak = catName === "Подписки и сервисы" && !whitelistNames.includes(String(serviceName).trim().toLowerCase());
+
+                if (isLeak) {
                     if (isFlagged) {
                         helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно обнаружили утечку по <strong>"${serviceName}"</strong> ($${sumVal})! ${formulaExpl}`;
                     } else {
-                        helperText.innerHTML = `🧐 <strong>ПОДСКАЗКА:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке. ${formulaExpl}`;
+                        helperText.innerHTML = `⚠️ <strong>ВНИМАНИЕ:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке! Отметьте галочкой. ${formulaExpl}`;
                     }
                 } else {
                     helperText.innerHTML = `ℹ️ <strong>ПРОВЕРКА:</strong> Списание по <strong>"${serviceName}"</strong> легитимно. ${formulaExpl}`;
