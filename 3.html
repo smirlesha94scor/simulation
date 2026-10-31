@@ -2,323 +2,363 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Анализатор утечек в воронке продаж</title>
+    <title>CV Circuit Scanner - Цветовой анализ и Чувствительность</title>
     <style>
-        :root {
-            --excel-green: #107c41;
-            --excel-light: #e6f2ed;
-            --border-color: #cbd5e1;
-            --bg-main: #f8fafc;
-            --card-bg: #ffffff;
-            --leak-color: #ef4444;
-            --leak-bg: #fef2f2;
-            --ok-color: #22c55e;
-            --accent-blue: #0284c7;
+        body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
+        .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
+        button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #d9006b; }
+        .btn-sim { background: #00ff66; color: #000; }
+        .btn-sim:hover { background: #00cc52; }
+        select { background: #2a2a36; color: #00ff66; border: 1px solid #444; border-radius: 4px; font-weight: bold; }
+        .btn-info { background: #00bcd4; margin-left: 10px; }
+        .btn-info:hover { background: #008ba3; }
+        input[type="range"] { width: 200px; vertical-align: middle; }
+
+        #viewport {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            aspect-ratio: 5 / 3;
+            border: 2px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+            margin: 0 auto;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        #cv-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
         }
 
-        body {
-            background-color: var(--bg-main);
-            color: #334155;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        #svg-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: auto;
+            z-index: 10;
         }
 
-        header {
-            background-color: var(--excel-green);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        header h1 {
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .btn {
-            background: #fff;
-            color: var(--excel-green);
-            border: none;
-            padding: 6px 14px;
-            font-size: 0.8rem;
-            font-weight: bold;
+        .contour-box {
+            fill: rgba(0, 240, 255, 0.08);
+            stroke: #00f0ff;
+            stroke-width: 2;
+            stroke-dasharray: 4;
             cursor: pointer;
-            border-radius: 4px;
-            transition: background 0.2s;
+        }
+        .contour-box:hover {
+            fill: rgba(255, 0, 127, 0.2);
+            stroke: #ff007f;
         }
 
-        .btn:hover {
-            background: var(--excel-light);
+        .current-flow {
+            stroke: #00ffff;
+            stroke-width: 3;
+            stroke-dasharray: 6 6;
+            animation: flowCurrent 1s linear infinite;
+        }
+        @keyframes flowCurrent {
+            from { stroke-dashoffset: 12; }
+            to { stroke-dashoffset: 0; }
         }
 
-        .workspace {
-            display: grid;
-            grid-template-columns: 1fr 380px;
-            gap: 20px;
+        .svg-symbol { cursor: pointer; transition: transform 0.3s; }
+        .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polygon {
+            stroke: #00ff66; fill: none; stroke-width: 2;
+        }
+        .svg-symbol polygon { fill: #121218; }
+        .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line, .svg-symbol.selected polygon {
+            stroke: #ff0055; filter: drop-shadow(0px 0px 10px #ff0055);
         }
 
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
 
-        .card-title {
-            font-size: 0.95rem;
-            font-weight: bold;
-            color: var(--excel-green);
-            border-bottom: 2px solid var(--excel-light);
-            padding-bottom: 6px;
+        #modal-info, #modal-config {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;
         }
-
-        table.funnel-grid {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
+        .modal-content {
+            background: #1e1e28; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px;
+            border: 2px solid #00bcd4; box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
         }
-
-        table.funnel-grid th, table.funnel-grid td {
-            border: 1px solid var(--border-color);
-            padding: 8px;
-            text-align: left;
-        }
-
-        table.funnel-grid th {
-            background-color: #f1f5f9;
-            font-weight: 600;
-        }
-
-        table.funnel-grid input[type="number"] {
-            width: 100%;
-            padding: 4px;
-            border: 1px solid var(--border-color);
-            border-radius: 3px;
-            font-size: 0.85rem;
-            outline: none;
-        }
-
-        table.funnel-grid input[type="number"]:focus {
-            border-color: var(--accent-blue);
-            background-color: #f0f9ff;
-        }
-
-        .tag-leak {
-            background-color: var(--leak-bg);
-            color: var(--leak-color);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            display: inline-block;
-        }
-
-        .tag-ok {
-            background-color: #dcfce7;
-            color: #166534;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.75rem;
-            display: inline-block;
-        }
-
-        /* Визуализация воронки */
-        .visual-funnel {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 0;
-        }
-
-        .funnel-stage {
-            background-color: var(--accent-blue);
-            color: white;
-            text-align: center;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            transition: width 0.3s ease;
-            min-width: 20%;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .funnel-stage.is-max-leak {
-            background-color: var(--leak-color);
-        }
-
-        .helper-box {
-            background-color: #0f172a;
-            color: #f8fafc;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            border-left: 4px solid var(--leak-color);
-        }
-
-        .helper-box strong {
-            color: #38bdf8;
-        }
+        .modal-content h3 { margin-top: 0; color: #00bcd4; }
+        .close-btn { background: #555; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>📊 Симулятор поиска утечек в маркетинговой воронке</h1>
-    <button class="btn" onclick="resetDefaults()">🔄 Сбросить пример</button>
-</header>
+    <h1>⚡ Сканер схем: Цветовой анализ и Регулировка чувствительности</h1>
 
-<div class="helper-box" id="diagnostic-console">
-    Загрузка анализа данных...
-</div>
-
-<div class="workspace">
-    <!-- Таблица расчетов -->
     <div class="card">
-        <div class="card-title">📋 Расчет показателей воронки (Excel-модель)</div>
-        <table class="funnel-grid">
-            <thead>
-                <tr>
-                    <th>№</th>
-                    <th>Этап воронки</th>
-                    <th>Пользователи (чел.)</th>
-                    <th>Конверсия к шагу (%)</th>
-                    <th>Общая конверсия (%)</th>
-                    <th>Потери (Утечка, чел.)</th>
-                    <th>Статус</th>
-                </tr>
-            </thead>
-            <tbody id="funnel-tbody">
-                <!-- Заполняется JS -->
-            </tbody>
-        </table>
+        <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
+        <label>Чувствительность цвета: <span id="sensValue">40</span></label><br>
+        <input type="range" id="sensitivity" min="10" max="120" value="40" oninput="document.getElementById('sensValue').textContent=this.value"><br>
+        <button onclick="startColorPixelScan()">1. Сканировать по цвету и пикселям</button>
+        <button class="btn-sim" onclick="runCurrentSimulation()">2. Запустить симуляцию тока</button>
+        <button class="btn-info" onclick="openInfoModal()">Каталог элементов</button>
     </div>
 
-    <!-- Визуализация -->
     <div class="card">
-        <div class="card-title">📉 График воронки и критические узлы</div>
-        <div class="visual-funnel" id="funnel-chart">
-            <!-- Заполняется JS -->
+        <div id="viewport">
+            <canvas id="cv-canvas" width="1000" height="600"></canvas>
+            <svg id="svg-layer" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
     </div>
-</div>
+
+    <div class="card">
+        <h3>Лог работы системы:</h3>
+        <div id="log">Загрузите схему, отрегулируйте чувствительность и запустите сканирование...</div>
+    </div>
+
+    <div id="modal-config">
+        <div class="modal-content">
+            <h3>⚙️ Назначение элемента</h3>
+            <p>Настройте параметры для выбранной зоны:</p>
+            <label>Метка элемента:</label><br>
+            <input type="text" id="cfgLabel" style="width: 100%; margin-bottom: 10px;"><br>
+            <label>Тип элемента:</label><br>
+            <select id="cfgType" style="width: 100%; margin-bottom: 15px;">
+                <option value="battery">Батарея / Источник питания (GB)</option>
+                <option value="resistor">Резистор (R)</option>
+                <option value="transistor_npn">NPN Транзистор (VT)</option>
+                <option value="transistor_pnp">PNP Транзистор (VT)</option>
+                <option value="capacitor">Конденсатор (C)</option>
+                <option value="diode">Диод (VD)</option>
+                <option value="speaker">Динамик (BA)</option>
+            </select><br>
+            <button onclick="saveComponentConfig()">Сохранить</button>
+            <button class="close-btn" onclick="closeConfigModal()">Отмена</button>
+        </div>
+    </div>
+
+    <div id="modal-info">
+        <div class="modal-content" style="max-width: 750px;">
+            <h3>📖 Каталог элементов ГОСТ</h3>
+            <div id="previewGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
+            <button class="close-btn" onclick="closeInfoModal()">Закрыть</button>
+        </div>
+    </div>
 
 <script>
-    const defaultData = [
-        { stage: '1. Клики по рекламе', count: 10000 },
-        { stage: '2. Заходы на сайт', count: 7500 },
-        { stage: '3. Добавление в корзину', count: 1500 },
-        { stage: '4. Оформление заказа', count: 450 },
-        { stage: '5. Оплаченная покупка', count: 300 }
-    ];
+    let imgElement = new Image();
+    let detectedRegions = [];
+    let activeConfigIndex = null;
 
-    let currentData = JSON.parse(JSON.stringify(defaultData));
+    window.onload = () => {
+        updateModalPreview();
+    };
 
-    function resetDefaults() {
-        currentData = JSON.parse(JSON.stringify(defaultData));
-        calculateAndRender();
+    function log(text) {
+        const box = document.getElementById('log');
+        box.innerHTML += `<div>> ${text}</div>`;
+        box.scrollTop = box.scrollHeight;
     }
 
-    function updateCount(index, val) {
-        let num = parseInt(val) || 0;
-        currentData[index].count = num;
-        calculateAndRender();
+    function openInfoModal() { document.getElementById('modal-info').style.display = 'flex'; }
+    function closeInfoModal() { document.getElementById('modal-info').style.display = 'none'; }
+    function closeConfigModal() { document.getElementById('modal-config').style.display = 'none'; }
+
+    function loadToCanvas(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgElement.src = e.target.result;
+                imgElement.onload = () => {
+                    const canvas = document.getElementById('cv-canvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 1000, 600);
+                    ctx.drawImage(imgElement, 0, 0, 1000, 600);
+                    document.getElementById('svg-layer').innerHTML = '';
+                    detectedRegions = [];
+                    log("Изображение загружено. Установите чувствительность и нажмите сканирование.");
+                };
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
     }
 
-    function calculateAndRender() {
-        const tbody = document.getElementById('funnel-tbody');
-        const chart = document.getElementById('funnel-chart');
-        const consoleBox = document.getElementById('diagnostic-console');
+    // Пиксельный сканер на основе анализа схожести цветов и регулировки чувствительности
+    function startColorPixelScan() {
+        if (!imgElement.src) {
+            alert('Сначала загрузите изображение схемы!');
+            return;
+        }
 
-        tbody.innerHTML = '';
-        chart.innerHTML = '';
-
-        const firstCount = currentData[0].count || 1;
+        const sensitivity = parseInt(document.getElementById('sensitivity').value);
+        log(`Запуск цветового сканирования (чувствительность: ${sensitivity})...`);
         
-        let maxDrop = -1;
-        let maxDropIndex = -1;
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
 
-        // Поиск максимальной абсолютной утечки (потери людей)
-        for (let i = 1; i < currentData.length; i++) {
-            let drop = currentData[i - 1].count - currentData[i].count;
-            if (drop > maxDrop) {
-                maxDrop = drop;
-                maxDropIndex = i;
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        // Определяем фоновый цвет по верхнему левому углу
+        const bgR = data[0], bgG = data[1], bgB = data[2];
+        detectedRegions = [];
+
+        const gridStep = 80;
+        for (let y = 40; y < 560; y += gridStep) {
+            for (let x = 40; x < 960; x += gridStep) {
+                let matchingPixels = 0;
+                
+                // Проверяем область вокруг точки сетки
+                for (let dy = -25; dy <= 25; dy += 8) {
+                    for (let dx = -25; dx <= 25; dx += 8) {
+                        let idx = ((y + dy) * 1000 + (x + dx)) * 4;
+                        let r = data[idx], g = data[idx+1], b = data[idx+2];
+                        
+                        // Вычисляем евклидово расстояние цвета пикселя от фона
+                        let colorDiff = Math.sqrt(Math.pow(r - bgR, 2) + Math.pow(g - bgG, 2) + Math.pow(b - bgB, 2));
+                        
+                        // Если цвет пикселя сильно отличается от фона (превышает порог чувствительности)
+                        if (colorDiff > sensitivity) {
+                            matchingPixels++;
+                        }
+                    }
+                }
+
+                // Если в зоне обнаружено достаточное количество контрастных пикселей — фиксируем элемент
+                if (matchingPixels > 6) {
+                    // Проверяем на дубликаты рядом
+                    let isDuplicate = detectedRegions.some(reg => Math.hypot(reg.cx - x, reg.cy - y) < 60);
+                    if (!isDuplicate) {
+                        detectedRegions.push({
+                            cx: x, cy: y, width: 75, height: 55,
+                            type: detectedRegions.length === 0 ? 'battery' : 'resistor',
+                            label: detectedRegions.length === 0 ? 'GB1' : `EL${detectedRegions.length}`
+                        });
+                    }
+                }
             }
         }
 
-        currentData.forEach((row, idx) => {
-            const prevCount = idx === 0 ? row.count : currentData[idx - 1].count;
-            const stepConversion = prevCount > 0 ? ((row.count / prevCount) * 100).toFixed(1) : 0;
-            const totalConversion = firstCount > 0 ? ((row.count / firstCount) * 100).toFixed(1) : 0;
-            const dropCount = idx === 0 ? 0 : prevCount - row.count;
+        log(`Цветовой анализ завершен. Найдено областей элементов: ${detectedRegions.length}`);
+        renderRegions();
+    }
 
-            const isMaxLeak = idx === maxDropIndex && dropCount > 0;
+    function renderRegions() {
+        const svgLayer = document.getElementById('svg-layer');
+        svgLayer.innerHTML = '';
 
-            // Рендер строки таблицы
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${idx + 1}</td>
-                <td><strong>${row.stage}</strong></td>
-                <td>
-                    <input type="number" value="${row.count}" onchange="updateCount(${idx}, this.value)" oninput="updateCount(${idx}, this.value)" min="0">
-                </td>
-                <td>${stepConversion}%</td>
-                <td>${totalConversion}%</td>
-                <td>${dropCount > 0 ? '-' + dropCount : 0}</td>
-                <td>${isMaxLeak ? '<span class="tag-leak">⚠️ ГЛАВНАЯ УТЕЧКА</span>' : '<span class="tag-ok">ОК</span>'}</td>
+        detectedRegions.forEach((reg, index) => {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.innerHTML = `
+                <rect class="contour-box" x="${reg.cx - reg.width/2}" y="${reg.cy - reg.height/2}" width="${reg.width}" height="${reg.height}" rx="5"/>
+                <text x="${reg.cx}" y="${reg.cy - reg.height/2 - 5}" text-anchor="middle" fill="#00f0ff" font-size="12">${reg.label} (${reg.type})</text>
+                <g transform="translate(${reg.cx}, ${reg.cy})">${getSvgSymbol(reg.type, reg.label)}</g>
             `;
-            tbody.appendChild(tr);
-
-            // Рендер полосы графика
-            const widthPct = Math.max(15, Math.min(100, (row.count / firstCount) * 100));
-            const stageDiv = document.createElement('div');
-            stageDiv.className = `funnel-stage ${isMaxLeak ? 'is-max-leak' : ''}`;
-            stageDiv.style.width = `${widthPct}%`;
-            stageDiv.innerHTML = `${row.stage}: ${row.count} чел. (${stepConversion}%)`;
-            chart.appendChild(stageDiv);
+            g.onclick = () => openConfigModalFor(index);
+            svgLayer.appendChild(g);
         });
+    }
 
-        // Формирование диагностической подсказки
-        if (maxDropIndex > 0 && maxDrop > 0) {
-            const leakStageName = currentData[maxDropIndex].stage;
-            const prevStageName = currentData[maxDropIndex - 1].stage;
-            const pctLost = ((maxDrop / currentData[maxDropIndex - 1].count) * 100).toFixed(1);
+    function openConfigModalFor(index) {
+        activeConfigIndex = index;
+        document.getElementById('cfgLabel').value = detectedRegions[index].label;
+        document.getElementById('cfgType').value = detectedRegions[index].type;
+        document.getElementById('modal-config').style.display = 'flex';
+    }
 
-            consoleBox.innerHTML = `
-                🔍 <strong>АУДИТ ВОРОНКИ:</strong> Обнаружено наибольшее узкое место (утечка) между этапами 
-                <strong>"${prevStageName}"</strong> и <strong>"${leakStageName}"</strong>.<br>
-                Потеряно <strong>${maxDrop} человек</strong> (${pctLost}% от предыдущего шага). 
-                Рекомендуется проверить юзабилити и условия на данном этапе.
-            `;
-        } else {
-            consoleBox.innerHTML = `ℹ️ <strong>АУДИТ ВОРОНКИ:</strong> Утечек не обнаружено или значения равны.`;
+    function saveComponentConfig() {
+        if (activeConfigIndex !== null) {
+            detectedRegions[activeConfigIndex].label = document.getElementById('cfgLabel').value;
+            detectedRegions[activeConfigIndex].type = document.getElementById('cfgType').value;
+            log(`Элемент обновлен: ${detectedRegions.label} -> тип ${detectedRegions.type}`);
+            renderRegions();
+            closeConfigModal();
         }
     }
 
-    window.onload = calculateAndRender;
-</script>
+    // Симуляция тока по правилам цепей
+    function runCurrentSimulation() {
+        if (detectedRegions.length === 0) {
+            alert('Сначала выполните сканирование!');
+            return;
+        }
 
+        log("=== РАСЧЕТ И СИМУЛЯЦИЯ ПОТОКА ТОКА ===");
+        let battery = detectedRegions.find(el => el.type === 'battery') || detectedRegions[0];
+        log(`Источник питания: ${battery.label}`);
+
+        let loads = detectedRegions.filter(el => el !== battery);
+        loads.sort((a, b) => Math.hypot(a.cx - battery.cx, a.cy - battery.cy) - Math.hypot(b.cx - battery.cx, b.cy - battery.cy));
+
+        const svgLayer = document.getElementById('svg-layer');
+
+        loads.forEach((load, idx) => {
+            let prevCoord = (idx === 0) ? battery : loads[idx - 1];
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", prevCoord.cx);
+            line.setAttribute("y1", prevCoord.cy);
+            line.setAttribute("x2", load.cx);
+            line.setAttribute("y2", load.cy);
+            line.setAttribute("class", "current-flow");
+            svgLayer.appendChild(line);
+
+            log(`Проводник замкнут: ${prevCoord.label} ===> ${load.label}`);
+        });
+
+        log("Симуляция токов успешно выполнена.");
+    }
+
+    function getSvgSymbol(type, label) {
+        switch(type) {
+            case 'transistor_npn':
+                return `
+                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
+                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                    <g transform="translate(18,20) rotate(26)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="#00ff66" stroke-width="1.5" fill="#121218" /></g>
+                `;
+            case 'transistor_pnp':
+                return `
+                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="none"/>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
+                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
+                    <g transform="translate(-10,6) rotate(206)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="#00ff66" stroke-width="1.5" fill="#121218" /></g>
+                `;
+            case 'resistor':
+                return `<rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2" fill="none"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/>`;
+            case 'battery':
+                return `
+                    <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="35" y1="0" x2="12" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-12" y1="-20" x2="-12" y2="20" stroke="#00ff66" stroke-width="3"/>
+                    <line x1="-4" y1="-12" x2="-4" y2="12" stroke="#00ff66" stroke-width="1.5"/>
+                    <line x1="4" y1="-20" x2="4" y2="20" stroke="#00ff66" stroke-width="3"/>
+                    <line x1="12" y1="-12" x2="12" y2="12" stroke="#00ff66" stroke-width="1.5"/>
+                `;
+            default:
+                return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2" fill="none"/>`;
+        }
+    }
+
+    function updateModalPreview() {
+        const grid = document.getElementById('previewGrid');
+        const elements = [
+            {type: 'battery', name: 'Батарея (GB)'},
+            {type: 'resistor', name: 'Резистор (R)'},
+            {type: 'transistor_npn', name: 'NPN Транзистор'},
+            {type: 'transistor_pnp', name: 'PNP Транзистор'}
+        ];
+        grid.innerHTML = elements.map(el => `
+            <div style="background:#121218; padding:10px; text-align:center; border:1px solid #333; border-radius:6px;">
+                <svg viewBox="-50 -40 100 80" style="width:100%; height:60px;">${getSvgSymbol(el.type, '')}</svg>
+                <span style="font-size:11px; color:#00ff66;">${el.name}</span>
+            </div>
+        `).join('');
+    }
+</script>
 </body>
 </html>
