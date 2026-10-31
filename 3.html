@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тренажер: Динамическая генерация сценариев</title>
+    <title>Тренажер: Сквозная сверка Белого списка</title>
     <style>
         :root {
             --excel-green: #107c41;
@@ -83,7 +83,6 @@
             background: #0369a1;
         }
 
-        /* Строка формул */
         .formula-bar-container {
             display: flex;
             align-items: center;
@@ -127,7 +126,6 @@
             background-color: #f0f9ff;
         }
 
-        /* Выпадающее меню 3 кликов */
         #formula-picker-dropdown {
             display: none;
             position: absolute;
@@ -153,7 +151,6 @@
             font-weight: bold;
         }
 
-        /* Помощник */
         .live-helper {
             background-color: var(--helper-bg);
             color: var(--helper-text);
@@ -212,7 +209,6 @@
             font-family: monospace;
         }
 
-        /* Модальные окна */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -232,7 +228,7 @@
             border-radius: 6px;
             box-shadow: 0 4px 25px rgba(0,0,0,0.3);
             z-index: 1000;
-            max-width: 650px;
+            max-width: 720px;
             width: 92%;
             font-size: 0.85rem;
             color: #333;
@@ -251,7 +247,6 @@
             align-items: center;
         }
 
-        /* Сводная таблица */
         table.pivot-table {
             width: 100%;
             border-collapse: collapse;
@@ -288,6 +283,15 @@
             font-size: 0.7rem;
         }
 
+        .tag-over {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.7rem;
+        }
+
         .tag-ok {
             background: #dcfce7;
             color: #166534;
@@ -296,7 +300,6 @@
             font-size: 0.7rem;
         }
 
-        /* Рабочая область */
         .workspace {
             flex: 1;
             display: flex;
@@ -412,7 +415,7 @@
 <body>
 
 <header>
-    <h1>🎲 Тренажер: Генерация разного количества транзакций и белых списков</h1>
+    <h1>🔍 Сквозная сводка: Бюджет ↔ Белый список ↔ Выписка</h1>
     <div class="btn-group">
         <button class="btn btn-pivot" onclick="openPivotModal()">📊 Сводная таблица (Pivot)</button>
         <button class="btn" onclick="toggleFormulaHelp()">📖 Справка</button>
@@ -425,11 +428,11 @@
 
 <div class="modal-window" id="pivot-modal">
     <h3>
-        <span>📊 Сводная таблица расходов (Pivot Table)</span>
+        <span>📊 Сводный аудит расходов (Pivot Table)</span>
         <button class="btn" onclick="closeAllModals()">✕</button>
     </h3>
     <p style="font-size:0.8rem; color:#475569;">
-        Автоматическая группировка текущего динамического набора транзакций.
+        Полная сводка всех списаний со сравнением с лимитами Белого списка.
     </p>
     <div id="pivot-table-container"></div>
     <button class="btn" onclick="closeAllModals()" style="background:var(--excel-green); color:#fff; width:100%; padding:6px; font-size:0.85rem; margin-top:10px;">
@@ -438,10 +441,11 @@
 </div>
 
 <div class="modal-window" id="formula-help-modal">
-    <h3>📖 Инструкция</h3>
+    <h3>📖 Как работает сквозная сверка</h3>
     <ul>
-        <li><strong>Случайные сценарии:</strong> При нажатии «🎲 Новый сценарий» размер Белого списка меняется от 2 до 5 сервисов, а выписка содержит от 8 до 16 случайных транзакций.</li>
-        <li><strong>Выбор диапазона:</strong> Выделите формулу в `fx` и протяните мышку по ячейкам таблицы.</li>
+        <li><strong>План подписок (B3):</strong> Рассчитывается формулой <code>=СУММ(H2:H...)</code> из Белого списка.</li>
+        <li><strong>Проверка выписки (E):</strong> Каждая строка категории «Подписки и сервисы» сверяется формулой <code>ВПР</code> с диапазоном <code>F2:F...</code>.</li>
+        <li><strong>Сводная таблица:</strong> Сопоставляет факт из выписки с установленным в Белом списке лимитом.</li>
     </ul>
     <button class="btn" onclick="closeAllModals()" style="background:var(--excel-green); color:#fff; width:100%; padding:6px; font-size:0.85rem; margin-top:10px;">Понятно</button>
 </div>
@@ -450,7 +454,7 @@
     <div class="dropdown-item" onclick="insertFormulaTemplate('=СУММЕСЛИ(C18:C28; A2; D18:D28)')">
         <b>=СУММЕСЛИ(...)</b> — Сумма по категории
     </div>
-    <div class="dropdown-item" onclick="insertFormulaTemplate('=ВПР(B18; F2:F4; 1)')">
+    <div class="dropdown-item" onclick="insertFormulaTemplate('=ВПР(B18; F2:F6; 1)')">
         <b>=ВПР(...)</b> — Проверка в Белом списке
     </div>
     <div class="dropdown-item" onclick="insertFormulaTemplate('=СУММ(B2:B5)')">
@@ -472,7 +476,7 @@
         </div>
     </div>
     <div class="helper-instruction" id="helper-text">
-        Кликайте по ячейкам таблицы для проверки формул и поиска утечек.
+        Кликайте по ячейкам таблицы для проверки формул.
     </div>
 </div>
 
@@ -496,7 +500,7 @@
 </div>
 
 <footer>
-    <div id="status-summary">Сформирован новый случайный сценарий.</div>
+    <div id="status-summary">Сводная система настроена: Бюджет ↔ Белый список ↔ Выписка.</div>
     <div id="status-counts">Загрузка...</div>
 </footer>
 
@@ -509,8 +513,8 @@
     let rangeStartCell = null;
     let isMouseDown = false;
 
-    let currentWhitelistCount = 3;
-    let currentTransactionCount = 11;
+    let currentWhitelistCount = 4;
+    let currentTransactionCount = 12;
 
     const ALL_WHITELIST_POOL = [
         { name: 'Netflix', price: 15 },
@@ -564,15 +568,25 @@
         document.getElementById('modal-overlay').style.display = 'block';
     }
 
+    // СКВОЗНАЯ СВОДНАЯ ТАБЛИЦА
     function buildPivotTable() {
         let categories = {};
         let endRow = 17 + currentTransactionCount;
+        
+        // Карта белого списка: Имя -> Лимит
+        let whitelistMap = {};
+        for (let r = 2; r < 2 + currentWhitelistCount; r++) {
+            let name = evaluateCell(`F${r}`);
+            let limit = parseFloat(evaluateCell(`H${r}`)) || 0;
+            if (name) {
+                whitelistMap[String(name).trim().toLowerCase()] = limit;
+            }
+        }
 
         for (let r = 18; r <= endRow; r++) {
             let cat = evaluateCell(`C${r}`);
             let service = evaluateCell(`B${r}`);
             let sum = parseFloat(evaluateCell(`D${r}`)) || 0;
-            let checkResult = evaluateCell(`E${r}`);
             let cellId = `E${r}`;
 
             if (!categories[cat]) {
@@ -582,7 +596,7 @@
             categories[cat].total += sum;
 
             if (!categories[cat].items[service]) {
-                categories[cat].items[service] = { sum: 0, status: checkResult, cellId: cellId };
+                categories[cat].items[service] = { sum: 0, cellId: cellId };
             }
             categories[cat].items[service].sum += sum;
         }
@@ -592,7 +606,8 @@
                 <thead>
                     <tr>
                         <th>Название категории / Сервиса</th>
-                        <th>Сумма ($)</th>
+                        <th>Факт ($)</th>
+                        <th>Лимит БС ($)</th>
                         <th>Статус Белого списка</th>
                         <th>Действие</th>
                     </tr>
@@ -607,19 +622,36 @@
                     <td>$${categories[cat].total}</td>
                     <td>—</td>
                     <td>—</td>
+                    <td>—</td>
                 </tr>
             `;
 
             Object.keys(categories[cat].items).forEach(srv => {
                 let item = categories[cat].items[srv];
-                let isLeak = item.status === '⚠️ УТЕЧКА';
+                let cleanService = String(srv).trim().toLowerCase();
                 let isFlagged = !!userFlaggedLeaks[item.cellId];
+
+                let statusHtml = '<span class="tag-ok">ОК</span>';
+                let limitText = '—';
+
+                if (cat === "Подписки и сервисы") {
+                    if (whitelistMap.hasOwnProperty(cleanService)) {
+                        let limit = whitelistMap[cleanService];
+                        limitText = `$${limit}`;
+                        if (item.sum > limit) {
+                            statusHtml = '<span class="tag-over">⚠️ ПРЕВЫШЕНИЕ ЛИМИТА</span>';
+                        }
+                    } else {
+                        statusHtml = '<span class="tag-leak">⚠️ УТЕЧКА (Нет в списке)</span>';
+                    }
+                }
 
                 html += `
                     <tr class="item-row">
                         <td>└ ${srv}</td>
                         <td>$${item.sum}</td>
-                        <td>${isLeak ? '<span class="tag-leak">⚠️ Нет в Белом списке</span>' : '<span class="tag-ok">ОК</span>'}</td>
+                        <td>${limitText}</td>
+                        <td>${statusHtml}</td>
                         <td>
                             <button class="btn" onclick="toggleLeakFlag('${item.cellId}', event); buildPivotTable();" style="padding:2px 6px; font-size:0.7rem;">
                                 ${isFlagged ? '✅ Отмечена' : 'Отметить утечку'}
@@ -634,30 +666,27 @@
         document.getElementById('pivot-table-container').innerHTML = html;
     }
 
-    // ДИНАМИЧЕСКАЯ ГЕНЕРАЦИЯ СЦЕНАРИЕВ
     function generateNewData() {
         userFlaggedLeaks = {};
 
-        // Случайное количество белого списка (от 2 до 5) и транзакций (от 8 до 16)
-        currentWhitelistCount = getRandomInt(2, 5);
-        currentTransactionCount = getRandomInt(8, 16);
+        currentWhitelistCount = getRandomInt(3, 5);
+        currentTransactionCount = getRandomInt(10, 15);
 
         let shuffledPool = [...ALL_WHITELIST_POOL].sort(() => 0.5 - Math.random());
         let currentWhitelist = shuffledPool.slice(0, currentWhitelistCount);
-        let whitelistTotal = currentWhitelist.reduce((acc, item) => acc + item.price, 0);
 
         let endTxRow = 17 + currentTransactionCount;
         let whitelistEndRow = 1 + currentWhitelistCount;
 
-        // Генерация бюджетов
-        let planProducts = getRandomInt(300, 500);
-        let planEntertainment = getRandomInt(100, 200);
-        let planTransport = getRandomInt(60, 120);
+        let planProducts = getRandomInt(300, 450);
+        let planEntertainment = getRandomInt(120, 200);
+        let planTransport = getRandomInt(80, 130);
 
         cellData = {
             'A1': 'Категория', 'B1': 'План ($)', 'C1': 'Факт ($)', 'D1': 'Отклонение ($)',
             'A2': 'Продукты', 'B2': String(planProducts), 'C2': `=СУММЕСЛИ(C18:C${endTxRow}; A2; D18:D${endTxRow})`, 'D2': '=C2-B2',
-            'A3': 'Подписки и сервисы', 'B3': String(whitelistTotal), 'C3': `=СУММЕСЛИ(C18:C${endTxRow}; A3; D18:D${endTxRow})`, 'D3': '=C3-B3',
+            // План подписок жестко сводится как сумма лимитов Белого списка
+            'A3': 'Подписки и сервисы', 'B3': `=СУММ(H2:H${whitelistEndRow})`, 'C3': `=СУММЕСЛИ(C18:C${endTxRow}; A3; D18:D${endTxRow})`, 'D3': '=C3-B3',
             'A4': 'Развлечения и кафе', 'B4': String(planEntertainment), 'C4': `=СУММЕСЛИ(C18:C${endTxRow}; A4; D18:D${endTxRow})`, 'D4': '=C4-B4',
             'A5': 'Транспорт', 'B5': String(planTransport), 'C5': `=СУММЕСЛИ(C18:C${endTxRow}; A5; D18:D${endTxRow})`, 'D5': '=C5-B5',
             'A6': 'Итого', 'B6': '=СУММ(B2:B5)', 'C6': '=СУММ(C2:C5)', 'D6': '=СУММ(D2:D5)',
@@ -665,7 +694,6 @@
             'F1': 'Разрешенный сервис', 'G1': 'Категория', 'H1': 'Лимит ($)'
         };
 
-        // Заполнение Белого списка
         currentWhitelist.forEach((w, idx) => {
             let row = 2 + idx;
             cellData[`F${row}`] = w.name;
@@ -673,7 +701,6 @@
             cellData[`H${row}`] = String(w.price);
         });
 
-        // Заполнение транзакций
         cellData['A17'] = 'Дата';
         cellData['B17'] = 'Описание / Сервис';
         cellData['C17'] = 'Категория';
@@ -685,7 +712,6 @@
             transactions.push({ name: w.name, cat: 'Подписки и сервисы', sum: w.price });
         });
 
-        // Добавляем 2 случайные утечки
         let numLeaks = getRandomInt(1, 3);
         let shuffledLeaks = [...LEAK_SERVICES].sort(() => 0.5 - Math.random());
         for (let i = 0; i < numLeaks; i++) {
@@ -701,7 +727,7 @@
 
         transactions.forEach((t, idx) => {
             let row = 18 + idx;
-            let day = Math.min(31, (idx + 1) * 2);
+            let day = Math.min(30, (idx + 1) * 2);
             let dateStr = `${day < 10 ? '0' + day : day}.10`;
 
             cellData[`A${row}`] = dateStr;
@@ -711,7 +737,7 @@
             cellData[`E${row}`] = `=ЕСЛИ(C${row}="Подписки и сервисы"; ВПР(B${row}; F2:F${whitelistEndRow}; 1); "ОК")`;
         });
 
-        document.getElementById('status-counts').innerText = `Белый список: ${currentWhitelistCount} сервиса | Всего транзакций: ${currentTransactionCount}`;
+        document.getElementById('status-counts').innerText = `Белый список: ${currentWhitelistCount} сервисов | Всего транзакций: ${currentTransactionCount}`;
 
         renderTables();
         recalculate();
@@ -926,13 +952,13 @@
             let formulaName = raw.substring(1).split('(')[0].trim().toUpperCase();
             let formulaExpl = '';
             if (formulaName === 'СУММЕСЛИ') {
-                formulaExpl = ' Функция <code>СУММЕСЛИ</code> суммирует расходы по заданной категории.';
+                formulaExpl = ' Функция <code>СУММЕСЛИ</code> суммирует расходы по категории.';
             } else if (formulaName === 'СУММ') {
-                formulaExpl = ' Функция <code>СУММ</code> складывает значения в диапазоне.';
+                formulaExpl = ' Функция <code>СУММ</code> складывает значения диапазонов.';
             } else if (formulaName === 'ВПР') {
-                formulaExpl = ' Функция <code>ВПР</code> ищет совпадения в диапазоне Белого списка.';
+                formulaExpl = ' Функция <code>ВПР</code> ищет точные совпадения в Белом списке.';
             } else if (formulaName === 'ЕСЛИ') {
-                formulaExpl = ' Функция <code>ЕСЛИ</code> выполняет логическую проверку условия.';
+                formulaExpl = ' Функция <code>ЕСЛИ</code> делает логическую проверку.';
             }
 
             if (cellId.startsWith('E') && parseInt(cellId.replace('E', '')) >= 18) {
@@ -943,7 +969,7 @@
 
                 if (computed === '⚠️ УТЕЧКА') {
                     if (isFlagged) {
-                        helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно определили утечку для <strong>"${serviceName}"</strong> ($${sumVal})! ${formulaExpl}`;
+                        helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно обнаружили утечку по <strong>"${serviceName}"</strong> ($${sumVal})! ${formulaExpl}`;
                     } else {
                         helperText.innerHTML = `🧐 <strong>ПОДСКАЗКА:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке. ${formulaExpl}`;
                     }
