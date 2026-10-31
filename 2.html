@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Цветовой анализ и Чувствительность</title>
+    <title>CV Circuit Scanner - Преобладающий цвет и белый фон</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -24,7 +24,7 @@
             border: 2px solid #444;
             border-radius: 8px;
             overflow: hidden;
-            background: #000;
+            background: #fff; /* Белая подложка для холста */
             margin: 0 auto;
         }
 
@@ -56,7 +56,7 @@
         }
 
         .current-flow {
-            stroke: #00ffff;
+            stroke: #00aaff;
             stroke-width: 3;
             stroke-dasharray: 6 6;
             animation: flowCurrent 1s linear infinite;
@@ -68,11 +68,11 @@
 
         .svg-symbol { cursor: pointer; transition: transform 0.3s; }
         .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polygon {
-            stroke: #00ff66; fill: none; stroke-width: 2;
+            stroke-width: 2; fill: none;
         }
-        .svg-symbol polygon { fill: #121218; }
+        .svg-symbol polygon { fill: #ffffff; }
         .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line, .svg-symbol.selected polygon {
-            stroke: #ff0055; filter: drop-shadow(0px 0px 10px #ff0055);
+            stroke: #ff0055 !important; filter: drop-shadow(0px 0px 10px #ff0055);
         }
 
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
@@ -87,19 +87,21 @@
         }
         .modal-content h3 { margin-top: 0; color: #00bcd4; }
         .close-btn { background: #555; margin-top: 15px; }
+        .color-preview { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 5px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Цветовой анализ и Регулировка чувствительности</h1>
+    <h1>⚡ Сканер схем: Фильтр белого фона и преобладающий цвет</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
-        <label>Чувствительность цвета: <span id="sensValue">40</span></label><br>
-        <input type="range" id="sensitivity" min="10" max="120" value="40" oninput="document.getElementById('sensValue').textContent=this.value"><br>
-        <button onclick="startColorPixelScan()">1. Сканировать по цвету и пикселям</button>
+        <label>Порог распознавания цвета: <span id="sensValue">40</span></label><br>
+        <input type="range" id="sensitivity" min="10" max="150" value="40" oninput="document.getElementById('sensValue').textContent=this.value"><br>
+        <button onclick="processImageAndScan()">1. Очистить фон и сканировать</button>
         <button class="btn-sim" onclick="runCurrentSimulation()">2. Запустить симуляцию тока</button>
         <button class="btn-info" onclick="openInfoModal()">Каталог элементов</button>
+        <span id="dominantColorStatus" style="margin-left: 15px; font-size: 14px;"></span>
     </div>
 
     <div class="card">
@@ -111,13 +113,12 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите схему, отрегулируйте чувствительность и запустите сканирование...</div>
+        <div id="log">Загрузите схему для обработки пикселей...</div>
     </div>
 
     <div id="modal-config">
         <div class="modal-content">
-            <h3>⚙️ Назначение элемента</h3>
-            <p>Настройте параметры для выбранной зоны:</p>
+            <h3>⚙️ Настройка элемента</h3>
             <label>Метка элемента:</label><br>
             <input type="text" id="cfgLabel" style="width: 100%; margin-bottom: 10px;"><br>
             <label>Тип элемента:</label><br>
@@ -147,6 +148,7 @@
     let imgElement = new Image();
     let detectedRegions = [];
     let activeConfigIndex = null;
+    let dominantColor = "#000000"; // По умолчанию черный цвет линий
 
     window.onload = () => {
         updateModalPreview();
@@ -174,23 +176,21 @@
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     document.getElementById('svg-layer').innerHTML = '';
                     detectedRegions = [];
-                    log("Изображение загружено. Установите чувствительность и нажмите сканирование.");
+                    log("Изображение загружено.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Пиксельный сканер на основе анализа схожести цветов и регулировки чувствительности
-    function startColorPixelScan() {
+    // Анализ преобладающего цвета линий, отсечение фона в белый и сканирование
+    function processImageAndScan() {
         if (!imgElement.src) {
-            alert('Сначала загрузите изображение схемы!');
+            alert('Сначала загрузите изображение!');
             return;
         }
 
         const sensitivity = parseInt(document.getElementById('sensitivity').value);
-        log(`Запуск цветового сканирования (чувствительность: ${sensitivity})...`);
-        
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         ctx.drawImage(imgElement, 0, 0, 1000, 600);
@@ -198,34 +198,58 @@
         const imgData = ctx.getImageData(0, 0, 1000, 600);
         const data = imgData.data;
 
-        // Определяем фоновый цвет по верхнему левому углу
+        // Определяем фоновый цвет по углам изображения
         const bgR = data[0], bgG = data[1], bgB = data[2];
-        detectedRegions = [];
+        
+        let sumR = 0, sumG = 0, sumB = 0, linePixelCount = 0;
 
+        // ЭТАП 1: Анализ пикселей на линии и замена фона на чистый белый (#ffffff)
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            let diff = Math.sqrt(Math.pow(r - bgR, 2) + Math.pow(g - bgG, 2) + Math.pow(b - bgB, 2));
+
+            if (diff > sensitivity) {
+                // Пиксель принадлежит линии элемента
+                sumR += r; sumG += g; sumB += b;
+                linePixelCount++;
+            } else {
+                // Все остальные пиксели превращаем в белый фон
+                data[i] = 255;
+                data[i+1] = 255;
+                data[i+2] = 255;
+            }
+        }
+
+        // Перерисовываем очищенный холст с белым фоном
+        ctx.putImageData(imgData, 0, 0);
+
+        // Рассчитываем средний преобладающий цвет элементов
+        if (linePixelCount > 0) {
+            let avgR = Math.round(sumR / linePixelCount);
+            let avgG = Math.round(sumG / linePixelCount);
+            let avgB = Math.round(sumB / linePixelCount);
+            dominantColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
+            log(`Преобладающий цвет линий: ${dominantColor}`);
+            document.getElementById('dominantColorStatus').innerHTML = 
+                `Главный цвет элементов: <span class="color-preview" style="background:${dominantColor}"></span>`;
+        }
+
+        // ЭТАП 2: Поиск областей расположения деталей
+        detectedRegions = [];
         const gridStep = 80;
         for (let y = 40; y < 560; y += gridStep) {
             for (let x = 40; x < 960; x += gridStep) {
-                let matchingPixels = 0;
-                
-                // Проверяем область вокруг точки сетки
+                let darkCount = 0;
                 for (let dy = -25; dy <= 25; dy += 8) {
                     for (let dx = -25; dx <= 25; dx += 8) {
                         let idx = ((y + dy) * 1000 + (x + dx)) * 4;
-                        let r = data[idx], g = data[idx+1], b = data[idx+2];
-                        
-                        // Вычисляем евклидово расстояние цвета пикселя от фона
-                        let colorDiff = Math.sqrt(Math.pow(r - bgR, 2) + Math.pow(g - bgG, 2) + Math.pow(b - bgB, 2));
-                        
-                        // Если цвет пикселя сильно отличается от фона (превышает порог чувствительности)
-                        if (colorDiff > sensitivity) {
-                            matchingPixels++;
+                        if (data[idx] !== 255 || data[idx+1] !== 255 || data[idx+2] !== 255) {
+                            darkCount++;
                         }
                     }
                 }
 
-                // Если в зоне обнаружено достаточное количество контрастных пикселей — фиксируем элемент
-                if (matchingPixels > 6) {
-                    // Проверяем на дубликаты рядом
+                if (darkCount > 6) {
                     let isDuplicate = detectedRegions.some(reg => Math.hypot(reg.cx - x, reg.cy - y) < 60);
                     if (!isDuplicate) {
                         detectedRegions.push({
@@ -238,8 +262,9 @@
             }
         }
 
-        log(`Цветовой анализ завершен. Найдено областей элементов: ${detectedRegions.length}`);
+        log(`Фон очищен до белого. Обнаружено областей: ${detectedRegions.length}`);
         renderRegions();
+        updateModalPreview();
     }
 
     function renderRegions() {
@@ -269,13 +294,11 @@
         if (activeConfigIndex !== null) {
             detectedRegions[activeConfigIndex].label = document.getElementById('cfgLabel').value;
             detectedRegions[activeConfigIndex].type = document.getElementById('cfgType').value;
-            log(`Элемент обновлен: ${detectedRegions.label} -> тип ${detectedRegions.type}`);
             renderRegions();
             closeConfigModal();
         }
     }
 
-    // Симуляция тока по правилам цепей
     function runCurrentSimulation() {
         if (detectedRegions.length === 0) {
             alert('Сначала выполните сканирование!');
@@ -284,7 +307,6 @@
 
         log("=== РАСЧЕТ И СИМУЛЯЦИЯ ПОТОКА ТОКА ===");
         let battery = detectedRegions.find(el => el.type === 'battery') || detectedRegions[0];
-        log(`Источник питания: ${battery.label}`);
 
         let loads = detectedRegions.filter(el => el !== battery);
         loads.sort((a, b) => Math.hypot(a.cx - battery.cx, a.cy - battery.cy) - Math.hypot(b.cx - battery.cx, b.cy - battery.cy));
@@ -302,45 +324,45 @@
             line.setAttribute("class", "current-flow");
             svgLayer.appendChild(line);
 
-            log(`Проводник замкнут: ${prevCoord.label} ===> ${load.label}`);
+            log(`Ток течет: ${prevCoord.label} ===> ${load.label}`);
         });
-
-        log("Симуляция токов успешно выполнена.");
     }
 
+    // Генерация SVG элементов с использованием преобладающего цвета
     function getSvgSymbol(type, label) {
+        const strokeColor = dominantColor;
         switch(type) {
             case 'transistor_npn':
                 return `
-                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
-                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <g transform="translate(18,20) rotate(26)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="#00ff66" stroke-width="1.5" fill="#121218" /></g>
+                    <circle cx="0" cy="0" r="26" stroke="${strokeColor}" stroke-width="2" fill="none"/>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="${strokeColor}" stroke-width="2"/>
+                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="${strokeColor}" stroke-width="3"/>
+                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="${strokeColor}" stroke-width="2"/>
+                    <line x1="-10" y1="6" x2="18" y2="20" stroke="${strokeColor}" stroke-width="2"/>
+                    <g transform="translate(18,20) rotate(26)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="${strokeColor}" stroke-width="1.5" fill="#ffffff" /></g>
                 `;
             case 'transistor_pnp':
                 return `
-                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="none"/>
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
-                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <g transform="translate(-10,6) rotate(206)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="#00ff66" stroke-width="1.5" fill="#121218" /></g>
+                    <circle cx="0" cy="0" r="26" stroke="${strokeColor}" stroke-width="2" fill="none"/>
+                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="${strokeColor}" stroke-width="2"/>
+                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="${strokeColor}" stroke-width="3"/>
+                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="${strokeColor}" stroke-width="2"/>
+                    <line x1="-10" y1="6" x2="18" y2="20" stroke="${strokeColor}" stroke-width="2"/>
+                    <g transform="translate(-10,6) rotate(206)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="${strokeColor}" stroke-width="1.5" fill="#ffffff" /></g>
                 `;
             case 'resistor':
-                return `<rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2" fill="none"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/>`;
+                return `<rect x="-32" y="-12" width="64" height="24" stroke="${strokeColor}" stroke-width="2" fill="none"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="${strokeColor}" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="${strokeColor}" stroke-width="2"/>`;
             case 'battery':
                 return `
-                    <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="35" y1="0" x2="12" y2="0" stroke="#00ff66" stroke-width="2"/>
-                    <line x1="-12" y1="-20" x2="-12" y2="20" stroke="#00ff66" stroke-width="3"/>
-                    <line x1="-4" y1="-12" x2="-4" y2="12" stroke="#00ff66" stroke-width="1.5"/>
-                    <line x1="4" y1="-20" x2="4" y2="20" stroke="#00ff66" stroke-width="3"/>
-                    <line x1="12" y1="-12" x2="12" y2="12" stroke="#00ff66" stroke-width="1.5"/>
+                    <line x1="-35" y1="0" x2="-12" y2="0" stroke="${strokeColor}" stroke-width="2"/>
+                    <line x1="35" y1="0" x2="12" y2="0" stroke="${strokeColor}" stroke-width="2"/>
+                    <line x1="-12" y1="-20" x2="-12" y2="20" stroke="${strokeColor}" stroke-width="3"/>
+                    <line x1="-4" y1="-12" x2="-4" y2="12" stroke="${strokeColor}" stroke-width="1.5"/>
+                    <line x1="4" y1="-20" x2="4" y2="20" stroke="${strokeColor}" stroke-width="3"/>
+                    <line x1="12" y1="-12" x2="12" y2="12" stroke="${strokeColor}" stroke-width="1.5"/>
                 `;
             default:
-                return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2" fill="none"/>`;
+                return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="${strokeColor}" stroke-width="2" fill="none"/>`;
         }
     }
 
