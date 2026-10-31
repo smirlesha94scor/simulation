@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Выбор цвета и сканирование</title>
+    <title>CV Circuit Scanner - Автосканирование по ползунку</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -15,7 +15,7 @@
         select { background: #2a2a36; color: #00ff66; border: 1px solid #444; border-radius: 4px; font-weight: bold; }
         .btn-info { background: #00bcd4; margin-left: 10px; }
         .btn-info:hover { background: #008ba3; }
-        input[type="range"] { width: 200px; vertical-align: middle; }
+        input[type="range"] { width: 250px; vertical-align: middle; }
 
         #viewport {
             position: relative;
@@ -42,7 +42,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            pointer-events: none; /* Пропускает клики на canvas под ним */
+            pointer-events: none;
             z-index: 10;
         }
 
@@ -76,9 +76,6 @@
             stroke-width: 2; fill: none;
         }
         .svg-symbol polygon { fill: #ffffff; }
-        .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line, .svg-symbol.selected polygon {
-            stroke: #ff0055 !important; filter: drop-shadow(0px 0px 10px #ff0055);
-        }
 
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
 
@@ -97,21 +94,20 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Выбор эталонного цвета и очистка фона</h1>
+    <h1>⚡ Сканер схем: Автоматическое сканирование по ползунку</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
         
         <div style="margin: 10px 0;">
             <label>Допуск близких оттенков: <span id="sensValue">50</span></label><br>
-            <input type="range" id="sensitivity" min="10" max="150" value="50" oninput="document.getElementById('sensValue').textContent=this.value">
+            <input type="range" id="sensitivity" min="10" max="150" value="50" oninput="onSensitivityChange(this.value)">
         </div>
 
         <span id="selectedColorStatus">1. Кликните по линии на схеме для выбора цвета</span>
         <span id="colorBox" class="color-preview" style="display:none;"></span><br><br>
 
-        <button id="scanBtn" onclick="runFilterAndScan()" disabled>2. Оставить этот цвет и запустить сканирование</button>
-        <button class="btn-sim" onclick="runCurrentSimulation()">3. Симуляция тока</button>
+        <button class="btn-sim" onclick="runCurrentSimulation()">Симуляция тока</button>
         <button class="btn-info" onclick="openInfoModal()">Каталог элементов</button>
     </div>
 
@@ -124,12 +120,12 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите изображение и пипеткой выберите цвет линии...</div>
+        <div id="log">Загрузите изображение и выберите цвет...</div>
     </div>
 
     <div id="modal-config">
         <div class="modal-content">
-            <h3>⚙️ Настройка элемента</h3>
+            <h3>⚙️ Назначение элемента</h3>
             <label>Метка элемента:</label><br>
             <input type="text" id="cfgLabel" style="width: 100%; margin-bottom: 10px;"><br>
             <label>Тип элемента:</label><br>
@@ -142,7 +138,7 @@
                 <option value="diode">Диод (VD)</option>
                 <option value="speaker">Динамик (BA)</option>
             </select><br>
-            <button onclick="saveComponentConfig()">Сохранить</button>
+            <button onclick="saveComponentConfig()">Сохранить и подставить символ</button>
             <button class="close-btn" onclick="closeConfigModal()">Отмена</button>
         </div>
     </div>
@@ -189,17 +185,15 @@
                     document.getElementById('svg-layer').innerHTML = '';
                     detectedRegions = [];
                     selectedColorRgb = null;
-                    document.getElementById('scanBtn').disabled = true;
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
-                    log("Изображение загружено. Кликните по линии на холсте.");
+                    log("Изображение загружено. Выберите цвет линии пипеткой.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Обработчик выбора цвета пипеткой
     function setupCanvasEyedropper() {
         const canvas = document.getElementById('cv-canvas');
 
@@ -228,21 +222,27 @@
                 colorBox.style.display = 'inline-block';
 
                 document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                document.getElementById('scanBtn').disabled = false;
+                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Автосканирование запущено.`);
 
-                log(`🎨 Выбран цвет в точке [${x}, ${y}]: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`);
+                // Автоматически запускаем обработку при выборе цвета
+                runFilterAndScan();
             } catch (err) {
                 log("❌ Ошибка считывания цвета: " + err.message);
             }
         });
     }
 
-    // Очистка фона и сканирование оставшихся пикселей
-    function runFilterAndScan() {
-        if (!selectedColorRgb) {
-            alert('Сначала кликните по линии на схеме!');
-            return;
+    // Реакция на сдвиг ползунка sensitivity
+    function onSensitivityChange(val) {
+        document.getElementById('sensValue').textContent = val;
+        if (selectedColorRgb) {
+            runFilterAndScan();
         }
+    }
+
+    // Очистка фона и пересканирование областей
+    function runFilterAndScan() {
+        if (!selectedColorRgb) return;
 
         const tolerance = parseInt(document.getElementById('sensitivity').value);
         const canvas = document.getElementById('cv-canvas');
@@ -252,7 +252,7 @@
         const imgData = ctx.getImageData(0, 0, 1000, 600);
         const data = imgData.data;
 
-        // Фильтрация пикселей по евклидовому расстоянию цвета
+        // Оставляем только выбранный цвет и близкие оттенки, всё остальное заменяем на белый
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
 
@@ -262,7 +262,6 @@
                 Math.pow(b - selectedColorRgb.b, 2)
             );
 
-            // Если отличие больше допуска — заменяем пиксель на белый
             if (distance > tolerance) {
                 data[i] = 255;
                 data[i+1] = 255;
@@ -271,9 +270,8 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("Фон заменен на белый. Сканирование оставшихся контуров...");
 
-        // Сканирование зон с оставшимся фокусным цветом
+        // Поиск контурных областей
         detectedRegions = [];
         const gridStep = 80;
         for (let y = 40; y < 560; y += gridStep) {
@@ -294,29 +292,31 @@
                     if (!isDuplicate) {
                         detectedRegions.push({
                             cx: x, cy: y, width: 75, height: 55,
-                            type: detectedRegions.length === 0 ? 'battery' : 'resistor',
-                            label: detectedRegions.length === 0 ? 'GB1' : `EL${detectedRegions.length}`
+                            type: null, // Символ не назначается автоматически
+                            label: `Зона ${detectedRegions.length + 1}`
                         });
                     }
                 }
             }
         }
 
-        log(`Обнаружено областей компонентов: ${detectedRegions.length}`);
         renderRegions();
-        updateModalPreview();
     }
 
+    // Выводим только рамки выделения без автоматического наложения SVG элементов
     function renderRegions() {
         const svgLayer = document.getElementById('svg-layer');
         svgLayer.innerHTML = '';
 
         detectedRegions.forEach((reg, index) => {
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            
+            let symbolHtml = reg.type ? `<g transform="translate(${reg.cx}, ${reg.cy})">${getSvgSymbol(reg.type, reg.label)}</g>` : '';
+
             g.innerHTML = `
                 <rect class="contour-box" x="${reg.cx - reg.width/2}" y="${reg.cy - reg.height/2}" width="${reg.width}" height="${reg.height}" rx="5"/>
-                <text x="${reg.cx}" y="${reg.cy - reg.height/2 - 5}" text-anchor="middle" fill="#00f0ff" font-size="12">${reg.label} (${reg.type})</text>
-                <g transform="translate(${reg.cx}, ${reg.cy})">${getSvgSymbol(reg.type, reg.label)}</g>
+                <text x="${reg.cx}" y="${reg.cy - reg.height/2 - 5}" text-anchor="middle" fill="#00f0ff" font-size="12">${reg.label} ${reg.type ? '(' + reg.type + ')' : ''}</text>
+                ${symbolHtml}
             `;
             g.onclick = () => openConfigModalFor(index);
             svgLayer.appendChild(g);
@@ -326,7 +326,7 @@
     function openConfigModalFor(index) {
         activeConfigIndex = index;
         document.getElementById('cfgLabel').value = detectedRegions[index].label;
-        document.getElementById('cfgType').value = detectedRegions[index].type;
+        document.getElementById('cfgType').value = detectedRegions[index].type || 'resistor';
         document.getElementById('modal-config').style.display = 'flex';
     }
 
@@ -341,7 +341,7 @@
 
     function runCurrentSimulation() {
         if (detectedRegions.length === 0) {
-            alert('Сначала выполните сканирование!');
+            alert('Сначала отфильтруйте фон по цвету!');
             return;
         }
 
