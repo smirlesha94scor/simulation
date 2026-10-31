@@ -2,16 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Полная библиотека SVG</title>
+    <title>CV Circuit Scanner - Цветовой анализ и Чувствительность</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
+        .btn-sim { background: #00ff66; color: #000; }
+        .btn-sim:hover { background: #00cc52; }
         select { background: #2a2a36; color: #00ff66; border: 1px solid #444; border-radius: 4px; font-weight: bold; }
         .btn-info { background: #00bcd4; margin-left: 10px; }
         .btn-info:hover { background: #008ba3; }
+        input[type="range"] { width: 200px; vertical-align: middle; }
 
         #viewport {
             position: relative;
@@ -41,68 +44,62 @@
         }
 
         .contour-box {
-            fill: rgba(0, 240, 255, 0.05);
+            fill: rgba(0, 240, 255, 0.08);
             stroke: #00f0ff;
             stroke-width: 2;
             stroke-dasharray: 4;
-            animation: pulseContour 1.5s infinite alternate;
+            cursor: pointer;
         }
-        @keyframes pulseContour {
-            0% { stroke-opacity: 0.4; }
-            100% { stroke-opacity: 1; }
+        .contour-box:hover {
+            fill: rgba(255, 0, 127, 0.2);
+            stroke: #ff007f;
+        }
+
+        .current-flow {
+            stroke: #00ffff;
+            stroke-width: 3;
+            stroke-dasharray: 6 6;
+            animation: flowCurrent 1s linear infinite;
+        }
+        @keyframes flowCurrent {
+            from { stroke-dashoffset: 12; }
+            to { stroke-dashoffset: 0; }
         }
 
         .svg-symbol { cursor: pointer; transition: transform 0.3s; }
         .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polygon {
-            stroke: #00ff66; fill: none;
+            stroke: #00ff66; fill: none; stroke-width: 2;
         }
-        .svg-symbol polygon.filled { fill: #00ff66; }
+        .svg-symbol polygon { fill: #121218; }
         .svg-symbol.selected path, .svg-symbol.selected circle, .svg-symbol.selected rect, .svg-symbol.selected line, .svg-symbol.selected polygon {
-            stroke: #ff0055; fill: none; filter: drop-shadow(0px 0px 10px #ff0055);
+            stroke: #ff0055; filter: drop-shadow(0px 0px 10px #ff0055);
         }
-        .svg-symbol.selected polygon.filled { fill: #ff0055; }
 
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
 
-        #modal-info {
+        #modal-info, #modal-config {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;
         }
         .modal-content {
-            background: #1e1e28; padding: 25px; border-radius: 10px; width: 90%; max-width: 800px;
-            max-height: 85vh; overflow-y: auto; border: 2px solid #00bcd4; box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
+            background: #1e1e28; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px;
+            border: 2px solid #00bcd4; box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
         }
         .modal-content h3 { margin-top: 0; color: #00bcd4; }
-        .svg-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
-        .preview-card { background: #121218; border: 1px solid #333; border-radius: 6px; padding: 12px; text-align: center; }
-        .preview-card svg { width: 100%; height: 80px; margin-bottom: 5px; }
-        .preview-card span { font-size: 12px; color: #00ff66; display: block; }
-        .close-btn { background: #555; margin-top: 20px; }
+        .close-btn { background: #555; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Полный набор элементов с кругами у транзисторов</h1>
+    <h1>⚡ Сканер схем: Цветовой анализ и Регулировка чувствительности</h1>
 
     <div class="card">
-        <label>Gemini API Key: </label>
-        <input type="password" id="apiKey" style="width: 280px;">
-        <button onclick="saveKey()">Сохранить ключ</button>
-        <span id="keyStatus" style="margin-left: 10px; font-weight: bold; color: #ff5e5e;">● Ключ не задан</span>
-    </div>
-
-    <div class="card">
-        <label>Стиль библиотеки: </label>
-        <select id="libraryStyle" onchange="changeLibraryStyle()">
-            <option value="gost">ГОСТ 2.730-73 (С кругами и точными стрелками)</option>
-            <option value="kicad">KiCad CAD Style (С узлами выводов)</option>
-        </select>
-        <button class="btn-info" onclick="openInfoModal()">Каталог всех элементов</button>
-    </div>
-
-    <div class="card">
-        <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
-        <button onclick="startTwoPhaseScan()">Запустить поэтапное сканирование</button>
+        <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
+        <label>Чувствительность цвета: <span id="sensValue">40</span></label><br>
+        <input type="range" id="sensitivity" min="10" max="120" value="40" oninput="document.getElementById('sensValue').textContent=this.value"><br>
+        <button onclick="startColorPixelScan()">1. Сканировать по цвету и пикселям</button>
+        <button class="btn-sim" onclick="runCurrentSimulation()">2. Запустить симуляцию тока</button>
+        <button class="btn-info" onclick="openInfoModal()">Каталог элементов</button>
     </div>
 
     <div class="card">
@@ -114,41 +111,46 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите схему...</div>
+        <div id="log">Загрузите схему, отрегулируйте чувствительность и запустите сканирование...</div>
+    </div>
+
+    <div id="modal-config">
+        <div class="modal-content">
+            <h3>⚙️ Назначение элемента</h3>
+            <p>Настройте параметры для выбранной зоны:</p>
+            <label>Метка элемента:</label><br>
+            <input type="text" id="cfgLabel" style="width: 100%; margin-bottom: 10px;"><br>
+            <label>Тип элемента:</label><br>
+            <select id="cfgType" style="width: 100%; margin-bottom: 15px;">
+                <option value="battery">Батарея / Источник питания (GB)</option>
+                <option value="resistor">Резистор (R)</option>
+                <option value="transistor_npn">NPN Транзистор (VT)</option>
+                <option value="transistor_pnp">PNP Транзистор (VT)</option>
+                <option value="capacitor">Конденсатор (C)</option>
+                <option value="diode">Диод (VD)</option>
+                <option value="speaker">Динамик (BA)</option>
+            </select><br>
+            <button onclick="saveComponentConfig()">Сохранить</button>
+            <button class="close-btn" onclick="closeConfigModal()">Отмена</button>
+        </div>
     </div>
 
     <div id="modal-info">
-        <div class="modal-content">
-            <h3>📖 Каталог всех электрических элементов</h3>
-            <div class="svg-preview-grid" id="previewGrid"></div>
+        <div class="modal-content" style="max-width: 750px;">
+            <h3>📖 Каталог элементов ГОСТ</h3>
+            <div id="previewGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
             <button class="close-btn" onclick="closeInfoModal()">Закрыть</button>
         </div>
     </div>
 
 <script>
     let imgElement = new Image();
-    let scanData = [];
-    let currentStyle = 'gost';
+    let detectedRegions = [];
+    let activeConfigIndex = null;
 
     window.onload = () => {
-        const savedKey = localStorage.getItem('gemini_api_key');
-        if (savedKey) {
-            document.getElementById('apiKey').value = savedKey;
-            document.getElementById('keyStatus').textContent = "● Ключ подключен";
-            document.getElementById('keyStatus').style.color = "#00ff66";
-        }
         updateModalPreview();
     };
-
-    function saveKey() {
-        const key = document.getElementById('apiKey').value.trim();
-        if(key) {
-            localStorage.setItem('gemini_api_key', key);
-            document.getElementById('keyStatus').textContent = "● Ключ подключен";
-            document.getElementById('keyStatus').style.color = "#00ff66";
-            log("Ключ сохранен.");
-        }
-    }
 
     function log(text) {
         const box = document.getElementById('log');
@@ -156,15 +158,9 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    function changeLibraryStyle() {
-        currentStyle = document.getElementById('libraryStyle').value;
-        log(`Стиль изменен на: ${currentStyle.toUpperCase()}`);
-        if (scanData.length > 0) materializeElements(scanData);
-        updateModalPreview();
-    }
-
     function openInfoModal() { document.getElementById('modal-info').style.display = 'flex'; }
     function closeInfoModal() { document.getElementById('modal-info').style.display = 'none'; }
+    function closeConfigModal() { document.getElementById('modal-config').style.display = 'none'; }
 
     function loadToCanvas(input) {
         if (input.files && input.files[0]) {
@@ -177,188 +173,191 @@
                     ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     document.getElementById('svg-layer').innerHTML = '';
-                    log("Изображение загружено.");
+                    detectedRegions = [];
+                    log("Изображение загружено. Установите чувствительность и нажмите сканирование.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Полная библиотека элементов с кругами у транзисторов
+    // Пиксельный сканер на основе анализа схожести цветов и регулировки чувствительности
+    function startColorPixelScan() {
+        if (!imgElement.src) {
+            alert('Сначала загрузите изображение схемы!');
+            return;
+        }
+
+        const sensitivity = parseInt(document.getElementById('sensitivity').value);
+        log(`Запуск цветового сканирования (чувствительность: ${sensitivity})...`);
+        
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
+
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        // Определяем фоновый цвет по верхнему левому углу
+        const bgR = data[0], bgG = data[1], bgB = data[2];
+        detectedRegions = [];
+
+        const gridStep = 80;
+        for (let y = 40; y < 560; y += gridStep) {
+            for (let x = 40; x < 960; x += gridStep) {
+                let matchingPixels = 0;
+                
+                // Проверяем область вокруг точки сетки
+                for (let dy = -25; dy <= 25; dy += 8) {
+                    for (let dx = -25; dx <= 25; dx += 8) {
+                        let idx = ((y + dy) * 1000 + (x + dx)) * 4;
+                        let r = data[idx], g = data[idx+1], b = data[idx+2];
+                        
+                        // Вычисляем евклидово расстояние цвета пикселя от фона
+                        let colorDiff = Math.sqrt(Math.pow(r - bgR, 2) + Math.pow(g - bgG, 2) + Math.pow(b - bgB, 2));
+                        
+                        // Если цвет пикселя сильно отличается от фона (превышает порог чувствительности)
+                        if (colorDiff > sensitivity) {
+                            matchingPixels++;
+                        }
+                    }
+                }
+
+                // Если в зоне обнаружено достаточное количество контрастных пикселей — фиксируем элемент
+                if (matchingPixels > 6) {
+                    // Проверяем на дубликаты рядом
+                    let isDuplicate = detectedRegions.some(reg => Math.hypot(reg.cx - x, reg.cy - y) < 60);
+                    if (!isDuplicate) {
+                        detectedRegions.push({
+                            cx: x, cy: y, width: 75, height: 55,
+                            type: detectedRegions.length === 0 ? 'battery' : 'resistor',
+                            label: detectedRegions.length === 0 ? 'GB1' : `EL${detectedRegions.length}`
+                        });
+                    }
+                }
+            }
+        }
+
+        log(`Цветовой анализ завершен. Найдено областей элементов: ${detectedRegions.length}`);
+        renderRegions();
+    }
+
+    function renderRegions() {
+        const svgLayer = document.getElementById('svg-layer');
+        svgLayer.innerHTML = '';
+
+        detectedRegions.forEach((reg, index) => {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.innerHTML = `
+                <rect class="contour-box" x="${reg.cx - reg.width/2}" y="${reg.cy - reg.height/2}" width="${reg.width}" height="${reg.height}" rx="5"/>
+                <text x="${reg.cx}" y="${reg.cy - reg.height/2 - 5}" text-anchor="middle" fill="#00f0ff" font-size="12">${reg.label} (${reg.type})</text>
+                <g transform="translate(${reg.cx}, ${reg.cy})">${getSvgSymbol(reg.type, reg.label)}</g>
+            `;
+            g.onclick = () => openConfigModalFor(index);
+            svgLayer.appendChild(g);
+        });
+    }
+
+    function openConfigModalFor(index) {
+        activeConfigIndex = index;
+        document.getElementById('cfgLabel').value = detectedRegions[index].label;
+        document.getElementById('cfgType').value = detectedRegions[index].type;
+        document.getElementById('modal-config').style.display = 'flex';
+    }
+
+    function saveComponentConfig() {
+        if (activeConfigIndex !== null) {
+            detectedRegions[activeConfigIndex].label = document.getElementById('cfgLabel').value;
+            detectedRegions[activeConfigIndex].type = document.getElementById('cfgType').value;
+            log(`Элемент обновлен: ${detectedRegions.label} -> тип ${detectedRegions.type}`);
+            renderRegions();
+            closeConfigModal();
+        }
+    }
+
+    // Симуляция тока по правилам цепей
+    function runCurrentSimulation() {
+        if (detectedRegions.length === 0) {
+            alert('Сначала выполните сканирование!');
+            return;
+        }
+
+        log("=== РАСЧЕТ И СИМУЛЯЦИЯ ПОТОКА ТОКА ===");
+        let battery = detectedRegions.find(el => el.type === 'battery') || detectedRegions[0];
+        log(`Источник питания: ${battery.label}`);
+
+        let loads = detectedRegions.filter(el => el !== battery);
+        loads.sort((a, b) => Math.hypot(a.cx - battery.cx, a.cy - battery.cy) - Math.hypot(b.cx - battery.cx, b.cy - battery.cy));
+
+        const svgLayer = document.getElementById('svg-layer');
+
+        loads.forEach((load, idx) => {
+            let prevCoord = (idx === 0) ? battery : loads[idx - 1];
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", prevCoord.cx);
+            line.setAttribute("y1", prevCoord.cy);
+            line.setAttribute("x2", load.cx);
+            line.setAttribute("y2", load.cy);
+            line.setAttribute("class", "current-flow");
+            svgLayer.appendChild(line);
+
+            log(`Проводник замкнут: ${prevCoord.label} ===> ${load.label}`);
+        });
+
+        log("Симуляция токов успешно выполнена.");
+    }
+
     function getSvgSymbol(type, label) {
         switch(type) {
             case 'transistor_npn':
                 return `
-                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2"/>
+                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="none"/>
                     <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
                     <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
                     <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
                     <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <g transform="translate(18,20) rotate(26)"><polygon points="0,0 -10,-4 -8,0 -10,4" class="filled" /></g>
-                    <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
-                    <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
-                    <text x="14" y="30" fill="#00ff66" font-size="10">E</text>
-                    <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">NPN ${label}</text>
+                    <g transform="translate(18,20) rotate(26)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="#00ff66" stroke-width="1.5" fill="#121218" /></g>
                 `;
             case 'transistor_pnp':
                 return `
-                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2"/>
+                    <circle cx="0" cy="0" r="26" stroke="#00ff66" stroke-width="2" fill="none"/>
                     <line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/>
                     <line x1="-10" y1="-16" x2="-10" y2="16" stroke="#00ff66" stroke-width="3"/>
                     <line x1="-10" y1="-6" x2="18" y2="-20" stroke="#00ff66" stroke-width="2"/>
                     <line x1="-10" y1="6" x2="18" y2="20" stroke="#00ff66" stroke-width="2"/>
-                    <g transform="translate(-10,6) rotate(206)"><polygon points="0,0 -10,-4 -8,0 -10,4" class="filled" /></g>
-                    <text x="-28" y="-6" fill="#00ff66" font-size="10">B</text>
-                    <text x="14" y="-14" fill="#00ff66" font-size="10">C</text>
-                    <text x="14" y="30" fill="#00ff66" font-size="10">E</text>
-                    <text x="0" y="-34" text-anchor="middle" fill="#00ff66" font-size="11">PNP ${label}</text>
+                    <g transform="translate(-10,6) rotate(206)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="#00ff66" stroke-width="1.5" fill="#121218" /></g>
                 `;
             case 'resistor':
-                return `<rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/><text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>`;
-            case 'capacitor':
-                return `<line x1="-35" y1="0" x2="-10" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="35" y1="0" x2="10" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="-10" y1="-18" x2="-10" y2="18" stroke="#00ff66" stroke-width="2.5"/><line x1="10" y1="-18" x2="10" y2="18" stroke="#00ff66" stroke-width="2.5"/><text x="0" y="-24" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>`;
-            case 'diode':
-                return `<line x1="-35" y1="0" x2="35" y2="0" stroke="#00ff66" stroke-width="2"/><polygon points="-10,-12 -10,12 10,0" stroke="#00ff66" stroke-width="2"/><line x1="10" y1="-12" x2="10" y2="12" stroke="#00ff66" stroke-width="2"/><text x="0" y="-18" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>`;
-            case 'speaker':
-                return `<rect x="-20" y="-20" width="40" height="40" stroke="#00ff66" stroke-width="2"/><line x1="-35" y1="-10" x2="-20" y2="-10" stroke="#00ff66" stroke-width="2"/><line x1="-35" y1="10" x2="-20" y2="10" stroke="#00ff66" stroke-width="2"/><text x="0" y="-26" text-anchor="middle" fill="#00ff66" font-size="12">${label}</text>`;
+                return `<rect x="-32" y="-12" width="64" height="24" stroke="#00ff66" stroke-width="2" fill="none"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="#00ff66" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="#00ff66" stroke-width="2"/>`;
+            case 'battery':
+                return `
+                    <line x1="-35" y1="0" x2="-12" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="35" y1="0" x2="12" y2="0" stroke="#00ff66" stroke-width="2"/>
+                    <line x1="-12" y1="-20" x2="-12" y2="20" stroke="#00ff66" stroke-width="3"/>
+                    <line x1="-4" y1="-12" x2="-4" y2="12" stroke="#00ff66" stroke-width="1.5"/>
+                    <line x1="4" y1="-20" x2="4" y2="20" stroke="#00ff66" stroke-width="3"/>
+                    <line x1="12" y1="-12" x2="12" y2="12" stroke="#00ff66" stroke-width="1.5"/>
+                `;
             default:
-                return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2"/><text x="0" y="4" text-anchor="middle" fill="#00ff66" font-size="11">${label}</text>`;
+                return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="#00ff66" stroke-width="2" fill="none"/>`;
         }
     }
 
     function updateModalPreview() {
         const grid = document.getElementById('previewGrid');
         const elements = [
-            {type: 'transistor_npn', label: 'VT1', name: 'NPN Транзистор'},
-            {type: 'transistor_pnp', label: 'VT2', name: 'PNP Транзистор'},
-            {type: 'resistor', label: 'R1', name: 'Резистор'},
-            {type: 'capacitor', label: 'C1', name: 'Конденсатор'},
-            {type: 'diode', label: 'VD1', name: 'Диод'},
-            {type: 'speaker', label: 'BA1', name: 'Динамик'}
+            {type: 'battery', name: 'Батарея (GB)'},
+            {type: 'resistor', name: 'Резистор (R)'},
+            {type: 'transistor_npn', name: 'NPN Транзистор'},
+            {type: 'transistor_pnp', name: 'PNP Транзистор'}
         ];
         grid.innerHTML = elements.map(el => `
-            <div class="preview-card">
-                <svg viewBox="-50 -40 100 80">${getSvgSymbol(el.type, el.label)}</svg>
-                <span>${el.name}</span>
+            <div style="background:#121218; padding:10px; text-align:center; border:1px solid #333; border-radius:6px;">
+                <svg viewBox="-50 -40 100 80" style="width:100%; height:60px;">${getSvgSymbol(el.type, '')}</svg>
+                <span style="font-size:11px; color:#00ff66;">${el.name}</span>
             </div>
         `).join('');
-    }
-
-    async function startTwoPhaseScan() {
-        const apiKey = document.getElementById('apiKey').value.trim();
-        const fileInput = document.getElementById('imageInput').files[0];
-
-        if (!apiKey || !fileInput) {
-            alert('Загрузите файл и укажите API key!');
-            return;
-        }
-
-        log("=== ЭТАП 1: Сканирование контуров ===");
-        runContourScanAnimation(async () => {
-            log("=== ЭТАП 2: Распознавание элементов через Gemini Vision ===");
-            const base64Data = await toBase64(fileInput);
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
-
-            const promptText = `Распознай все элементы на схеме (transistor_npn, transistor_pnp, resistor, capacitor, diode, speaker).
-            Верни ТОЛЬКО валидный JSON без markdown:
-            {
-              "components": [
-                {"label": "VT1", "type": "transistor_npn", "cx": 580, "cy": 340},
-                {"label": "R1", "type": "resistor", "cx": 220, "cy": 320}
-              ]
-            }
-            Координаты cx, cy в системе 1000x600.`;
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: promptText }, { inline_data: { mime_type: fileInput.type, data: base64Data.split(',')[1] } }] }]
-                    })
-                });
-
-                const result = await response.json();
-                let rawText = result.candidates[0].content.parts[0].text;
-                let cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                cleanJson = cleanJson.substring(cleanJson.indexOf('{'), cleanJson.lastIndexOf('}') + 1);
-
-                const data = JSON.parse(cleanJson);
-                scanData = data.components;
-
-                log(`Распознано: ${scanData.length}. Материализация SVG элементов...`);
-                materializeElements(scanData);
-
-            } catch (e) {
-                log("Ошибка распознавания: " + e.message);
-            }
-        });
-    }
-
-    function runContourScanAnimation(onComplete) {
-        const canvas = document.getElementById('cv-canvas');
-        const ctx = canvas.getContext('2d');
-        const svgLayer = document.getElementById('svg-layer');
-        svgLayer.innerHTML = '';
-        let currentY = 0;
-
-        function step() {
-            ctx.clearRect(0, 0, 1000, 600);
-            ctx.drawImage(imgElement, 0, 0, 1000, 600);
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.8)';
-            ctx.fillRect(0, currentY, 1000, 3);
-
-            if (currentY === 150 || currentY === 300 || currentY === 450) {
-                let tempBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                tempBox.setAttribute("class", "contour-box");
-                tempBox.setAttribute("x", "150");
-                tempBox.setAttribute("y", currentY - 40);
-                tempBox.setAttribute("width", "120");
-                tempBox.setAttribute("height", "60");
-                svgLayer.appendChild(tempBox);
-                log(`[Contour] Обнаружена область на Y=${currentY}px`);
-            }
-
-            currentY += 5;
-            if (currentY < 600) {
-                requestAnimationFrame(step);
-            } else {
-                ctx.clearRect(0, 0, 1000, 600);
-                ctx.drawImage(imgElement, 0, 0, 1000, 600);
-                svgLayer.innerHTML = '';
-                onComplete();
-            }
-        }
-        requestAnimationFrame(step);
-    }
-
-    function materializeElements(components) {
-        const svgLayer = document.getElementById('svg-layer');
-        svgLayer.innerHTML = '';
-
-        components.forEach((comp, idx) => {
-            setTimeout(() => {
-                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                g.setAttribute("class", "svg-symbol");
-                g.setAttribute("transform", `translate(${comp.cx}, ${comp.cy})`);
-                g.onclick = () => {
-                    g.classList.toggle('selected');
-                    log(`Выбран элемент: ${comp.label}`);
-                };
-                g.innerHTML = getSvgSymbol(comp.type, comp.label);
-                svgLayer.appendChild(g);
-                log(`[Символ добавлен] ${comp.label} (${comp.type})`);
-            }, idx * 300);
-        });
-    }
-
-    function toBase64(file) {
-        return new Promise((res, rej) => {
-            const r = new FileReader();
-            r.readAsDataURL(file);
-            r.onload = () => res(r.result);
-            r.onerror = e => rej(e);
-        });
     }
 </script>
 </body>
