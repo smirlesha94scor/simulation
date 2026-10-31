@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Детектор утечек: Тренажер с генерацией сценариев</title>
+    <title>Тренажер: Динамическая генерация сценариев</title>
     <style>
         :root {
             --excel-green: #107c41;
@@ -12,6 +12,7 @@
             --header-bg: #f3f3f3;
             --cell-selected: #e7f3fd;
             --cell-border-selected: #106ebe;
+            --cell-range-selected: #dbeafe;
             --helper-bg: #0f172a;
             --helper-text: #f8fafc;
             --helper-accent: #38bdf8;
@@ -73,6 +74,15 @@
             background: #e6f2ed;
         }
 
+        button.btn-pivot {
+            background: #0284c7;
+            color: #fff;
+        }
+
+        button.btn-pivot:hover {
+            background: #0369a1;
+        }
+
         /* Строка формул */
         .formula-bar-container {
             display: flex;
@@ -110,6 +120,37 @@
             font-size: 0.85rem;
             border-radius: 2px;
             outline: none;
+        }
+
+        .formula-input.mode-selecting {
+            border: 2px solid var(--helper-accent);
+            background-color: #f0f9ff;
+        }
+
+        /* Выпадающее меню 3 кликов */
+        #formula-picker-dropdown {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 4px;
+            z-index: 1000;
+            overflow: hidden;
+            width: 260px;
+        }
+
+        .dropdown-item {
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--excel-light-green);
+            color: var(--excel-green);
+            font-weight: bold;
         }
 
         /* Помощник */
@@ -169,6 +210,90 @@
             padding: 1px 4px;
             border-radius: 2px;
             font-family: monospace;
+        }
+
+        /* Модальные окна */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+
+        .modal-window {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 650px;
+            width: 92%;
+            font-size: 0.85rem;
+            color: #333;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-window h3 {
+            color: var(--excel-green);
+            margin-bottom: 12px;
+            font-size: 1.05rem;
+            border-bottom: 2px solid var(--excel-light-green);
+            padding-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Сводная таблица */
+        table.pivot-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 0.8rem;
+        }
+
+        table.pivot-table th, table.pivot-table td {
+            border: 1px solid var(--border-color);
+            padding: 6px 8px;
+            text-align: left;
+        }
+
+        table.pivot-table th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        table.pivot-table tr.category-row {
+            background-color: #e2e8f0;
+            font-weight: bold;
+        }
+
+        table.pivot-table tr.item-row td:first-child {
+            padding-left: 20px;
+        }
+
+        .tag-leak {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.7rem;
+        }
+
+        .tag-ok {
+            background: #dcfce7;
+            color: #166534;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.7rem;
         }
 
         /* Рабочая область */
@@ -258,6 +383,11 @@
             background-color: var(--cell-selected) !important;
         }
 
+        table.excel-grid td.range-highlight {
+            background-color: var(--cell-range-selected) !important;
+            border: 1px dashed var(--cell-border-selected);
+        }
+
         .leak-checkbox-container {
             display: flex;
             align-items: center;
@@ -282,17 +412,56 @@
 <body>
 
 <header>
-    <h1>🔍 Тренажер: Ручная отметка утечек денег</h1>
+    <h1>🎲 Тренажер: Генерация разного количества транзакций и белых списков</h1>
     <div class="btn-group">
-        <button class="btn" onclick="generateNewData()">🎲 Сгенерировать новые данные</button>
-        <button class="btn" onclick="resetCurrentSheet()">🔄 Сбросить текущие</button>
+        <button class="btn btn-pivot" onclick="openPivotModal()">📊 Сводная таблица (Pivot)</button>
+        <button class="btn" onclick="toggleFormulaHelp()">📖 Справка</button>
+        <button class="btn" onclick="generateNewData()">🎲 Новый сценарий</button>
+        <button class="btn" onclick="resetCurrentSheet()">🔄 Сбросить</button>
     </div>
 </header>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeAllModals()"></div>
+
+<div class="modal-window" id="pivot-modal">
+    <h3>
+        <span>📊 Сводная таблица расходов (Pivot Table)</span>
+        <button class="btn" onclick="closeAllModals()">✕</button>
+    </h3>
+    <p style="font-size:0.8rem; color:#475569;">
+        Автоматическая группировка текущего динамического набора транзакций.
+    </p>
+    <div id="pivot-table-container"></div>
+    <button class="btn" onclick="closeAllModals()" style="background:var(--excel-green); color:#fff; width:100%; padding:6px; font-size:0.85rem; margin-top:10px;">
+        Закрыть
+    </button>
+</div>
+
+<div class="modal-window" id="formula-help-modal">
+    <h3>📖 Инструкция</h3>
+    <ul>
+        <li><strong>Случайные сценарии:</strong> При нажатии «🎲 Новый сценарий» размер Белого списка меняется от 2 до 5 сервисов, а выписка содержит от 8 до 16 случайных транзакций.</li>
+        <li><strong>Выбор диапазона:</strong> Выделите формулу в `fx` и протяните мышку по ячейкам таблицы.</li>
+    </ul>
+    <button class="btn" onclick="closeAllModals()" style="background:var(--excel-green); color:#fff; width:100%; padding:6px; font-size:0.85rem; margin-top:10px;">Понятно</button>
+</div>
+
+<div id="formula-picker-dropdown">
+    <div class="dropdown-item" onclick="insertFormulaTemplate('=СУММЕСЛИ(C18:C28; A2; D18:D28)')">
+        <b>=СУММЕСЛИ(...)</b> — Сумма по категории
+    </div>
+    <div class="dropdown-item" onclick="insertFormulaTemplate('=ВПР(B18; F2:F4; 1)')">
+        <b>=ВПР(...)</b> — Проверка в Белом списке
+    </div>
+    <div class="dropdown-item" onclick="insertFormulaTemplate('=СУММ(B2:B5)')">
+        <b>=СУММ(...)</b> — Сумма диапазона
+    </div>
+</div>
 
 <div class="formula-bar-container">
     <div class="cell-address" id="active-cell-id">A1</div>
     <div class="fx-label">fx</div>
-    <input type="text" class="formula-input" id="formula-input" placeholder="Введите значение или формулу" oninput="liveUpdateFormulaInput()" onkeydown="handleFormulaKey(event)">
+    <input type="text" class="formula-input" id="formula-input" placeholder="Введите значение или формулу" oninput="liveUpdateFormulaInput()" onkeydown="handleFormulaKey(event)" onfocus="enableRangeSelectionMode()">
 </div>
 
 <div class="live-helper">
@@ -303,7 +472,7 @@
         </div>
     </div>
     <div class="helper-instruction" id="helper-text">
-        Кликайте по ячейкам таблицы. В столбце E отмечайте галочками транзакции, где обнаружена утечка.
+        Кликайте по ячейкам таблицы для проверки формул и поиска утечек.
     </div>
 </div>
 
@@ -320,15 +489,15 @@
     </div>
     <div class="bottom-row">
         <div class="table-card" style="height: 100%;">
-            <div class="table-title">💳 Таблица 3: Выписка фактически совершенных транзакций (Отмечайте утечки)</div>
+            <div class="table-title">💳 Таблица 3: Выписка фактически совершенных транзакций</div>
             <div class="table-scroll"><table class="excel-grid" id="grid-transactions"></table></div>
         </div>
     </div>
 </div>
 
 <footer>
-    <div id="status-summary">Изучайте выписку транзакций и сверяйте с Белым списком.</div>
-    <div>Кликайте по чекбоксам для отметки подозрений.</div>
+    <div id="status-summary">Сформирован новый случайный сценарий.</div>
+    <div id="status-counts">Загрузка...</div>
 </footer>
 
 <script>
@@ -336,10 +505,20 @@
     let userFlaggedLeaks = {};
     let selectedCell = 'A1';
 
-    const WHITELIST_OPTIONS = [
+    let isSelectingRange = false;
+    let rangeStartCell = null;
+    let isMouseDown = false;
+
+    let currentWhitelistCount = 3;
+    let currentTransactionCount = 11;
+
+    const ALL_WHITELIST_POOL = [
         { name: 'Netflix', price: 15 },
         { name: 'Spotify', price: 10 },
-        { name: 'Мобильная связь', price: 15 }
+        { name: 'Мобильная связь', price: 15 },
+        { name: 'YouTube Premium', price: 12 },
+        { name: 'iCloud+', price: 3 },
+        { name: 'Yandex Plus', price: 8 }
     ];
 
     const LEAK_SERVICES = [
@@ -347,7 +526,9 @@
         { name: 'Игровой сервис', price: 15 },
         { name: 'Онлайн-кинотеатр 24', price: 12 },
         { name: 'Музыкальный Premium', price: 7 },
-        { name: 'VPN Сервис', price: 9 }
+        { name: 'VPN Сервис', price: 9 },
+        { name: 'Фитнес-приложение', price: 10 },
+        { name: 'E-book подписка', price: 6 }
     ];
 
     const REGULAR_EXPENSES = [
@@ -364,58 +545,175 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    function closeAllModals() {
+        document.getElementById('pivot-modal').style.display = 'none';
+        document.getElementById('formula-help-modal').style.display = 'none';
+        document.getElementById('modal-overlay').style.display = 'none';
+    }
+
+    function toggleFormulaHelp() {
+        closeAllModals();
+        document.getElementById('formula-help-modal').style.display = 'block';
+        document.getElementById('modal-overlay').style.display = 'block';
+    }
+
+    function openPivotModal() {
+        closeAllModals();
+        buildPivotTable();
+        document.getElementById('pivot-modal').style.display = 'block';
+        document.getElementById('modal-overlay').style.display = 'block';
+    }
+
+    function buildPivotTable() {
+        let categories = {};
+        let endRow = 17 + currentTransactionCount;
+
+        for (let r = 18; r <= endRow; r++) {
+            let cat = evaluateCell(`C${r}`);
+            let service = evaluateCell(`B${r}`);
+            let sum = parseFloat(evaluateCell(`D${r}`)) || 0;
+            let checkResult = evaluateCell(`E${r}`);
+            let cellId = `E${r}`;
+
+            if (!categories[cat]) {
+                categories[cat] = { total: 0, items: {} };
+            }
+
+            categories[cat].total += sum;
+
+            if (!categories[cat].items[service]) {
+                categories[cat].items[service] = { sum: 0, status: checkResult, cellId: cellId };
+            }
+            categories[cat].items[service].sum += sum;
+        }
+
+        let html = `
+            <table class="pivot-table">
+                <thead>
+                    <tr>
+                        <th>Название категории / Сервиса</th>
+                        <th>Сумма ($)</th>
+                        <th>Статус Белого списка</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        Object.keys(categories).forEach(cat => {
+            html += `
+                <tr class="category-row">
+                    <td>📁 ${cat}</td>
+                    <td>$${categories[cat].total}</td>
+                    <td>—</td>
+                    <td>—</td>
+                </tr>
+            `;
+
+            Object.keys(categories[cat].items).forEach(srv => {
+                let item = categories[cat].items[srv];
+                let isLeak = item.status === '⚠️ УТЕЧКА';
+                let isFlagged = !!userFlaggedLeaks[item.cellId];
+
+                html += `
+                    <tr class="item-row">
+                        <td>└ ${srv}</td>
+                        <td>$${item.sum}</td>
+                        <td>${isLeak ? '<span class="tag-leak">⚠️ Нет в Белом списке</span>' : '<span class="tag-ok">ОК</span>'}</td>
+                        <td>
+                            <button class="btn" onclick="toggleLeakFlag('${item.cellId}', event); buildPivotTable();" style="padding:2px 6px; font-size:0.7rem;">
+                                ${isFlagged ? '✅ Отмечена' : 'Отметить утечку'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById('pivot-table-container').innerHTML = html;
+    }
+
+    // ДИНАМИЧЕСКАЯ ГЕНЕРАЦИЯ СЦЕНАРИЕВ
     function generateNewData() {
         userFlaggedLeaks = {};
+
+        // Случайное количество белого списка (от 2 до 5) и транзакций (от 8 до 16)
+        currentWhitelistCount = getRandomInt(2, 5);
+        currentTransactionCount = getRandomInt(8, 16);
+
+        let shuffledPool = [...ALL_WHITELIST_POOL].sort(() => 0.5 - Math.random());
+        let currentWhitelist = shuffledPool.slice(0, currentWhitelistCount);
+        let whitelistTotal = currentWhitelist.reduce((acc, item) => acc + item.price, 0);
+
+        let endTxRow = 17 + currentTransactionCount;
+        let whitelistEndRow = 1 + currentWhitelistCount;
+
+        // Генерация бюджетов
+        let planProducts = getRandomInt(300, 500);
+        let planEntertainment = getRandomInt(100, 200);
+        let planTransport = getRandomInt(60, 120);
+
         cellData = {
             'A1': 'Категория', 'B1': 'План ($)', 'C1': 'Факт ($)', 'D1': 'Отклонение ($)',
-            'A2': 'Продукты', 'B2': '400', 'C2': '=СУММЕСЛИ(C18:C28; A2; D18:D28)', 'D2': '=C2-B2',
-            'A3': 'Подписки и сервисы', 'B3': '40', 'C3': '=СУММЕСЛИ(C18:C28; A3; D18:D28)', 'D3': '=C3-B3',
-            'A4': 'Развлечения и кафе', 'B4': '150', 'C4': '=СУММЕСЛИ(C18:C28; A4; D18:D28)', 'D4': '=C4-B4',
-            'A5': 'Транспорт', 'B5': '80', 'C5': '=СУММЕСЛИ(C18:C28; A5; D18:D28)', 'D5': '=C5-B5',
+            'A2': 'Продукты', 'B2': String(planProducts), 'C2': `=СУММЕСЛИ(C18:C${endTxRow}; A2; D18:D${endTxRow})`, 'D2': '=C2-B2',
+            'A3': 'Подписки и сервисы', 'B3': String(whitelistTotal), 'C3': `=СУММЕСЛИ(C18:C${endTxRow}; A3; D18:D${endTxRow})`, 'D3': '=C3-B3',
+            'A4': 'Развлечения и кафе', 'B4': String(planEntertainment), 'C4': `=СУММЕСЛИ(C18:C${endTxRow}; A4; D18:D${endTxRow})`, 'D4': '=C4-B4',
+            'A5': 'Транспорт', 'B5': String(planTransport), 'C5': `=СУММЕСЛИ(C18:C${endTxRow}; A5; D18:D${endTxRow})`, 'D5': '=C5-B5',
             'A6': 'Итого', 'B6': '=СУММ(B2:B5)', 'C6': '=СУММ(C2:C5)', 'D6': '=СУММ(D2:D5)',
 
-            'F1': 'Разрешенный сервис', 'G1': 'Категория', 'H1': 'Лимит ($)',
-            'F2': WHITELIST_OPTIONS[0].name, 'G2': 'Подписки и сервисы', 'H2': String(WHITELIST_OPTIONS[0].price),
-            'F3': WHITELIST_OPTIONS[1].name, 'G3': 'Подписки и сервисы', 'H3': String(WHITELIST_OPTIONS[1].price),
-            'F4': WHITELIST_OPTIONS[2].name, 'G4': 'Подписки и сервисы', 'H4': String(WHITELIST_OPTIONS[2].price),
-
-            'A17': 'Дата', 'B17': 'Описание / Сервис', 'C17': 'Категория', 'D17': 'Сумма ($)', 'E17': 'Отметка утечки'
+            'F1': 'Разрешенный сервис', 'G1': 'Категория', 'H1': 'Лимит ($)'
         };
 
-        // Генерация 11 случайных транзакций
+        // Заполнение Белого списка
+        currentWhitelist.forEach((w, idx) => {
+            let row = 2 + idx;
+            cellData[`F${row}`] = w.name;
+            cellData[`G${row}`] = 'Подписки и сервисы';
+            cellData[`H${row}`] = String(w.price);
+        });
+
+        // Заполнение транзакций
+        cellData['A17'] = 'Дата';
+        cellData['B17'] = 'Описание / Сервис';
+        cellData['C17'] = 'Категория';
+        cellData['D17'] = 'Сумма ($)';
+        cellData['E17'] = 'Отметка утечки';
+
         let transactions = [];
-        
-        // Обязательные разрешенные подписки из Белого списка
-        WHITELIST_OPTIONS.forEach(w => {
+        currentWhitelist.forEach(w => {
             transactions.push({ name: w.name, cat: 'Подписки и сервисы', sum: w.price });
         });
 
-        // 2 случайные утечки
+        // Добавляем 2 случайные утечки
+        let numLeaks = getRandomInt(1, 3);
         let shuffledLeaks = [...LEAK_SERVICES].sort(() => 0.5 - Math.random());
-        transactions.push({ name: shuffledLeaks[0].name, cat: 'Подписки и сервисы', sum: shuffledLeaks[0].price });
-        transactions.push({ name: shuffledLeaks[1].name, cat: 'Подписки и сервисы', sum: shuffledLeaks[1].price });
+        for (let i = 0; i < numLeaks; i++) {
+            transactions.push({ name: shuffledLeaks[i].name, cat: 'Подписки и сервисы', sum: shuffledLeaks[i].price });
+        }
 
-        // Оставшиеся случайные разовые траты
-        while (transactions.length < 11) {
+        while (transactions.length < currentTransactionCount) {
             let reg = REGULAR_EXPENSES[getRandomInt(0, REGULAR_EXPENSES.length - 1)];
             transactions.push({ name: reg.name, cat: reg.cat, sum: getRandomInt(reg.min, reg.max) });
         }
 
-        // Перемешивание транзакций по строкам 18-28
         transactions.sort(() => 0.5 - Math.random());
 
         transactions.forEach((t, idx) => {
             let row = 18 + idx;
-            let day = (idx + 1) * 2;
+            let day = Math.min(31, (idx + 1) * 2);
             let dateStr = `${day < 10 ? '0' + day : day}.10`;
 
             cellData[`A${row}`] = dateStr;
             cellData[`B${row}`] = t.name;
             cellData[`C${row}`] = t.cat;
             cellData[`D${row}`] = String(t.sum);
-            cellData[`E${row}`] = `=ЕСЛИ(C${row}="Подписки и сервисы"; ВПР(B${row}; F2:F4; 1); "ОК")`;
+            cellData[`E${row}`] = `=ЕСЛИ(C${row}="Подписки и сервисы"; ВПР(B${row}; F2:F${whitelistEndRow}; 1); "ОК")`;
         });
 
+        document.getElementById('status-counts').innerText = `Белый список: ${currentWhitelistCount} сервиса | Всего транзакций: ${currentTransactionCount}`;
+
+        renderTables();
         recalculate();
         selectCell('A18');
     }
@@ -427,14 +725,30 @@
     }
 
     function init() {
-        renderTables();
         generateNewData();
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('formula-picker-dropdown');
+            if (!dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
     }
 
     function renderTables() {
+        let whitelistRows = [1];
+        for (let i = 0; i < currentWhitelistCount; i++) whitelistRows.push(2 + i);
+
+        let txRows = [17];
+        for (let i = 0; i < currentTransactionCount; i++) txRows.push(18 + i);
+
         renderGrid('grid-budget', ['A', 'B', 'C', 'D'], [1, 2, 3, 4, 5, 6]);
-        renderGrid('grid-whitelist', ['F', 'G', 'H'], [1, 2, 3, 4]);
-        renderGrid('grid-transactions', ['A', 'B', 'C', 'D', 'E'], [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]);
+        renderGrid('grid-whitelist', ['F', 'G', 'H'], whitelistRows);
+        renderGrid('grid-transactions', ['A', 'B', 'C', 'D', 'E'], txRows);
     }
 
     function renderGrid(elementId, cols, rows) {
@@ -450,15 +764,105 @@
             let rowHtml = `<tr><th class="row-header">${r}</th>`;
             cols.forEach(col => {
                 const cellId = `${col}${r}`;
-                rowHtml += `<td id="cell-${cellId}" onclick="selectCell('${cellId}')"></td>`;
+                rowHtml += `<td id="cell-${cellId}" 
+                    onmousedown="handleCellMouseDown('${cellId}', event)" 
+                    onmouseenter="handleCellMouseEnter('${cellId}', event)"
+                    onclick="handleCellClick('${cellId}', event)"></td>`;
             });
             rowHtml += '</tr>';
             grid.innerHTML += rowHtml;
         });
     }
 
+    function enableRangeSelectionMode() {
+        const input = document.getElementById('formula-input');
+        if (input.value.startsWith('=')) {
+            input.classList.add('mode-selecting');
+            isSelectingRange = true;
+        }
+    }
+
+    function handleCellMouseDown(cellId, e) {
+        const input = document.getElementById('formula-input');
+        if (input.value.startsWith('=') && isSelectingRange) {
+            e.preventDefault();
+            isMouseDown = true;
+            rangeStartCell = cellId;
+            updateFormulaRange(cellId, cellId);
+        }
+    }
+
+    function handleCellMouseEnter(cellId, e) {
+        if (isMouseDown && rangeStartCell && isSelectingRange) {
+            updateFormulaRange(rangeStartCell, cellId);
+        }
+    }
+
+    function handleCellClick(cellId, event) {
+        const input = document.getElementById('formula-input');
+        
+        if (event.detail === 3) {
+            showFormulaPicker(event, cellId);
+            return;
+        }
+
+        if (input.value.startsWith('=') && isSelectingRange && !isMouseDown) {
+            updateFormulaRange(cellId, cellId);
+            return;
+        }
+
+        selectCell(cellId);
+    }
+
+    function updateFormulaRange(startId, endId) {
+        const input = document.getElementById('formula-input');
+        let rangeStr = startId === endId ? startId : `${startId}:${endId}`;
+        
+        highlightRange(startId, endId);
+
+        let val = input.value;
+        let match = val.match(/([A-Z]+[0-9]+(:[A-Z]+[0-9]+)?)(?=[^A-Z0-9]*$)/i);
+        if (match) {
+            input.value = val.substring(0, match.index) + rangeStr + val.substring(match.index + match[0].length);
+        } else if (val.endsWith('(') || val.endsWith(';') || val.endsWith(',')) {
+            input.value = val + rangeStr;
+        } else {
+            input.value = val + '; ' + rangeStr;
+        }
+
+        cellData[selectedCell] = input.value;
+        recalculate();
+        updateHelper();
+    }
+
+    function highlightRange(startId, endId) {
+        document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
+        const rangeCells = parseRange(`${startId}:${endId}`);
+        rangeCells.forEach(id => {
+            const el = document.getElementById(`cell-${id}`);
+            if (el) el.classList.add('range-highlight');
+        });
+    }
+
+    function showFormulaPicker(event, cellId) {
+        selectCell(cellId);
+        const dropdown = document.getElementById('formula-picker-dropdown');
+        dropdown.style.left = `${event.pageX}px`;
+        dropdown.style.top = `${event.pageY}px`;
+        dropdown.style.display = 'block';
+    }
+
+    function insertFormulaTemplate(template) {
+        document.getElementById('formula-input').value = template;
+        cellData[selectedCell] = template;
+        document.getElementById('formula-picker-dropdown').style.display = 'none';
+        enableRangeSelectionMode();
+        recalculate();
+        updateHelper();
+    }
+
     function toggleLeakFlag(cellId, event) {
-        event.stopPropagation();
+        if (event) event.stopPropagation();
         userFlaggedLeaks[cellId] = !userFlaggedLeaks[cellId];
         selectCell(cellId);
         recalculate();
@@ -474,20 +878,37 @@
         const current = document.getElementById(`cell-${selectedCell}`);
         if (current) current.classList.add('selected');
 
+        const input = document.getElementById('formula-input');
         document.getElementById('active-cell-id').innerText = id;
-        document.getElementById('formula-input').value = cellData[id] || '';
+        input.value = cellData[id] || '';
+
+        if (!input.value.startsWith('=')) {
+            input.classList.remove('mode-selecting');
+            isSelectingRange = false;
+            document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
+        }
 
         updateHelper();
     }
 
     function liveUpdateFormulaInput() {
-        cellData[selectedCell] = document.getElementById('formula-input').value;
+        const input = document.getElementById('formula-input');
+        if (input.value.startsWith('=')) {
+            enableRangeSelectionMode();
+        } else {
+            input.classList.remove('mode-selecting');
+            isSelectingRange = false;
+        }
+        cellData[selectedCell] = input.value;
         recalculate();
         updateHelper();
     }
 
     function handleFormulaKey(e) {
         if (e.key === 'Enter') {
+            document.getElementById('formula-input').classList.remove('mode-selecting');
+            isSelectingRange = false;
+            document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
             recalculate();
             updateHelper();
         }
@@ -501,42 +922,42 @@
         document.getElementById('helper-cell-id').innerText = cellId;
         const helperText = document.getElementById('helper-text');
 
-        if (cellId.startsWith('E') && parseInt(cellId.replace('E', '')) >= 18) {
-            const rowNum = cellId.replace('E', '');
-            const serviceName = evaluateCell(`B${rowNum}`);
-            const sumVal = evaluateCell(`D${rowNum}`);
-            const isFlagged = !!userFlaggedLeaks[cellId];
-
-            if (computed === '⚠️ УТЕЧКА') {
-                if (isFlagged) {
-                    helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно отметили утечку! Списание по <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке.`;
-                } else {
-                    helperText.innerHTML = `🧐 <strong>ПОДСКАЗКА:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) в категории "Подписки" отсутствует в Белом списке (F2:F4). Поставьте галочку, если считаете это утечкой.`;
-                }
-            } else {
-                if (isFlagged) {
-                    helperText.innerHTML = `⚠️ <strong>ВНИМАНИЕ:</strong> Вы отметили эту транзакцию (<strong>"${serviceName}"</strong>) как утечку, но этот сервис либо есть в Белом списке, либо является обычной покупкой.`;
-                } else {
-                    helperText.innerHTML = `ℹ️ <strong>ПОДСКАЗКА:</strong> Списание по <strong>"${serviceName}"</strong> легитимно или относится к обычным разовым расходам.`;
-                }
-            }
-            return;
-        }
-
-        if (['D2', 'D3', 'D4', 'D5'].includes(cellId)) {
-            const catName = evaluateCell(`A${cellId.replace('D', '')}`);
-            const diff = parseFloat(computed);
-            if (diff > 0) {
-                helperText.innerHTML = `🧐 <strong>ПОДСКАЗКА:</strong> В категории <strong>"${catName}"</strong> зафиксирован перерасход на <strong>+$${diff}</strong>.`;
-            } else {
-                helperText.innerHTML = `ℹ️ <strong>ПОДСКАЗКА:</strong> В категории <strong>"${catName}"</strong> фактический расход находится в пределах запланированного лимита.`;
-            }
-            return;
-        }
-
         if (raw.startsWith('=')) {
-            helperText.innerHTML = `Результат формулы <span class="helper-code">${raw}</span> = <strong>${computed}</strong>.`;
-        } else if (raw) {
+            let formulaName = raw.substring(1).split('(')[0].trim().toUpperCase();
+            let formulaExpl = '';
+            if (formulaName === 'СУММЕСЛИ') {
+                formulaExpl = ' Функция <code>СУММЕСЛИ</code> суммирует расходы по заданной категории.';
+            } else if (formulaName === 'СУММ') {
+                formulaExpl = ' Функция <code>СУММ</code> складывает значения в диапазоне.';
+            } else if (formulaName === 'ВПР') {
+                formulaExpl = ' Функция <code>ВПР</code> ищет совпадения в диапазоне Белого списка.';
+            } else if (formulaName === 'ЕСЛИ') {
+                formulaExpl = ' Функция <code>ЕСЛИ</code> выполняет логическую проверку условия.';
+            }
+
+            if (cellId.startsWith('E') && parseInt(cellId.replace('E', '')) >= 18) {
+                const rowNum = cellId.replace('E', '');
+                const serviceName = evaluateCell(`B${rowNum}`);
+                const sumVal = evaluateCell(`D${rowNum}`);
+                const isFlagged = !!userFlaggedLeaks[cellId];
+
+                if (computed === '⚠️ УТЕЧКА') {
+                    if (isFlagged) {
+                        helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно определили утечку для <strong>"${serviceName}"</strong> ($${sumVal})! ${formulaExpl}`;
+                    } else {
+                        helperText.innerHTML = `🧐 <strong>ПОДСКАЗКА:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке. ${formulaExpl}`;
+                    }
+                } else {
+                    helperText.innerHTML = `ℹ️ <strong>ПРОВЕРКА:</strong> Списание по <strong>"${serviceName}"</strong> легитимно. ${formulaExpl}`;
+                }
+                return;
+            }
+
+            helperText.innerHTML = `Формула <span class="helper-code">${raw}</span> = <strong>${computed}</strong>.${formulaExpl}`;
+            return;
+        }
+
+        if (raw) {
             helperText.innerHTML = `Значение ячейки ${cellId}: <strong>"${raw}"</strong>.`;
         } else {
             helperText.innerHTML = `Ячейка ${cellId} пуста.`;
@@ -557,8 +978,13 @@
         let colStartIdx = COLS.indexOf(startCol);
         let colEndIdx = COLS.indexOf(endCol);
 
-        for (let c = colStartIdx; c <= colEndIdx; c++) {
-            for (let r = startRow; r <= endRow; r++) {
+        let minCol = Math.min(colStartIdx, colEndIdx);
+        let maxCol = Math.max(colStartIdx, colEndIdx);
+        let minRow = Math.min(startRow, endRow);
+        let maxRow = Math.max(startRow, endRow);
+
+        for (let c = minCol; c <= maxCol; c++) {
+            for (let r = minRow; r <= maxRow; r++) {
                 result.push(`${COLS[c]}${r}`);
             }
         }
@@ -614,8 +1040,11 @@
 
                 const range = parseRange(args[1]);
                 let found = false;
+                const cleanLookup = String(lookupVal).trim().toLowerCase();
+
                 range.forEach(cId => {
-                    if (String(evaluateCell(cId)).trim().toLowerCase() === String(lookupVal).trim().toLowerCase()) {
+                    const cellVal = String(evaluateCell(cId)).trim().toLowerCase();
+                    if (cellVal === cleanLookup) {
                         found = true;
                     }
                 });
@@ -635,7 +1064,7 @@
                     leftVal = evaluateCell(leftVal);
                 }
 
-                if (String(leftVal).trim() === String(rightVal).trim()) {
+                if (String(leftVal).trim().toLowerCase() === String(rightVal).trim().toLowerCase()) {
                     return evaluateExpr(args[1]);
                 } else {
                     return evaluateExpr(args[2]);
@@ -672,7 +1101,6 @@
 
             const computedValue = evaluateCell(id);
 
-            // Отображение чекбоксов в столбце E (начиная со строки 18)
             if (id.startsWith('E') && parseInt(id.replace('E', '')) >= 18) {
                 const checked = !!userFlaggedLeaks[id];
                 cellTd.innerHTML = `
