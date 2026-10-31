@@ -2,17 +2,15 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Автосканирование по ползунку</title>
+    <title>CV Circuit Scanner - Очистка фона по цвету</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
-        button:disabled { background: #444; cursor: not-allowed; }
         .btn-sim { background: #00ff66; color: #000; }
         .btn-sim:hover { background: #00cc52; }
-        select { background: #2a2a36; color: #00ff66; border: 1px solid #444; border-radius: 4px; font-weight: bold; }
         .btn-info { background: #00bcd4; margin-left: 10px; }
         .btn-info:hover { background: #008ba3; }
         input[type="range"] { width: 250px; vertical-align: middle; }
@@ -46,19 +44,6 @@
             z-index: 10;
         }
 
-        .contour-box {
-            fill: rgba(0, 240, 255, 0.08);
-            stroke: #00f0ff;
-            stroke-width: 2;
-            stroke-dasharray: 4;
-            cursor: pointer;
-            pointer-events: auto;
-        }
-        .contour-box:hover {
-            fill: rgba(255, 0, 127, 0.2);
-            stroke: #ff007f;
-        }
-
         .current-flow {
             stroke: #00aaff;
             stroke-width: 3;
@@ -71,20 +56,14 @@
             to { stroke-dashoffset: 0; }
         }
 
-        .svg-symbol { cursor: pointer; transition: transform 0.3s; pointer-events: auto; }
-        .svg-symbol path, .svg-symbol circle, .svg-symbol rect, .svg-symbol line, .svg-symbol polygon {
-            stroke-width: 2; fill: none;
-        }
-        .svg-symbol polygon { fill: #ffffff; }
-
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
 
-        #modal-info, #modal-config {
+        #modal-info {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;
         }
         .modal-content {
-            background: #1e1e28; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px;
+            background: #1e1e28; padding: 25px; border-radius: 10px; width: 90%; max-width: 750px;
             border: 2px solid #00bcd4; box-shadow: 0 0 20px rgba(0, 188, 212, 0.4);
         }
         .modal-content h3 { margin-top: 0; color: #00bcd4; }
@@ -94,7 +73,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Автоматическое сканирование по ползунку</h1>
+    <h1>⚡ Сканер схем: Выбор цвета и очистка фона</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -105,10 +84,7 @@
         </div>
 
         <span id="selectedColorStatus">1. Кликните по линии на схеме для выбора цвета</span>
-        <span id="colorBox" class="color-preview" style="display:none;"></span><br><br>
-
-        <button class="btn-sim" onclick="runCurrentSimulation()">Симуляция тока</button>
-        <button class="btn-info" onclick="openInfoModal()">Каталог элементов</button>
+        <span id="colorBox" class="color-preview" style="display:none;"></span>
     </div>
 
     <div class="card">
@@ -120,45 +96,14 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите изображение и выберите цвет...</div>
-    </div>
-
-    <div id="modal-config">
-        <div class="modal-content">
-            <h3>⚙️ Назначение элемента</h3>
-            <label>Метка элемента:</label><br>
-            <input type="text" id="cfgLabel" style="width: 100%; margin-bottom: 10px;"><br>
-            <label>Тип элемента:</label><br>
-            <select id="cfgType" style="width: 100%; margin-bottom: 15px;">
-                <option value="battery">Батарея / Источник питания (GB)</option>
-                <option value="resistor">Резистор (R)</option>
-                <option value="transistor_npn">NPN Транзистор (VT)</option>
-                <option value="transistor_pnp">PNP Транзистор (VT)</option>
-                <option value="capacitor">Конденсатор (C)</option>
-                <option value="diode">Диод (VD)</option>
-                <option value="speaker">Динамик (BA)</option>
-            </select><br>
-            <button onclick="saveComponentConfig()">Сохранить и подставить символ</button>
-            <button class="close-btn" onclick="closeConfigModal()">Отмена</button>
-        </div>
-    </div>
-
-    <div id="modal-info">
-        <div class="modal-content" style="max-width: 750px;">
-            <h3>📖 Каталог элементов ГОСТ</h3>
-            <div id="previewGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
-            <button class="close-btn" onclick="closeInfoModal()">Закрыть</button>
-        </div>
+        <div id="log">Загрузите изображение и кликните по линии схемы пипеткой...</div>
     </div>
 
 <script>
     let imgElement = new Image();
-    let detectedRegions = [];
-    let activeConfigIndex = null;
     let selectedColorRgb = null;
 
     window.onload = () => {
-        updateModalPreview();
         setupCanvasEyedropper();
     };
 
@@ -167,10 +112,6 @@
         box.innerHTML += `<div>> ${text}</div>`;
         box.scrollTop = box.scrollHeight;
     }
-
-    function openInfoModal() { document.getElementById('modal-info').style.display = 'flex'; }
-    function closeInfoModal() { document.getElementById('modal-info').style.display = 'none'; }
-    function closeConfigModal() { document.getElementById('modal-config').style.display = 'none'; }
 
     function loadToCanvas(input) {
         if (input.files && input.files[0]) {
@@ -183,7 +124,6 @@
                     ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     document.getElementById('svg-layer').innerHTML = '';
-                    detectedRegions = [];
                     selectedColorRgb = null;
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
@@ -222,26 +162,24 @@
                 colorBox.style.display = 'inline-block';
 
                 document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Автосканирование запущено.`);
+                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Очистка фона...`);
 
-                // Автоматически запускаем обработку при выборе цвета
-                runFilterAndScan();
+                runColorFilter();
             } catch (err) {
                 log("❌ Ошибка считывания цвета: " + err.message);
             }
         });
     }
 
-    // Реакция на сдвиг ползунка sensitivity
     function onSensitivityChange(val) {
         document.getElementById('sensValue').textContent = val;
         if (selectedColorRgb) {
-            runFilterAndScan();
+            runColorFilter();
         }
     }
 
-    // Очистка фона и пересканирование областей
-    function runFilterAndScan() {
+    // Очистка фона: оставляем только выбранный цвет и близкие оттенки, остальное делаем белым
+    function runColorFilter() {
         if (!selectedColorRgb) return;
 
         const tolerance = parseInt(document.getElementById('sensitivity').value);
@@ -252,7 +190,6 @@
         const imgData = ctx.getImageData(0, 0, 1000, 600);
         const data = imgData.data;
 
-        // Оставляем только выбранный цвет и близкие оттенки, всё остальное заменяем на белый
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
 
@@ -270,155 +207,7 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-
-        // Поиск контурных областей
-        detectedRegions = [];
-        const gridStep = 80;
-        for (let y = 40; y < 560; y += gridStep) {
-            for (let x = 40; x < 960; x += gridStep) {
-                let targetPixelCount = 0;
-
-                for (let dy = -25; dy <= 25; dy += 8) {
-                    for (let dx = -25; dx <= 25; dx += 8) {
-                        let idx = ((y + dy) * 1000 + (x + dx)) * 4;
-                        if (data[idx] !== 255 || data[idx+1] !== 255 || data[idx+2] !== 255) {
-                            targetPixelCount++;
-                        }
-                    }
-                }
-
-                if (targetPixelCount > 6) {
-                    let isDuplicate = detectedRegions.some(reg => Math.hypot(reg.cx - x, reg.cy - y) < 60);
-                    if (!isDuplicate) {
-                        detectedRegions.push({
-                            cx: x, cy: y, width: 75, height: 55,
-                            type: null, // Символ не назначается автоматически
-                            label: `Зона ${detectedRegions.length + 1}`
-                        });
-                    }
-                }
-            }
-        }
-
-        renderRegions();
-    }
-
-    // Выводим только рамки выделения без автоматического наложения SVG элементов
-    function renderRegions() {
-        const svgLayer = document.getElementById('svg-layer');
-        svgLayer.innerHTML = '';
-
-        detectedRegions.forEach((reg, index) => {
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            
-            let symbolHtml = reg.type ? `<g transform="translate(${reg.cx}, ${reg.cy})">${getSvgSymbol(reg.type, reg.label)}</g>` : '';
-
-            g.innerHTML = `
-                <rect class="contour-box" x="${reg.cx - reg.width/2}" y="${reg.cy - reg.height/2}" width="${reg.width}" height="${reg.height}" rx="5"/>
-                <text x="${reg.cx}" y="${reg.cy - reg.height/2 - 5}" text-anchor="middle" fill="#00f0ff" font-size="12">${reg.label} ${reg.type ? '(' + reg.type + ')' : ''}</text>
-                ${symbolHtml}
-            `;
-            g.onclick = () => openConfigModalFor(index);
-            svgLayer.appendChild(g);
-        });
-    }
-
-    function openConfigModalFor(index) {
-        activeConfigIndex = index;
-        document.getElementById('cfgLabel').value = detectedRegions[index].label;
-        document.getElementById('cfgType').value = detectedRegions[index].type || 'resistor';
-        document.getElementById('modal-config').style.display = 'flex';
-    }
-
-    function saveComponentConfig() {
-        if (activeConfigIndex !== null) {
-            detectedRegions[activeConfigIndex].label = document.getElementById('cfgLabel').value;
-            detectedRegions[activeConfigIndex].type = document.getElementById('cfgType').value;
-            renderRegions();
-            closeConfigModal();
-        }
-    }
-
-    function runCurrentSimulation() {
-        if (detectedRegions.length === 0) {
-            alert('Сначала отфильтруйте фон по цвету!');
-            return;
-        }
-
-        log("=== РАСЧЕТ И СИМУЛЯЦИЯ ПОТОКА ТОКА ===");
-        let battery = detectedRegions.find(el => el.type === 'battery') || detectedRegions[0];
-
-        let loads = detectedRegions.filter(el => el !== battery);
-        loads.sort((a, b) => Math.hypot(a.cx - battery.cx, a.cy - battery.cy) - Math.hypot(b.cx - battery.cx, b.cy - battery.cy));
-
-        const svgLayer = document.getElementById('svg-layer');
-
-        loads.forEach((load, idx) => {
-            let prevCoord = (idx === 0) ? battery : loads[idx - 1];
-            
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", prevCoord.cx);
-            line.setAttribute("y1", prevCoord.cy);
-            line.setAttribute("x2", load.cx);
-            line.setAttribute("y2", load.cy);
-            line.setAttribute("class", "current-flow");
-            svgLayer.appendChild(line);
-
-            log(`Ток течет: ${prevCoord.label} ===> ${load.label}`);
-        });
-    }
-
-    function getSvgSymbol(type, label) {
-        const strokeColor = selectedColorRgb ? `rgb(${selectedColorRgb.r}, ${selectedColorRgb.g}, ${selectedColorRgb.b})` : "#000000";
-        switch(type) {
-            case 'transistor_npn':
-                return `
-                    <circle cx="0" cy="0" r="26" stroke="${strokeColor}" stroke-width="2" fill="none"/>
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="${strokeColor}" stroke-width="2"/>
-                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="${strokeColor}" stroke-width="3"/>
-                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="${strokeColor}" stroke-width="2"/>
-                    <line x1="-10" y1="6" x2="18" y2="20" stroke="${strokeColor}" stroke-width="2"/>
-                    <g transform="translate(18,20) rotate(26)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="${strokeColor}" stroke-width="1.5" fill="#ffffff" /></g>
-                `;
-            case 'transistor_pnp':
-                return `
-                    <circle cx="0" cy="0" r="26" stroke="${strokeColor}" stroke-width="2" fill="none"/>
-                    <line x1="-35" y1="0" x2="-10" y2="0" stroke="${strokeColor}" stroke-width="2"/>
-                    <line x1="-10" y1="-16" x2="-10" y2="16" stroke="${strokeColor}" stroke-width="3"/>
-                    <line x1="-10" y1="-6" x2="18" y2="-20" stroke="${strokeColor}" stroke-width="2"/>
-                    <line x1="-10" y1="6" x2="18" y2="20" stroke="${strokeColor}" stroke-width="2"/>
-                    <g transform="translate(-10,6) rotate(206)"><polygon points="0,0 -10,-4 -8,0 -10,4" stroke="${strokeColor}" stroke-width="1.5" fill="#ffffff" /></g>
-                `;
-            case 'resistor':
-                return `<rect x="-32" y="-12" width="64" height="24" stroke="${strokeColor}" stroke-width="2" fill="none"/><line x1="-50" y1="0" x2="-32" y2="0" stroke="${strokeColor}" stroke-width="2"/><line x1="32" y1="0" x2="50" y2="0" stroke="${strokeColor}" stroke-width="2"/>`;
-            case 'battery':
-                return `
-                    <line x1="-35" y1="0" x2="-12" y2="0" stroke="${strokeColor}" stroke-width="2"/>
-                    <line x1="35" y1="0" x2="12" y2="0" stroke="${strokeColor}" stroke-width="2"/>
-                    <line x1="-12" y1="-20" x2="-12" y2="20" stroke="${strokeColor}" stroke-width="3"/>
-                    <line x1="-4" y1="-12" x2="-4" y2="12" stroke="${strokeColor}" stroke-width="1.5"/>
-                    <line x1="4" y1="-20" x2="4" y2="20" stroke="${strokeColor}" stroke-width="3"/>
-                    <line x1="12" y1="-12" x2="12" y2="12" stroke="${strokeColor}" stroke-width="1.5"/>
-                `;
-            default:
-                return `<rect x="-30" y="-16" width="60" height="32" rx="4" stroke="${strokeColor}" stroke-width="2" fill="none"/>`;
-        }
-    }
-
-    function updateModalPreview() {
-        const grid = document.getElementById('previewGrid');
-        const elements = [
-            {type: 'battery', name: 'Батарея (GB)'},
-            {type: 'resistor', name: 'Резистор (R)'},
-            {type: 'transistor_npn', name: 'NPN Транзистор'},
-            {type: 'transistor_pnp', name: 'PNP Транзистор'}
-        ];
-        grid.innerHTML = elements.map(el => `
-            <div style="background:#121218; padding:10px; text-align:center; border:1px solid #333; border-radius:6px;">
-                <svg viewBox="-50 -40 100 80" style="width:100%; height:60px;">${getSvgSymbol(el.type, '')}</svg>
-                <span style="font-size:11px; color:#00ff66;">${el.name}</span>
-            </div>
-        `).join('');
+        log("Фон успешно очищен до белого цвета по заданному допуску.");
     }
 </script>
 </body>
