@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тренажер: Сквозной аудит Бюджета и Белого списка</title>
+    <title>Анализатор утечек в воронке продаж</title>
     <style>
         :root {
             --excel-green: #107c41;
-            --excel-light-green: #e6f2ed;
-            --border-color: #d4d4d4;
-            --header-bg: #f3f3f3;
-            --cell-selected: #e7f3fd;
-            --cell-border-selected: #106ebe;
-            --cell-range-selected: #dbeafe;
-            --helper-bg: #0f172a;
-            --helper-text: #f8fafc;
-            --helper-accent: #38bdf8;
+            --excel-light: #e6f2ed;
+            --border-color: #cbd5e1;
+            --bg-main: #f8fafc;
             --card-bg: #ffffff;
+            --leak-color: #ef4444;
+            --leak-bg: #fef2f2;
+            --ok-color: #22c55e;
+            --accent-blue: #0284c7;
         }
 
         * {
@@ -26,1137 +24,301 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            background-color: #f1f5f9;
-            color: #333;
-        }
-
         body {
+            background-color: var(--bg-main);
+            color: #334155;
+            padding: 20px;
             display: flex;
             flex-direction: column;
+            gap: 20px;
         }
 
         header {
             background-color: var(--excel-green);
             color: white;
-            padding: 6px 14px;
+            padding: 12px 20px;
+            border-radius: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         header h1 {
-            font-size: 0.95rem;
+            font-size: 1.1rem;
             font-weight: 600;
         }
 
-        .btn-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        button.btn {
+        .btn {
             background: #fff;
             color: var(--excel-green);
             border: none;
-            padding: 4px 10px;
-            font-size: 0.75rem;
+            padding: 6px 14px;
+            font-size: 0.8rem;
             font-weight: bold;
             cursor: pointer;
-            border-radius: 3px;
+            border-radius: 4px;
             transition: background 0.2s;
         }
 
-        button.btn:hover {
-            background: #e6f2ed;
-        }
-
-        button.btn-pivot {
-            background: #0284c7;
-            color: #fff;
-        }
-
-        button.btn-pivot:hover {
-            background: #0369a1;
-        }
-
-        .formula-bar-container {
-            display: flex;
-            align-items: center;
-            background-color: #fff;
-            border-bottom: 1px solid var(--border-color);
-            padding: 4px 8px;
-            gap: 6px;
-            flex-shrink: 0;
-        }
-
-        .cell-address {
-            width: 55px;
-            padding: 2px 4px;
-            border: 1px solid var(--border-color);
-            background-color: #f8f9fa;
-            font-weight: bold;
-            text-align: center;
-            font-size: 0.8rem;
-            border-radius: 2px;
-        }
-
-        .fx-label {
-            font-weight: bold;
-            color: #666;
-            font-style: italic;
-            font-size: 0.85rem;
-        }
-
-        .formula-input {
-            flex: 1;
-            padding: 3px 6px;
-            border: 1px solid var(--border-color);
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 0.85rem;
-            border-radius: 2px;
-            outline: none;
-        }
-
-        .formula-input.mode-selecting {
-            border: 2px solid var(--helper-accent);
-            background-color: #f0f9ff;
-        }
-
-        #formula-picker-dropdown {
-            display: none;
-            position: absolute;
-            background: white;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-radius: 4px;
-            z-index: 1000;
-            overflow: hidden;
-            width: 260px;
-        }
-
-        .dropdown-item {
-            padding: 8px 12px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .dropdown-item:hover {
-            background-color: var(--excel-light-green);
-            color: var(--excel-green);
-            font-weight: bold;
-        }
-
-        .live-helper {
-            background-color: var(--helper-bg);
-            color: var(--helper-text);
-            padding: 8px 12px;
-            border-bottom: 2px solid var(--helper-accent);
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 0.8rem;
-            flex-shrink: 0;
-        }
-
-        .helper-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .helper-title-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .helper-badge {
-            background-color: var(--helper-accent);
-            color: #0f172a;
-            padding: 1px 6px;
-            border-radius: 3px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .helper-cell-ref {
-            color: #facc15;
-            font-family: monospace;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
-
-        .helper-instruction {
-            line-height: 1.35;
-            color: #e2e8f0;
-            background: #1e293b;
-            padding: 6px 10px;
-            border-radius: 4px;
-            border-left: 3px solid var(--helper-accent);
-        }
-
-        .helper-code {
-            background-color: #0f172a;
-            color: #38bdf8;
-            padding: 1px 4px;
-            border-radius: 2px;
-            font-family: monospace;
-        }
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-        }
-
-        .modal-window {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #fff;
-            padding: 20px;
-            border-radius: 6px;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.3);
-            z-index: 1000;
-            max-width: 720px;
-            width: 92%;
-            font-size: 0.85rem;
-            color: #333;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .modal-window h3 {
-            color: var(--excel-green);
-            margin-bottom: 12px;
-            font-size: 1.05rem;
-            border-bottom: 2px solid var(--excel-light-green);
-            padding-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        table.pivot-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 12px 0;
-            font-size: 0.8rem;
-        }
-
-        table.pivot-table th, table.pivot-table td {
-            border: 1px solid var(--border-color);
-            padding: 6px 8px;
-            text-align: left;
-        }
-
-        table.pivot-table th {
-            background-color: #f1f5f9;
-            font-weight: 600;
-        }
-
-        table.pivot-table tr.category-row {
-            background-color: #e2e8f0;
-            font-weight: bold;
-        }
-
-        table.pivot-table tr.item-row td:first-child {
-            padding-left: 20px;
-        }
-
-        .tag-leak {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 0.7rem;
-        }
-
-        .tag-over {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 0.7rem;
-        }
-
-        .tag-ok {
-            background: #dcfce7;
-            color: #166534;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 0.7rem;
+        .btn:hover {
+            background: var(--excel-light);
         }
 
         .workspace {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 8px;
-            overflow: hidden;
-        }
-
-        .top-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            max-height: 40%;
-            flex-shrink: 0;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
         }
 
-        .bottom-row {
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .table-card {
-            background-color: var(--card-bg);
+        .card {
+            background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            border-radius: 6px;
+            padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        .table-title {
-            background-color: var(--excel-light-green);
-            color: var(--excel-green);
-            font-weight: bold;
-            font-size: 0.8rem;
-            padding: 4px 8px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .table-scroll {
-            flex: 1;
-            overflow: auto;
-        }
-
-        table.excel-grid {
-            border-collapse: collapse;
-            table-layout: fixed;
-            font-size: 0.8rem;
-            width: 100%;
-        }
-
-        table.excel-grid th, table.excel-grid td {
-            border: 1px solid var(--border-color);
-            height: 24px;
-            padding: 0 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        table.excel-grid th {
-            background-color: var(--header-bg);
-            color: #555;
-            font-weight: 600;
-            text-align: center;
-            user-select: none;
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }
-
-        table.excel-grid td {
-            background-color: #fff;
-            cursor: cell;
-        }
-
-        table.excel-grid td.selected {
-            outline: 2px solid var(--cell-border-selected);
-            outline-offset: -2px;
-            background-color: var(--cell-selected) !important;
-        }
-
-        table.excel-grid td.range-highlight {
-            background-color: var(--cell-range-selected) !important;
-            border: 1px dashed var(--cell-border-selected);
-        }
-
-        .leak-checkbox-container {
             display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: var(--excel-green);
+            border-bottom: 2px solid var(--excel-light);
+            padding-bottom: 6px;
+        }
+
+        table.funnel-grid {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        table.funnel-grid th, table.funnel-grid td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+
+        table.funnel-grid th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        table.funnel-grid input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        table.funnel-grid input[type="number"]:focus {
+            border-color: var(--accent-blue);
+            background-color: #f0f9ff;
+        }
+
+        .tag-leak {
+            background-color: var(--leak-bg);
+            color: var(--leak-color);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+
+        .tag-ok {
+            background-color: #dcfce7;
+            color: #166534;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+
+        /* Визуализация воронки */
+        .visual-funnel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            cursor: pointer;
-            user-select: none;
+            padding: 10px 0;
         }
 
-        footer {
-            background-color: #f1f5f9;
-            border-top: 1px solid var(--border-color);
-            padding: 4px 12px;
-            font-size: 0.75rem;
-            color: #475569;
-            display: flex;
-            justify-content: space-between;
-            flex-shrink: 0;
+        .funnel-stage {
+            background-color: var(--accent-blue);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: width 0.3s ease;
+            min-width: 20%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .funnel-stage.is-max-leak {
+            background-color: var(--leak-color);
+        }
+
+        .helper-box {
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            border-left: 4px solid var(--leak-color);
+        }
+
+        .helper-box strong {
+            color: #38bdf8;
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🔍 Сквозной аудит: Бюджет ↔ Белый список ↔ Выписка</h1>
-    <div class="btn-group">
-        <button class="btn btn-pivot" onclick="openPivotModal()">📊 Сводная таблица (Pivot)</button>
-        <button class="btn" onclick="toggleFormulaHelp()">📖 Справка</button>
-        <button class="btn" onclick="generateNewData()">🎲 Новый сценарий</button>
-        <button class="btn" onclick="resetCurrentSheet()">🔄 Сбросить</button>
-    </div>
+    <h1>📊 Симулятор поиска утечек в маркетинговой воронке</h1>
+    <button class="btn" onclick="resetDefaults()">🔄 Сбросить пример</button>
 </header>
 
-<div class="modal-overlay" id="modal-overlay" onclick="closeAllModals()"></div>
-
-<div class="modal-window" id="pivot-modal">
-    <h3>
-        <span>📊 Сводный аудит расходов (Pivot Table)</span>
-        <button class="btn" onclick="closeAllModals()">✕</button>
-    </h3>
-    <p style="font-size:0.8rem; color:#475569;">
-        Полная сводка всех списаний со сравнением с лимитами Белого списка.
-    </p>
-    <div id="pivot-table-container"></div>
-    <button class="btn" onclick="closeAllModals()" style="background:var(--excel-green); color:#fff; width:100%; padding:6px; font-size:0.85rem; margin-top:10px;">
-        Закрыть
-    </button>
-</div>
-
-<div class="modal-window" id="formula-help-modal">
-    <h3>📖 Как работает сквозная сверка</h3>
-    <ul>
-        <li><strong>План подписок (B3):</strong> Рассчитывается формулой <code>=СУММ(H2:H...)</code> из Белого списка.</li>
-        <li><strong>Проверка выписки (E):</strong> Каждая строка категории «Подписки и сервисы» сверяется формулой <code>ВПР</code> с динамическим диапазоном <code>F2:F...</code>.</li>
-        <li><strong>Сводная таблица:</strong> Сопоставляет факт из выписки со списком разрешенных лимитов.</li>
-    </ul>
-    <button class="btn" onclick="closeAllModals()" style="background:var(--excel-green); color:#fff; width:100%; padding:6px; font-size:0.85rem; margin-top:10px;">Понятно</button>
-</div>
-
-<div id="formula-picker-dropdown">
-    <div class="dropdown-item" onclick="insertFormulaTemplate('=СУММЕСЛИ(C18:C28; A2; D18:D28)')">
-        <b>=СУММЕСЛИ(...)</b> — Сумма по категории
-    </div>
-    <div class="dropdown-item" onclick="insertFormulaTemplate('=ВПР(B18; F2:F6; 1)')">
-        <b>=ВПР(...)</b> — Проверка в Белом списке
-    </div>
-    <div class="dropdown-item" onclick="insertFormulaTemplate('=СУММ(B2:B5)')">
-        <b>=СУММ(...)</b> — Сумма диапазона
-    </div>
-</div>
-
-<div class="formula-bar-container">
-    <div class="cell-address" id="active-cell-id">A1</div>
-    <div class="fx-label">fx</div>
-    <input type="text" class="formula-input" id="formula-input" placeholder="Введите значение или формулу" oninput="liveUpdateFormulaInput()" onkeydown="handleFormulaKey(event)" onfocus="enableRangeSelectionMode()">
-</div>
-
-<div class="live-helper">
-    <div class="helper-header">
-        <div class="helper-title-group">
-            <span class="helper-badge">💡 Анализатор Ячеек</span>
-            <span>Выбранная ячейка: <span class="helper-cell-ref" id="helper-cell-id">A1</span></span>
-        </div>
-    </div>
-    <div class="helper-instruction" id="helper-text">
-        Кликайте по ячейкам таблицы для проверки формул.
-    </div>
+<div class="helper-box" id="diagnostic-console">
+    Загрузка анализа данных...
 </div>
 
 <div class="workspace">
-    <div class="top-row">
-        <div class="table-card">
-            <div class="table-title">📊 Таблица 1: Запланированный бюджет</div>
-            <div class="table-scroll"><table class="excel-grid" id="grid-budget"></table></div>
-        </div>
-        <div class="table-card">
-            <div class="table-title">🛡️ Таблица 2: Разрешенные подписки (Белый список)</div>
-            <div class="table-scroll"><table class="excel-grid" id="grid-whitelist"></table></div>
-        </div>
+    <!-- Таблица расчетов -->
+    <div class="card">
+        <div class="card-title">📋 Расчет показателей воронки (Excel-модель)</div>
+        <table class="funnel-grid">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Этап воронки</th>
+                    <th>Пользователи (чел.)</th>
+                    <th>Конверсия к шагу (%)</th>
+                    <th>Общая конверсия (%)</th>
+                    <th>Потери (Утечка, чел.)</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody id="funnel-tbody">
+                <!-- Заполняется JS -->
+            </tbody>
+        </table>
     </div>
-    <div class="bottom-row">
-        <div class="table-card" style="height: 100%;">
-            <div class="table-title">💳 Таблица 3: Выписка фактически совершенных транзакций</div>
-            <div class="table-scroll"><table class="excel-grid" id="grid-transactions"></table></div>
+
+    <!-- Визуализация -->
+    <div class="card">
+        <div class="card-title">📉 График воронки и критические узлы</div>
+        <div class="visual-funnel" id="funnel-chart">
+            <!-- Заполняется JS -->
         </div>
     </div>
 </div>
 
-<footer>
-    <div id="status-summary">Готово. Таблицы загружены.</div>
-    <div id="status-counts">Загрузка...</div>
-</footer>
-
 <script>
-    let cellData = {};
-    let userFlaggedLeaks = {};
-    let selectedCell = 'A1';
-
-    let isSelectingRange = false;
-    let rangeStartCell = null;
-    let isMouseDown = false;
-
-    let currentWhitelistCount = 4;
-    let currentTransactionCount = 12;
-
-    const ALL_WHITELIST_POOL = [
-        { name: 'Netflix', price: 15 },
-        { name: 'Spotify', price: 10 },
-        { name: 'Мобильная связь', price: 15 },
-        { name: 'YouTube Premium', price: 12 },
-        { name: 'iCloud+', price: 3 },
-        { name: 'Yandex Plus', price: 8 }
+    const defaultData = [
+        { stage: '1. Клики по рекламе', count: 10000 },
+        { stage: '2. Заходы на сайт', count: 7500 },
+        { stage: '3. Добавление в корзину', count: 1500 },
+        { stage: '4. Оформление заказа', count: 450 },
+        { stage: '5. Оплаченная покупка', count: 300 }
     ];
 
-    const LEAK_SERVICES = [
-        { name: 'Cloud Storage', price: 8 },
-        { name: 'Игровой сервис', price: 15 },
-        { name: 'Онлайн-кинотеатр 24', price: 12 },
-        { name: 'Музыкальный Premium', price: 7 },
-        { name: 'VPN Сервис', price: 9 },
-        { name: 'Фитнес-приложение', price: 10 },
-        { name: 'E-book подписка', price: 6 }
-    ];
+    let currentData = JSON.parse(JSON.stringify(defaultData));
 
-    const REGULAR_EXPENSES = [
-        { name: 'Супермаркет', cat: 'Продукты', min: 40, max: 110 },
-        { name: 'Заказ еды', cat: 'Продукты', min: 30, max: 80 },
-        { name: 'Кофейня', cat: 'Развлечения и кафе', min: 5, max: 20 },
-        { name: 'Ресторан', cat: 'Развлечения и кафе', min: 50, max: 120 },
-        { name: 'Кинотеатр', cat: 'Развлечения и кафе', min: 25, max: 50 },
-        { name: 'Такси', cat: 'Транспорт', min: 15, max: 40 },
-        { name: 'Заправка A3S', cat: 'Транспорт', min: 30, max: 60 }
-    ];
-
-    function getRandomInt(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+    function resetDefaults() {
+        currentData = JSON.parse(JSON.stringify(defaultData));
+        calculateAndRender();
     }
 
-    function closeAllModals() {
-        document.getElementById('pivot-modal').style.display = 'none';
-        document.getElementById('formula-help-modal').style.display = 'none';
-        document.getElementById('modal-overlay').style.display = 'none';
+    function updateCount(index, val) {
+        let num = parseInt(val) || 0;
+        currentData[index].count = num;
+        calculateAndRender();
     }
 
-    function toggleFormulaHelp() {
-        closeAllModals();
-        document.getElementById('formula-help-modal').style.display = 'block';
-        document.getElementById('modal-overlay').style.display = 'block';
-    }
+    function calculateAndRender() {
+        const tbody = document.getElementById('funnel-tbody');
+        const chart = document.getElementById('funnel-chart');
+        const consoleBox = document.getElementById('diagnostic-console');
 
-    function openPivotModal() {
-        closeAllModals();
-        buildPivotTable();
-        document.getElementById('pivot-modal').style.display = 'block';
-        document.getElementById('modal-overlay').style.display = 'block';
-    }
+        tbody.innerHTML = '';
+        chart.innerHTML = '';
 
-    function buildPivotTable() {
-        let categories = {};
-        let endRow = 17 + currentTransactionCount;
+        const firstCount = currentData[0].count || 1;
         
-        let whitelistMap = {};
-        for (let r = 2; r < 2 + currentWhitelistCount; r++) {
-            let name = evaluateCell(`F${r}`);
-            let limit = parseFloat(evaluateCell(`H${r}`)) || 0;
-            if (name) {
-                whitelistMap[String(name).trim().toLowerCase()] = limit;
+        let maxDrop = -1;
+        let maxDropIndex = -1;
+
+        // Поиск максимальной абсолютной утечки (потери людей)
+        for (let i = 1; i < currentData.length; i++) {
+            let drop = currentData[i - 1].count - currentData[i].count;
+            if (drop > maxDrop) {
+                maxDrop = drop;
+                maxDropIndex = i;
             }
         }
 
-        for (let r = 18; r <= endRow; r++) {
-            let cat = evaluateCell(`C${r}`);
-            let service = evaluateCell(`B${r}`);
-            let sum = parseFloat(evaluateCell(`D${r}`)) || 0;
-            let cellId = `E${r}`;
+        currentData.forEach((row, idx) => {
+            const prevCount = idx === 0 ? row.count : currentData[idx - 1].count;
+            const stepConversion = prevCount > 0 ? ((row.count / prevCount) * 100).toFixed(1) : 0;
+            const totalConversion = firstCount > 0 ? ((row.count / firstCount) * 100).toFixed(1) : 0;
+            const dropCount = idx === 0 ? 0 : prevCount - row.count;
 
-            if (!categories[cat]) {
-                categories[cat] = { total: 0, items: {} };
-            }
+            const isMaxLeak = idx === maxDropIndex && dropCount > 0;
 
-            categories[cat].total += sum;
-
-            if (!categories[cat].items[service]) {
-                categories[cat].items[service] = { sum: 0, cellId: cellId };
-            }
-            categories[cat].items[service].sum += sum;
-        }
-
-        let html = `
-            <table class="pivot-table">
-                <thead>
-                    <tr>
-                        <th>Название категории / Сервиса</th>
-                        <th>Факт ($)</th>
-                        <th>Лимит БС ($)</th>
-                        <th>Статус Белого списка</th>
-                        <th>Действие</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        Object.keys(categories).forEach(cat => {
-            html += `
-                <tr class="category-row">
-                    <td>📁 ${cat}</td>
-                    <td>$${categories[cat].total}</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
-                </tr>
+            // Рендер строки таблицы
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idx + 1}</td>
+                <td><strong>${row.stage}</strong></td>
+                <td>
+                    <input type="number" value="${row.count}" onchange="updateCount(${idx}, this.value)" oninput="updateCount(${idx}, this.value)" min="0">
+                </td>
+                <td>${stepConversion}%</td>
+                <td>${totalConversion}%</td>
+                <td>${dropCount > 0 ? '-' + dropCount : 0}</td>
+                <td>${isMaxLeak ? '<span class="tag-leak">⚠️ ГЛАВНАЯ УТЕЧКА</span>' : '<span class="tag-ok">ОК</span>'}</td>
             `;
+            tbody.appendChild(tr);
 
-            Object.keys(categories[cat].items).forEach(srv => {
-                let item = categories[cat].items[srv];
-                let cleanService = String(srv).trim().toLowerCase();
-                let isFlagged = !!userFlaggedLeaks[item.cellId];
-
-                let statusHtml = '<span class="tag-ok">ОК</span>';
-                let limitText = '—';
-
-                if (cat === "Подписки и сервисы") {
-                    if (whitelistMap.hasOwnProperty(cleanService)) {
-                        let limit = whitelistMap[cleanService];
-                        limitText = `$${limit}`;
-                        if (item.sum > limit) {
-                            statusHtml = '<span class="tag-over">⚠️ ПРЕВЫШЕНИЕ ЛИМИТА</span>';
-                        }
-                    } else {
-                        statusHtml = '<span class="tag-leak">⚠️ УТЕЧКА (Нет в списке)</span>';
-                    }
-                }
-
-                html += `
-                    <tr class="item-row">
-                        <td>└ ${srv}</td>
-                        <td>$${item.sum}</td>
-                        <td>${limitText}</td>
-                        <td>${statusHtml}</td>
-                        <td>
-                            <button class="btn" onclick="toggleLeakFlag('${item.cellId}', event); buildPivotTable();" style="padding:2px 6px; font-size:0.7rem;">
-                                ${isFlagged ? '✅ Отмечена' : 'Отметить утечку'}
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
+            // Рендер полосы графика
+            const widthPct = Math.max(15, Math.min(100, (row.count / firstCount) * 100));
+            const stageDiv = document.createElement('div');
+            stageDiv.className = `funnel-stage ${isMaxLeak ? 'is-max-leak' : ''}`;
+            stageDiv.style.width = `${widthPct}%`;
+            stageDiv.innerHTML = `${row.stage}: ${row.count} чел. (${stepConversion}%)`;
+            chart.appendChild(stageDiv);
         });
 
-        html += `</tbody></table>`;
-        document.getElementById('pivot-table-container').innerHTML = html;
-    }
+        // Формирование диагностической подсказки
+        if (maxDropIndex > 0 && maxDrop > 0) {
+            const leakStageName = currentData[maxDropIndex].stage;
+            const prevStageName = currentData[maxDropIndex - 1].stage;
+            const pctLost = ((maxDrop / currentData[maxDropIndex - 1].count) * 100).toFixed(1);
 
-    function generateNewData() {
-        userFlaggedLeaks = {};
-
-        currentWhitelistCount = getRandomInt(3, 5);
-        currentTransactionCount = getRandomInt(10, 15);
-
-        let shuffledPool = [...ALL_WHITELIST_POOL].sort(() => 0.5 - Math.random());
-        let currentWhitelist = shuffledPool.slice(0, currentWhitelistCount);
-
-        let endTxRow = 17 + currentTransactionCount;
-        let whitelistEndRow = 1 + currentWhitelistCount;
-
-        let planProducts = getRandomInt(300, 450);
-        let planEntertainment = getRandomInt(120, 200);
-        let planTransport = getRandomInt(80, 130);
-
-        cellData = {
-            'A1': 'Категория', 'B1': 'План ($)', 'C1': 'Факт ($)', 'D1': 'Отклонение ($)',
-            'A2': 'Продукты', 'B2': String(planProducts), 'C2': `=СУММЕСЛИ(C18:C${endTxRow}; A2; D18:D${endTxRow})`, 'D2': '=C2-B2',
-            'A3': 'Подписки и сервисы', 'B3': `=СУММ(H2:H${whitelistEndRow})`, 'C3': `=СУММЕСЛИ(C18:C${endTxRow}; A3; D18:D${endTxRow})`, 'D3': '=C3-B3',
-            'A4': 'Развлечения и кафе', 'B4': String(planEntertainment), 'C4': `=СУММЕСЛИ(C18:C${endTxRow}; A4; D18:D${endTxRow})`, 'D4': '=C4-B4',
-            'A5': 'Транспорт', 'B5': String(planTransport), 'C5': `=СУММЕСЛИ(C18:C${endTxRow}; A5; D18:D${endTxRow})`, 'D5': '=C5-B5',
-            'A6': 'Итого', 'B6': '=СУММ(B2:B5)', 'C6': '=СУММ(C2:C5)', 'D6': '=СУММ(D2:D5)',
-
-            'F1': 'Разрешенный сервис', 'G1': 'Категория', 'H1': 'Лимит ($)'
-        };
-
-        currentWhitelist.forEach((w, idx) => {
-            let row = 2 + idx;
-            cellData[`F${row}`] = w.name;
-            cellData[`G${row}`] = 'Подписки и сервисы';
-            cellData[`H${row}`] = String(w.price);
-        });
-
-        cellData['A17'] = 'Дата';
-        cellData['B17'] = 'Описание / Сервис';
-        cellData['C17'] = 'Категория';
-        cellData['D17'] = 'Сумма ($)';
-        cellData['E17'] = 'Отметка утечки';
-
-        let transactions = [];
-        currentWhitelist.forEach(w => {
-            transactions.push({ name: w.name, cat: 'Подписки и сервисы', sum: w.price });
-        });
-
-        let numLeaks = getRandomInt(1, 3);
-        let shuffledLeaks = [...LEAK_SERVICES].sort(() => 0.5 - Math.random());
-        for (let i = 0; i < numLeaks; i++) {
-            transactions.push({ name: shuffledLeaks[i].name, cat: 'Подписки и сервисы', sum: shuffledLeaks[i].price });
-        }
-
-        while (transactions.length < currentTransactionCount) {
-            let reg = REGULAR_EXPENSES[getRandomInt(0, REGULAR_EXPENSES.length - 1)];
-            transactions.push({ name: reg.name, cat: reg.cat, sum: getRandomInt(reg.min, reg.max) });
-        }
-
-        transactions.sort(() => 0.5 - Math.random());
-
-        transactions.forEach((t, idx) => {
-            let row = 18 + idx;
-            let day = Math.min(30, (idx + 1) * 2);
-            let dateStr = `${day < 10 ? '0' + day : day}.10`;
-
-            cellData[`A${row}`] = dateStr;
-            cellData[`B${row}`] = t.name;
-            cellData[`C${row}`] = t.cat;
-            cellData[`D${row}`] = String(t.sum);
-            cellData[`E${row}`] = `=ЕСЛИ(C${row}="Подписки и сервисы"; ВПР(B${row}; F2:F${whitelistEndRow}; 1); "ОК")`;
-        });
-
-        document.getElementById('status-counts').innerText = `Белый список: ${currentWhitelistCount} сервисов | Всего транзакций: ${currentTransactionCount}`;
-
-        renderTables();
-        recalculate();
-        selectCell('A18');
-    }
-
-    function resetCurrentSheet() {
-        userFlaggedLeaks = {};
-        recalculate();
-        selectCell('A18');
-    }
-
-    function init() {
-        generateNewData();
-
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('formula-picker-dropdown');
-            if (dropdown && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            isMouseDown = false;
-        });
-    }
-
-    function renderTables() {
-        let whitelistRows = [1];
-        for (let i = 0; i < currentWhitelistCount; i++) whitelistRows.push(2 + i);
-
-        let txRows = [17];
-        for (let i = 0; i < currentTransactionCount; i++) txRows.push(18 + i);
-
-        renderGrid('grid-budget', ['A', 'B', 'C', 'D'], [1, 2, 3, 4, 5, 6]);
-        renderGrid('grid-whitelist', ['F', 'G', 'H'], whitelistRows);
-        renderGrid('grid-transactions', ['A', 'B', 'C', 'D', 'E'], txRows);
-    }
-
-    function renderGrid(elementId, cols, rows) {
-        const grid = document.getElementById(elementId);
-        grid.innerHTML = '';
-
-        let headerRow = '<tr><th style="width:30px;"></th>';
-        cols.forEach(col => { headerRow += `<th class="col-header">${col}</th>`; });
-        headerRow += '</tr>';
-        grid.innerHTML += headerRow;
-
-        rows.forEach(r => {
-            let rowHtml = `<tr><th class="row-header">${r}</th>`;
-            cols.forEach(col => {
-                const cellId = `${col}${r}`;
-                rowHtml += `<td id="cell-${cellId}" 
-                    onmousedown="handleCellMouseDown('${cellId}', event)" 
-                    onmouseenter="handleCellMouseEnter('${cellId}', event)"
-                    onclick="handleCellClick('${cellId}', event)"></td>`;
-            });
-            rowHtml += '</tr>';
-            grid.innerHTML += rowHtml;
-        });
-    }
-
-    function enableRangeSelectionMode() {
-        const input = document.getElementById('formula-input');
-        if (input.value.startsWith('=')) {
-            input.classList.add('mode-selecting');
-            isSelectingRange = true;
-        }
-    }
-
-    function handleCellMouseDown(cellId, e) {
-        const input = document.getElementById('formula-input');
-        if (input.value.startsWith('=') && isSelectingRange) {
-            e.preventDefault();
-            isMouseDown = true;
-            rangeStartCell = cellId;
-            updateFormulaRange(cellId, cellId);
-        }
-    }
-
-    function handleCellMouseEnter(cellId, e) {
-        if (isMouseDown && rangeStartCell && isSelectingRange) {
-            updateFormulaRange(rangeStartCell, cellId);
-        }
-    }
-
-    function handleCellClick(cellId, event) {
-        const input = document.getElementById('formula-input');
-        
-        if (event.detail === 3) {
-            showFormulaPicker(event, cellId);
-            return;
-        }
-
-        if (input.value.startsWith('=') && isSelectingRange && !isMouseDown) {
-            updateFormulaRange(cellId, cellId);
-            return;
-        }
-
-        selectCell(cellId);
-    }
-
-    function updateFormulaRange(startId, endId) {
-        const input = document.getElementById('formula-input');
-        let rangeStr = startId === endId ? startId : `${startId}:${endId}`;
-        
-        highlightRange(startId, endId);
-
-        let val = input.value;
-        let match = val.match(/([A-Z]+[0-9]+(:[A-Z]+[0-9]+)?)(?=[^A-Z0-9]*$)/i);
-        if (match) {
-            input.value = val.substring(0, match.index) + rangeStr + val.substring(match.index + match[0].length);
-        } else if (val.endsWith('(') || val.endsWith(';') || val.endsWith(',')) {
-            input.value = val + rangeStr;
+            consoleBox.innerHTML = `
+                🔍 <strong>АУДИТ ВОРОНКИ:</strong> Обнаружено наибольшее узкое место (утечка) между этапами 
+                <strong>"${prevStageName}"</strong> и <strong>"${leakStageName}"</strong>.<br>
+                Потеряно <strong>${maxDrop} человек</strong> (${pctLost}% от предыдущего шага). 
+                Рекомендуется проверить юзабилити и условия на данном этапе.
+            `;
         } else {
-            input.value = val + '; ' + rangeStr;
-        }
-
-        cellData[selectedCell] = input.value;
-        recalculate();
-        updateHelper();
-    }
-
-    function highlightRange(startId, endId) {
-        document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
-        const rangeCells = parseRange(`${startId}:${endId}`);
-        rangeCells.forEach(id => {
-            const el = document.getElementById(`cell-${id}`);
-            if (el) el.classList.add('range-highlight');
-        });
-    }
-
-    function showFormulaPicker(event, cellId) {
-        selectCell(cellId);
-        const dropdown = document.getElementById('formula-picker-dropdown');
-        dropdown.style.left = `${event.pageX}px`;
-        dropdown.style.top = `${event.pageY}px`;
-        dropdown.style.display = 'block';
-    }
-
-    function insertFormulaTemplate(template) {
-        document.getElementById('formula-input').value = template;
-        cellData[selectedCell] = template;
-        document.getElementById('formula-picker-dropdown').style.display = 'none';
-        enableRangeSelectionMode();
-        recalculate();
-        updateHelper();
-    }
-
-    function toggleLeakFlag(cellId, event) {
-        if (event) event.stopPropagation();
-        userFlaggedLeaks[cellId] = !userFlaggedLeaks[cellId];
-        selectCell(cellId);
-        recalculate();
-    }
-
-    function selectCell(id) {
-        if (selectedCell) {
-            const prev = document.getElementById(`cell-${selectedCell}`);
-            if (prev) prev.classList.remove('selected');
-        }
-
-        selectedCell = id;
-        const current = document.getElementById(`cell-${selectedCell}`);
-        if (current) current.classList.add('selected');
-
-        const input = document.getElementById('formula-input');
-        document.getElementById('active-cell-id').innerText = id;
-        input.value = cellData[id] || '';
-
-        if (!input.value.startsWith('=')) {
-            input.classList.remove('mode-selecting');
-            isSelectingRange = false;
-            document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
-        }
-
-        updateHelper();
-    }
-
-    function liveUpdateFormulaInput() {
-        const input = document.getElementById('formula-input');
-        if (input.value.startsWith('=')) {
-            enableRangeSelectionMode();
-        } else {
-            input.classList.remove('mode-selecting');
-            isSelectingRange = false;
-        }
-        cellData[selectedCell] = input.value;
-        recalculate();
-        updateHelper();
-    }
-
-    function handleFormulaKey(e) {
-        if (e.key === 'Enter') {
-            document.getElementById('formula-input').classList.remove('mode-selecting');
-            isSelectingRange = false;
-            document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
-            recalculate();
-            updateHelper();
+            consoleBox.innerHTML = `ℹ️ <strong>АУДИТ ВОРОНКИ:</strong> Утечек не обнаружено или значения равны.`;
         }
     }
 
-    function updateHelper() {
-        const cellId = selectedCell;
-        const raw = cellData[cellId] || '';
-        const computed = evaluateCell(cellId);
-
-        document.getElementById('helper-cell-id').innerText = cellId;
-        const helperText = document.getElementById('helper-text');
-
-        if (raw.startsWith('=')) {
-            let formulaName = raw.substring(1).split('(')[0].trim().toUpperCase();
-            let formulaExpl = '';
-            if (formulaName === 'СУММЕСЛИ') {
-                formulaExpl = ' Функция <code>СУММЕСЛИ</code> суммирует расходы по категории.';
-            } else if (formulaName === 'СУММ') {
-                formulaExpl = ' Функция <code>СУММ</code> складывает значения диапазонов.';
-            } else if (formulaName === 'ВПР') {
-                formulaExpl = ' Функция <code>ВПР</code> ищет точные совпадения в Белом списке.';
-            } else if (formulaName === 'ЕСЛИ') {
-                formulaExpl = ' Функция <code>ЕСЛИ</code> делает логическую проверку.';
-            }
-
-            if (cellId.startsWith('E') && parseInt(cellId.replace('E', '')) >= 18) {
-                const rowNum = cellId.replace('E', '');
-                const serviceName = evaluateCell(`B${rowNum}`);
-                const catName = evaluateCell(`C${rowNum}`);
-                const sumVal = evaluateCell(`D${rowNum}`);
-                const isFlagged = !!userFlaggedLeaks[cellId];
-
-                let whitelistNames = [];
-                for (let r = 2; r < 2 + currentWhitelistCount; r++) {
-                    let val = evaluateCell(`F${r}`);
-                    if (val) whitelistNames.push(String(val).trim().toLowerCase());
-                }
-
-                let isLeak = catName === "Подписки и сервисы" && !whitelistNames.includes(String(serviceName).trim().toLowerCase());
-
-                if (isLeak) {
-                    if (isFlagged) {
-                        helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно обнаружили утечку по <strong>"${serviceName}"</strong> ($${sumVal})! ${formulaExpl}`;
-                    } else {
-                        helperText.innerHTML = `⚠️ <strong>ВНИМАНИЕ:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке! Отметьте галочкой. ${formulaExpl}`;
-                    }
-                } else {
-                    helperText.innerHTML = `ℹ️ <strong>ПРОВЕРКА:</strong> Списание по <strong>"${serviceName}"</strong> легитимно. ${formulaExpl}`;
-                }
-                return;
-            }
-
-            helperText.innerHTML = `Формула <span class="helper-code">${raw}</span> = <strong>${computed}</strong>.${formulaExpl}`;
-            return;
-        }
-
-        if (raw) {
-            helperText.innerHTML = `Значение ячейки ${cellId}: <strong>"${raw}"</strong>.`;
-        } else {
-            helperText.innerHTML = `Ячейка ${cellId} пуста.`;
-        }
-    }
-
-    function parseRange(rangeStr) {
-        const parts = rangeStr.trim().split(':');
-        if (parts.length === 1) return [parts[0]];
-
-        const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-        const startCol = parts[0].charAt(0);
-        const startRow = parseInt(parts[0].slice(1));
-        const endCol = parts[1].charAt(0);
-        const endRow = parseInt(parts[1].slice(1));
-
-        let result = [];
-        let colStartIdx = COLS.indexOf(startCol);
-        let colEndIdx = COLS.indexOf(endCol);
-
-        let minCol = Math.min(colStartIdx, colEndIdx);
-        let maxCol = Math.max(colStartIdx, colEndIdx);
-        let minRow = Math.min(startRow, endRow);
-        let maxRow = Math.max(startRow, endRow);
-
-        for (let c = minCol; c <= maxCol; c++) {
-            for (let r = minRow; r <= maxRow; r++) {
-                result.push(`${COLS[c]}${r}`);
-            }
-        }
-        return result;
-    }
-
-    function evaluateCell(id, visited = new Set()) {
-        const raw = cellData[id];
-        if (!raw) return '';
-        if (!raw.startsWith('=')) return raw;
-
-        if (visited.has(id)) return '#ЦИКЛ!';
-        visited.add(id);
-
-        try {
-            let expr = raw.substring(1).trim();
-
-            if (expr.startsWith('СУММЕСЛИ')) {
-                const inner = expr.match(/СУММЕСЛИ\((.*)\)/i)[1];
-                const args = inner.split(';').map(s => s.trim());
-                const condRange = parseRange(args[0]);
-                let condition = args[1];
-                if (cellData[condition] !== undefined) {
-                    condition = evaluateCell(condition, new Set(visited));
-                } else {
-                    condition = condition.replace(/^["']|["']$/g, '');
-                }
-                const sumRange = parseRange(args[2]);
-
-                let sum = 0;
-                condRange.forEach((cId, idx) => {
-                    const val = evaluateCell(cId, new Set(visited));
-                    if (String(val).trim().toLowerCase() === String(condition).trim().toLowerCase()) {
-                        const sumVal = parseFloat(evaluateCell(sumRange[idx], new Set(visited))) || 0;
-                        sum += sumVal;
-                    }
-                });
-                return sum;
-            }
-
-            if (expr.startsWith('СУММ')) {
-                const inner = expr.match(/СУММ\((.*)\)/i)[1];
-                const range = parseRange(inner);
-                let sum = 0;
-                range.forEach(cId => { sum += parseFloat(evaluateCell(cId, new Set(visited))) || 0; });
-                return sum;
-            }
-
-            if (expr.startsWith('ВПР')) {
-                const inner = expr.match(/ВПР\((.*)\)/i)[1];
-                const args = inner.split(';').map(s => s.trim());
-                let lookupVal = args[0];
-                if (cellData[lookupVal] !== undefined) {
-                    lookupVal = evaluateCell(lookupVal, new Set(visited));
-                }
-
-                const range = parseRange(args[1]);
-                let found = false;
-                const cleanLookup = String(lookupVal).trim().toLowerCase();
-
-                range.forEach(cId => {
-                    const cellVal = String(evaluateCell(cId, new Set(visited))).trim().toLowerCase();
-                    if (cellVal === cleanLookup) {
-                        found = true;
-                    }
-                });
-
-                return found ? 'ОК' : '⚠️ УТЕЧКА';
-            }
-
-            if (expr.startsWith('ЕСЛИ')) {
-                const inner = expr.match(/ЕСЛИ\((.*)\)/i)[1];
-                const args = inner.split(';').map(s => s.trim());
-                
-                const condParts = args[0].split('=');
-                let leftVal = condParts[0].trim();
-                let rightVal = condParts[1].trim().replace(/^["']|["']$/g, '');
-
-                if (cellData[leftVal] !== undefined) {
-                    leftVal = evaluateCell(leftVal, new Set(visited));
-                }
-
-                if (String(leftVal).trim().toLowerCase() === String(rightVal).trim().toLowerCase()) {
-                    return evaluateExpr(args[1], visited);
-                } else {
-                    return evaluateExpr(args[2], visited);
-                }
-            }
-
-            return evaluateExpr(expr, visited);
-
-        } catch (e) {
-            return '#ОШИБКА!';
-        }
-    }
-
-    function evaluateExpr(expr, visited = new Set()) {
-        expr = expr.replace(/^["']|["']$/g, '');
-        if (expr === 'ОК' || expr.includes('⚠️')) return expr;
-
-        let parsedExpr = expr.replace(/([A-H][1-2][0-9]|[A-H][1-9])/g, (match) => {
-            const val = evaluateCell(match, new Set(visited));
-            return isNaN(val) ? 0 : val;
-        });
-
-        try {
-            return Function(`'use strict'; return (${parsedExpr})`)();
-        } catch {
-            return expr;
-        }
-    }
-
-    function recalculate() {
-        Object.keys(cellData).forEach(id => {
-            const cellTd = document.getElementById(`cell-${id}`);
-            if (!cellTd) return;
-
-            const computedValue = evaluateCell(id);
-
-            if (id.startsWith('E') && parseInt(id.replace('E', '')) >= 18) {
-                const checked = !!userFlaggedLeaks[id];
-                cellTd.innerHTML = `
-                    <div class="leak-checkbox-container" onclick="toggleLeakFlag('${id}', event)">
-                        <input type="checkbox" ${checked ? 'checked' : ''} style="cursor:pointer;" onclick="event.stopPropagation(); toggleLeakFlag('${id}', event)">
-                        <span>${checked ? 'Утечка!' : 'Проверить'}</span>
-                    </div>
-                `;
-            } else {
-                cellTd.innerText = computedValue;
-            }
-
-            if (['A1', 'B1', 'C1', 'D1', 'F1', 'G1', 'H1', 'A17', 'B17', 'C17', 'D17', 'E17'].includes(id)) {
-                cellTd.style.fontWeight = 'bold';
-                cellTd.style.backgroundColor = '#f8f9fa';
-            }
-        });
-    }
-
-    window.onload = init;
+    window.onload = calculateAndRender;
 </script>
+
 </body>
 </html>
