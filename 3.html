@@ -297,7 +297,6 @@
             color: #166534;
             padding: 1px 5px;
             border-radius: 3px;
-            font-weight: bold;
             font-size: 0.7rem;
         }
 
@@ -501,7 +500,7 @@
 </div>
 
 <footer>
-    <div id="status-summary">Сводная система настроена: Бюджет ↔ Белый список ↔ Выписка.</div>
+    <div id="status-summary">Готово. Таблицы загружены.</div>
     <div id="status-counts">Загрузка...</div>
 </footer>
 
@@ -728,4 +727,426 @@
             let day = Math.min(30, (idx + 1) * 2);
             let dateStr = `${day < 10 ? '0' + day : day}.10`;
 
-            cellData[`A${row}`] = date
+            cellData[`A${row}`] = dateStr;
+            cellData[`B${row}`] = t.name;
+            cellData[`C${row}`] = t.cat;
+            cellData[`D${row}`] = String(t.sum);
+            cellData[`E${row}`] = `=ЕСЛИ(C${row}="Подписки и сервисы"; ВПР(B${row}; F2:F${whitelistEndRow}; 1); "ОК")`;
+        });
+
+        document.getElementById('status-counts').innerText = `Белый список: ${currentWhitelistCount} сервисов | Всего транзакций: ${currentTransactionCount}`;
+
+        renderTables();
+        recalculate();
+        selectCell('A18');
+    }
+
+    function resetCurrentSheet() {
+        userFlaggedLeaks = {};
+        recalculate();
+        selectCell('A18');
+    }
+
+    function init() {
+        generateNewData();
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('formula-picker-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+    }
+
+    function renderTables() {
+        let whitelistRows = [1];
+        for (let i = 0; i < currentWhitelistCount; i++) whitelistRows.push(2 + i);
+
+        let txRows = [17];
+        for (let i = 0; i < currentTransactionCount; i++) txRows.push(18 + i);
+
+        renderGrid('grid-budget', ['A', 'B', 'C', 'D'], [1, 2, 3, 4, 5, 6]);
+        renderGrid('grid-whitelist', ['F', 'G', 'H'], whitelistRows);
+        renderGrid('grid-transactions', ['A', 'B', 'C', 'D', 'E'], txRows);
+    }
+
+    function renderGrid(elementId, cols, rows) {
+        const grid = document.getElementById(elementId);
+        grid.innerHTML = '';
+
+        let headerRow = '<tr><th style="width:30px;"></th>';
+        cols.forEach(col => { headerRow += `<th class="col-header">${col}</th>`; });
+        headerRow += '</tr>';
+        grid.innerHTML += headerRow;
+
+        rows.forEach(r => {
+            let rowHtml = `<tr><th class="row-header">${r}</th>`;
+            cols.forEach(col => {
+                const cellId = `${col}${r}`;
+                rowHtml += `<td id="cell-${cellId}" 
+                    onmousedown="handleCellMouseDown('${cellId}', event)" 
+                    onmouseenter="handleCellMouseEnter('${cellId}', event)"
+                    onclick="handleCellClick('${cellId}', event)"></td>`;
+            });
+            rowHtml += '</tr>';
+            grid.innerHTML += rowHtml;
+        });
+    }
+
+    function enableRangeSelectionMode() {
+        const input = document.getElementById('formula-input');
+        if (input.value.startsWith('=')) {
+            input.classList.add('mode-selecting');
+            isSelectingRange = true;
+        }
+    }
+
+    function handleCellMouseDown(cellId, e) {
+        const input = document.getElementById('formula-input');
+        if (input.value.startsWith('=') && isSelectingRange) {
+            e.preventDefault();
+            isMouseDown = true;
+            rangeStartCell = cellId;
+            updateFormulaRange(cellId, cellId);
+        }
+    }
+
+    function handleCellMouseEnter(cellId, e) {
+        if (isMouseDown && rangeStartCell && isSelectingRange) {
+            updateFormulaRange(rangeStartCell, cellId);
+        }
+    }
+
+    function handleCellClick(cellId, event) {
+        const input = document.getElementById('formula-input');
+        
+        if (event.detail === 3) {
+            showFormulaPicker(event, cellId);
+            return;
+        }
+
+        if (input.value.startsWith('=') && isSelectingRange && !isMouseDown) {
+            updateFormulaRange(cellId, cellId);
+            return;
+        }
+
+        selectCell(cellId);
+    }
+
+    function updateFormulaRange(startId, endId) {
+        const input = document.getElementById('formula-input');
+        let rangeStr = startId === endId ? startId : `${startId}:${endId}`;
+        
+        highlightRange(startId, endId);
+
+        let val = input.value;
+        let match = val.match(/([A-Z]+[0-9]+(:[A-Z]+[0-9]+)?)(?=[^A-Z0-9]*$)/i);
+        if (match) {
+            input.value = val.substring(0, match.index) + rangeStr + val.substring(match.index + match[0].length);
+        } else if (val.endsWith('(') || val.endsWith(';') || val.endsWith(',')) {
+            input.value = val + rangeStr;
+        } else {
+            input.value = val + '; ' + rangeStr;
+        }
+
+        cellData[selectedCell] = input.value;
+        recalculate();
+        updateHelper();
+    }
+
+    function highlightRange(startId, endId) {
+        document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
+        const rangeCells = parseRange(`${startId}:${endId}`);
+        rangeCells.forEach(id => {
+            const el = document.getElementById(`cell-${id}`);
+            if (el) el.classList.add('range-highlight');
+        });
+    }
+
+    function showFormulaPicker(event, cellId) {
+        selectCell(cellId);
+        const dropdown = document.getElementById('formula-picker-dropdown');
+        dropdown.style.left = `${event.pageX}px`;
+        dropdown.style.top = `${event.pageY}px`;
+        dropdown.style.display = 'block';
+    }
+
+    function insertFormulaTemplate(template) {
+        document.getElementById('formula-input').value = template;
+        cellData[selectedCell] = template;
+        document.getElementById('formula-picker-dropdown').style.display = 'none';
+        enableRangeSelectionMode();
+        recalculate();
+        updateHelper();
+    }
+
+    function toggleLeakFlag(cellId, event) {
+        if (event) event.stopPropagation();
+        userFlaggedLeaks[cellId] = !userFlaggedLeaks[cellId];
+        selectCell(cellId);
+        recalculate();
+    }
+
+    function selectCell(id) {
+        if (selectedCell) {
+            const prev = document.getElementById(`cell-${selectedCell}`);
+            if (prev) prev.classList.remove('selected');
+        }
+
+        selectedCell = id;
+        const current = document.getElementById(`cell-${selectedCell}`);
+        if (current) current.classList.add('selected');
+
+        const input = document.getElementById('formula-input');
+        document.getElementById('active-cell-id').innerText = id;
+        input.value = cellData[id] || '';
+
+        if (!input.value.startsWith('=')) {
+            input.classList.remove('mode-selecting');
+            isSelectingRange = false;
+            document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
+        }
+
+        updateHelper();
+    }
+
+    function liveUpdateFormulaInput() {
+        const input = document.getElementById('formula-input');
+        if (input.value.startsWith('=')) {
+            enableRangeSelectionMode();
+        } else {
+            input.classList.remove('mode-selecting');
+            isSelectingRange = false;
+        }
+        cellData[selectedCell] = input.value;
+        recalculate();
+        updateHelper();
+    }
+
+    function handleFormulaKey(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('formula-input').classList.remove('mode-selecting');
+            isSelectingRange = false;
+            document.querySelectorAll('td.range-highlight').forEach(el => el.classList.remove('range-highlight'));
+            recalculate();
+            updateHelper();
+        }
+    }
+
+    function updateHelper() {
+        const cellId = selectedCell;
+        const raw = cellData[cellId] || '';
+        const computed = evaluateCell(cellId);
+
+        document.getElementById('helper-cell-id').innerText = cellId;
+        const helperText = document.getElementById('helper-text');
+
+        if (raw.startsWith('=')) {
+            let formulaName = raw.substring(1).split('(')[0].trim().toUpperCase();
+            let formulaExpl = '';
+            if (formulaName === 'СУММЕСЛИ') {
+                formulaExpl = ' Функция <code>СУММЕСЛИ</code> суммирует расходы по категории.';
+            } else if (formulaName === 'СУММ') {
+                formulaExpl = ' Функция <code>СУММ</code> складывает значения диапазонов.';
+            } else if (formulaName === 'ВПР') {
+                formulaExpl = ' Функция <code>ВПР</code> ищет точные совпадения в Белом списке.';
+            } else if (formulaName === 'ЕСЛИ') {
+                formulaExpl = ' Функция <code>ЕСЛИ</code> делает логическую проверку.';
+            }
+
+            if (cellId.startsWith('E') && parseInt(cellId.replace('E', '')) >= 18) {
+                const rowNum = cellId.replace('E', '');
+                const serviceName = evaluateCell(`B${rowNum}`);
+                const sumVal = evaluateCell(`D${rowNum}`);
+                const isFlagged = !!userFlaggedLeaks[cellId];
+
+                if (computed === '⚠️ УТЕЧКА') {
+                    if (isFlagged) {
+                        helperText.innerHTML = `✅ <strong>ОТЛИЧНО:</strong> Вы верно обнаружили утечку по <strong>"${serviceName}"</strong> ($${sumVal})! ${formulaExpl}`;
+                    } else {
+                        helperText.innerHTML = `🧐 <strong>ПОДСКАЗКА:</strong> Сервис <strong>"${serviceName}"</strong> ($${sumVal}) отсутствует в Белом списке. ${formulaExpl}`;
+                    }
+                } else {
+                    helperText.innerHTML = `ℹ️ <strong>ПРОВЕРКА:</strong> Списание по <strong>"${serviceName}"</strong> легитимно. ${formulaExpl}`;
+                }
+                return;
+            }
+
+            helperText.innerHTML = `Формула <span class="helper-code">${raw}</span> = <strong>${computed}</strong>.${formulaExpl}`;
+            return;
+        }
+
+        if (raw) {
+            helperText.innerHTML = `Значение ячейки ${cellId}: <strong>"${raw}"</strong>.`;
+        } else {
+            helperText.innerHTML = `Ячейка ${cellId} пуста.`;
+        }
+    }
+
+    function parseRange(rangeStr) {
+        const parts = rangeStr.trim().split(':');
+        if (parts.length === 1) return [parts[0]];
+
+        const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        const startCol = parts[0].charAt(0);
+        const startRow = parseInt(parts[0].slice(1));
+        const endCol = parts[1].charAt(0);
+        const endRow = parseInt(parts[1].slice(1));
+
+        let result = [];
+        let colStartIdx = COLS.indexOf(startCol);
+        let colEndIdx = COLS.indexOf(endCol);
+
+        let minCol = Math.min(colStartIdx, colEndIdx);
+        let maxCol = Math.max(colStartIdx, colEndIdx);
+        let minRow = Math.min(startRow, endRow);
+        let maxRow = Math.max(startRow, endRow);
+
+        for (let c = minCol; c <= maxCol; c++) {
+            for (let r = minRow; r <= maxRow; r++) {
+                result.push(`${COLS[c]}${r}`);
+            }
+        }
+        return result;
+    }
+
+    function evaluateCell(id, visited = new Set()) {
+        const raw = cellData[id];
+        if (!raw) return '';
+        if (!raw.startsWith('=')) return raw;
+
+        if (visited.has(id)) return '#ЦИКЛ!';
+        visited.add(id);
+
+        try {
+            let expr = raw.substring(1).trim();
+
+            if (expr.startsWith('СУММЕСЛИ')) {
+                const inner = expr.match(/СУММЕСЛИ\((.*)\)/i)[1];
+                const args = inner.split(';').map(s => s.trim());
+                const condRange = parseRange(args[0]);
+                let condition = args[1];
+                if (cellData[condition] !== undefined) {
+                    condition = evaluateCell(condition, new Set(visited));
+                } else {
+                    condition = condition.replace(/^["']|["']$/g, '');
+                }
+                const sumRange = parseRange(args[2]);
+
+                let sum = 0;
+                condRange.forEach((cId, idx) => {
+                    const val = evaluateCell(cId, new Set(visited));
+                    if (String(val).trim().toLowerCase() === String(condition).trim().toLowerCase()) {
+                        const sumVal = parseFloat(evaluateCell(sumRange[idx], new Set(visited))) || 0;
+                        sum += sumVal;
+                    }
+                });
+                return sum;
+            }
+
+            if (expr.startsWith('СУММ')) {
+                const inner = expr.match(/СУММ\((.*)\)/i)[1];
+                const range = parseRange(inner);
+                let sum = 0;
+                range.forEach(cId => { sum += parseFloat(evaluateCell(cId, new Set(visited))) || 0; });
+                return sum;
+            }
+
+            if (expr.startsWith('ВПР')) {
+                const inner = expr.match(/ВПР\((.*)\)/i)[1];
+                const args = inner.split(';').map(s => s.trim());
+                let lookupVal = args[0];
+                if (cellData[lookupVal] !== undefined) {
+                    lookupVal = evaluateCell(lookupVal, new Set(visited));
+                }
+
+                const range = parseRange(args[1]);
+                let found = false;
+                const cleanLookup = String(lookupVal).trim().toLowerCase();
+
+                range.forEach(cId => {
+                    const cellVal = String(evaluateCell(cId, new Set(visited))).trim().toLowerCase();
+                    if (cellVal === cleanLookup) {
+                        found = true;
+                    }
+                });
+
+                return found ? 'ОК' : '⚠️ УТЕЧКА';
+            }
+
+            if (expr.startsWith('ЕСЛИ')) {
+                const inner = expr.match(/ЕСЛИ\((.*)\)/i)[1];
+                const args = inner.split(';').map(s => s.trim());
+                
+                const condParts = args[0].split('=');
+                let leftVal = condParts[0].trim();
+                let rightVal = condParts[1].trim().replace(/^["']|["']$/g, '');
+
+                if (cellData[leftVal] !== undefined) {
+                    leftVal = evaluateCell(leftVal, new Set(visited));
+                }
+
+                if (String(leftVal).trim().toLowerCase() === String(rightVal).trim().toLowerCase()) {
+                    return evaluateExpr(args[1], visited);
+                } else {
+                    return evaluateExpr(args[2], visited);
+                }
+            }
+
+            return evaluateExpr(expr, visited);
+
+        } catch (e) {
+            return '#ОШИБКА!';
+        }
+    }
+
+    function evaluateExpr(expr, visited = new Set()) {
+        expr = expr.replace(/^["']|["']$/g, '');
+        if (expr === 'ОК' || expr.includes('⚠️')) return expr;
+
+        let parsedExpr = expr.replace(/([A-H][1-2][0-9]|[A-H][1-9])/g, (match) => {
+            const val = evaluateCell(match, new Set(visited));
+            return isNaN(val) ? 0 : val;
+        });
+
+        try {
+            return Function(`'use strict'; return (${parsedExpr})`)();
+        } catch {
+            return expr;
+        }
+    }
+
+    function recalculate() {
+        Object.keys(cellData).forEach(id => {
+            const cellTd = document.getElementById(`cell-${id}`);
+            if (!cellTd) return;
+
+            const computedValue = evaluateCell(id);
+
+            if (id.startsWith('E') && parseInt(id.replace('E', '')) >= 18) {
+                const checked = !!userFlaggedLeaks[id];
+                cellTd.innerHTML = `
+                    <div class="leak-checkbox-container" onclick="toggleLeakFlag('${id}', event)">
+                        <input type="checkbox" ${checked ? 'checked' : ''} style="cursor:pointer;" onclick="event.stopPropagation(); toggleLeakFlag('${id}', event)">
+                        <span>${checked ? 'Утечка!' : 'Проверить'}</span>
+                    </div>
+                `;
+            } else {
+                cellTd.innerText = computedValue;
+            }
+
+            if (['A1', 'B1', 'C1', 'D1', 'F1', 'G1', 'H1', 'A17', 'B17', 'C17', 'D17', 'E17'].includes(id)) {
+                cellTd.style.fontWeight = 'bold';
+                cellTd.style.backgroundColor = '#f8f9fa';
+            }
+        });
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
