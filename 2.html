@@ -2,17 +2,22 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Выравнивание линий и геометрии</title>
+    <title>CV Circuit Scanner - Раздельная очистка и выравнивание</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
+        
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
-        .btn-sim { background: #00ff66; color: #000; }
-        .btn-sim:hover { background: #00cc52; }
+        button:disabled { background: #444; cursor: not-allowed; }
+
+        .btn-bg { background: #00bcd4; color: #fff; }
+        .btn-bg:hover { background: #008ba3; }
+
         .btn-align { background: #9b51e0; color: #fff; }
         .btn-align:hover { background: #823ab7; }
+
         input[type="range"] { width: 250px; vertical-align: middle; }
 
         #viewport {
@@ -44,25 +49,14 @@
             z-index: 10;
         }
 
-        .current-flow {
-            stroke: #00aaff;
-            stroke-width: 3;
-            stroke-dasharray: 6 6;
-            animation: flowCurrent 1s linear infinite;
-            pointer-events: none;
-        }
-        @keyframes flowCurrent {
-            from { stroke-dashoffset: 12; }
-            to { stroke-dashoffset: 0; }
-        }
-
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
         .color-preview { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 5px; }
+        .btn-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Выравнивание линий и геометрии</h1>
+    <h1>⚡ Сканер схем: Очистка фона и выравнивание линий</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -73,9 +67,15 @@
         </div>
 
         <span id="selectedColorStatus">1. Кликните по линии на схеме для выбора цвета</span>
-        <span id="colorBox" class="color-preview" style="display:none;"></span><br><br>
+        <span id="colorBox" class="color-preview" style="display:none;"></span><br>
 
-        <button class="btn-align" onclick="optimizeGeometry()">🎛️ Выровнять линии и формы (Orthogonal Snap)</button>
+        <div class="btn-group">
+            <!-- Кнопка 1: Только сделать фон белым -->
+            <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>1. Сделать фон белым</button>
+            
+            <!-- Кнопка 2: Только выровнять линии -->
+            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>2. Выровнять линии</button>
+        </div>
     </div>
 
     <div class="card">
@@ -87,7 +87,7 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите изображение и выберите цвет...</div>
+        <div id="log">Загрузите изображение и выберите цвет пипеткой...</div>
     </div>
 
 <script>
@@ -118,6 +118,8 @@
                     selectedColorRgb = null;
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
+                    document.getElementById('btnMakeWhite').disabled = true;
+                    document.getElementById('btnAlignLines').disabled = true;
                     log("Изображение загружено. Выберите цвет пипеткой.");
                 };
             }
@@ -153,9 +155,10 @@
                 colorBox.style.display = 'inline-block';
 
                 document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                log(`🎨 Выбран эталонный цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Очистка фона...`);
+                document.getElementById('btnMakeWhite').disabled = false;
+                document.getElementById('btnAlignLines').disabled = false;
 
-                runColorFilter();
+                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Нажмите "Сделать фон белым".`);
             } catch (err) {
                 log("❌ Ошибка считывания цвета: " + err.message);
             }
@@ -164,14 +167,14 @@
 
     function onSensitivityChange(val) {
         document.getElementById('sensValue').textContent = val;
-        if (selectedColorRgb) {
-            runColorFilter();
-        }
     }
 
-    // Фильтрация фона до белого цвета
+    // ОПЕРАЦИЯ 1: Только сделать фон белым
     function runColorFilter() {
-        if (!selectedColorRgb) return;
+        if (!selectedColorRgb) {
+            alert('Сначала кликните по линии на схеме!');
+            return;
+        }
 
         const tolerance = parseInt(document.getElementById('sensitivity').value);
         const canvas = document.getElementById('cv-canvas');
@@ -194,18 +197,14 @@
                 data[i] = 255;
                 data[i+1] = 255;
                 data[i+2] = 255;
-            } else {
-                data[i] = selectedColorRgb.r;
-                data[i+1] = selectedColorRgb.g;
-                data[i+2] = selectedColorRgb.b;
             }
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("Фон очищен. Нажмите 'Выровнять линии и формы' для ортогонализации.");
+        log("✅ Фон успешно очищен до белого цвета.");
     }
 
-    // Функция геометрической оптимизации и выравнивания линий
+    // ОПЕРАЦИЯ 2: Только выровнять линии
     function optimizeGeometry() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -214,20 +213,18 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        log("⚙️ Запуск выравнивания линий и геометрических элементов...");
+        log("⚙️ Запуск алгоритма выравнивания линий...");
 
-        // 1. Горизонтальное выравнивание (сканирование строк на наличие плотных скоплений линий)
         const rowDensity = new Array(height).fill(0);
         for (let y = 0; y < height; y++) {
             let count = 0;
             for (let x = 0; x < width; x++) {
                 let idx = (y * width + x) * 4;
-                if (data[idx] < 200) count++; // темный пиксель линии
+                if (data[idx] < 200) count++;
             }
             rowDensity[y] = count;
         }
 
-        // 2. Вертикальное выравнивание (сканирование столбцов)
         const colDensity = new Array(width).fill(0);
         for (let x = 0; x < width; x++) {
             let count = 0;
@@ -238,26 +235,20 @@
             colDensity[x] = count;
         }
 
-        // Порог плотности для определения главных осей схем
         const rowThreshold = width * 0.05; 
         const colThreshold = height * 0.05;
 
-        // Выравнивание мелких отклонений по горизонтальным линиям (Snap to Grid / Orthogonalization)
         for (let y = 0; y < height; y++) {
             if (rowDensity[y] > rowThreshold) {
-                // Выпрямляем строку: убираем пиксельные «ступеньки» в пределах соседних рядов
                 for (let x = 0; x < width; x++) {
                     let idx = (y * width + x) * 4;
-                    // Если рядом есть плотная линия, усиливаем прямизну
                     if (data[idx] < 200) {
-                        // Делаем пиксели линии строго черными без полутоновых артефактов
                         data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                     }
                 }
             }
         }
 
-        // Выравнивание вертикальных линий
         for (let x = 0; x < width; x++) {
             if (colDensity[x] > colThreshold) {
                 for (let y = 0; y < height; y++) {
@@ -270,7 +261,7 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("✅ Геометрия выровнена: линии приведены к строгим ортогональным осям.");
+        log("✅ Линии схемы выровнены по горизонтальным и вертикальным осям.");
     }
 </script>
 </body>
