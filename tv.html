@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Netis & Samsung TV Dashboard</title>
+    <title>Netis & Samsung TV Full Dashboard</title>
     <style>
         :root {
             --bg-main: #0b0f19;
@@ -11,7 +11,6 @@
             --bg-card: #1f2937;
             --bg-hover: #374151;
             --accent: #38bdf8;
-            --accent-hover: #0284c7;
             --text-main: #f9fafb;
             --text-muted: #9ca3af;
             --online: #22c55e;
@@ -19,393 +18,178 @@
             --border: rgba(255, 255, 255, 0.08);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-        body {
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Боковая панель (Sidebar) */
+        /* Sidebar */
         .sidebar {
-            width: 260px;
-            background-color: var(--bg-sidebar);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            padding: 24px 16px;
-            gap: 20px;
-            flex-shrink: 0;
+            width: 260px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 24px 16px; gap: 20px; flex-shrink: 0;
         }
-
-        .brand {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--accent);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 0 8px;
-        }
-
-        .menu-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            list-style: none;
-        }
-
+        .brand { font-size: 18px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+        .menu-list { display: flex; flex-direction: column; gap: 8px; list-style: none; }
         .menu-item {
-            padding: 12px 16px;
-            border-radius: 10px;
-            cursor: pointer;
-            color: var(--text-muted);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.2s ease;
+            padding: 12px 16px; border-radius: 10px; cursor: pointer; color: var(--text-muted);
+            font-weight: 500; transition: all 0.2s;
         }
+        .menu-item:hover { background: var(--bg-hover); color: var(--text-main); }
+        .menu-item.active { background: var(--accent); color: #0b0f19; font-weight: 600; }
+        .sidebar-footer { margin-top: auto; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px; }
 
-        .menu-item:hover {
-            background: var(--bg-hover);
-            color: var(--text-main);
+        /* Main Workspace */
+        .main-content { flex-grow: 1; padding: 24px 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+
+        /* Header Sys Metrics Widget */
+        .sys-bar {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;
+            background: var(--bg-card); padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border);
         }
+        .metric-card { display: flex; flex-direction: column; gap: 4px; }
+        .metric-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-val { font-size: 20px; font-weight: 700; color: var(--text-main); }
+        .progress-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .progress-fill { height: 100%; background: var(--accent); transition: width 0.4s; }
 
-        .menu-item.active {
-            background: var(--accent);
-            color: #0b0f19;
-            font-weight: 600;
+        .search-box {
+            width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; color: var(--text-main); font-size: 14px; outline: none; margin-bottom: 12px;
         }
+        .search-box:focus { border-color: var(--accent); }
 
-        .sidebar-footer {
-            margin-top: auto;
-            font-size: 12px;
-            color: var(--text-muted);
-            padding: 8px;
-            border-top: 1px solid var(--border);
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-        /* Главная область контента (Full Width) */
-        .main-content {
-            flex-grow: 1;
-            padding: 30px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
+        .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 
-        .header-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 16px;
-        }
+        .data-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+        .data-table th, .data-table td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .data-table th { background: #161e2e; color: var(--accent); font-weight: 600; }
+        .mono { font-family: monospace; color: var(--accent); }
 
-        .header-title h1 {
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        .btn-refresh {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 10px 18px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-refresh:hover {
-            background: var(--bg-hover);
-            border-color: var(--accent);
-        }
-
-        /* Секции табов */
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Сетка карточек и таблиц */
-        .grid-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 20px;
-            transition: 0.2s;
-        }
-
-        .card:hover {
-            border-color: rgba(56, 189, 248, 0.4);
-            transform: translateY(-2px);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .badge-online { background: rgba(34, 197, 94, 0.15); color: var(--online); }
         .badge-offline { background: rgba(239, 68, 68, 0.15); color: var(--offline); }
-
-        /* Стили таблиц */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--bg-card);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-        }
-
-        .data-table th, .data-table td {
-            padding: 14px 18px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-            font-size: 14px;
-        }
-
-        .data-table th {
-            background: #161e2e;
-            color: var(--accent);
-            font-weight: 600;
-        }
-
-        .data-table tr:hover {
-            background: var(--bg-hover);
-        }
-
-        .mono {
-            font-family: monospace;
-            color: var(--accent);
-        }
     </style>
 </head>
 <body>
 
-    <!-- Левая панель навигации -->
     <div class="sidebar">
-        <div class="brand">📡 Netis Monitor</div>
+        <div class="brand">📡 Netis Dashboard</div>
         <ul class="menu-list">
-            <li class="menu-item active" onclick="switchTab('tab-tvs', this)">
-                📺 Телевизоры Samsung
-            </li>
-            <li class="menu-item" onclick="switchTab('tab-devices', this)">
-                📱 Устройства DHCP
-            </li>
-            <li class="menu-item" onclick="switchTab('tab-stats', this)">
-                📊 Статистика сети
-            </li>
-            <li class="menu-item" onclick="switchTab('tab-interfaces', this)">
-                🌐 Интерфейсы
-            </li>
+            <li class="menu-item active" onclick="switchTab('tab-tvs', this)">📺 Телевизоры Samsung</li>
+            <li class="menu-item" onclick="switchTab('tab-devices', this)">📱 Устройства DHCP</li>
+            <li class="menu-item" onclick="switchTab('tab-stats', this)">📊 Статистика сети</li>
+            <li class="menu-item" onclick="switchTab('tab-interfaces', this)">🌐 Порты роутера</li>
+            <li class="menu-item" onclick="switchTab('tab-events', this)">📜 Лог событий</li>
         </ul>
-        <div class="sidebar-footer">
-            Интервал опроса: <b>20 сек</b><br>
-            Роутер: <b>192.168.1.1</b>
-        </div>
+        <div class="sidebar-footer"> Опрос: <b>20 сек</b><br>IP: <b>192.168.1.1</b> </div>
     </div>
 
-    <!-- Основная рабочая область -->
     <div class="main-content">
-        <div class="header-bar">
-            <div class="header-title">
-                <h1 id="tabTitle">Телевизоры Samsung</h1>
+        <!-- Верхние индикаторы роутера (CPU/RAM/Uptime) -->
+        <div class="sys-bar">
+            <div class="metric-card">
+                <span class="metric-title">Загрузка CPU</span>
+                <span id="cpuVal" class="metric-val">0%</span>
+                <div class="progress-bar"><div id="cpuFill" class="progress-fill" style="width: 0%"></div></div>
             </div>
-            <button class="btn-refresh" onclick="loadData()">🔄 Обновить данные</button>
+            <div class="metric-card">
+                <span class="metric-title">Память RAM</span>
+                <span id="memVal" class="metric-val">0%</span>
+                <div class="progress-bar"><div id="memFill" class="progress-fill" style="width: 0%"></div></div>
+            </div>
+            <div class="metric-card">
+                <span class="metric-title">Время работы (Uptime)</span>
+                <span id="uptimeVal" class="metric-val">0 дн 0 ч</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-title">Wi-Fi Сеть</span>
+                <span id="wifiVal" class="metric-val">-</span>
+            </div>
         </div>
 
         <!-- ТАБ 1: Телевизоры -->
         <div id="tab-tvs" class="tab-content active">
-            <div id="tvContainer" class="grid-cards">
-                <div style="color: var(--text-muted)">Загрузка данных...</div>
-            </div>
+            <h2 style="margin-bottom: 12px;">Мониторинг телевизоров Samsung</h2>
+            <div id="tvContainer" class="grid-cards"><div>Загрузка...</div></div>
         </div>
 
-        <!-- ТАБ 2: Устройства DHCP -->
+        <!-- ТАБ 2: DHCP Клиенты + Поиск -->
         <div id="tab-devices" class="tab-content">
+            <h2 style="margin-bottom: 12px;">Устройства в локальной сети</h2>
+            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Поиск устройства по имени или IP-адресу..." oninput="filterDevices()">
             <table class="data-table">
                 <thead>
-                    <tr>
-                        <th>Имя устройства (Host)</th>
-                        <th>IP-адрес</th>
-                        <th>MAC-адрес</th>
-                        <th>Тип адреса</th>
-                        <th>Статус</th>
-                    </tr>
+                    <tr><th>Host</th><th>IP-адрес</th><th>MAC-адрес</th><th>Тип</th><th>Статус</th></tr>
                 </thead>
-                <tbody id="deviceTableBody">
-                    <tr><td colspan="5" style="color: var(--text-muted)">Загрузка...</td></tr>
-                </tbody>
+                <tbody id="deviceTableBody"><tr><td colspan="5">Загрузка...</td></tr></tbody>
             </table>
         </div>
 
         <!-- ТАБ 3: Статистика трафика -->
         <div id="tab-stats" class="tab-content">
+            <h2 style="margin-bottom: 12px;">Статистика переданного трафика</h2>
             <table class="data-table">
                 <thead>
-                    <tr>
-                        <th>Интерфейс</th>
-                        <th>Передано пакетов</th>
-                        <th>Принято пакетов</th>
-                        <th>Передано байт</th>
-                        <th>Принято байт</th>
-                    </tr>
+                    <tr><th>Интерфейс</th><th>Пакеты (TX)</th><th>Пакеты (RX)</th><th>Передано</th><th>Принято</th></tr>
                 </thead>
-                <tbody id="statsTableBody">
-                    <tr><td colspan="5" style="color: var(--text-muted)">Загрузка...</td></tr>
-                </tbody>
+                <tbody id="statsTableBody"><tr><td colspan="5">Загрузка...</td></tr></tbody>
             </table>
         </div>
 
-        <!-- ТАБ 4: Интерфейсы роутера -->
+        <!-- ТАБ 4: Физические порты -->
         <div id="tab-interfaces" class="tab-content">
+            <h2 style="margin-bottom: 12px;">Состояние физических портов LAN/WAN</h2>
             <table class="data-table">
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Порт / Интерфейс</th>
-                        <th>Скорость</th>
-                        <th>Состояние</th>
-                    </tr>
+                    <tr><th>ID</th><th>Интерфейс</th><th>Скорость</th><th>Статус</th></tr>
                 </thead>
-                <tbody id="interfacesTableBody">
-                    <tr><td colspan="4" style="color: var(--text-muted)">Загрузка...</td></tr>
-                </tbody>
+                <tbody id="interfacesTableBody"><tr><td colspan="4">Загрузка...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- ТАБ 5: Лог событий -->
+        <div id="tab-events" class="tab-content">
+            <h2 style="margin-bottom: 12px;">Журнал активности системы</h2>
+            <table class="data-table">
+                <thead>
+                    <tr><th>Время</th><th>Событие</th></tr>
+                </thead>
+                <tbody id="eventsTableBody"><tr><td colspan="2">Загрузка...</td></tr></tbody>
             </table>
         </div>
     </div>
 
     <script>
         const SERVER_URL = 'http://localhost:3000/status';
+        let globalDevices = [];
 
-        // Переключение табов
         function switchTab(tabId, menuItem) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-
             document.getElementById(tabId).classList.add('active');
             menuItem.classList.add('active');
-
-            // Обновляем заголовок
-            document.getElementById('tabTitle').innerText = menuItem.innerText.trim();
         }
 
-        // Загрузка данных с Node.js сервера
-        async function loadData() {
-            try {
-                const response = await fetch(SERVER_URL);
-                const data = await response.json();
-
-                // 1. Рендер ТВ
-                const tvContainer = document.getElementById('tvContainer');
-                if (data.tvs && data.tvs.length > 0) {
-                    tvContainer.innerHTML = data.tvs.map(tv => `
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>📺 ${tv.hostname}</h3>
-                                <span class="badge ${tv.status === 'Online' ? 'badge-online' : 'badge-offline'}">
-                                    ${tv.status}
-                                </span>
-                            </div>
-                            <div style="font-size: 14px; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px;">
-                                <div>IP: <span class="mono">${tv.ip}</span></div>
-                                <div>MAC: <span class="mono">${tv.mac}</span></div>
-                                <div>Порт контроля: <span class="mono">8001</span></div>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    tvContainer.innerHTML = '<div style="color: var(--offline)">Телевизоры не найдены</div>';
-                }
-
-                // 2. Рендер всех устройств DHCP
-                const deviceBody = document.getElementById('deviceTableBody');
-                if (data.devices) {
-                    deviceBody.innerHTML = data.devices.map(dev => `
-                        <tr>
-                            <td><b>${dev.hostname}</b></td>
-                            <td class="mono">${dev.ip}</td>
-                            <td class="mono">${dev.mac}</td>
-                            <td>${dev.reserved}</td>
-                            <td>
-                                <span class="badge ${dev.status === 'Online' ? 'badge-online' : 'badge-offline'}">
-                                    ${dev.status}
-                                </span>
-                            </td>
-                        </tr>
-                    `).join('');
-                }
-
-                // 3. Рендер статистики
-                const statsBody = document.getElementById('statsTableBody');
-                if (data.stats) {
-                    statsBody.innerHTML = data.stats.map(s => `
-                        <tr>
-                            <td><b>${s.type}</b></td>
-                            <td class="mono">${Number(s.tx_pack).toLocaleString()}</td>
-                            <td class="mono">${Number(s.rx_pack).toLocaleString()}</td>
-                            <td class="mono">${Number(s.tx_bytes).toLocaleString()} B</td>
-                            <td class="mono">${Number(s.rx_bytes).toLocaleString()} B</td>
-                        </tr>
-                    `).join('');
-                }
-
-                // 4. Рендер интерфейсов
-                const ifaceBody = document.getElementById('interfacesTableBody');
-                if (data.interfaces) {
-                    ifaceBody.innerHTML = data.interfaces.map(i => `
-                        <tr>
-                            <td class="mono">#${i.id}</td>
-                            <td><b>${i.iface}</b></td>
-                            <td class="mono">${i.sp}</td>
-                            <td>${i.st === "0" ? '🟢 Активен' : '⚪ Отключен'}</td>
-                        </tr>
-                    `).join('');
-                }
-
-            } catch (err) {
-                console.error('Ошибка загрузки данных:', err);
-            }
+        function filterDevices() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = globalDevices.filter(d => 
+                d.hostname.toLowerCase().includes(query) || d.ip.includes(query) || d.mac.toLowerCase().includes(query)
+            );
+            renderDevicesTable(filtered);
         }
 
-        // Автообновление каждые 20 секунд
-        setInterval(loadData, 20000);
-        loadData();
-    </script>
-</body>
-</html>
+        function renderDevicesTable(list) {
+            const tbody = document.getElementById('deviceTableBody');
+            tbody.innerHTML = list.map(dev => `
+                <tr>
+                    <td><b>${dev.hostname}</b></td>
+                    <td class="mono">${dev.ip}</td>
+                    <td class="mono">${dev.mac}</td>
+                    <td>${dev.type}</td>
+                    <td><span class="badge ${dev.status === 'Online' ? 'badge-online' : 'badge-offline'}">${dev.status}</span></td>
+                </tr>
+            `).join('');
+        }
