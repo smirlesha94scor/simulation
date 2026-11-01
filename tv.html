@@ -167,7 +167,8 @@
     </div>
 
     <script>
-        const SERVER_URL = '/status';
+        // Указываем прямой адрес локального сервера, чтобы данные грузились правильно
+        const SERVER_URL = 'http://localhost:3000/status';
         let globalDevices = [];
 
         function switchTab(tabId, menuItem) {
