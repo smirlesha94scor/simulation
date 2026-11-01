@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Раздельная очистка и выравнивание</title>
+    <title>CV Circuit Scanner - Выравнивание полосочным сканированием</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -56,7 +56,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Очистка фона и выравнивание линий</h1>
+    <h1>⚡ Сканер схем: Очистка фона и полосочное выравнивание</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -70,11 +70,8 @@
         <span id="colorBox" class="color-preview" style="display:none;"></span><br>
 
         <div class="btn-group">
-            <!-- Кнопка 1: Только сделать фон белым -->
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>1. Сделать фон белым</button>
-            
-            <!-- Кнопка 2: Только выровнять линии -->
-            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>2. Выровнять линии</button>
+            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>2. Выровнять линии (сканирование 15px)</button>
         </div>
     </div>
 
@@ -169,7 +166,7 @@
         document.getElementById('sensValue').textContent = val;
     }
 
-    // ОПЕРАЦИЯ 1: Только сделать фон белым
+    // КНОПКА 1: Очистка фона до белого
     function runColorFilter() {
         if (!selectedColorRgb) {
             alert('Сначала кликните по линии на схеме!');
@@ -204,8 +201,13 @@
         log("✅ Фон успешно очищен до белого цвета.");
     }
 
-    // ОПЕРАЦИЯ 2: Только выровнять линии
+    // КНОПКА 2: Полосочное выравнивание сверху вниз (полоска 15 пикселей)
     function optimizeGeometry() {
+        if (!selectedColorRgb) {
+            alert('Сначала выберите цвет линии!');
+            return;
+        }
+
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
@@ -213,55 +215,61 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        log("⚙️ Запуск алгоритма выравнивания линий...");
+        log("⚙️ Сканирование сверху вниз полоской 15 пикселей...");
 
-        const rowDensity = new Array(height).fill(0);
-        for (let y = 0; y < height; y++) {
-            let count = 0;
+        const stripHeight = 15;
+        const lineR = selectedColorRgb.r;
+        const lineG = selectedColorRgb.g;
+        const lineB = selectedColorRgb.b;
+
+        // Сканируем изображение полосками сверху вниз
+        for (let yStart = 0; yStart < height; yStart += stripHeight) {
+            let yEnd = Math.min(yStart + stripHeight, height);
+
             for (let x = 0; x < width; x++) {
-                let idx = (y * width + x) * 4;
-                if (data[idx] < 200) count++;
-            }
-            rowDensity[y] = count;
-        }
+                let darkPixelCount = 0;
+                let firstY = -1;
+                let lastY = -1;
 
-        const colDensity = new Array(width).fill(0);
-        for (let x = 0; x < width; x++) {
-            let count = 0;
-            for (let y = 0; y < height; y++) {
-                let idx = (y * width + x) * 4;
-                if (data[idx] < 200) count++;
-            }
-            colDensity[x] = count;
-        }
-
-        const rowThreshold = width * 0.05; 
-        const colThreshold = height * 0.05;
-
-        for (let y = 0; y < height; y++) {
-            if (rowDensity[y] > rowThreshold) {
-                for (let x = 0; x < width; x++) {
+                // Считаем пиксели выбранного цвета внутри полоски по вертикали для столбца x
+                for (let y = yStart; y < yEnd; y++) {
                     let idx = (y * width + x) * 4;
-                    if (data[idx] < 200) {
-                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                    let dist = Math.sqrt(
+                        Math.pow(data[idx] - lineR, 2) +
+                        Math.pow(data[idx+1] - lineG, 2) +
+                        Math.pow(data[idx+2] - lineB, 2)
+                    );
+                    if (dist < 60) {
+                        darkPixelCount++;
+                        if (firstY === -1) firstY = y;
+                        lastY = y;
                     }
                 }
-            }
-        }
 
-        for (let x = 0; x < width; x++) {
-            if (colDensity[x] > colThreshold) {
-                for (let y = 0; y < height; y++) {
-                    let idx = (y * width + x) * 4;
-                    if (data[idx] < 200) {
-                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                // Если в полоске найден сегмент линии
+                if (darkPixelCount >= 2) {
+                    // Заполняем пропуски выбранным цветом (добавляем недостающие пиксели)
+                    for (let y = firstY; y <= lastY; y++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = lineR;
+                        data[idx+1] = lineG;
+                        data[idx+2] = lineB;
+                    }
+                    // Убираем лишние шумовые пиксели вне диапазона [firstY, lastY] внутри этой полоски
+                    for (let y = yStart; y < yEnd; y++) {
+                        if (y < firstY || y > lastY) {
+                            let idx = (y * width + x) * 4;
+                            data[idx] = 255;
+                            data[idx+1] = 255;
+                            data[idx+2] = 255;
+                        }
                     }
                 }
             }
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("✅ Линии схемы выровнены по горизонтальным и вертикальным осям.");
+        log("✅ Полосочное выравнивание завершено: пробелы заполнены, лишние пиксели удалены.");
     }
 </script>
 </body>
