@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Выравнивание линий с защитой текста</title>
+    <title>CV Circuit Scanner - Настройка карты текста</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -11,6 +11,9 @@
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
         button:disabled { background: #444; cursor: not-allowed; }
+
+        .btn-auto { background: #00ff66; color: #000; }
+        .btn-auto:hover { background: #00cc52; }
 
         .btn-bg { background: #00bcd4; color: #fff; }
         .btn-bg:hover { background: #008ba3; }
@@ -41,14 +44,6 @@
             z-index: 1;
         }
 
-        #svg-layer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
         .color-preview { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 5px; }
         .btn-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
@@ -56,29 +51,34 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Выравнивание линий с защитой текста</h1>
+    <h1>⚡ Сканер схем: Настройка карты текста</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
         
         <div style="margin: 10px 0;">
-            <label>Допуск близких оттенков: <span id="sensValue">50</span></label><br>
-            <input type="range" id="sensitivity" min="10" max="150" value="50" oninput="onSensitivityChange(this.value)">
+            <label>Чувствительность очистки фона: <span id="sensValue">50</span></label><br>
+            <input type="range" id="sensitivity" min="10" max="180" value="50" oninput="onSensitivityChange(this.value)">
+        </div>
+
+        <div style="margin: 10px 0;">
+            <label>Чувствительность карты текста: <span id="textSensValue">20</span></label><br>
+            <input type="range" id="textSensitivity" min="5" max="50" value="20" oninput="document.getElementById('textSensValue').textContent=this.value">
         </div>
 
         <span id="selectedColorStatus">1. Кликните по линии на схеме для выбора цвета</span>
         <span id="colorBox" class="color-preview" style="display:none;"></span><br>
 
         <div class="btn-group">
-            <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>1. Сделать фон белым</button>
-            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>2. Выровнять линии (защита букв)</button>
+            <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
+            <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
+            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>🔍 Построить карту текста</button>
         </div>
     </div>
 
     <div class="card">
         <div id="viewport">
             <canvas id="cv-canvas" width="1000" height="600"></canvas>
-            <svg id="svg-layer" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
     </div>
 
@@ -101,6 +101,8 @@
         box.scrollTop = box.scrollHeight;
     }
 
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
     function loadToCanvas(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -111,11 +113,11 @@
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
-                    document.getElementById('svg-layer').innerHTML = '';
                     selectedColorRgb = null;
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
+                    document.getElementById('btnAutoClean').disabled = true;
                     document.getElementById('btnAlignLines').disabled = true;
                     log("Изображение загружено. Выберите цвет пипеткой.");
                 };
@@ -153,9 +155,10 @@
 
                 document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
                 document.getElementById('btnMakeWhite').disabled = false;
+                document.getElementById('btnAutoClean').disabled = false;
                 document.getElementById('btnAlignLines').disabled = false;
 
-                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Нажмите "Сделать фон белым".`);
+                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
             } catch (err) {
                 log("❌ Ошибка считывания цвета: " + err.message);
             }
@@ -166,13 +169,10 @@
         document.getElementById('sensValue').textContent = val;
     }
 
-    function runColorFilter() {
-        if (!selectedColorRgb) {
-            alert('Сначала кликните по линии на схеме!');
-            return;
-        }
+    function runColorFilter(customTolerance = null) {
+        if (!selectedColorRgb) return;
 
-        const tolerance = parseInt(document.getElementById('sensitivity').value);
+        const tolerance = customTolerance !== null ? customTolerance : parseInt(document.getElementById('sensitivity').value);
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         
@@ -197,11 +197,47 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("✅ Фон успешно очищен до белого цвета.");
+        log(`✅ Фон очищен (Чувствительность: ${tolerance}).`);
     }
 
-    // КНОПКА 2: Выравнивание линий с защитой текстовых областей
-    function optimizeGeometry() {
+    function autoCleanBackground() {
+        if (!selectedColorRgb) {
+            alert('Сначала кликните по линии на схеме!');
+            return;
+        }
+
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        let distances = [];
+        for (let i = 0; i < data.length; i += 16) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            let dist = Math.sqrt(
+                Math.pow(r - selectedColorRgb.r, 2) +
+                Math.pow(g - selectedColorRgb.g, 2) +
+                Math.pow(b - selectedColorRgb.b, 2)
+            );
+            distances.push(dist);
+        }
+
+        distances.sort((a, b) => a - b);
+        let autoSensitivity = Math.floor(distances[Math.floor(distances.length * 0.25)]);
+
+        if (autoSensitivity < 25) autoSensitivity = 25;
+        if (autoSensitivity > 140) autoSensitivity = 140;
+
+        document.getElementById('sensitivity').value = autoSensitivity;
+        document.getElementById('sensValue').textContent = autoSensitivity;
+
+        log(`🪄 Автоподбор чувствительности: ${autoSensitivity}`);
+        runColorFilter(autoSensitivity);
+    }
+
+    // Построение карты текста с учетом ползунка чувствительности и полной остановкой по завершении
+    async function optimizeGeometry() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
             return;
@@ -214,14 +250,15 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        log("⚙️ Сканирование и выравнивание линий с защитой букв и текста...");
+        // Читаем значение чувствительности карты текста из нового ползунка
+        const textThreshold = parseInt(document.getElementById('textSensitivity').value);
+
+        log(`🔍 Построение карты текста (порог: ${textThreshold})...`);
 
         const lineR = selectedColorRgb.r;
         const lineG = selectedColorRgb.g;
         const lineB = selectedColorRgb.b;
-        const stripSize = 15;
 
-        // Вспомогательная функция проверки: является ли пиксель частью линии
         function isLinePixel(r, g, b) {
             let dist = Math.sqrt(
                 Math.pow(r - lineR, 2) +
@@ -231,116 +268,45 @@
             return dist < 60;
         }
 
-        // КАРТА ЗАЩИТЫ ТЕКСТА: определяем плотные скопления символов (букв и цифр)
-        // Блоки текста имеют высокую локальную плотность пикселей в небольших квадратах
         const textMask = new Uint8Array(width * height);
-        const blockSize = 16;
-        
-        for (let y = 0; y < height; y += blockSize) {
-            for (let x = 0; x < width; x += blockSize) {
-                let darkPixelsInBlock = 0;
-                let bWidth = Math.min(blockSize, width - x);
-                let bHeight = Math.min(blockSize, height - y);
+        const scanStep = 15;
 
-                for (let by = 0; by < bHeight; by++) {
-                    for (let bx = 0; bx < bWidth; bx++) {
-                        let idx = ((y + by) * width + (x + bx)) * 4;
+        for (let y = 5; y < height - 5; y += scanStep) {
+            for (let x = 5; x < width - 5; x += scanStep) {
+                let darkCount = 0;
+                for (let dy = -6; dy <= 6; dy++) {
+                    for (let dx = -6; dx <= 6; dx++) {
+                        let idx = ((y + dy) * width + (x + dx)) * 4;
                         if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                            darkPixelsInBlock++;
+                            darkCount++;
                         }
                     }
                 }
 
-                // Если в блоке слишком много темных пикселей на тесной площади — это текст/маркировка (например C1, R1)
-                // Обычные длинные линии такую плотность в квадрате 16x16 не дают
-                if (darkPixelsInBlock > 35 && darkPixelsInBlock < 120) {
-                    for (let by = 0; by < bHeight; by++) {
-                        for (let bx = 0; bx < bWidth; bx++) {
-                            textMask[(y + by) * width + (x + bx)] = 1; // Помечаем как защищенный текст
-                        }
-                    }
-                }
-            }
-        }
-
-        // 1. Вертикальное выравнивание (только там, где нет защищенного текста)
-        for (let x = 0; x < width; x += stripSize) {
-            let xEnd = Math.min(x + stripSize, width);
-
-            for (let y = 0; y < height; y++) {
-                if (textMask[y * width + x] === 1) continue; // Пропускаем текст
-
-                let countX = 0;
-                let firstX = -1;
-                let lastX = -1;
-
-                for (let cx = x; cx < xEnd; cx++) {
-                    if (textMask[y * width + cx] === 1) continue;
-                    let idx = (y * width + cx) * 4;
-                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                        countX++;
-                        if (firstX === -1) firstX = cx;
-                        lastX = cx;
-                    }
-                }
-
-                if (countX >= 2) {
-                    for (let cx = firstX; cx <= lastX; cx++) {
-                        if (textMask[y * width + cx] === 1) continue;
-                        let idx = (y * width + cx) * 4;
-                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
-                    }
-                    for (let cx = x; cx < xEnd; cx++) {
-                        if (textMask[y * width + cx] === 1) continue;
-                        if (cx < firstX || cx > lastX) {
-                            let idx = (y * width + cx) * 4;
-                            data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                // Используем значение ползунка для фильтрации плотности текста
+                if (darkCount > textThreshold && darkCount < textThreshold * 4.5) {
+                    for (let dy = -7; dy <= 7; dy++) {
+                        for (let dx = -7; dx <= 7; dx++) {
+                            let nx = x + dx;
+                            let ny = y + dy;
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                textMask[ny * width + nx] = 1;
+                                let idx = (ny * width + nx) * 4;
+                                data[idx] = 255;   // R (Красная подсветка)
+                                data[idx+1] = 0; // G
+                                data[idx+2] = 0; // B
+                            }
                         }
                     }
                 }
             }
+            ctx.putImageData(imgData, 0, 0);
+            await sleep(10); 
         }
 
-        // 2. Горизонтальное выравнивание (только там, где нет защищенного текста)
-        for (let y = 0; y < height; y += stripSize) {
-            let yEnd = Math.min(y + stripSize, height);
-
-            for (let x = 0; x < width; x++) {
-                if (textMask[y * width + x] === 1) continue; // Пропускаем текст
-
-                let countY = 0;
-                let firstY = -1;
-                let lastY = -1;
-
-                for (let cy = y; cy < yEnd; cy++) {
-                    if (textMask[cy * width + x] === 1) continue;
-                    let idx = (cy * width + x) * 4;
-                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                        countY++;
-                        if (firstY === -1) firstY = cy;
-                        lastY = cy;
-                    }
-                }
-
-                if (countY >= 2) {
-                    for (let cy = firstY; cy <= lastY; cy++) {
-                        if (textMask[cy * width + x] === 1) continue;
-                        let idx = (cy * width + x) * 4;
-                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
-                    }
-                    for (let cy = y; cy < yEnd; cy++) {
-                        if (textMask[cy * width + x] === 1) continue;
-                        if (cy < firstY || cy > lastY) {
-                            let idx = (cy * width + x) * 4;
-                            data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
-                        }
-                    }
-                }
-            }
-        }
-
+        // Полная остановка процесса после завершения сканирования
         ctx.putImageData(imgData, 0, 0);
-        log("✅ Линии выровнены, буквенные обозначения (текст) защищены и остались неизменными.");
+        log("✅ Карта текста успешно построена и работа алгоритма остановлена.");
     }
 </script>
 </body>
