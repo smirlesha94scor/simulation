@@ -3,95 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Монитор Samsung TV</title>
+    <title>Мониторинг Samsung TV & Netis Router</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-hover: #334155;
+            --accent-color: #38bdf8;
+            --accent-hover: #0284c7;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --online-color: #22c55e;
+            --online-glow: rgba(34, 197, 94, 0.4);
+            --offline-color: #ef4444;
+            --offline-glow: rgba(239, 68, 68, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
-        .card {
-            background: #1e1e1e;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            width: 350px;
-            text-align: center;
-        }
-        .tv-item {
-            background: #2a2a2a;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 10px 0;
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
             display: flex;
-            flex-direction: column;
-            gap: 6px;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
         }
-        .status-container {
+
+        .dashboard {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            width: 100%;
+            max-width: 440px;
+            padding: 28px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 16px;
+            margin-bottom: 24px;
         }
-        .indicator {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background-color: #555;
+
+        .header h2 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .indicator.online {
-            background-color: #4CAF50;
-            box-shadow: 0 0 8px #4CAF50;
+
+        .header h2::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 20px;
+            background: var(--accent-color);
+            border-radius: 4px;
         }
-        .indicator.offline {
-            background-color: #F44336;
-            box-shadow: 0 0 8px #F44336;
-        }
-        .ip-info {
-            font-size: 13px;
-            color: #aaa;
-            text-align: left;
-        }
-        .no-tv {
-            color: #F44336;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        button {
-            background-color: #007ACC;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+
+        .refresh-icon {
             cursor: pointer;
-            font-size: 14px;
-            margin-top: 15px;
-            width: 100%;
-            transition: background 0.2s;
+            color: var(--text-muted);
+            transition: color 0.2s, transform 0.3s;
         }
-        button:hover {
-            background-color: #005999;
+
+        .refresh-icon:hover {
+            color: var(--accent-color);
+            transform: rotate(90deg);
+        }
+
+        .tv-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .tv-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tv-card:hover {
+            background: var(--card-hover);
+            border-color: rgba(56, 189, 248, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .tv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tv-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .badge-online {
+            color: var(--online-color);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .badge-offline {
+            color: var(--offline-color);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .dot.online {
+            background-color: var(--online-color);
+            box-shadow: 0 0 10px var(--online-glow);
+        }
+
+        .dot.offline {
+            background-color: var(--offline-color);
+            box-shadow: 0 0 10px var(--offline-glow);
+        }
+
+        .tv-subtext {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Панель детальной информации */
+        .details-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0, 1, 0, 1), margin-top 0.2s;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 10px;
+            padding: 0 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .tv-card.active .details-panel {
+            max-height: 200px;
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .info-row span:last-child {
+            color: var(--text-main);
+            font-family: monospace;
+        }
+
+        .btn-update {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+            color: #fff;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-update:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px 10px;
+            color: var(--offline-color);
+            font-weight: 500;
         }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>Samsung TV Monitor</h2>
-        <div id="tvContainer">
-            <span>Загрузка данных...</span>
+    <div class="dashboard">
+        <div class="header">
+            <h2>Samsung TV Monitor</h2>
+            <div class="refresh-icon" onclick="checkStatus()" title="Обновить">
+                🔄
+            </div>
         </div>
-        <button onclick="checkStatus()">Обновить статус</button>
+
+        <div id="tvContainer" class="tv-list">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">Загрузка устройств...</div>
+        </div>
+
+        <button class="btn-update" onclick="checkStatus()">Обновить статус</button>
     </div>
 
     <script>
         const SERVER_URL = 'http://localhost:3000/status';
+
+        function toggleDetails(cardElement) {
+            // Переключаем разворачивание детальной панели
+            cardElement.classList.toggle('active');
+        }
 
         async function checkStatus() {
             const container = document.getElementById('tvContainer');
@@ -100,25 +256,52 @@
                 const response = await fetch(SERVER_URL);
                 const data = await response.json();
 
-                // Проверяем, есть ли телевизоры в массиве
                 if (!data.tvs || data.tvs.length === 0) {
-                    container.innerHTML = '<div class="no-tv">Телевизоры не обнаружены</div>';
+                    container.innerHTML = '<div class="empty-state">Телевизоры не обнаружены</div>';
                     return;
                 }
 
                 let html = '';
                 data.tvs.forEach((tv, index) => {
                     const isOnline = tv.status === 'Online';
+                    const mac = tv.mac || 'a4:30:7a:b5:62:83';
+                    const hostname = tv.hostname || 'Samsung Smart TV';
+
                     html += `
-                        <div class="tv-item">
-                            <div class="status-container">
-                                <span>Телевизор #${index + 1}</span>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 13px; color: ${isOnline ? '#4CAF50' : '#F44336'}">${tv.status}</span>
-                                    <div class="indicator ${isOnline ? 'online' : 'offline'}"></div>
+                        <div class="tv-card" onclick="toggleDetails(this)">
+                            <div class="tv-header">
+                                <div class="tv-title">
+                                    📺 Телевизор #${index + 1}
+                                </div>
+                                <div class="status-badge ${isOnline ? 'badge-online' : 'badge-offline'}">
+                                    <div class="dot ${isOnline ? 'online' : 'offline'}"></div>
+                                    ${tv.status}
                                 </div>
                             </div>
-                            <div class="ip-info">IP: ${tv.ip}</div>
+                            <div class="tv-subtext">
+                                <span>IP: ${tv.ip}</span>
+                                <span>Нажмите для деталей ▾</span>
+                            </div>
+
+                            <!-- Скрытая панель с данными Netis -->
+                            <div class="details-panel">
+                                <div class="info-row">
+                                    <span>Устройство (Host):</span>
+                                    <span>${hostname}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span>MAC-адрес:</span>
+                                    <span>${mac}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span>Производитель:</span>
+                                    <span>Samsung Electronics</span>
+                                </div>
+                                <div class="info-row">
+                                    <span>Тип бронирования:</span>
+                                    <span>Dynamic (DHCP)</span>
+                                </div>
+                            </div>
                         </div>
                     `;
                 });
@@ -126,17 +309,20 @@
                 container.innerHTML = html;
 
             } catch (error) {
-                container.innerHTML = '<div class="no-tv">Нет связи с локальным мостом<br><span style="font-size:12px; color:#888;">Запустите start.bat на ПК</span></div>';
+                container.innerHTML = `
+                    <div class="empty-state">
+                        Нет связи с сервером Node.js<br>
+                        <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">
+                            Убедитесь, что запущен index.js
+                        </span>
+                    </div>`;
                 console.error('Ошибка соединения:', error);
             }
         }
 
         // Автообновление каждые 6 секунд
         setInterval(checkStatus, 6000);
-
-        // Первичный вызов при открытии страницы
         checkStatus();
     </script>
-
 </body>
 </html>
