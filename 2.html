@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Полуавтоматическое выравнивание областей</title>
+    <title>CV Circuit Scanner - Идеальное выравнивание выделения</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -51,7 +51,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Полуавтоматическое выравнивание по областям</h1>
+    <h1>⚡ Сканер схем: Идеальное выравнивание выделения</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -70,7 +70,7 @@
             <button id="btnAlignH" class="btn-align" onclick="alignSelectedArea('horizontal')" disabled>↔️ Выровнять выделение в горизонт</button>
             <button id="btnAlignV" class="btn-align" onclick="alignSelectedArea('vertical')" disabled>↕️ Выровнять выделение в вертикаль</button>
         </div>
-        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После выбора цвета зажмите левую кнопку мыши на схеме и выделите рамкой нужную кривую линию.</i></p>
+        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После выбора цвета зажмите левую кнопку мыши на схеме и выделите рамкой нужную неровную линию от начала до конца.</i></p>
     </div>
 
     <div class="card">
@@ -88,7 +88,6 @@
     let imgElement = new Image();
     let selectedColorRgb = null;
 
-    // Переменные для выделения области мышкой
     let isDrawing = false;
     let startX = 0, startY = 0;
     let endX = 0, endY = 0;
@@ -133,17 +132,16 @@
         const canvas = document.getElementById('cv-canvas');
 
         canvas.addEventListener('mousedown', (e) => {
-            if (!selectedColorRgb) {
-                // Если цвет еще не выбран — работаем как пипетка (клик)
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = 1000 / rect.width;
-                const scaleY = 600 / rect.height;
-                const x = Math.floor((e.clientX - rect.left) * scaleX);
-                const y = Math.floor((e.clientY - rect.top) * scaleY);
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            const currentX = Math.floor((e.clientX - rect.left) * scaleX);
+            const currentY = Math.floor((e.clientY - rect.top) * scaleY);
 
+            if (!selectedColorRgb) {
                 try {
                     const ctx = canvas.getContext('2d');
-                    const pixel = ctx.getImageData(x, y, 1, 1).data;
+                    const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
                     selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
 
                     const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
@@ -157,19 +155,15 @@
                     document.getElementById('btnAlignH').disabled = false;
                     document.getElementById('btnAlignV').disabled = false;
 
-                    log(`🎨 Выбран эталонный цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Теперь можно выделять области рамкой.`);
+                    log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Выделите рамкой линию.`);
                 } catch (err) {
                     log("❌ Ошибка выбора цвета: " + err.message);
                 }
                 return;
             }
 
-            // Инициализация выделения области рамкой
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = 1000 / rect.width;
-            const scaleY = 600 / rect.height;
-            startX = Math.floor((e.clientX - rect.left) * scaleX);
-            startY = Math.floor((e.clientY - rect.top) * scaleY);
+            startX = currentX;
+            startY = currentY;
             isDrawing = true;
         });
 
@@ -181,7 +175,6 @@
             endX = Math.floor((e.clientX - rect.left) * scaleX);
             endY = Math.floor((e.clientY - rect.top) * scaleY);
 
-            // Перерисовываем холст и показываем рамку выделения в реальном времени
             const ctx = canvas.getContext('2d');
             ctx.putImageData(originalImageSnapshot, 0, 0);
             
@@ -200,7 +193,7 @@
             const scaleY = 600 / rect.height;
             endX = Math.floor((e.clientX - rect.left) * scaleX);
             endY = Math.floor((e.clientY - rect.top) * scaleY);
-            log(`📐 Выделена область: X[${Math.min(startX, endX)}...${Math.max(startX, endX)}], Y[${Math.min(startY, endY)}...${Math.max(startY, endY)}]`);
+            log(`📐 Область выделена. Нажмите необходимую кнопку выравнивания.`);
         });
     }
 
@@ -232,7 +225,7 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600); // Сохраняем состояние после очистки
+        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
         log(`✅ Фон очищен.`);
     }
 
@@ -265,7 +258,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ПОЛУАВТОМАТИЧЕСКОЕ ВЫРАВНИВАНИЕ ВЫДЕЛЕННОЙ ОБЛАСТИ
+    // ВЫРАВНИВАНИЕ ВЫДЕЛЕНИЯ НА ВСЮ ДЛИНУ (СПЛОШНАЯ ЛИНИЯ)
     function alignSelectedArea(direction) {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -277,7 +270,6 @@
         const width = canvas.width;
         const height = canvas.height;
         
-        // Восстанавливаем чистый холст перед применением выравнивания к выделению
         ctx.putImageData(originalImageSnapshot, 0, 0);
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
@@ -287,7 +279,6 @@
         let y1 = Math.max(0, Math.min(startY, endY));
         let y2 = Math.min(height, Math.max(startY, endY));
 
-        // Если область не выделена, применяем ко всему холсту
         if (x1 === x2 || y1 === y2) {
             x1 = 0; x2 = width; y1 = 0; y2 = height;
         }
@@ -301,73 +292,75 @@
             return dist < 60;
         }
 
-        log(`⚙️ Выравнивание выделенной области (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
+        log(`⚙️ Точное сплошное выравнивание (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
 
         if (direction === 'horizontal') {
-            // Выравнивание в горизонтальную линию (усреднение Y для каждого столбца в выделении)
+            let totalY = 0;
+            let totalCount = 0;
             for (let x = x1; x <= x2; x++) {
-                let sumY = 0;
-                let count = 0;
-                let minY = height, maxY = 0;
-
                 for (let y = y1; y <= y2; y++) {
                     let idx = (y * width + x) * 4;
                     if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                        sumY += y;
-                        count++;
-                        if (y < minY) minY = y;
-                        if (y > maxY) maxY = y;
+                        totalY += y;
+                        totalCount++;
                     }
                 }
+            }
 
-                if (count >= 2) {
-                    let avgY = Math.round(sumY / count);
-                    // Очищаем старый вертикальный столбец в пределах выделения
+            if (totalCount > 0) {
+                let avgY = Math.round(totalY / totalCount);
+                // Очищаем область выделения от старых пикселей
+                for (let x = x1; x <= x2; x++) {
                     for (let y = y1; y <= y2; y++) {
                         let idx = (y * width + x) * 4;
                         data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
                     }
-                    // Рисуем строго ровную горизонтальную точку/опору
-                    for (let y = minY; y <= maxY; y++) {
-                        let idx = (y * width + x) * 4;
-                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                }
+                // Рисуем сплошную ровную горизонтальную линию на всю ширину выделения
+                for (let x = x1; x <= x2; x++) {
+                    let idx = (avgY * width + x) * 4;
+                    data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                    if (avgY + 1 < height) {
+                        let idx2 = ((avgY + 1) * width + x) * 4;
+                        data[idx2] = lineR; data[idx2+1] = lineG; data[idx2+2] = lineB;
                     }
                 }
             }
         } else {
-            // Выравнивание в вертикальную линию (усреднение X для каждой строки в выделении)
+            let totalX = 0;
+            let totalCount = 0;
             for (let y = y1; y <= y2; y++) {
-                let sumX = 0;
-                let count = 0;
-                let minX = width, maxX = 0;
-
                 for (let x = x1; x <= x2; x++) {
                     let idx = (y * width + x) * 4;
                     if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                        sumX += x;
-                        count++;
-                        if (x < minX) minX = x;
-                        if (x > maxX) maxX = x;
+                        totalX += x;
+                        totalCount++;
                     }
                 }
+            }
 
-                if (count >= 2) {
-                    let avgX = Math.round(sumX / count);
+            if (totalCount > 0) {
+                let avgX = Math.round(totalX / totalCount);
+                for (let y = y1; y <= y2; y++) {
                     for (let x = x1; x <= x2; x++) {
                         let idx = (y * width + x) * 4;
                         data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
                     }
-                    for (let x = minX; x <= maxX; x++) {
-                        let idx = (y * width + x) * 4;
-                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                }
+                for (let y = y1; y <= y2; y++) {
+                    let idx = (y * width + avgX) * 4;
+                    data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                    if (avgX + 1 < width) {
+                        let idx2 = (y * width + (avgX + 1)) * 4;
+                        data[idx2] = lineR; data[idx2+1] = lineG; data[idx2+2] = lineB;
                     }
                 }
             }
         }
 
         ctx.putImageData(imgData, 0, 0);
-        originalImageSnapshot = ctx.getImageData(0, 0, width, height); // Сохраняем результат
-        log(`✅ Выделенная область успешно выровнена.`);
+        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
+        log(`✅ Линия выровнена на всю ширину/высоту выделенной зоны.`);
     }
 </script>
 </body>
