@@ -116,7 +116,7 @@
 
         <!-- ТАБ 1: Телевизоры -->
         <div id="tab-tvs" class="tab-content active">
-            <h2 style="margin-bottom: 12px;">Мониторинг телевизоров Samsung</h2>
+            <h2 style="margin-bottom: 12px;">Мониторинг телевизоров Samsung (192.168.1.2, 192.168.1.8)</h2>
             <div id="tvContainer" class="grid-cards"><div>Загрузка данных...</div></div>
         </div>
 
@@ -167,7 +167,6 @@
     </div>
 
     <script>
-        // Правильный абсолютный путь к вашему локальному серверу Node.js
         const SERVER_URL = 'http://localhost:3000/status';
         let globalDevices = [];
 
@@ -231,11 +230,11 @@
                     document.getElementById('wifiVal').innerText = `${data.system.ssid} (ch ${data.system.channel})`;
                 }
 
-                // 2. Телевизоры Samsung
+                // 2. Телевизоры Samsung (с точным отображением Online / Offline)
                 const tvContainer = document.getElementById('tvContainer');
                 if (data.tvs && data.tvs.length > 0) {
                     tvContainer.innerHTML = data.tvs.map(tv => `
-                        <div class="card">
+                        <div class="card" style="border-left: 4px solid ${tv.status === 'Online' ? 'var(--online)' : 'var(--offline)'}">
                             <div class="card-header">
                                 <h3>📺 ${tv.hostname}</h3>
                                 <span class="badge ${tv.status === 'Online' ? 'badge-online' : 'badge-offline'}">${tv.status}</span>
@@ -243,12 +242,12 @@
                             <div style="font-size: 13px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;">
                                 <div>IP-адрес: <span class="mono">${tv.ip}</span></div>
                                 <div>MAC-адрес: <span class="mono">${tv.mac}</span></div>
-                                <div>Контроль порта: <span class="mono">8001 (Samsung API)</span></div>
+                                <div>Статус порта 8001: <span class="mono">${tv.status === 'Online' ? 'Активен (Включен)'  : 'Недоступен (Выключен)'}</span></div>
                             </div>
                         </div>
                     `).join('');
                 } else {
-                    tvContainer.innerHTML = `<div style="color: var(--text-muted)">Телевизоры Samsung не обнаружены в сети (проверьте имя хоста в DHCP)</div>`;
+                    tvContainer.innerHTML = `<div style="color: var(--text-muted)">Целевые телевизоры не найдены</div>`;
                 }
 
                 // 3. Устройства
@@ -280,7 +279,7 @@
                     `).join('');
                 }
 
-                // 6. Лог
+     // 6. Лог
                 if (data.events && data.events.length > 0) {
                     document.getElementById('eventsTableBody').innerHTML = data.events.map(e => `
                         <tr>
