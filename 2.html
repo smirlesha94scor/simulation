@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Выравнивание полосочным сканированием</title>
+    <title>CV Circuit Scanner - Выравнивание линий с защитой текста</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -56,7 +56,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Очистка фона и полосочное выравнивание</h1>
+    <h1>⚡ Сканер схем: Выравнивание линий с защитой текста</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -71,7 +71,7 @@
 
         <div class="btn-group">
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>1. Сделать фон белым</button>
-            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>2. Выровнять линии (сканирование 15px)</button>
+            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>2. Выровнять линии (защита букв)</button>
         </div>
     </div>
 
@@ -166,7 +166,6 @@
         document.getElementById('sensValue').textContent = val;
     }
 
-    // КНОПКА 1: Очистка фона до белого
     function runColorFilter() {
         if (!selectedColorRgb) {
             alert('Сначала кликните по линии на схеме!');
@@ -201,7 +200,7 @@
         log("✅ Фон успешно очищен до белого цвета.");
     }
 
-    // КНОПКА 2: Полосочное выравнивание сверху вниз (полоска 15 пикселей)
+    // КНОПКА 2: Выравнивание линий с защитой текстовых областей
     function optimizeGeometry() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -215,53 +214,125 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        log("⚙️ Сканирование сверху вниз полоской 15 пикселей...");
+        log("⚙️ Сканирование и выравнивание линий с защитой букв и текста...");
 
-        const stripHeight = 15;
         const lineR = selectedColorRgb.r;
         const lineG = selectedColorRgb.g;
         const lineB = selectedColorRgb.b;
+        const stripSize = 15;
 
-        // Сканируем изображение полосками сверху вниз
-        for (let yStart = 0; yStart < height; yStart += stripHeight) {
-            let yEnd = Math.min(yStart + stripHeight, height);
+        // Вспомогательная функция проверки: является ли пиксель частью линии
+        function isLinePixel(r, g, b) {
+            let dist = Math.sqrt(
+                Math.pow(r - lineR, 2) +
+                Math.pow(g - lineG, 2) +
+                Math.pow(b - lineB, 2)
+            );
+            return dist < 60;
+        }
 
-            for (let x = 0; x < width; x++) {
-                let darkPixelCount = 0;
-                let firstY = -1;
-                let lastY = -1;
+        // КАРТА ЗАЩИТЫ ТЕКСТА: определяем плотные скопления символов (букв и цифр)
+        // Блоки текста имеют высокую локальную плотность пикселей в небольших квадратах
+        const textMask = new Uint8Array(width * height);
+        const blockSize = 16;
+        
+        for (let y = 0; y < height; y += blockSize) {
+            for (let x = 0; x < width; x += blockSize) {
+                let darkPixelsInBlock = 0;
+                let bWidth = Math.min(blockSize, width - x);
+                let bHeight = Math.min(blockSize, height - y);
 
-                // Считаем пиксели выбранного цвета внутри полоски по вертикали для столбца x
-                for (let y = yStart; y < yEnd; y++) {
-                    let idx = (y * width + x) * 4;
-                    let dist = Math.sqrt(
-                        Math.pow(data[idx] - lineR, 2) +
-                        Math.pow(data[idx+1] - lineG, 2) +
-                        Math.pow(data[idx+2] - lineB, 2)
-                    );
-                    if (dist < 60) {
-                        darkPixelCount++;
-                        if (firstY === -1) firstY = y;
-                        lastY = y;
+                for (let by = 0; by < bHeight; by++) {
+                    for (let bx = 0; bx < bWidth; bx++) {
+                        let idx = ((y + by) * width + (x + bx)) * 4;
+                        if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                            darkPixelsInBlock++;
+                        }
                     }
                 }
 
-                // Если в полоске найден сегмент линии
-                if (darkPixelCount >= 2) {
-                    // Заполняем пропуски выбранным цветом (добавляем недостающие пиксели)
-                    for (let y = firstY; y <= lastY; y++) {
-                        let idx = (y * width + x) * 4;
-                        data[idx] = lineR;
-                        data[idx+1] = lineG;
-                        data[idx+2] = lineB;
+                // Если в блоке слишком много темных пикселей на тесной площади — это текст/маркировка (например C1, R1)
+                // Обычные длинные линии такую плотность в квадрате 16x16 не дают
+                if (darkPixelsInBlock > 35 && darkPixelsInBlock < 120) {
+                    for (let by = 0; by < bHeight; by++) {
+                        for (let bx = 0; bx < bWidth; bx++) {
+                            textMask[(y + by) * width + (x + bx)] = 1; // Помечаем как защищенный текст
+                        }
                     }
-                    // Убираем лишние шумовые пиксели вне диапазона [firstY, lastY] внутри этой полоски
-                    for (let y = yStart; y < yEnd; y++) {
-                        if (y < firstY || y > lastY) {
-                            let idx = (y * width + x) * 4;
-                            data[idx] = 255;
-                            data[idx+1] = 255;
-                            data[idx+2] = 255;
+                }
+            }
+        }
+
+        // 1. Вертикальное выравнивание (только там, где нет защищенного текста)
+        for (let x = 0; x < width; x += stripSize) {
+            let xEnd = Math.min(x + stripSize, width);
+
+            for (let y = 0; y < height; y++) {
+                if (textMask[y * width + x] === 1) continue; // Пропускаем текст
+
+                let countX = 0;
+                let firstX = -1;
+                let lastX = -1;
+
+                for (let cx = x; cx < xEnd; cx++) {
+                    if (textMask[y * width + cx] === 1) continue;
+                    let idx = (y * width + cx) * 4;
+                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                        countX++;
+                        if (firstX === -1) firstX = cx;
+                        lastX = cx;
+                    }
+                }
+
+                if (countX >= 2) {
+                    for (let cx = firstX; cx <= lastX; cx++) {
+                        if (textMask[y * width + cx] === 1) continue;
+                        let idx = (y * width + cx) * 4;
+                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                    }
+                    for (let cx = x; cx < xEnd; cx++) {
+                        if (textMask[y * width + cx] === 1) continue;
+                        if (cx < firstX || cx > lastX) {
+                            let idx = (y * width + cx) * 4;
+                            data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Горизонтальное выравнивание (только там, где нет защищенного текста)
+        for (let y = 0; y < height; y += stripSize) {
+            let yEnd = Math.min(y + stripSize, height);
+
+            for (let x = 0; x < width; x++) {
+                if (textMask[y * width + x] === 1) continue; // Пропускаем текст
+
+                let countY = 0;
+                let firstY = -1;
+                let lastY = -1;
+
+                for (let cy = y; cy < yEnd; cy++) {
+                    if (textMask[cy * width + x] === 1) continue;
+                    let idx = (cy * width + x) * 4;
+                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                        countY++;
+                        if (firstY === -1) firstY = cy;
+                        lastY = cy;
+                    }
+                }
+
+                if (countY >= 2) {
+                    for (let cy = firstY; cy <= lastY; cy++) {
+                        if (textMask[cy * width + x] === 1) continue;
+                        let idx = (cy * width + x) * 4;
+                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                    }
+                    for (let cy = y; cy < yEnd; cy++) {
+                        if (textMask[cy * width + x] === 1) continue;
+                        if (cy < firstY || cy > lastY) {
+                            let idx = (cy * width + x) * 4;
+                            data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
                         }
                     }
                 }
@@ -269,7 +340,7 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log("✅ Полосочное выравнивание завершено: пробелы заполнены, лишние пиксели удалены.");
+        log("✅ Линии выровнены, буквенные обозначения (текст) защищены и остались неизменными.");
     }
 </script>
 </body>
