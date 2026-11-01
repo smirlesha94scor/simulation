@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Настройка карты текста</title>
+    <title>CV Circuit Scanner - Полуавтоматическое выравнивание областей</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -51,7 +51,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Настройка карты текста</h1>
+    <h1>⚡ Сканер схем: Полуавтоматическое выравнивание по областям</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -61,19 +61,16 @@
             <input type="range" id="sensitivity" min="10" max="180" value="50" oninput="onSensitivityChange(this.value)">
         </div>
 
-        <div style="margin: 10px 0;">
-            <label>Чувствительность карты текста: <span id="textSensValue">20</span></label><br>
-            <input type="range" id="textSensitivity" min="5" max="50" value="20" oninput="document.getElementById('textSensValue').textContent=this.value">
-        </div>
-
-        <span id="selectedColorStatus">1. Кликните по линии на схеме для выбора цвета</span>
+        <span id="selectedColorStatus">1. Кликните по линии для выбора цвета</span>
         <span id="colorBox" class="color-preview" style="display:none;"></span><br>
 
         <div class="btn-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlignLines" class="btn-align" onclick="optimizeGeometry()" disabled>🔍 Построить карту текста</button>
+            <button id="btnAlignH" class="btn-align" onclick="alignSelectedArea('horizontal')" disabled>↔️ Выровнять выделение в горизонт</button>
+            <button id="btnAlignV" class="btn-align" onclick="alignSelectedArea('vertical')" disabled>↕️ Выровнять выделение в вертикаль</button>
         </div>
+        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После выбора цвета зажмите левую кнопку мыши на схеме и выделите рамкой нужную кривую линию.</i></p>
     </div>
 
     <div class="card">
@@ -91,8 +88,14 @@
     let imgElement = new Image();
     let selectedColorRgb = null;
 
+    // Переменные для выделения области мышкой
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let endX = 0, endY = 0;
+    let originalImageSnapshot = null;
+
     window.onload = () => {
-        setupCanvasEyedropper();
+        setupCanvasInteraction();
     };
 
     function log(text) {
@@ -100,8 +103,6 @@
         box.innerHTML += `<div>> ${text}</div>`;
         box.scrollTop = box.scrollHeight;
     }
-
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     function loadToCanvas(input) {
         if (input.files && input.files[0]) {
@@ -113,12 +114,14 @@
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
+                    originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                     selectedColorRgb = null;
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
                     document.getElementById('btnAutoClean').disabled = true;
-                    document.getElementById('btnAlignLines').disabled = true;
+                    document.getElementById('btnAlignH').disabled = true;
+                    document.getElementById('btnAlignV').disabled = true;
                     log("Изображение загружено. Выберите цвет пипеткой.");
                 };
             }
@@ -126,42 +129,78 @@
         }
     }
 
-    function setupCanvasEyedropper() {
+    function setupCanvasInteraction() {
         const canvas = document.getElementById('cv-canvas');
 
-        canvas.addEventListener('click', (e) => {
-            if (!imgElement.src) {
-                log("⚠️ Сначала загрузите изображение схемы!");
+        canvas.addEventListener('mousedown', (e) => {
+            if (!selectedColorRgb) {
+                // Если цвет еще не выбран — работаем как пипетка (клик)
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = 1000 / rect.width;
+                const scaleY = 600 / rect.height;
+                const x = Math.floor((e.clientX - rect.left) * scaleX);
+                const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const pixel = ctx.getImageData(x, y, 1, 1).data;
+                    selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+
+                    const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                    const colorBox = document.getElementById('colorBox');
+                    colorBox.style.background = colorHex;
+                    colorBox.style.display = 'inline-block';
+
+                    document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                    document.getElementById('btnMakeWhite').disabled = false;
+                    document.getElementById('btnAutoClean').disabled = false;
+                    document.getElementById('btnAlignH').disabled = false;
+                    document.getElementById('btnAlignV').disabled = false;
+
+                    log(`🎨 Выбран эталонный цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Теперь можно выделять области рамкой.`);
+                } catch (err) {
+                    log("❌ Ошибка выбора цвета: " + err.message);
+                }
                 return;
             }
 
+            // Инициализация выделения области рамкой
             const rect = canvas.getBoundingClientRect();
             const scaleX = 1000 / rect.width;
             const scaleY = 600 / rect.height;
+            startX = Math.floor((e.clientX - rect.left) * scaleX);
+            startY = Math.floor((e.clientY - rect.top) * scaleY);
+            isDrawing = true;
+        });
 
-            const x = Math.floor((e.clientX - rect.left) * scaleX);
-            const y = Math.floor((e.clientY - rect.top) * scaleY);
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !selectedColorRgb) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            endX = Math.floor((e.clientX - rect.left) * scaleX);
+            endY = Math.floor((e.clientY - rect.top) * scaleY);
 
-            try {
-                const ctx = canvas.getContext('2d');
-                const pixel = ctx.getImageData(x, y, 1, 1).data;
+            // Перерисовываем холст и показываем рамку выделения в реальном времени
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(originalImageSnapshot, 0, 0);
+            
+            ctx.strokeStyle = '#ff007f';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+            ctx.setLineDash([]);
+        });
 
-                selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
-
-                const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                const colorBox = document.getElementById('colorBox');
-                colorBox.style.background = colorHex;
-                colorBox.style.display = 'inline-block';
-
-                document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                document.getElementById('btnMakeWhite').disabled = false;
-                document.getElementById('btnAutoClean').disabled = false;
-                document.getElementById('btnAlignLines').disabled = false;
-
-                log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
-            } catch (err) {
-                log("❌ Ошибка считывания цвета: " + err.message);
-            }
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            endX = Math.floor((e.clientX - rect.left) * scaleX);
+            endY = Math.floor((e.clientY - rect.top) * scaleY);
+            log(`📐 Выделена область: X[${Math.min(startX, endX)}...${Math.max(startX, endX)}], Y[${Math.min(startY, endY)}...${Math.max(startY, endY)}]`);
         });
     }
 
@@ -182,30 +221,23 @@
 
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
-
             let distance = Math.sqrt(
                 Math.pow(r - selectedColorRgb.r, 2) +
                 Math.pow(g - selectedColorRgb.g, 2) +
                 Math.pow(b - selectedColorRgb.b, 2)
             );
-
             if (distance > tolerance) {
-                data[i] = 255;
-                data[i+1] = 255;
-                data[i+2] = 255;
+                data[i] = 255; data[i+1] = 255; data[i+2] = 255;
             }
         }
 
         ctx.putImageData(imgData, 0, 0);
-        log(`✅ Фон очищен (Чувствительность: ${tolerance}).`);
+        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600); // Сохраняем состояние после очистки
+        log(`✅ Фон очищен.`);
     }
 
     function autoCleanBackground() {
-        if (!selectedColorRgb) {
-            alert('Сначала кликните по линии на схеме!');
-            return;
-        }
-
+        if (!selectedColorRgb) return;
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         ctx.drawImage(imgElement, 0, 0, 1000, 600);
@@ -222,22 +254,19 @@
             );
             distances.push(dist);
         }
-
         distances.sort((a, b) => a - b);
         let autoSensitivity = Math.floor(distances[Math.floor(distances.length * 0.25)]);
-
         if (autoSensitivity < 25) autoSensitivity = 25;
         if (autoSensitivity > 140) autoSensitivity = 140;
 
         document.getElementById('sensitivity').value = autoSensitivity;
         document.getElementById('sensValue').textContent = autoSensitivity;
-
         log(`🪄 Автоподбор чувствительности: ${autoSensitivity}`);
         runColorFilter(autoSensitivity);
     }
 
-    // Построение карты текста с учетом ползунка чувствительности и полной остановкой по завершении
-    async function optimizeGeometry() {
+    // ПОЛУАВТОМАТИЧЕСКОЕ ВЫРАВНИВАНИЕ ВЫДЕЛЕННОЙ ОБЛАСТИ
+    function alignSelectedArea(direction) {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
             return;
@@ -247,66 +276,98 @@
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
         const height = canvas.height;
+        
+        // Восстанавливаем чистый холст перед применением выравнивания к выделению
+        ctx.putImageData(originalImageSnapshot, 0, 0);
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // Читаем значение чувствительности карты текста из нового ползунка
-        const textThreshold = parseInt(document.getElementById('textSensitivity').value);
+        let x1 = Math.max(0, Math.min(startX, endX));
+        let x2 = Math.min(width, Math.max(startX, endX));
+        let y1 = Math.max(0, Math.min(startY, endY));
+        let y2 = Math.min(height, Math.max(startY, endY));
 
-        log(`🔍 Построение карты текста (порог: ${textThreshold})...`);
+        // Если область не выделена, применяем ко всему холсту
+        if (x1 === x2 || y1 === y2) {
+            x1 = 0; x2 = width; y1 = 0; y2 = height;
+        }
 
         const lineR = selectedColorRgb.r;
         const lineG = selectedColorRgb.g;
         const lineB = selectedColorRgb.b;
 
         function isLinePixel(r, g, b) {
-            let dist = Math.sqrt(
-                Math.pow(r - lineR, 2) +
-                Math.pow(g - lineG, 2) +
-                Math.pow(b - lineB, 2)
-            );
+            let dist = Math.sqrt(Math.pow(r - lineR, 2) + Math.pow(g - lineG, 2) + Math.pow(b - lineB, 2));
             return dist < 60;
         }
 
-        const textMask = new Uint8Array(width * height);
-        const scanStep = 15;
+        log(`⚙️ Выравнивание выделенной области (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
 
-        for (let y = 5; y < height - 5; y += scanStep) {
-            for (let x = 5; x < width - 5; x += scanStep) {
-                let darkCount = 0;
-                for (let dy = -6; dy <= 6; dy++) {
-                    for (let dx = -6; dx <= 6; dx++) {
-                        let idx = ((y + dy) * width + (x + dx)) * 4;
-                        if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                            darkCount++;
-                        }
+        if (direction === 'horizontal') {
+            // Выравнивание в горизонтальную линию (усреднение Y для каждого столбца в выделении)
+            for (let x = x1; x <= x2; x++) {
+                let sumY = 0;
+                let count = 0;
+                let minY = height, maxY = 0;
+
+                for (let y = y1; y <= y2; y++) {
+                    let idx = (y * width + x) * 4;
+                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                        sumY += y;
+                        count++;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
                     }
                 }
 
-                // Используем значение ползунка для фильтрации плотности текста
-                if (darkCount > textThreshold && darkCount < textThreshold * 4.5) {
-                    for (let dy = -7; dy <= 7; dy++) {
-                        for (let dx = -7; dx <= 7; dx++) {
-                            let nx = x + dx;
-                            let ny = y + dy;
-                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                                textMask[ny * width + nx] = 1;
-                                let idx = (ny * width + nx) * 4;
-                                data[idx] = 255;   // R (Красная подсветка)
-                                data[idx+1] = 0; // G
-                                data[idx+2] = 0; // B
-                            }
-                        }
+                if (count >= 2) {
+                    let avgY = Math.round(sumY / count);
+                    // Очищаем старый вертикальный столбец в пределах выделения
+                    for (let y = y1; y <= y2; y++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                    }
+                    // Рисуем строго ровную горизонтальную точку/опору
+                    for (let y = minY; y <= maxY; y++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
                     }
                 }
             }
-            ctx.putImageData(imgData, 0, 0);
-            await sleep(10); 
+        } else {
+            // Выравнивание в вертикальную линию (усреднение X для каждой строки в выделении)
+            for (let y = y1; y <= y2; y++) {
+                let sumX = 0;
+                let count = 0;
+                let minX = width, maxX = 0;
+
+                for (let x = x1; x <= x2; x++) {
+                    let idx = (y * width + x) * 4;
+                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                        sumX += x;
+                        count++;
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                    }
+                }
+
+                if (count >= 2) {
+                    let avgX = Math.round(sumX / count);
+                    for (let x = x1; x <= x2; x++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                    }
+                    for (let x = minX; x <= maxX; x++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                    }
+                }
+            }
         }
 
-        // Полная остановка процесса после завершения сканирования
         ctx.putImageData(imgData, 0, 0);
-        log("✅ Карта текста успешно построена и работа алгоритма остановлена.");
+        originalImageSnapshot = ctx.getImageData(0, 0, width, height); // Сохраняем результат
+        log(`✅ Выделенная область успешно выровнена.`);
     }
 </script>
 </body>
