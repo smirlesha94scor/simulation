@@ -85,7 +85,7 @@
             <li class="menu-item" onclick="switchTab('tab-events', this)">📜 Лог событий</li>
         </ul>
         <div class="sidebar-footer">
-            Опрос: <b>20 сек</b><br>
+            Опрос: <b>15 сек</b><br>
             Роутер: <b>192.168.1.1</b><br>
             ТВ порты: <b>8001</b>
         </div>
@@ -167,8 +167,7 @@
     </div>
 
     <script>
-        // Указываем прямой адрес локального сервера, чтобы данные грузились правильно
-        const SERVER_URL = 'http://localhost:3000/status';
+        const SERVER_URL = '/status';
         let globalDevices = [];
 
         function switchTab(tabId, menuItem) {
@@ -295,8 +294,8 @@
             }
         }
 
-        // Автообновление каждые 20 секунд
-        setInterval(loadData, 20000);
+        // Автообновление каждые 15 секунд без перезагрузки страницы
+        setInterval(loadData, 15000);
         loadData();
     </script>
 </body>
