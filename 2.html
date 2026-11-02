@@ -70,7 +70,7 @@
             <button id="btnAlignH" class="btn-align" onclick="alignSelectedArea('horizontal')" disabled>↔️ Выровнять рамку (3px)</button>
             <button id="btnAlignV" class="btn-align" onclick="alignSelectedArea('vertical')" disabled>↕️ Выровнять рамку (3px)</button>
         </div>
-        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После очистки фона кликните по любой линии: алгоритм найдет связную ветку и выровняет её выбранным цветом (3px), не затрагивая текст.</i></p>
+        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После очистки фона кликните по линии схемы — алгоритм надежно найдет трассу и выровняет её (3px), сохранив цвет.</i></p>
     </div>
 
     <div class="card">
@@ -142,6 +142,12 @@
                 try {
                     const ctx = canvas.getContext('2d');
                     const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
+
+                    if (pixel[0] > 200 && pixel[1] > 200 && pixel[2] > 200) {
+                        log("⚠️ Вы кликнули на белый фон! Кликните по темной линии.");
+                        return;
+                    }
+
                     selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
 
                     const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
@@ -155,7 +161,7 @@
                     document.getElementById('btnAlignH').disabled = false;
                     document.getElementById('btnAlignV').disabled = false;
 
-                    log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
+                    log(`🎨 Выбран цвет линии RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
                 } catch (err) {
                     log("❌ Ошибка выбора цвета: " + err.message);
                 }
@@ -260,7 +266,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ТОЧЕЧНЫЙ ПОИСК И ВЫРАВНИВАНИЕ ВЫБРАННЫМ ЦВЕТОМ (3px)
+    // НАДЕЖНЫЙ ПОИСК СВЯЗНОЙ ВЕТКИ И ОТРИСОВКА ИСХОДНЫМ ЦВЕТОМ (3px)
     function traceConnectedComponent(clickX, clickY) {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -270,18 +276,24 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        const lineR = selectedColorRgb.r;
-        const lineG = selectedColorRgb.g;
-        const lineB = selectedColorRgb.b;
+        // Используем глубокий темный цвет для надежной отрисовки (или цвет линии)
+        let lineR = selectedColorRgb.r;
+        let lineG = selectedColorRgb.g;
+        let lineB = selectedColorRgb.b;
 
+        // Если выбранный цвет слишком светлый, принудительно делаем его темно-серым/черным
+        if ((lineR + lineG + lineB) / 3 > 150) {
+            lineR = 20; lineG = 20; lineB = 20;
+        }
+
+        // Функция проверки: пиксель считается частью линии, если он темный (не белый фон)
         function isLinePixel(r, g, b) {
-            let dist = Math.sqrt(Math.pow(r - lineR, 2) + Math.pow(g - lineG, 2) + Math.pow(b - lineB, 2));
-            return dist < 70 || (r < 100 && g < 100 && b < 100);
+            return (r < 200 || g < 200 || b < 200);
         }
 
         let startIdx = (clickY * width + clickX) * 4;
-        if (data[startIdx] > 240 && data[startIdx+1] > 240 && data[startIdx+2] > 240) {
-            log("⚠️ Кликните точно по линии!");
+        if (data[startIdx] > 220 && data[startIdx+1] > 220 && data[startIdx+2] > 220) {
+            log("⚠️ Кликните точно по линии схемы!");
             return;
         }
 
@@ -321,13 +333,13 @@
             return;
         }
 
-        // 1. Очищаем старую трассу белым цветом
+        // 1. Очищаем старую неровную трассу белым фоном
         for (let p of componentPixels) {
             let idx = (p.y * width + p.x) * 4;
             data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
         }
 
-        // 2. Вычисляем границы и центр
+        // 2. Вычисляем границы
         let minX = width, maxX = 0, minY = height, maxY = 0;
         let sumX = 0, sumY = 0;
 
@@ -343,7 +355,7 @@
         let deltaX = maxX - minX;
         let deltaY = maxY - minY;
 
-        // 3. Рисуем ровную линию толщиной 3px СТРОГО ВЫБРАННЫМ ЦВЕТОМ
+        // 3. Рисуем идеальную ровную линию толщиной 3 пикселя
         if (deltaX >= deltaY) {
             let avgY = Math.round(sumY / componentPixels.length);
             for (let x = minX; x <= maxX; x++) {
@@ -357,7 +369,7 @@
                     }
                 }
             }
-            log(`✅ Горизонтальная ветка выровнена выбранным цветом (3px). Текст не задет.`);
+            log(`✅ Горизонтальная ветка выровнена (толщина 3px).`);
         } else {
             let avgX = Math.round(sumX / componentPixels.length);
             for (let y = minY; y <= maxY; y++) {
@@ -371,7 +383,7 @@
                     }
                 }
             }
-            log(`✅ Вертикальная ветка выровнена выбранным цветом (3px). Текст не задет.`);
+            log(`✅ Вертикальная ветка выровнена (толщина 3px).`);
         }
 
         ctx.putImageData(imgData, 0, 0);
@@ -402,13 +414,15 @@
             x1 = 0; x2 = width; y1 = 0; y2 = height;
         }
 
-        const lineR = selectedColorRgb.r;
-        const lineG = selectedColorRgb.g;
-        const lineB = selectedColorRgb.b;
+        let lineR = selectedColorRgb.r;
+        let lineG = selectedColorRgb.g;
+        let lineB = selectedColorRgb.b;
+        if ((lineR + lineG + lineB) / 3 > 150) {
+            lineR = 20; lineG = 20; lineB = 20;
+        }
 
         function isLinePixel(r, g, b) {
-            let dist = Math.sqrt(Math.pow(r - lineR, 2) + Math.pow(g - lineG, 2) + Math.pow(b - lineB, 2));
-            return dist < 60;
+            return (r < 200 || g < 200 || b < 200);
         }
 
         log(`⚙️ Выравнивание рамки в 3px (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
@@ -479,7 +493,7 @@
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Выделение выровнено выбранным цветом (3px).`);
+        log(`✅ Выделение выровнено (3px).`);
     }
 </script>
 </body>
