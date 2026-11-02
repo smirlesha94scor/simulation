@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Авто-определение линий и углов (5px)</title>
+    <title>CV Circuit Scanner — Идеальные линии 5px</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Авто-выравнивание (5px, одна кнопка)</h1>
+    <h1>⚡ Сканер схем: Идеальное выравнивание (5px)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -65,10 +65,10 @@
         <div class="btn-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (5px)</button>
+            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять выделенный отрезок (5px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> Выделите рамкой участок схемы. Код сам определит вертикали, горизонтали и углы, выровняв их ровно по длине черных пикселей (толщина 5px).
+            💡 <b>Инструкция:</b> Обведите рамкой нужный отрезок линии. Код автоматически построит идеальную горизонтальную или вертикальную линию толщиной 5 пикселей без ступенек и зубцов.
         </p>
     </div>
 
@@ -242,7 +242,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ОПРЕДЕЛЕНИЯ И ВЫРАВНИВАНИЯ ЛИНИЙ И УГЛОВ (5px)
+    // ИДЕАЛЬНОЕ ВЫРАВНИВАНИЕ БЕЗ СТУПЕНЕК (ТОЛЩИНА 5PX)
     function alignSelectedArea() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -265,7 +265,7 @@
         let y2 = Math.min(height, Math.max(startY, endY));
 
         if (x1 === x2 || y1 === y2) {
-            log("⚠️ Сначала выделите рамкой участок схемы с линиями или углами!");
+            log("⚠️ Сначала выделите рамкой нужный отрезок линии на схеме!");
             return;
         }
 
@@ -273,9 +273,31 @@
             return (r < 180 || g < 180 || b < 180);
         }
 
-        log(`⚙️ Авто-анализ и выравнивание линий/углов в рамке (5px)...`);
+        log(`⚙️ Поиск и построение идеальной линии (5px)...`);
 
-        // Очищаем старые пиксели внутри рамки белым цветом
+        // 1. Поиск абсолютных границ черных пикселей внутри рамки
+        let minX = width, maxX = 0, minY = height, maxY = 0;
+        let hasPixels = false;
+
+        for (let x = x1; x <= x2; x++) {
+            for (let y = y1; y <= y2; y++) {
+                let idx = (y * width + x) * 4;
+                if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                    hasPixels = true;
+                }
+            }
+        }
+
+        if (!hasPixels) {
+            log("⚠️ Внутри выделенной рамки не найдено черных пикселей линии.");
+            return;
+        }
+
+        // 2. Стираем старую ломаную область внутри рамки белым цветом
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
@@ -283,91 +305,38 @@
             }
         }
 
-        // 1. Поиск и выравнивание ГОРИЗОНТАЛЬНЫХ отрезков по фактической длине
-        for (let y = y1; y <= y2; y++) {
-            let lineStart = -1;
-            for (let x = x1; x <= x2; x++) {
-                let idx = (y * width + x) * 4;
-                if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (lineStart === -1) lineStart = x;
-                } else {
-                    if (lineStart !== -1) {
-                        let len = x - lineStart;
-                        if (len >= 3) {
-                            for (let lx = lineStart; lx < x; lx++) {
-                                for (let dy = -2; dy <= 2; dy++) {
-                                    let py = y + dy;
-                                    if (py >= 0 && py < height) {
-                                        let pidx = (py * width + lx) * 4;
-                                        data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                                    }
-                                }
-                            }
-                        }
-                        lineStart = -1;
-                    }
-                }
-            }
-            if (lineStart !== -1) {
-                let len = (x2 + 1) - lineStart;
-                if (len >= 3) {
-                    for (let lx = lineStart; lx <= x2; lx++) {
-                        for (let dy = -2; dy <= 2; dy++) {
-                            let py = y + dy;
-                            if (py >= 0 && py < height) {
-                                let pidx = (py * width + lx) * 4;
-                                data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let spanX = maxX - minX;
+        let spanY = maxY - minY;
 
-        // 2. Поиск и выравнивание ВЕРТИКАЛЬНЫХ отрезков по фактической длине (сохраняя углы)
-        for (let x = x1; x <= x2; x++) {
-            let lineStart = -1;
-            for (let y = y1; y <= y2; y++) {
-                let idx = (y * width + x) * 4;
-                if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (lineStart === -1) lineStart = y;
-                } else {
-                    if (lineStart !== -1) {
-                        let len = y - lineStart;
-                        if (len >= 3) {
-                            for (let ly = lineStart; ly < y; ly++) {
-                                for (let dx = -2; dx <= 2; dx++) {
-                                    let px = x + dx;
-                                    if (px >= 0 && px < width) {
-                                        let pidx = (ly * width + px) * 4;
-                                        data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                                    }
-                                }
-                            }
-                        }
-                        lineStart = -1;
+        // 3. Строим абсолютно ровную сплошную линию без ступенек (толщина 5px: от -2 до +2)
+        if (spanX >= spanY) {
+            let avgY = Math.round((minY + maxY) / 2);
+            for (let x = minX; x <= maxX; x++) {
+                for (let dy = -2; dy <= 2; dy++) {
+                    let py = avgY + dy;
+                    if (py >= 0 && py < height) {
+                        let idx = (py * width + x) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                     }
                 }
             }
-            if (lineStart !== -1) {
-                let len = (y2 + 1) - lineStart;
-                if (len >= 3) {
-                    for (let ly = lineStart; ly <= y2; ly++) {
-                        for (let dx = -2; dx <= 2; dx++) {
-                            let px = x + dx;
-                            if (px >= 0 && px < width) {
-                                let pidx = (ly * width + px) * 4;
-                                data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                            }
-                        }
+            log(`✅ Идеальная горизонтальная линия (толщина 5px, длина: ${spanX}px).`);
+        } else {
+            let avgX = Math.round((minX + maxX) / 2);
+            for (let y = minY; y <= maxY; y++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    let px = avgX + dx;
+                    if (px >= 0 && px < width) {
+                        let idx = (y * width + px) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                     }
                 }
             }
+            log(`✅ Идеальная вертикальная линия (толщина 5px, длина: ${spanY}px).`);
         }
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Горизонтали, вертикали и углы выровнены (толщина 5px).`);
     }
 </script>
 </body>
