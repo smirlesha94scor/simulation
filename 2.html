@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Финальная версия с цветом трасс</title>
+    <title>CV Circuit Scanner - Финальная версия</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -46,4 +46,441 @@
 
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
         .color-preview { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 5px; }
-        .btn-group { margin-top: 15
+        .btn-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+
+    <h1>⚡ Сканер схем: Полуавтоматическое выравнивание</h1>
+
+    <div class="card">
+        <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
+        
+        <div style="margin: 10px 0;">
+            <label>Чувствительность очистки фона: <span id="sensValue">50</span></label><br>
+            <input type="range" id="sensitivity" min="10" max="180" value="50" oninput="onSensitivityChange(this.value)">
+        </div>
+
+        <span id="selectedColorStatus">1. Кликните по линии для выбора цвета</span>
+        <span id="colorBox" class="color-preview" style="display:none;"></span><br>
+
+        <div class="btn-group">
+            <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
+            <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
+            <button id="btnAlignH" class="btn-align" onclick="alignSelectedArea('horizontal')" disabled>↔️ Выровнять рамку (3px)</button>
+            <button id="btnAlignV" class="btn-align" onclick="alignSelectedArea('vertical')" disabled>↕️ Выровнять рамку (3px)</button>
+        </div>
+        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После очистки фона кликните по любой линии: алгоритм найдет связную ветку и выровняет её выбранным цветом (3px), не затрагивая текст.</i></p>
+    </div>
+
+    <div class="card">
+        <div id="viewport">
+            <canvas id="cv-canvas" width="1000" height="600"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Лог работы системы:</h3>
+        <div id="log">Загрузите изображение и выберите цвет пипеткой...</div>
+    </div>
+
+<script>
+    let imgElement = new Image();
+    let selectedColorRgb = null;
+
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let endX = 0, endY = 0;
+    let originalImageSnapshot = null;
+
+    window.onload = () => {
+        setupCanvasInteraction();
+    };
+
+    function log(text) {
+        const box = document.getElementById('log');
+        box.innerHTML += `<div>> ${text}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function loadToCanvas(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgElement.src = e.target.result;
+                imgElement.onload = () => {
+                    const canvas = document.getElementById('cv-canvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 1000, 600);
+                    ctx.drawImage(imgElement, 0, 0, 1000, 600);
+                    originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+                    selectedColorRgb = null;
+                    document.getElementById('colorBox').style.display = 'none';
+                    document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
+                    document.getElementById('btnMakeWhite').disabled = true;
+                    document.getElementById('btnAutoClean').disabled = true;
+                    document.getElementById('btnAlignH').disabled = true;
+                    document.getElementById('btnAlignV').disabled = true;
+                    log("Изображение загружено. Выберите цвет пипеткой.");
+                };
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function setupCanvasInteraction() {
+        const canvas = document.getElementById('cv-canvas');
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            const currentX = Math.floor((e.clientX - rect.left) * scaleX);
+            const currentY = Math.floor((e.clientY - rect.top) * scaleY);
+
+            if (!selectedColorRgb) {
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
+                    selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+
+                    const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                    const colorBox = document.getElementById('colorBox');
+                    colorBox.style.background = colorHex;
+                    colorBox.style.display = 'inline-block';
+
+                    document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                    document.getElementById('btnMakeWhite').disabled = false;
+                    document.getElementById('btnAutoClean').disabled = false;
+                    document.getElementById('btnAlignH').disabled = false;
+                    document.getElementById('btnAlignV').disabled = false;
+
+                    log(`🎨 Выбран цвет RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
+                } catch (err) {
+                    log("❌ Ошибка выбора цвета: " + err.message);
+                }
+                return;
+            }
+
+            startX = currentX;
+            startY = currentY;
+            endX = currentX;
+            endY = currentY;
+            isDrawing = true;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !selectedColorRgb) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            endX = Math.floor((e.clientX - rect.left) * scaleX);
+            endY = Math.floor((e.clientY - rect.top) * scaleY);
+
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(originalImageSnapshot, 0, 0);
+            
+            ctx.strokeStyle = '#ff007f';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+            ctx.setLineDash([]);
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            if (Math.abs(startX - endX) < 3 && Math.abs(startY - endY) < 3) {
+                traceConnectedComponent(startX, startY);
+            } else {
+                log(`📐 Область выделена рамкой.`);
+            }
+        });
+    }
+
+    function onSensitivityChange(val) {
+        document.getElementById('sensValue').textContent = val;
+    }
+
+    function runColorFilter(customTolerance = null) {
+        if (!selectedColorRgb) return;
+
+        const tolerance = customTolerance !== null ? customTolerance : parseInt(document.getElementById('sensitivity').value);
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            let distance = Math.sqrt(
+                Math.pow(r - selectedColorRgb.r, 2) +
+                Math.pow(g - selectedColorRgb.g, 2) +
+                Math.pow(b - selectedColorRgb.b, 2)
+            );
+            if (distance > tolerance) {
+                data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        log(`✅ Фон очищен.`);
+    }
+
+    function autoCleanBackground() {
+        if (!selectedColorRgb) return;
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        let distances = [];
+        for (let i = 0; i < data.length; i += 16) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            let dist = Math.sqrt(
+                Math.pow(r - selectedColorRgb.r, 2) +
+                Math.pow(g - selectedColorRgb.g, 2) +
+                Math.pow(b - selectedColorRgb.b, 2)
+            );
+            distances.push(dist);
+        }
+        distances.sort((a, b) => a - b);
+        let autoSensitivity = Math.floor(distances[Math.floor(distances.length * 0.25)]);
+        if (autoSensitivity < 25) autoSensitivity = 25;
+        if (autoSensitivity > 140) autoSensitivity = 140;
+
+        document.getElementById('sensitivity').value = autoSensitivity;
+        document.getElementById('sensValue').textContent = autoSensitivity;
+        log(`🪄 Автоподбор чувствительности: ${autoSensitivity}`);
+        runColorFilter(autoSensitivity);
+    }
+
+    // ТОЧЕЧНЫЙ ПОИСК И ВЫРАВНИВАНИЕ ВЫБРАННЫМ ЦВЕТОМ (3px)
+    function traceConnectedComponent(clickX, clickY) {
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        const lineR = selectedColorRgb.r;
+        const lineG = selectedColorRgb.g;
+        const lineB = selectedColorRgb.b;
+
+        function isLinePixel(r, g, b) {
+            let dist = Math.sqrt(Math.pow(r - lineR, 2) + Math.pow(g - lineG, 2) + Math.pow(b - lineB, 2));
+            return dist < 70 || (r < 100 && g < 100 && b < 100);
+        }
+
+        let startIdx = (clickY * width + clickX) * 4;
+        if (data[startIdx] > 240 && data[startIdx+1] > 240 && data[startIdx+2] > 240) {
+            log("⚠️ Кликните точно по линии!");
+            return;
+        }
+
+        log(`🎯 Трассировка ветки от точки (${clickX}, ${clickY})...`);
+
+        const visited = new Uint8Array(width * height);
+        const queue = [[clickX, clickY]];
+        visited[clickY * width + clickX] = 1;
+        const componentPixels = [];
+
+        while (queue.length > 0) {
+            const [cx, cy] = queue.pop();
+            componentPixels.push({ x: cx, y: cy });
+
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    let nx = cx + dx;
+                    let ny = cy + dy;
+
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        let pos = ny * width + nx;
+                        if (!visited[pos]) {
+                            visited[pos] = 1;
+                            let idx = pos * 4;
+                            if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                                queue.push([nx, ny]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (componentPixels.length < 5) {
+            log("ℹ️ Слишком маленький фрагмент.");
+            return;
+        }
+
+        // 1. Очищаем старую трассу белым цветом
+        for (let p of componentPixels) {
+            let idx = (p.y * width + p.x) * 4;
+            data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+        }
+
+        // 2. Вычисляем границы и центр
+        let minX = width, maxX = 0, minY = height, maxY = 0;
+        let sumX = 0, sumY = 0;
+
+        for (let p of componentPixels) {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+            sumX += p.x;
+            sumY += p.y;
+        }
+
+        let deltaX = maxX - minX;
+        let deltaY = maxY - minY;
+
+        // 3. Рисуем ровную линию толщиной 3px СТРОГО ВЫБРАННЫМ ЦВЕТОМ
+        if (deltaX >= deltaY) {
+            let avgY = Math.round(sumY / componentPixels.length);
+            for (let x = minX; x <= maxX; x++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    let py = avgY + dy;
+                    if (py >= 0 && py < height) {
+                        let idx = (py * width + x) * 4;
+                        data[idx] = lineR; 
+                        data[idx+1] = lineG; 
+                        data[idx+2] = lineB;
+                    }
+                }
+            }
+            log(`✅ Горизонтальная ветка выровнена выбранным цветом (3px). Текст не задет.`);
+        } else {
+            let avgX = Math.round(sumX / componentPixels.length);
+            for (let y = minY; y <= maxY; y++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    let px = avgX + dx;
+                    if (px >= 0 && px < width) {
+                        let idx = (y * width + px) * 4;
+                        data[idx] = lineR; 
+                        data[idx+1] = lineG; 
+                        data[idx+2] = lineB;
+                    }
+                }
+            }
+            log(`✅ Вертикальная ветка выровнена выбранным цветом (3px). Текст не задет.`);
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
+    }
+
+    function alignSelectedArea(direction) {
+        if (!selectedColorRgb) {
+            alert('Сначала выберите цвет линии!');
+            return;
+        }
+
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        ctx.putImageData(originalImageSnapshot, 0, 0);
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        let x1 = Math.max(0, Math.min(startX, endX));
+        let x2 = Math.min(width, Math.max(startX, endX));
+        let y1 = Math.max(0, Math.min(startY, endY));
+        let y2 = Math.min(height, Math.max(startY, endY));
+
+        if (x1 === x2 || y1 === y2) {
+            x1 = 0; x2 = width; y1 = 0; y2 = height;
+        }
+
+        const lineR = selectedColorRgb.r;
+        const lineG = selectedColorRgb.g;
+        const lineB = selectedColorRgb.b;
+
+        function isLinePixel(r, g, b) {
+            let dist = Math.sqrt(Math.pow(r - lineR, 2) + Math.pow(g - lineG, 2) + Math.pow(b - lineB, 2));
+            return dist < 60;
+        }
+
+        log(`⚙️ Выравнивание рамки в 3px (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
+
+        if (direction === 'horizontal') {
+            let totalY = 0;
+            let totalCount = 0;
+            for (let x = x1; x <= x2; x++) {
+                for (let y = y1; y <= y2; y++) {
+                    let idx = (y * width + x) * 4;
+                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                        totalY += y;
+                        totalCount++;
+                    }
+                }
+            }
+
+            if (totalCount > 0) {
+                let avgY = Math.round(totalY / totalCount);
+                for (let x = x1; x <= x2; x++) {
+                    for (let y = y1; y <= y2; y++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                    }
+                }
+                for (let x = x1; x <= x2; x++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        let py = avgY + dy;
+                        if (py >= 0 && py < height) {
+                            let idx = (py * width + x) * 4;
+                            data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                        }
+                    }
+                }
+            }
+        } else {
+            let totalX = 0;
+            let totalCount = 0;
+            for (let y = y1; y <= y2; y++) {
+                for (let x = x1; x <= x2; x++) {
+                    let idx = (y * width + x) * 4;
+                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                        totalX += x;
+                        totalCount++;
+                    }
+                }
+            }
+
+            if (totalCount > 0) {
+                let avgX = Math.round(totalX / totalCount);
+                for (let y = y1; y <= y2; y++) {
+                    for (let x = x1; x <= x2; x++) {
+                        let idx = (y * width + x) * 4;
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                    }
+                }
+                for (let y = y1; y <= y2; y++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        let px = avgX + dx;
+                        if (px >= 0 && px < width) {
+                            let idx = (y * width + px) * 4;
+                            data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                        }
+                    }
+                }
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
+        log(`✅ Выделение выровнено выбранным цветом (3px).`);
+    }
+</script>
+</body>
+</html>
