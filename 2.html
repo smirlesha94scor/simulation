@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Выравнивание 5px с сохранением углов</title>
+    <title>CV Circuit Scanner — Авто-определение линий и углов (5px)</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Толщина 5px + Сохранение углов</h1>
+    <h1>⚡ Сканер схем: Авто-выравнивание (5px, одна кнопка)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -65,10 +65,10 @@
         <div class="btn-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlignH" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять рамку (5px, с углами)</button>
+            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (5px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> Обведите рамкой нужный участок (включая углы и повороты). Алгоритм выровняет все горизонтальные и вертикальные сегменты толщиной ровно 5 пикселей, сохранив структуру углов.
+            💡 <b>Инструкция:</b> Выделите рамкой участок схемы. Код сам определит вертикали, горизонтали и углы, выровняв их ровно по длине черных пикселей (толщина 5px).
         </p>
     </div>
 
@@ -119,7 +119,7 @@
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
                     document.getElementById('btnAutoClean').disabled = true;
-                    document.getElementById('btnAlignH').disabled = true;
+                    document.getElementById('btnAlign').disabled = true;
                     log("Изображение загружено. Кликните пипеткой по линии.");
                 };
             }
@@ -155,7 +155,7 @@
                 document.getElementById('selectedColorStatus').textContent = `Выбран цвет линии: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
                 document.getElementById('btnMakeWhite').disabled = false;
                 document.getElementById('btnAutoClean').disabled = false;
-                document.getElementById('btnAlignH').disabled = false;
+                document.getElementById('btnAlign').disabled = false;
 
                 log(`🎨 Выбран цвет линии: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Выполните очистку.`);
                 return;
@@ -242,7 +242,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ВЫРАВНИВАНИЕ ВСЕХ ОТРЕЗКОВ (ГОРИЗОНТАЛЬ, ВЕРТИКАЛЬ И УГЛЫ) ТОЛЩИНОЙ 5PX
+    // УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ОПРЕДЕЛЕНИЯ И ВЫРАВНИВАНИЯ ЛИНИЙ И УГЛОВ (5px)
     function alignSelectedArea() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -265,7 +265,7 @@
         let y2 = Math.min(height, Math.max(startY, endY));
 
         if (x1 === x2 || y1 === y2) {
-            log("⚠️ Сначала выделите рамкой нужный участок схемы с линиями или углами!");
+            log("⚠️ Сначала выделите рамкой участок схемы с линиями или углами!");
             return;
         }
 
@@ -273,9 +273,9 @@
             return (r < 180 || g < 180 || b < 180);
         }
 
-        log(`⚙️ Выравнивание линий и углов в рамке (толщина 5px)...`);
+        log(`⚙️ Авто-анализ и выравнивание линий/углов в рамке (5px)...`);
 
-        // Стираем старые пиксели внутри рамки
+        // Очищаем старые пиксели внутри рамки белым цветом
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
@@ -283,7 +283,7 @@
             }
         }
 
-        // 1. Ищем и выравниваем ГОРИЗОНТАЛЬНЫЕ отрезки внутри рамки
+        // 1. Поиск и выравнивание ГОРИЗОНТАЛЬНЫХ отрезков по фактической длине
         for (let y = y1; y <= y2; y++) {
             let lineStart = -1;
             for (let x = x1; x <= x2; x++) {
@@ -324,7 +324,7 @@
             }
         }
 
-        // 2. Ищем и выравниваем ВЕРТИКАЛЬНЫЕ отрезки внутри рамки (сохраняя углы)
+        // 2. Поиск и выравнивание ВЕРТИКАЛЬНЫХ отрезков по фактической длине (сохраняя углы)
         for (let x = x1; x <= x2; x++) {
             let lineStart = -1;
             for (let y = y1; y <= y2; y++) {
@@ -367,7 +367,7 @@
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Область успешно выровнена (толщина 5px, углы сохранены).`);
+        log(`✅ Горизонтали, вертикали и углы выровнены (толщина 5px).`);
     }
 </script>
 </body>
