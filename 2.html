@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Чистая очистка фона</title>
+    <title>CV Circuit Scanner — Выравнивание по фактической длине</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Идеальная очистка цветного фона</h1>
+    <h1>⚡ Сканер схем: Выравнивание по реальным черным пикселям</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -69,7 +69,7 @@
             <button id="btnAlignV" class="btn-align" onclick="alignSelectedArea('vertical')" disabled>↕️ Выровнять рамку (3px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> После «Авто-очистки фона» все сторонние красные цвета полностью удаляются. Кликните по неровной линии, чтобы выровнять её (3px).
+            💡 <b>Инструкция:</b> Обведите рамкой неровный участок линии. Программа найдет крайние черные точки внутри рамки и выровняет линию ровно по их длине (3px).
         </p>
     </div>
 
@@ -143,7 +143,6 @@
                 const ctx = canvas.getContext('2d');
                 const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
 
-                // Защита от случайного клика по яркому фону
                 if (pixel[0] > 180 && pixel[1] < 100 && pixel[2] < 100) {
                     log("⚠️ Вы кликнули на красный фон! Кликните точно по черной линии схемы.");
                     return;
@@ -193,12 +192,7 @@
         canvas.addEventListener('mouseup', (e) => {
             if (!isDrawing) return;
             isDrawing = false;
-            
-            if (Math.abs(startX - endX) < 4 && Math.abs(startY - endY) < 4) {
-                traceAndAlignLine(startX, startY);
-            } else {
-                log(`📐 Область выделена рамкой.`);
-            }
+            log(`📐 Область выделена рамкой.`);
         });
     }
 
@@ -206,7 +200,6 @@
         document.getElementById('sensValue').textContent = val;
     }
 
-    // УЛУЧШЕННАЯ ФИЛЬТРАЦИЯ С УДАЛЕНИЕМ ЦВЕТНЫХ ОРЕОЛОВ
     function runColorFilter(customTolerance = null) {
         if (!selectedColorRgb) return;
 
@@ -221,157 +214,43 @@
         for (let i = 0; i < data.length; i += 4) {
             let r = data[i], g = data[i+1], b = data[i+2];
 
-            // Дистанция до выбранного цвета линии
             let distanceToLine = Math.sqrt(
                 Math.pow(r - selectedColorRgb.r, 2) +
                 Math.pow(g - selectedColorRgb.g, 2) +
                 Math.pow(b - selectedColorRgb.b, 2)
             );
 
-            // Если пиксель красного фона или слишком далеко от цвета линии -> делаем чистым белым
             let isRedBackground = (r > 100 && r > g * 1.5 && r > b * 1.5);
             
             if (distanceToLine > tolerance || isRedBackground) {
-                data[i] = 255; 
-                data[i+1] = 255; 
-                data[i+2] = 255;
+                data[i] = 255; data[i+1] = 255; data[i+2] = 255;
             } else {
-                // Если это пиксель схемы — обесцвечиваем его в темный (убираем красный налет)
                 let gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
-                if (gray > 120) gray = 0; // Делаем четким черным
-                data[i] = gray; 
-                data[i+1] = gray; 
-                data[i+2] = gray;
+                if (gray > 120) gray = 0;
+                data[i] = gray; data[i+1] = gray; data[i+2] = gray;
             }
         }
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
-        log(`✅ Фон полностью очищен, цветные ореолы удалены.`);
+        log(`✅ Фон полностью очищен.`);
     }
 
     function autoCleanBackground() {
         if (!selectedColorRgb) return;
-
-        // Фиксируем оптимальную чувствительность для красного фона
         let autoSensitivity = 65;
-
         document.getElementById('sensitivity').value = autoSensitivity;
         document.getElementById('sensValue').textContent = autoSensitivity;
-        log(`🪄 Авто-очистка с подавлением красного цвета (порог: ${autoSensitivity})...`);
+        log(`🪄 Авто-очистка фона (порог: ${autoSensitivity})...`);
         runColorFilter(autoSensitivity);
     }
 
-    function traceAndAlignLine(clickX, clickY) {
-        const canvas = document.getElementById('cv-canvas');
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-
-        const imgData = ctx.getImageData(0, 0, width, height);
-        const data = imgData.data;
-
-        function isLinePixel(r, g, b) {
-            return (r < 180 || g < 180 || b < 180);
-        }
-
-        let startIdx = (clickY * width + clickX) * 4;
-        if (!isLinePixel(data[startIdx], data[startIdx+1], data[startIdx+2])) {
-            log("⚠️ Кликните точно по линии схемы!");
-            return;
-        }
-
-        log(`🎯 Трассировка ветки от точки (${clickX}, ${clickY})...`);
-
-        const visited = new Uint8Array(width * height);
-        const queue = [[clickX, clickY]];
-        visited[clickY * width + clickX] = 1;
-        const componentPixels = [];
-
-        while (queue.length > 0) {
-            const [cx, cy] = queue.pop();
-            componentPixels.push({ x: cx, y: cy });
-
-            for (let dy = -1; dy <= 1; dy++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    if (dx === 0 && dy === 0) continue;
-                    let nx = cx + dx;
-                    let ny = cy + dy;
-
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                        let pos = ny * width + nx;
-                        if (!visited[pos]) {
-                            visited[pos] = 1;
-                            let idx = pos * 4;
-                            if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                                queue.push([nx, ny]);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (componentPixels.length < 5) {
-            log("ℹ️ Слишком маленький фрагмент.");
-            return;
-        }
-
-        // 1. Очищаем старую неровную линию белым фоном
-        for (let p of componentPixels) {
-            let idx = (p.y * width + p.x) * 4;
-            data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
-        }
-
-        // 2. Считаем геометрию
-        let minX = width, maxX = 0, minY = height, maxY = 0;
-        let sumX = 0, sumY = 0;
-
-        for (let p of componentPixels) {
-            if (p.x < minX) minX = p.x;
-            if (p.x > maxX) maxX = p.x;
-            if (p.y < minY) minY = p.y;
-            if (p.y > maxY) maxY = p.y;
-            sumX += p.x;
-            sumY += p.y;
-        }
-
-        let deltaX = maxX - minX;
-        let deltaY = maxY - minY;
-
-        // 3. Рисуем чистую черную линию (3px)
-        if (deltaX >= deltaY) {
-            let avgY = Math.round(sumY / componentPixels.length);
-            for (let x = minX; x <= maxX; x++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    let py = avgY + dy;
-                    if (py >= 0 && py < height) {
-                        let idx = (py * width + x) * 4;
-                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
-                    }
-                }
-            }
-            log(`✅ Горизонтальная линия выровнена ровным черным цветом (3px).`);
-        } else {
-            let avgX = Math.round(sumX / componentPixels.length);
-            for (let y = minY; y <= maxY; y++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    let px = avgX + dx;
-                    if (px >= 0 && px < width) {
-                        let idx = (y * width + px) * 4;
-                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
-                    }
-                }
-            }
-            log(`✅ Вертикальная линия выровнена ровным черным цветом (3px).`);
-        }
-
-        ctx.putImageData(imgData, 0, 0);
-        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-    }
-
+    // ВЫРАВНИВАНИЕ СТРОГО ПО ФАКТИЧЕСКИМ ЧЕРНЫМ ПИКСЕЛЯМ ВНУТРИ РАМКИ
     function alignSelectedArea(direction) {
-        if (!selectedColorRgb) return;
+        if (!selectedColorRgb) {
+            alert('Сначала выберите цвет линии!');
+            return;
+        }
 
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -387,75 +266,86 @@
         let y1 = Math.max(0, Math.min(startY, endY));
         let y2 = Math.min(height, Math.max(startY, endY));
 
+        if (x1 === x2 || y1 === y2) {
+            log("⚠️ Сначала выделите рамкой нужный отрезок линии на схеме!");
+            return;
+        }
+
         function isLinePixel(r, g, b) {
             return (r < 180 || g < 180 || b < 180);
         }
 
-        if (direction === 'horizontal') {
-            let totalY = 0, totalCount = 0;
-            for (let x = x1; x <= x2; x++) {
-                for (let y = y1; y <= y2; y++) {
-                    let idx = (y * width + x) * 4;
-                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                        totalY += y;
-                        totalCount++;
-                    }
-                }
-            }
+        log(`⚙️ Анализ черных пикселей в рамке (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
 
-            if (totalCount > 0) {
-                let avgY = Math.round(totalY / totalCount);
-                for (let x = x1; x <= x2; x++) {
-                    for (let y = y1; y <= y2; y++) {
-                        let idx = (y * width + x) * 4;
-                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
-                    }
-                }
-                for (let x = x1; x <= x2; x++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        let py = avgY + dy;
-                        if (py >= 0 && py < height) {
-                            let idx = (py * width + x) * 4;
-                            data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
-                        }
-                    }
-                }
-            }
-        } else {
-            let totalX = 0, totalCount = 0;
+        // Собираем координаты всех черных пикселей строго внутри рамки
+        let blackPixels = [];
+        for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
-                for (let x = x1; x <= x2; x++) {
-                    let idx = (y * width + x) * 4;
-                    if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
-                        totalX += x;
-                        totalCount++;
-                    }
-                }
-            }
-
-            if (totalCount > 0) {
-                let avgX = Math.round(totalX / totalCount);
-                for (let y = y1; y <= y2; y++) {
-                    for (let x = x1; x <= x2; x++) {
-                        let idx = (y * width + x) * 4;
-                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
-                    }
-                }
-                for (let y = y1; y <= y2; y++) {
-                    for (let dx = -1; dx <= 1; dx++) {
-                        let px = avgX + dx;
-                        if (px >= 0 && px < width) {
-                            let idx = (y * width + px) * 4;
-                            data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
-                        }
-                    }
+                let idx = (y * width + x) * 4;
+                if (isLinePixel(data[idx], data[idx+1], data[idx+2])) {
+                    blackPixels.push({ x: x, y: y });
                 }
             }
         }
 
+        if (blackPixels.length === 0) {
+            log("⚠️ Внутри выделенной рамки не найдено черных пикселей линии.");
+            return;
+        }
+
+        // Находим фактические минимальные и максимальные границы черных пикселей
+        let minPxX = width, maxPxX = 0, minPxY = height, maxPxY = 0;
+        let sumX = 0, sumY = 0;
+
+        for (let p of blackPixels) {
+            if (p.x < minPxX) minPxX = p.x;
+            if (p.x > maxPxX) maxPxX = p.x;
+            if (p.y < minPxY) minPxY = p.y;
+            if (p.y > maxPxY) maxPxY = p.y;
+            sumX += p.x;
+            sumY += p.y;
+        }
+
+        // Стираем старую ломаную линию внутри рамки
+        for (let x = x1; x <= x2; x++) {
+            for (let y = y1; y <= y2; y++) {
+                let idx = (y * width + x) * 4;
+                data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+            }
+        }
+
+        if (direction === 'horizontal') {
+            // Считаем среднюю высоту (Y) линии
+            let avgY = Math.round(sumY / blackPixels.length);
+            // Рисуем ровную горизонтальную линию строго от minPxX до maxPxX
+            for (let x = minPxX; x <= maxPxX; x++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    let py = avgY + dy;
+                    if (py >= 0 && py < height) {
+                        let idx = (py * width + x) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                    }
+                }
+            }
+            log(`✅ Горизонтальная линия выровнена по фактическим точкам (длина: ${maxPxX - minPxX}px, 3px).`);
+        } else {
+            // Считаем среднюю позицию по ширине (X) линии
+            let avgX = Math.round(sumX / blackPixels.length);
+            // Рисуем ровную вертикальную линию строго от minPxY до maxPxY
+            for (let y = minPxY; y <= maxPxY; y++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    let px = avgX + dx;
+                    if (px >= 0 && px < width) {
+                        let idx = (y * width + px) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                    }
+                }
+            }
+            log(`✅ Вертикальная линия выровнена по фактическим точкам (длина: ${maxPxY - minPxY}px, 3px).`);
+        }
+
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Выделенная область выровнена (3px).`);
     }
 </script>
 </body>
