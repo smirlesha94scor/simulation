@@ -2,11 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner - Финальная версия</title>
+    <title>CV Circuit Scanner — Выравнивание ветки по клику</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        input, button, select { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
+        input, button { padding: 8px 12px; margin: 5px 0; font-size: 14px; }
         
         button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #d9006b; }
@@ -14,10 +14,8 @@
 
         .btn-auto { background: #00ff66; color: #000; }
         .btn-auto:hover { background: #00cc52; }
-
         .btn-bg { background: #00bcd4; color: #fff; }
         .btn-bg:hover { background: #008ba3; }
-
         .btn-align { background: #9b51e0; color: #fff; }
         .btn-align:hover { background: #823ab7; }
 
@@ -51,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Полуавтоматическое выравнивание</h1>
+    <h1>⚡ Сканер схем: Авто-выравнивание линий по клику</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -61,7 +59,7 @@
             <input type="range" id="sensitivity" min="10" max="180" value="50" oninput="onSensitivityChange(this.value)">
         </div>
 
-        <span id="selectedColorStatus">1. Кликните по линии для выбора цвета</span>
+        <span id="selectedColorStatus">1. Загрузите схему и кликните по линии для выбора цвета</span>
         <span id="colorBox" class="color-preview" style="display:none;"></span><br>
 
         <div class="btn-group">
@@ -70,7 +68,9 @@
             <button id="btnAlignH" class="btn-align" onclick="alignSelectedArea('horizontal')" disabled>↔️ Выровнять рамку (3px)</button>
             <button id="btnAlignV" class="btn-align" onclick="alignSelectedArea('vertical')" disabled>↕️ Выровнять рамку (3px)</button>
         </div>
-        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">💡 <i>После очистки фона кликните по линии схемы — алгоритм надежно найдет трассу и выровняет её (3px), сохранив цвет.</i></p>
+        <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
+            💡 <b>Инструкция:</b> 1) Выберите цвет линии кликом. 2) Нажмите «Авто-очистка фона». 3) Кликните по любой кривой линии — она автоматически выровняется темным цветом (3px), не задев текст.
+        </p>
     </div>
 
     <div class="card">
@@ -81,12 +81,13 @@
 
     <div class="card">
         <h3>Лог работы системы:</h3>
-        <div id="log">Загрузите изображение и выберите цвет пипеткой...</div>
+        <div id="log">Загрузите изображение...</div>
     </div>
 
 <script>
     let imgElement = new Image();
     let selectedColorRgb = null;
+    let isBackgroundCleaned = false;
 
     let isDrawing = false;
     let startX = 0, startY = 0;
@@ -114,14 +115,16 @@
                     ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+                    
                     selectedColorRgb = null;
+                    isBackgroundCleaned = false;
                     document.getElementById('colorBox').style.display = 'none';
-                    document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии на схеме для выбора цвета";
+                    document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
                     document.getElementById('btnAutoClean').disabled = true;
                     document.getElementById('btnAlignH').disabled = true;
                     document.getElementById('btnAlignV').disabled = true;
-                    log("Изображение загружено. Выберите цвет пипеткой.");
+                    log("Изображение загружено. Кликните по линии пипеткой.");
                 };
             }
             reader.readAsDataURL(input.files[0]);
@@ -138,33 +141,29 @@
             const currentX = Math.floor((e.clientX - rect.left) * scaleX);
             const currentY = Math.floor((e.clientY - rect.top) * scaleY);
 
+            // Если цвет линии еще не выбран
             if (!selectedColorRgb) {
-                try {
-                    const ctx = canvas.getContext('2d');
-                    const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
+                const ctx = canvas.getContext('2d');
+                const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
 
-                    if (pixel[0] > 200 && pixel[1] > 200 && pixel[2] > 200) {
-                        log("⚠️ Вы кликнули на белый фон! Кликните по темной линии.");
-                        return;
-                    }
-
-                    selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
-
-                    const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                    const colorBox = document.getElementById('colorBox');
-                    colorBox.style.background = colorHex;
-                    colorBox.style.display = 'inline-block';
-
-                    document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-                    document.getElementById('btnMakeWhite').disabled = false;
-                    document.getElementById('btnAutoClean').disabled = false;
-                    document.getElementById('btnAlignH').disabled = false;
-                    document.getElementById('btnAlignV').disabled = false;
-
-                    log(`🎨 Выбран цвет линии RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
-                } catch (err) {
-                    log("❌ Ошибка выбора цвета: " + err.message);
+                if (pixel[0] > 220 && pixel[1] > 220 && pixel[2] > 220) {
+                    log("⚠️ Вы кликнули на светлый фон. Нажмите точно по темной линии!");
+                    return;
                 }
+
+                selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+                const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                const colorBox = document.getElementById('colorBox');
+                colorBox.style.background = colorHex;
+                colorBox.style.display = 'inline-block';
+
+                document.getElementById('selectedColorStatus').textContent = `Выбран цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                document.getElementById('btnMakeWhite').disabled = false;
+                document.getElementById('btnAutoClean').disabled = false;
+                document.getElementById('btnAlignH').disabled = false;
+                document.getElementById('btnAlignV').disabled = false;
+
+                log(`🎨 Выбран цвет линии: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}). Теперь очистите фон.`);
                 return;
             }
 
@@ -197,8 +196,9 @@
             if (!isDrawing) return;
             isDrawing = false;
             
-            if (Math.abs(startX - endX) < 3 && Math.abs(startY - endY) < 3) {
-                traceConnectedComponent(startX, startY);
+            // Если мышка не растягивалась в рамку — значит это точечный клик по линии
+            if (Math.abs(startX - endX) < 4 && Math.abs(startY - endY) < 4) {
+                traceAndAlignLine(startX, startY);
             } else {
                 log(`📐 Область выделена рамкой.`);
             }
@@ -234,7 +234,8 @@
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
-        log(`✅ Фон очищен.`);
+        isBackgroundCleaned = true;
+        log(`✅ Фон очищен. Теперь кликайте по неровным линиям для их выравнивания!`);
     }
 
     function autoCleanBackground() {
@@ -266,8 +267,8 @@
         runColorFilter(autoSensitivity);
     }
 
-    // НАДЕЖНЫЙ ПОИСК СВЯЗНОЙ ВЕТКИ И ОТРИСОВКА ИСХОДНЫМ ЦВЕТОМ (3px)
-    function traceConnectedComponent(clickX, clickY) {
+    // ТРАССИРОВКА И ВЫРАВНИВАНИЕ ЛИНИИ ТЕМНЫМ ЦВЕТОМ (3px)
+    function traceAndAlignLine(clickX, clickY) {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
@@ -276,29 +277,30 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // Используем глубокий темный цвет для надежной отрисовки (или цвет линии)
-        let lineR = selectedColorRgb.r;
-        let lineG = selectedColorRgb.g;
-        let lineB = selectedColorRgb.b;
-
-        // Если выбранный цвет слишком светлый, принудительно делаем его темно-серым/черным
-        if ((lineR + lineG + lineB) / 3 > 150) {
-            lineR = 20; lineG = 20; lineB = 20;
+        // Определяем цвет отрисовки новой линии (темно-серый/черный цвет схемы)
+        let drawR = selectedColorRgb.r;
+        let drawG = selectedColorRgb.g;
+        let drawB = selectedColorRgb.b;
+        
+        // Защита от белого цвета: линия всегда рисуется темной
+        if ((drawR + drawG + drawB) / 3 > 180) {
+            drawR = 15; drawG = 15; drawB = 15;
         }
 
-        // Функция проверки: пиксель считается частью линии, если он темный (не белый фон)
+        // Внимание: пиксель линии — это любой НЕ белый пиксель на очищенном фоне
         function isLinePixel(r, g, b) {
-            return (r < 200 || g < 200 || b < 200);
+            return (r < 210 || g < 210 || b < 210);
         }
 
         let startIdx = (clickY * width + clickX) * 4;
-        if (data[startIdx] > 220 && data[startIdx+1] > 220 && data[startIdx+2] > 220) {
-            log("⚠️ Кликните точно по линии схемы!");
+        if (!isLinePixel(data[startIdx], data[startIdx+1], data[startIdx+2])) {
+            log("⚠️ Кликните точно по пикселю линии схемы (не по белого фону)!");
             return;
         }
 
-        log(`🎯 Трассировка ветки от точки (${clickX}, ${clickY})...`);
+        log(`🎯 Поиск ветки от точки (${clickX}, ${clickY})...`);
 
+        // Поиск связной компоненты (Flood Fill)
         const visited = new Uint8Array(width * height);
         const queue = [[clickX, clickY]];
         visited[clickY * width + clickX] = 1;
@@ -328,18 +330,18 @@
             }
         }
 
-        if (componentPixels.length < 5) {
-            log("ℹ️ Слишком маленький фрагмент.");
+        if (componentPixels.length < 6) {
+            log("ℹ️ Слишком маленький фрагмент или точечный шум.");
             return;
         }
 
-        // 1. Очищаем старую неровную трассу белым фоном
+        // 1. Затираем старую кривую линию белым фоном
         for (let p of componentPixels) {
             let idx = (p.y * width + p.x) * 4;
             data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
         }
 
-        // 2. Вычисляем границы
+        // 2. Считаем габариты ветки
         let minX = width, maxX = 0, minY = height, maxY = 0;
         let sumX = 0, sumY = 0;
 
@@ -355,46 +357,46 @@
         let deltaX = maxX - minX;
         let deltaY = maxY - minY;
 
-        // 3. Рисуем идеальную ровную линию толщиной 3 пикселя
+        // 3. Выравниваем по преобладающему направлению (Горизонталь / Вертикаль)
         if (deltaX >= deltaY) {
+            // Рисуем идеальную горизонтальную линию 3px
             let avgY = Math.round(sumY / componentPixels.length);
             for (let x = minX; x <= maxX; x++) {
                 for (let dy = -1; dy <= 1; dy++) {
                     let py = avgY + dy;
                     if (py >= 0 && py < height) {
                         let idx = (py * width + x) * 4;
-                        data[idx] = lineR; 
-                        data[idx+1] = lineG; 
-                        data[idx+2] = lineB;
+                        data[idx] = drawR; 
+                        data[idx+1] = drawG; 
+                        data[idx+2] = drawB;
                     }
                 }
             }
-            log(`✅ Горизонтальная ветка выровнена (толщина 3px).`);
+            log(`✅ Выровнена ГОРИЗОНТАЛЬНАЯ ветка (длина: ${deltaX}px, толщина: 3px).`);
         } else {
+            // Рисуем идеальную вертикальную линию 3px
             let avgX = Math.round(sumX / componentPixels.length);
             for (let y = minY; y <= maxY; y++) {
                 for (let dx = -1; dx <= 1; dx++) {
                     let px = avgX + dx;
                     if (px >= 0 && px < width) {
                         let idx = (y * width + px) * 4;
-                        data[idx] = lineR; 
-                        data[idx+1] = lineG; 
-                        data[idx+2] = lineB;
+                        data[idx] = drawR; 
+                        data[idx+1] = drawG; 
+                        data[idx+2] = drawB;
                     }
                 }
             }
-            log(`✅ Вертикальная ветка выровнена (толщина 3px).`);
+            log(`✅ Выровнена ВЕРТИКАЛЬНАЯ ветка (длина: ${deltaY}px, толщина: 3px).`);
         }
 
+        // Сохраняем обновленный холст
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
     }
 
     function alignSelectedArea(direction) {
-        if (!selectedColorRgb) {
-            alert('Сначала выберите цвет линии!');
-            return;
-        }
+        if (!selectedColorRgb) return;
 
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -410,26 +412,19 @@
         let y1 = Math.max(0, Math.min(startY, endY));
         let y2 = Math.min(height, Math.max(startY, endY));
 
-        if (x1 === x2 || y1 === y2) {
-            x1 = 0; x2 = width; y1 = 0; y2 = height;
-        }
-
-        let lineR = selectedColorRgb.r;
-        let lineG = selectedColorRgb.g;
-        let lineB = selectedColorRgb.b;
-        if ((lineR + lineG + lineB) / 3 > 150) {
-            lineR = 20; lineG = 20; lineB = 20;
+        let drawR = selectedColorRgb.r;
+        let drawG = selectedColorRgb.g;
+        let drawB = selectedColorRgb.b;
+        if ((drawR + drawG + drawB) / 3 > 180) {
+            drawR = 15; drawG = 15; drawB = 15;
         }
 
         function isLinePixel(r, g, b) {
-            return (r < 200 || g < 200 || b < 200);
+            return (r < 210 || g < 210 || b < 210);
         }
 
-        log(`⚙️ Выравнивание рамки в 3px (${direction === 'horizontal' ? 'Горизонталь' : 'Вертикаль'})...`);
-
         if (direction === 'horizontal') {
-            let totalY = 0;
-            let totalCount = 0;
+            let totalY = 0, totalCount = 0;
             for (let x = x1; x <= x2; x++) {
                 for (let y = y1; y <= y2; y++) {
                     let idx = (y * width + x) * 4;
@@ -453,14 +448,13 @@
                         let py = avgY + dy;
                         if (py >= 0 && py < height) {
                             let idx = (py * width + x) * 4;
-                            data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                            data[idx] = drawR; data[idx+1] = drawG; data[idx+2] = drawB;
                         }
                     }
                 }
             }
         } else {
-            let totalX = 0;
-            let totalCount = 0;
+            let totalX = 0, totalCount = 0;
             for (let y = y1; y <= y2; y++) {
                 for (let x = x1; x <= x2; x++) {
                     let idx = (y * width + x) * 4;
@@ -484,7 +478,7 @@
                         let px = avgX + dx;
                         if (px >= 0 && px < width) {
                             let idx = (y * width + px) * 4;
-                            data[idx] = lineR; data[idx+1] = lineG; data[idx+2] = lineB;
+                            data[idx] = drawR; data[idx+1] = drawG; data[idx+2] = drawB;
                         }
                     }
                 }
