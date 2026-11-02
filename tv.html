@@ -41,7 +41,7 @@
 
         /* Sys Metrics Bar */
         .sys-bar {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;
             background: var(--bg-card); padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border);
         }
         .metric-card { display: flex; flex-direction: column; gap: 4px; }
@@ -92,7 +92,7 @@
     </div>
 
     <div class="main-content">
-        <!-- Расширенные системные виджеты -->
+        <!-- Системная панель -->
         <div class="sys-bar">
             <div class="metric-card">
                 <span class="metric-title">Загрузка CPU</span>
@@ -114,14 +114,14 @@
             </div>
             <div class="metric-card">
                 <span class="metric-title">Версия прошивки</span>
-                <span id="fwVal" class="metric-val" style="font-size: 14px;">-</span>
+                <span id="fwVal" class="metric-val" style="font-size: 13px;">-</span>
             </div>
         </div>
 
-        <!-- ТАБ 1: Телевизоры -->
+        <!-- ТАБ 1: Автоматически найденные телевизоры Samsung -->
         <div id="tab-tvs" class="tab-content active">
-            <h2 style="margin-bottom: 12px;">Мониторинг телевизоров Samsung (192.168.1.2, 192.168.1.8)</h2>
-            <div id="tvContainer" class="grid-cards"><div>Загрузка данных...</div></div>
+            <h2 style="margin-bottom: 12px;">Автоматический мониторинг телевизоров Samsung</h2>
+            <div id="tvContainer" class="grid-cards"><div>Поиск телевизоров в сети...</div></div>
         </div>
 
         <!-- ТАБ 2: Устройства DHCP + Поиск -->
@@ -222,7 +222,7 @@
                 const res = await fetch(SERVER_URL);
                 const data = await res.json();
 
-                // 1. Расширенные системные виджеты
+                // 1. Системные показатели
                 if (data.system) {
                     const cpu = data.system.cpu || '0%';
                     const mem = data.system.mem || '0%';
@@ -235,7 +235,7 @@
                     document.getElementById('fwVal').innerText = data.system.version;
                 }
 
-                // 2. Телевизоры Samsung
+                // 2. Автоматически найденные ТВ Samsung
                 const tvContainer = document.getElementById('tvContainer');
                 if (data.tvs && data.tvs.length > 0) {
                     tvContainer.innerHTML = data.tvs.map(tv => `
@@ -252,14 +252,14 @@
                         </div>
                     `).join('');
                 } else {
-                    tvContainer.innerHTML = `<div style="color: var(--text-muted)">Целевые телевизоры не найдены</div>`;
+                    tvContainer.innerHTML = `<div style="color: var(--text-muted)">Телевизоры Samsung не обнаружены в DHCP сети роутера</div>`;
                 }
 
-                // 3. Устройства
+                // 3. Таблица устройств
                 globalDevices = data.devices || [];
                 filterDevices();
 
-                // 4. Статистика
+                // 4. Статистика трафика
                 if (data.stats && data.stats.length > 0) {
                     document.getElementById('statsTableBody').innerHTML = data.stats.map(s => `
                         <tr>
@@ -272,7 +272,7 @@
                     `).join('');
                 }
 
-                // 5. Порты
+                // 5. Физические порты
                 if (data.interfaces && data.interfaces.length > 0) {
                     document.getElementById('interfacesTableBody').innerHTML = data.interfaces.map(i => `
                         <tr>
@@ -284,7 +284,7 @@
                     `).join('');
                 }
 
-                // 6. Лог
+                // 6. Логи
                 if (data.events && data.events.length > 0) {
                     document.getElementById('eventsTableBody').innerHTML = data.events.map(e => `
                         <tr>
@@ -299,7 +299,7 @@
             }
         }
 
-        // Автообновление каждые 15 секунд без перезагрузки страницы
+        // Автообновление каждые 15 секунд
         setInterval(loadData, 15000);
         loadData();
     </script>
