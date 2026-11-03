@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Идеальные линии и углы (4px)</title>
+    <title>CV Circuit Scanner — Симметричные линии 4px</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Идеальное выравнивание линий и углов (4px)</h1>
+    <h1>⚡ Сканер схем: Симметричное выравнивание (4px)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -68,7 +68,7 @@
             <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (4px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> После очистки фона выделите рамкой нужный участок. Все горизонтали, вертикали и углы выровняются ровно в 4 пикселя без изломов.
+            💡 <b>Инструкция:</b> Очистите фон и выделите рамкой нужный участок. Линии и углы выровняются строго по центральной оси с симметричной толщиной 4 пикселя.
         </p>
     </div>
 
@@ -249,7 +249,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ИДЕАЛЬНОЕ ВЫРАВНИВАНИЕ ЛИНИЙ И УГЛОВ (СТРОГО 4PX)
+    // СИММЕТРИЧНОЕ ВЫРАВНИВАНИЕ ЛИНИЙ И УГЛОВ (СТРОГО 4PX)
     function alignSelectedArea() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -285,7 +285,7 @@
             return (r < 180 || g < 180 || b < 180);
         }
 
-        log(`⚙️ Выравнивание идеальных линий и углов (4px)...`);
+        log(`⚙️ Выравнивание идеальных линий и углов (симметрично 4px)...`);
 
         // 1. Стираем область внутри рамки белым цветом
         for (let x = x1; x <= x2; x++) {
@@ -295,7 +295,7 @@
             }
         }
 
-        // 2. Отрисовка ровных горизонтальных отрезков (4px)
+        // 2. Горизонтальные линии (толщина 4px: dy от -2 до +1)
         for (let y = y1; y <= y2; y++) {
             let start = -1;
             for (let x = x1; x <= x2; x++) {
@@ -307,7 +307,7 @@
                         let len = x - start;
                         if (len >= 4) {
                             for (let lx = start; lx < x; lx++) {
-                                for (let dy = 0; dy < 4; dy++) {
+                                for (let dy = -2; dy <= 1; dy++) {
                                     let py = y + dy;
                                     if (py >= 0 && py < height) {
                                         let pidx = (py * width + lx) * 4;
@@ -324,7 +324,7 @@
                 let len = (x2 + 1) - start;
                 if (len >= 4) {
                     for (let lx = start; lx <= x2; lx++) {
-                        for (let dy = 0; dy < 4; dy++) {
+                        for (let dy = -2; dy <= 1; dy++) {
                             let py = y + dy;
                             if (py >= 0 && py < height) {
                                 let pidx = (py * width + lx) * 4;
@@ -336,7 +336,7 @@
             }
         }
 
-        // 3. Отрисовка ровных вертикальных отрезков с сохранением углов (4px)
+        // 3. Вертикальные линии с сохранением углов (толщина 4px: dx от -2 до +1)
         for (let x = x1; x <= x2; x++) {
             let start = -1;
             for (let y = y1; y <= y2; y++) {
@@ -348,7 +348,7 @@
                         let len = y - start;
                         if (len >= 4) {
                             for (let ly = start; ly < y; ly++) {
-                                for (let dx = 0; dx < 4; dx++) {
+                                for (let dx = -2; dx <= 1; dx++) {
                                     let px = x + dx;
                                     if (px >= 0 && px < width) {
                                         let pidx = (ly * width + px) * 4;
@@ -365,7 +365,7 @@
                 let len = (y2 + 1) - start;
                 if (len >= 4) {
                     for (let ly = start; ly <= y2; ly++) {
-                        for (let dx = 0; dx < 4; dx++) {
+                        for (let dx = -2; dx <= 1; dx++) {
                             let px = x + dx;
                             if (px >= 0 && px < width) {
                                 let pidx = (ly * width + px) * 4;
@@ -380,7 +380,7 @@
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Горизонтали, вертикали и углы выровнены идеально ровно (строго 4px).`);
+        log(`✅ Горизонтали, вертикали и углы выровнены строго по центру (4px).`);
     }
 </script>
 </body>
