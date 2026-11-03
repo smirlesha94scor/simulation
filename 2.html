@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Выравнивание всей схемы</title>
+    <title>CV Circuit Scanner — Умная кисть-выравниватель</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         
@@ -35,14 +35,13 @@
         .btn-auto:hover { background: #00cc52; }
         .btn-bg { background: #00bcd4; color: #fff; }
         .btn-bg:hover { background: #008ba3; }
-        .btn-fullscan { background: #ff9900; color: #000; }
-        .btn-fullscan:hover { background: #e08500; }
+        .btn-brush { background: #9b51e0; color: #fff; }
+        .btn-brush:hover { background: #823ab7; }
+        .btn-brush.active { background: #ff007f; box-shadow: 0 0 8px #ff007f; }
 
         input[type="range"] { width: 150px; vertical-align: middle; }
 
-        .container {
-            padding: 20px;
-        }
+        .container { padding: 20px; }
 
         #viewport {
             position: relative;
@@ -90,11 +89,11 @@
         <div class="toolbar-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-фон</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnFullScan" class="btn-fullscan" onclick="scanEntireCircuit()" disabled>⚡ Сканировать всю схему</button>
+            <button id="btnBrush" class="btn-brush" onclick="toggleBrushMode()" disabled>🖌️ Выравнивающая кисть: ВЫКЛ</button>
         </div>
 
         <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -5px;">
-            💡 <b>Инструкция:</b> Выберите цвет пипеткой, выберите <b>«🪄 Авто-фон»</b>, затем нажмите <b>«⚡ Сканировать всю схему»</b>.
+            💡 <b>Инструкция:</b> Включите кисть и проведите зажатой мышкой вдоль любой кривой линии — она автоматически выровняется!
         </div>
     </div>
 
@@ -114,6 +113,10 @@
     let selectedColorRgb = null;
     let originalImageSnapshot = null;
     let cleanedImageSnapshot = null;
+
+    let isBrushMode = false;
+    let isDrawing = false;
+    let strokePath = [];
 
     window.onload = () => {
         setupCanvasInteraction();
@@ -139,11 +142,14 @@
                     cleanedImageSnapshot = null;
                     
                     selectedColorRgb = null;
+                    isBrushMode = false;
+                    document.getElementById('btnBrush').classList.remove('active');
+                    document.getElementById('btnBrush').textContent = "🖌️ Выравнивающая кисть: ВЫКЛ";
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
                     document.getElementById('btnAutoClean').disabled = true;
-                    document.getElementById('btnFullScan').disabled = true;
+                    document.getElementById('btnBrush').disabled = true;
                     log("Изображение загружено. Кликните пипеткой по линии.");
                 };
             }
@@ -151,18 +157,33 @@
         }
     }
 
+    function toggleBrushMode() {
+        isBrushMode = !isBrushMode;
+        const btn = document.getElementById('btnBrush');
+        if (isBrushMode) {
+            btn.classList.add('active');
+            btn.textContent = "🖌️ Выравнивающая кисть: ВКЛ (Проведите по линии)";
+            log("✏️ Режим кисти включен. Зажмите мышь и проведите по кривой линии.");
+        } else {
+            btn.classList.remove('active');
+            btn.textContent = "🖌️ Выравнивающая кисть: ВЫКЛ";
+            log("⚪ Режим кисти выключен.");
+        }
+    }
+
     function setupCanvasInteraction() {
         const canvas = document.getElementById('cv-canvas');
+
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = 1000 / rect.width;
             const scaleY = 600 / rect.height;
-            const currentX = Math.floor((e.clientX - rect.left) * scaleX);
-            const currentY = Math.floor((e.clientY - rect.top) * scaleY);
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
 
             if (!selectedColorRgb) {
                 const ctx = canvas.getContext('2d');
-                const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
+                const pixel = ctx.getImageData(x, y, 1, 1).data;
 
                 selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
                 const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
@@ -173,10 +194,40 @@
                 document.getElementById('selectedColorStatus').textContent = `Цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
                 document.getElementById('btnMakeWhite').disabled = false;
                 document.getElementById('btnAutoClean').disabled = false;
-                document.getElementById('btnFullScan').disabled = false;
+                document.getElementById('btnBrush').disabled = false;
 
                 log(`🎨 Выбран цвет линии: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
+                return;
             }
+
+            if (isBrushMode) {
+                isDrawing = true;
+                strokePath = [{ x, y }];
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !isBrushMode) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            strokePath.push({ x, y });
+
+            // Визуализация следа кисти (розовый маркер)
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(255, 0, 127, 0.4)';
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (!isDrawing || !isBrushMode) return;
+            isDrawing = false;
+            processBrushStroke();
         });
     }
 
@@ -224,125 +275,83 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ПОЛНАЯ ЗАЧИСТКА И ВЫРАВНИВАНИЕ ВСЕХ ЛИНИЙ
-    function scanEntireCircuit() {
+    // ОБРАБОТКА ДВИЖЕНИЯ КИСТИ: УДАЛЕНИЕ НЕРОВНОСТЕЙ И ПОСТРОЕНИЕ ИДЕАЛЬНОЙ ПРЯМОЙ ЛИНИИ
+    function processBrushStroke() {
+        if (strokePath.length < 2) return;
+
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
         const height = canvas.height;
-        
+
+        // Восстанавливаем сохраненное состояние для стирания следа маркера
         if (cleanedImageSnapshot) {
             ctx.putImageData(cleanedImageSnapshot, 0, 0);
-        } else {
-            ctx.putImageData(originalImageSnapshot, 0, 0);
         }
-        
+
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
-        const srcData = new Uint8ClampedArray(data); // Копия исхода
 
-        function isBlack(x, y) {
-            if (x < 0 || x >= width || y < 0 || y >= height) return false;
-            let idx = (y * width + x) * 4;
-            return srcData[idx] < 100;
-        }
+        // Начальная и конечная точки штриха кисти
+        const pStart = strokePath[0];
+        const pEnd = strokePath[strokePath.length - 1];
 
-        log("⚡ Выравнивание длинных проводников и стирание искривлений...");
+        const dx = Math.abs(pEnd.x - pStart.x);
+        const dy = Math.abs(pEnd.y - pStart.y);
 
-        let vertAxes = [];
-        let horizAxes = [];
+        let isHorizontal = dx > dy;
 
-        // 1. Поиск центральных осей длинных вертикальных линий
-        for (let x = 2; x < width - 2; x++) {
-            let currentLen = 0;
-            let startY = -1;
-            for (let y = 2; y < height - 2; y++) {
-                if (isBlack(x, y)) {
-                    if (startY === -1) startY = y;
-                    currentLen++;
-                } else {
-                    if (currentLen > 15) { // Ищем протяженные отрезки
-                        vertAxes.push({ x: x, y1: startY, y2: y - 1 });
-                    }
-                    currentLen = 0;
-                    startY = -1;
-                }
-            }
-        }
-
-        // 2. Поиск центральных осей длинных горизонтальных линий
-        for (let y = 2; y < height - 2; y++) {
-            let currentLen = 0;
-            let startX = -1;
-            for (let x = 2; x < width - 2; x++) {
-                if (isBlack(x, y)) {
-                    if (startX === -1) startX = x;
-                    currentLen++;
-                } else {
-                    if (currentLen > 15) {
-                        horizAxes.push({ y: y, x1: startX, x2: x - 1 });
-                    }
-                    currentLen = 0;
-                    startX = -1;
-                }
-            }
-        }
-
-        // 3. Стираем старые кривые сегменты вдоль найденных осей (на 6px вокруг)
-        vertAxes.forEach(line => {
-            for (let y = line.y1; y <= line.y2; y++) {
-                for (let dx = -6; dx <= 6; dx++) {
-                    let px = line.x + dx;
-                    if (px >= 0 && px < width) {
-                        let idx = (y * width + px) * 4;
+        // 1. Стираем все неровности в радиусе 10px вдоль траектории кисти
+        strokePath.forEach(pt => {
+            for (let rx = -10; rx <= 10; rx++) {
+                for (let ry = -10; ry <= 10; ry++) {
+                    let px = pt.x + rx;
+                    let py = pt.y + ry;
+                    if (px >= 0 && px < width && py >= 0 && py < height) {
+                        let idx = (py * width + px) * 4;
                         data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
                     }
                 }
             }
         });
 
-        horizAxes.forEach(line => {
-            for (let x = line.x1; x <= line.x2; x++) {
-                for (let dy = -6; dy <= 6; dy++) {
-                    let py = line.y + dy;
+        // 2. Проводим строгую прямую черную линию (3px) от начала до конца движения кисти
+        if (isHorizontal) {
+            let fixedY = Math.round((pStart.y + pEnd.y) / 2);
+            let startX = Math.min(pStart.x, pEnd.x);
+            let endX = Math.max(pStart.x, pEnd.x);
+
+            for (let x = startX; x <= endX; x++) {
+                for (let offY = -1; offY <= 1; offY++) {
+                    let py = fixedY + offY;
                     if (py >= 0 && py < height) {
                         let idx = (py * width + x) * 4;
-                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                     }
                 }
             }
-        });
+        } else {
+            let fixedX = Math.round((pStart.x + pEnd.x) / 2);
+            let startY = Math.min(pStart.y, pEnd.y);
+            let endY = Math.max(pStart.y, pEnd.y);
 
-        // 4. Отрисовываем идеально ровные черные линии толщиной 3px
-        vertAxes.forEach(line => {
-            for (let y = line.y1; y <= line.y2; y++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    let px = line.x + dx;
+            for (let y = startY; y <= endY; y++) {
+                for (let offX = -1; offX <= 1; offX++) {
+                    let px = fixedX + offX;
                     if (px >= 0 && px < width) {
                         let idx = (y * width + px) * 4;
                         data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                     }
                 }
             }
-        });
-
-        horizAxes.forEach(line => {
-            for (let x = line.x1; x <= line.x2; x++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    let py = line.y + dy;
-                    if (py >= 0 && py < height) {
-                        let idx = (py * width + x) * 4;
-                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
-                    }
-                }
-            }
-        });
+        }
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 
-        log(`✅ Готово! Старые неровные контуры устранены, созданы прямые проводники 3px.`);
+        log(`✨ Участок выровнен! Линия мгновенно выпрямлена (3px).`);
+        strokePath = [];
     }
 </script>
 </body>
