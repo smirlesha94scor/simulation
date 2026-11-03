@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Симметричные линии 4px</title>
+    <title>CV Circuit Scanner — Идеальные линии 3px</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Симметричное выравнивание (4px)</h1>
+    <h1>⚡ Сканер схем: Поиск оси 1px и ровная линия (3px)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -65,10 +65,10 @@
         <div class="btn-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (4px)</button>
+            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Найти ось 1px и начертить (3px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> Очистите фон и выделите рамкой нужный участок. Линии и углы выровняются строго по центральной оси с симметричной толщиной 4 пикселя.
+            💡 <b>Инструкция:</b> Выделите рамкой участок линии. Код найдет её центральную ось в 1 пиксель и построит абсолютно ровную линию толщиной 3 пикселя.
         </p>
     </div>
 
@@ -249,7 +249,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // СИММЕТРИЧНОЕ ВЫРАВНИВАНИЕ ЛИНИЙ И УГЛОВ (СТРОГО 4PX)
+    // ПОИСК ОСИ 1PX И ПОСТРОЕНИЕ ИДЕАЛЬНОЙ ЛИНИИ ТОЛЩИНОЙ 3PX
     function alignSelectedArea() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -277,7 +277,7 @@
         let y2 = Math.min(height, Math.max(startY, endY));
 
         if (x1 === x2 || y1 === y2) {
-            log("⚠️ Сначала выделите рамкой участок с линиями или углом!");
+            log("⚠️ Сначала выделите рамкой участок с линией!");
             return;
         }
 
@@ -285,9 +285,9 @@
             return (r < 180 || g < 180 || b < 180);
         }
 
-        log(`⚙️ Выравнивание идеальных линий и углов (симметрично 4px)...`);
+        log(`⚙️ Поиск центральной оси 1px и построение ровной линии (3px)...`);
 
-        // 1. Стираем область внутри рамки белым цветом
+        // 1. Стираем рамку белым цветом
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
@@ -295,92 +295,84 @@
             }
         }
 
-        // 2. Горизонтальные линии (толщина 4px: dy от -2 до +1)
-        for (let y = y1; y <= y2; y++) {
-            let start = -1;
-            for (let x = x1; x <= x2; x++) {
+        // 2. Собираем координаты всех черных пикселей внутри рамки
+        let linePixels = [];
+        for (let x = x1; x <= x2; x++) {
+            for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
                 if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (start === -1) start = x;
-                } else {
-                    if (start !== -1) {
-                        let len = x - start;
-                        if (len >= 4) {
-                            for (let lx = start; lx < x; lx++) {
-                                for (let dy = -2; dy <= 1; dy++) {
-                                    let py = y + dy;
-                                    if (py >= 0 && py < height) {
-                                        let pidx = (py * width + lx) * 4;
-                                        data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                                    }
-                                }
-                            }
-                        }
-                        start = -1;
-                    }
-                }
-            }
-            if (start !== -1) {
-                let len = (x2 + 1) - start;
-                if (len >= 4) {
-                    for (let lx = start; lx <= x2; lx++) {
-                        for (let dy = -2; dy <= 1; dy++) {
-                            let py = y + dy;
-                            if (py >= 0 && py < height) {
-                                let pidx = (py * width + lx) * 4;
-                                data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                            }
-                        }
-                    }
+                    linePixels.push({x: x, y: y});
                 }
             }
         }
 
-        // 3. Вертикальные линии с сохранением углов (толщина 4px: dx от -2 до +1)
-        for (let x = x1; x <= x2; x++) {
-            let start = -1;
-            for (let y = y1; y <= y2; y++) {
-                let idx = (y * width + x) * 4;
-                if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (start === -1) start = y;
-                } else {
-                    if (start !== -1) {
-                        let len = y - start;
-                        if (len >= 4) {
-                            for (let ly = start; ly < y; ly++) {
-                                for (let dx = -2; dx <= 1; dx++) {
-                                    let px = x + dx;
-                                    if (px >= 0 && px < width) {
-                                        let pidx = (ly * width + px) * 4;
-                                        data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                                    }
-                                }
-                            }
-                        }
-                        start = -1;
-                    }
-                }
-            }
-            if (start !== -1) {
-                let len = (y2 + 1) - start;
-                if (len >= 4) {
-                    for (let ly = start; ly <= y2; ly++) {
-                        for (let dx = -2; dx <= 1; dx++) {
-                            let px = x + dx;
-                            if (px >= 0 && px < width) {
-                                let pidx = (ly * width + px) * 4;
-                                data[pidx] = 0; data[pidx+1] = 0; data[pidx+2] = 0;
-                            }
+        if (linePixels.length === 0) {
+            log("⚠️ Внутри выделенной рамки не найдено пикселей линии.");
+            return;
+        }
+
+        // 3. Определяем ориентацию (горизонтальная или вертикальная) по размаху координат
+        let minX = Math.min(...linePixels.map(p => p.x));
+        let maxX = Math.max(...linePixels.map(p => p.x));
+        let minY = Math.min(...linePixels.map(p => p.y));
+        let maxY = Math.max(...linePixels.map(p => p.y));
+
+        let spanX = maxX - minX;
+        let spanY = maxY - minY;
+
+        if (spanX >= spanY) {
+            // ГОРИЗОНТАЛЬНАЯ ЛИНИЯ: находим истинную центральную ось 1px по среднему значению Y для каждого X
+            let axisMap = {};
+            linePixels.forEach(p => {
+                if (!axisMap[p.x]) axisMap[p.x] = [];
+                axisMap[p.x].push(p.y);
+            });
+
+            // Строим сплошную линию толщиной ровно 3px (симметрично: от -1 до +1 от оси)
+            for (let x = minX; x <= maxX; x++) {
+                if (axisMap[x]) {
+                    let sumY = axisMap[x].reduce((a, b) => a + b, 0);
+                    let centerY = Math.round(sumY / axisMap[x].length); // Ось в 1 пиксель
+
+                    for (let dy = -1; dy <= 1; dy++) {
+                        let py = centerY + dy;
+                        if (py >= 0 && py < height) {
+                            let idx = (py * width + x) * 4;
+                            data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                         }
                     }
                 }
             }
+            log(`✅ Найдена горизонтальная ось 1px, начерчена линия 3px (длина: ${spanX}px).`);
+        } else {
+            // ВЕРТИКАЛЬНАЯ ЛИНИЯ: находим истинную центральную ось 1px по среднему значению X для каждого Y
+            let axisMap = {};
+            linePixels.forEach(p => {
+                if (!axisMap[p.y]) axisMap[p.y] = [];
+                axisMap[p.y].push(p.x);
+            });
+
+            // Строим сплошную линию толщиной ровно 3px (симметрично: от -1 до +1 от оси)
+            for (let y = minY; y <= maxY; y++) {
+                if (axisMap[y]) {
+                    let sumX = axisMap[y].reduce((a, b) => a + b, 0);
+                    let centerX = Math.round(sumX / axisMap[y].length); // Ось в 1 пиксель
+
+                    for (let dx = -1; dx <= 1; dx++) {
+                        let px = centerX + dx;
+                        if (px >= 0 && px < width) {
+                            let idx = (y * width + px) * 4;
+                            data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                        }
+                    }
+                }
+            }
+            log(`✅ Найдена вертикальная ось 1px, начерчена линия 3px (длина: ${spanY}px).`);
         }
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Горизонтали, вертикали и углы выровнены строго по центру (4px).`);
     }
 </script>
 </body>
