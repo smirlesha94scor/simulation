@@ -1,4 +1,281 @@
-function processBrushStroke() {
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>CV Circuit Scanner — Умная кисть-выравниватель</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
+        
+        .top-toolbar {
+            background: #181820;
+            padding: 12px 15px;
+            border-bottom: 2px solid #444;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        input, button { padding: 6px 10px; font-size: 12px; }
+        
+        button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap; }
+        button:hover { background: #d9006b; }
+        button:disabled { background: #444; cursor: not-allowed; }
+
+        .btn-auto { background: #00ff66; color: #000; }
+        .btn-auto:hover { background: #00cc52; }
+        .btn-bg { background: #00bcd4; color: #fff; }
+        .btn-bg:hover { background: #008ba3; }
+        .btn-brush { background: #9b51e0; color: #fff; }
+        .btn-brush:hover { background: #823ab7; }
+        .btn-brush.active { background: #ff007f; box-shadow: 0 0 8px #ff007f; }
+
+        input[type="range"] { width: 130px; vertical-align: middle; }
+
+        .container { padding: 20px; }
+
+        #viewport {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            aspect-ratio: 5 / 3;
+            border: 2px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+            margin: 0 auto 20px auto;
+        }
+
+        #cv-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            cursor: crosshair;
+            z-index: 1;
+        }
+
+        .card { background: #181820; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
+        .color-preview { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 3px; }
+    </style>
+</head>
+<body>
+
+    <div class="top-toolbar">
+        <div class="toolbar-group">
+            <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
+        </div>
+
+        <div class="toolbar-group">
+            <label>Порог: <span id="sensValue">65</span></label>
+            <input type="range" id="sensitivity" min="10" max="150" value="65" oninput="onSensitivityChange(this.value)">
+        </div>
+
+        <div class="toolbar-group">
+            <span id="selectedColorStatus">1. Кликните по линии</span>
+            <span id="colorBox" class="color-preview" style="display:none;"></span>
+        </div>
+
+        <div class="toolbar-group">
+            <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-фон</button>
+            <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
+            <button id="btnBrush" class="btn-brush" onclick="toggleBrushMode()" disabled>🖌️ Кисть: ВЫКЛ</button>
+        </div>
+
+        <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -3px;">
+            💡 <b>Инструкция:</b> Очистите фон, включите кисть и проведите мышкой вдоль линии — она сама замагнитится и выпрямится!
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="viewport">
+            <canvas id="cv-canvas" width="1000" height="600"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>Лог работы системы:</h3>
+            <div id="log">Загрузите изображение...</div>
+        </div>
+    </div>
+
+<script>
+    let imgElement = new Image();
+    let selectedColorRgb = null;
+    let originalImageSnapshot = null;
+    let cleanedImageSnapshot = null;
+
+    let isBrushMode = false;
+    let isDrawing = false;
+    let strokePath = [];
+
+    window.onload = () => {
+        setupCanvasInteraction();
+    };
+
+    function log(text) {
+        const box = document.getElementById('log');
+        box.innerHTML += `<div>> ${text}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function loadToCanvas(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgElement.src = e.target.result;
+                imgElement.onload = () => {
+                    const canvas = document.getElementById('cv-canvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 1000, 600);
+                    ctx.drawImage(imgElement, 0, 0, 1000, 600);
+                    originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+                    cleanedImageSnapshot = null;
+                    
+                    selectedColorRgb = null;
+                    isBrushMode = false;
+                    document.getElementById('btnBrush').classList.remove('active');
+                    document.getElementById('btnBrush').textContent = "🖌️ Кисть: ВЫКЛ";
+                    document.getElementById('colorBox').style.display = 'none';
+                    document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
+                    document.getElementById('btnMakeWhite').disabled = true;
+                    document.getElementById('btnAutoClean').disabled = true;
+                    document.getElementById('btnBrush').disabled = true;
+                    log("Изображение загружено. Кликните пипеткой по линии.");
+                };
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function toggleBrushMode() {
+        isBrushMode = !isBrushMode;
+        const btn = document.getElementById('btnBrush');
+        if (isBrushMode) {
+            btn.classList.add('active');
+            btn.textContent = "🖌️ Кисть: ВКЛ";
+            log("✏️ Режим кисти включен. Зажмите мышь и проведите по кривой линии.");
+        } else {
+            btn.classList.remove('active');
+            btn.textContent = "🖌️ Кисть: ВЫКЛ";
+            log("⚪ Режим кисти выключен.");
+        }
+    }
+
+    function setupCanvasInteraction() {
+        const canvas = document.getElementById('cv-canvas');
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            if (!selectedColorRgb) {
+                const ctx = canvas.getContext('2d');
+                const pixel = ctx.getImageData(x, y, 1, 1).data;
+
+                selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+                const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                const colorBox = document.getElementById('colorBox');
+                colorBox.style.background = colorHex;
+                colorBox.style.display = 'inline-block';
+
+                document.getElementById('selectedColorStatus').textContent = `Цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                document.getElementById('btnMakeWhite').disabled = false;
+                document.getElementById('btnAutoClean').disabled = false;
+                document.getElementById('btnBrush').disabled = false;
+
+                log(`🎨 Выбран цвет линии: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
+                return;
+            }
+
+            if (isBrushMode) {
+                isDrawing = true;
+                strokePath = [{ x, y }];
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !isBrushMode) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            strokePath.push({ x, y });
+
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(255, 0, 127, 0.4)';
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (!isDrawing || !isBrushMode) return;
+            isDrawing = false;
+            processBrushStroke();
+        });
+    }
+
+    function onSensitivityChange(val) {
+        document.getElementById('sensValue').textContent = val;
+    }
+
+    function runColorFilter(customTolerance = null) {
+        if (!selectedColorRgb) return;
+        const tolerance = customTolerance !== null ? customTolerance : parseInt(document.getElementById('sensitivity').value);
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            let distanceToLine = Math.sqrt(
+                Math.pow(r - selectedColorRgb.r, 2) +
+                Math.pow(g - selectedColorRgb.g, 2) +
+                Math.pow(b - selectedColorRgb.b, 2)
+            );
+            
+            if (distanceToLine > tolerance) {
+                data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+            } else {
+                data[i] = 0; data[i+1] = 0; data[i+2] = 0;
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        cleanedImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        log(`✅ Фон очищен.`);
+    }
+
+    function autoCleanBackground() {
+        if (!selectedColorRgb) return;
+        let autoSensitivity = 65;
+        document.getElementById('sensitivity').value = autoSensitivity;
+        document.getElementById('sensValue').textContent = autoSensitivity;
+        log(`🪄 Авто-очистка фона...`);
+        runColorFilter(autoSensitivity);
+    }
+
+    // ВЫРАВНИВАНИЕ С МАГНИТНОЙ ПРИВЯЗКОЙ К ЦЕНТРУ ИСХОДНОЙ ЛИНИИ
+    function processBrushStroke() {
         if (strokePath.length < 2) return;
 
         const canvas = document.getElementById('cv-canvas');
@@ -18,10 +295,35 @@ function processBrushStroke() {
 
         const dx = Math.abs(pEnd.x - pStart.x);
         const dy = Math.abs(pEnd.y - pStart.y);
-
         let isHorizontal = dx > dy;
 
-        // 1. Стираем старую кривую линию в зоне штриха
+        // Поиск центра существующей черной линии вокруг места старта (Магнит)
+        let targetX = pStart.x;
+        let targetY = pStart.y;
+        let darkPixelsCount = 0;
+        let sumX = 0, sumY = 0;
+
+        for (let rx = -8; rx <= 8; rx++) {
+            for (let ry = -8; ry <= 8; ry++) {
+                let px = pStart.x + rx;
+                let py = pStart.y + ry;
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    let idx = (py * width + px) * 4;
+                    if (data[idx] < 100) { // Если пиксель темный
+                        sumX += px;
+                        sumY += py;
+                        darkPixelsCount++;
+                    }
+                }
+            }
+        }
+
+        if (darkPixelsCount > 0) {
+            targetX = Math.round(sumX / darkPixelsCount);
+            targetY = Math.round(sumY / darkPixelsCount);
+        }
+
+        // 1. Стираем старые кривые неровности вдоль всего штриха
         strokePath.forEach(pt => {
             for (let rx = -10; rx <= 10; rx++) {
                 for (let ry = -10; ry <= 10; ry++) {
@@ -35,16 +337,14 @@ function processBrushStroke() {
             }
         });
 
-        // 2. Строим ровную линию ТОЧНО по координате начала движения мыши (pStart), 
-        // чтобы она не смещалась в сторону.
+        // 2. Отрисовываем идеально прямую линию (3px) строго по найденному центру оригинальной линии
         if (isHorizontal) {
-            let fixedY = pStart.y; // Берем точную точку старта по Y
             let startX = Math.min(pStart.x, pEnd.x);
             let endX = Math.max(pStart.x, pEnd.x);
 
             for (let x = startX; x <= endX; x++) {
                 for (let offY = -1; offY <= 1; offY++) {
-                    let py = fixedY + offY;
+                    let py = targetY + offY;
                     if (py >= 0 && py < height) {
                         let idx = (py * width + x) * 4;
                         data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
@@ -52,13 +352,12 @@ function processBrushStroke() {
                 }
             }
         } else {
-            let fixedX = pStart.x; // Берем точную точку старта по X
             let startY = Math.min(pStart.y, pEnd.y);
             let endY = Math.max(pStart.y, pEnd.y);
 
             for (let y = startY; y <= endY; y++) {
                 for (let offX = -1; offX <= 1; offX++) {
-                    let px = fixedX + offX;
+                    let px = targetX + offX;
                     if (px >= 0 && px < width) {
                         let idx = (y * width + px) * 4;
                         data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
@@ -71,6 +370,9 @@ function processBrushStroke() {
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 
-        log(`✨ Линия выровнена точно по месту штриха (3px).`);
+        log(`✨ Линия автоматически притянута к центру оригинального проводника и выровнена (3px).`);
         strokePath = [];
     }
+</script>
+</body>
+</html>
