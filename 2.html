@@ -8,12 +8,12 @@
         
         .top-toolbar {
             background: #181820;
-            padding: 15px 20px;
+            padding: 12px 15px;
             border-bottom: 2px solid #444;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
             width: 100%;
             box-sizing: border-box;
         }
@@ -21,13 +21,13 @@
         .toolbar-group {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
-        input, button { padding: 6px 10px; font-size: 13px; }
+        input, button { padding: 6px 10px; font-size: 12px; }
         
-        button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap; }
         button:hover { background: #d9006b; }
         button:disabled { background: #444; cursor: not-allowed; }
 
@@ -39,7 +39,7 @@
         .btn-brush:hover { background: #823ab7; }
         .btn-brush.active { background: #ff007f; box-shadow: 0 0 8px #ff007f; }
 
-        input[type="range"] { width: 150px; vertical-align: middle; }
+        input[type="range"] { width: 130px; vertical-align: middle; }
 
         .container { padding: 20px; }
 
@@ -89,10 +89,10 @@
         <div class="toolbar-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-фон</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnBrush" class="btn-brush" onclick="toggleBrushMode()" disabled>🖌️ Выравнивающая кисть: ВЫКЛ</button>
+            <button id="btnBrush" class="btn-brush" onclick="toggleBrushMode()" disabled>🖌️ Кисть: ВЫКЛ</button>
         </div>
 
-        <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -5px;">
+        <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -3px;">
             💡 <b>Инструкция:</b> Включите кисть и проведите зажатой мышкой вдоль любой кривой линии — она автоматически выровняется!
         </div>
     </div>
@@ -144,7 +144,7 @@
                     selectedColorRgb = null;
                     isBrushMode = false;
                     document.getElementById('btnBrush').classList.remove('active');
-                    document.getElementById('btnBrush').textContent = "🖌️ Выравнивающая кисть: ВЫКЛ";
+                    document.getElementById('btnBrush').textContent = "🖌️ Кисть: ВЫКЛ";
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
@@ -162,11 +162,11 @@
         const btn = document.getElementById('btnBrush');
         if (isBrushMode) {
             btn.classList.add('active');
-            btn.textContent = "🖌️ Выравнивающая кисть: ВКЛ (Проведите по линии)";
+            btn.textContent = "🖌️ Кисть: ВКЛ";
             log("✏️ Режим кисти включен. Зажмите мышь и проведите по кривой линии.");
         } else {
             btn.classList.remove('active');
-            btn.textContent = "🖌️ Выравнивающая кисть: ВЫКЛ";
+            btn.textContent = "🖌️ Кисть: ВЫКЛ";
             log("⚪ Режим кисти выключен.");
         }
     }
@@ -216,7 +216,6 @@
 
             strokePath.push({ x, y });
 
-            // Визуализация следа кисти (розовый маркер)
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = 'rgba(255, 0, 127, 0.4)';
             ctx.beginPath();
@@ -275,7 +274,6 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ОБРАБОТКА ДВИЖЕНИЯ КИСТИ: УДАЛЕНИЕ НЕРОВНОСТЕЙ И ПОСТРОЕНИЕ ИДЕАЛЬНОЙ ПРЯМОЙ ЛИНИИ
     function processBrushStroke() {
         if (strokePath.length < 2) return;
 
@@ -284,7 +282,6 @@
         const width = canvas.width;
         const height = canvas.height;
 
-        // Восстанавливаем сохраненное состояние для стирания следа маркера
         if (cleanedImageSnapshot) {
             ctx.putImageData(cleanedImageSnapshot, 0, 0);
         }
@@ -292,7 +289,6 @@
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // Начальная и конечная точки штриха кисти
         const pStart = strokePath[0];
         const pEnd = strokePath[strokePath.length - 1];
 
@@ -301,7 +297,6 @@
 
         let isHorizontal = dx > dy;
 
-        // 1. Стираем все неровности в радиусе 10px вдоль траектории кисти
         strokePath.forEach(pt => {
             for (let rx = -10; rx <= 10; rx++) {
                 for (let ry = -10; ry <= 10; ry++) {
@@ -315,7 +310,6 @@
             }
         });
 
-        // 2. Проводим строгую прямую черную линию (3px) от начала до конца движения кисти
         if (isHorizontal) {
             let fixedY = Math.round((pStart.y + pEnd.y) / 2);
             let startX = Math.min(pStart.x, pEnd.x);
