@@ -2,11 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Выравнивание вертикали и горизонтали</title>
+    <title>CV Circuit Scanner — Умное выравнивание участка</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         
-        /* Верхняя панель на всю ширину */
         .top-toolbar {
             background: #181820;
             padding: 15px 20px;
@@ -73,7 +72,6 @@
 </head>
 <body>
 
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ НА ВСЮ ШИРИНУ -->
     <div class="top-toolbar">
         <div class="toolbar-group">
             <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
@@ -92,11 +90,11 @@
         <div class="toolbar-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlign" class="btn-align" onclick="handleAlignStep()" disabled>📐 Шаг 1: Найти оси (1px)</button>
+            <button id="btnAlign" class="btn-align" onclick="handleAlignStep()" disabled>📐 Шаг 1: Найти ось (1px)</button>
         </div>
 
         <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -5px;">
-            💡 <b>Инструкция:</b> Выделите рамкой участок. Нажмите <b>1 раз</b> — найдет и покажет зеленые оси (вертикаль и горизонталь). Нажмите <b>2 раз</b> — выровняет и оставит обе линии (3px).
+            💡 <b>Инструкция:</b> Выделите участок с линией. Шаг 1 — покажет зеленую ось найденной линии. Шаг 2 — выровняет её в ровную линию (3px).
         </div>
     </div>
 
@@ -150,7 +148,7 @@
                     selectedColorRgb = null;
                     alignStep = 1;
                     cachedAxisData = null;
-                    document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти оси (1px)";
+                    document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти ось (1px)";
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
@@ -204,7 +202,7 @@
             isDrawing = true;
             alignStep = 1;
             cachedAxisData = null;
-            document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти оси (1px)";
+            document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти ось (1px)";
         });
 
         canvas.addEventListener('mousemove', (e) => {
@@ -299,7 +297,7 @@
         }
     }
 
-    // ШАГ 1: ПОИСК И ВЕРТИКАЛЬНОЙ, И ГОРИЗОНТАЛЬНОЙ ОСИ ОДНОВРЕМЕННО
+    // ШАГ 1: УМНЫЙ ПОИСК ТОЛЬКО СУЩЕСТВУЮЩИХ ЛИНИЙ В РАМКЕ
     function runStep1_FindAxes() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -322,7 +320,7 @@
         let y2 = Math.min(height, Math.max(startY, endY));
 
         if (x1 === x2 || y1 === y2) {
-            log("⚠️ Сначала выделите рамкой участок с линиями!");
+            log("⚠️ Сначала выделите рамкой участок с линией!");
             return;
         }
 
@@ -338,10 +336,9 @@
             }
         }
 
-        // 1. Сначала ищем самую длинную ВЕРТИКАЛЬНУЮ линию сверху вниз
+        // 1. Ищем самую длинную вертикальную линию
         let maxVertLen = 0;
         let bestVertSegment = null;
-
         for (let x = x1; x <= x2; x++) {
             let currentLen = 0;
             let currentStart = -1;
@@ -366,18 +363,18 @@
         }
 
         let vertPoints = [];
-        if (bestVertSegment && maxVertLen >= 2) {
+        // Добавляем вертикальную линию только если она реально длинная (занимает значительную часть рамки)
+        if (bestVertSegment && maxVertLen >= 3 && maxVertLen >= (y2 - y1) * 0.4) {
             for (let y = bestVertSegment.start; y <= bestVertSegment.end; y++) {
                 vertPoints.push({ x: bestVertSegment.fixedX, y: y });
                 let idx = (y * width + bestVertSegment.fixedX) * 4;
-                data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0; // Зеленый
+                data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
             }
         }
 
-        // 2. Затем ищем самую длинную ГОРИЗОНТАЛЬНУЮ линию слева направо
+        // 2. Ищем самую длинную горизонтальную линию
         let maxHorizLen = 0;
         let bestHorizSegment = null;
-
         for (let y = y1; y <= y2; y++) {
             let currentLen = 0;
             let currentStart = -1;
@@ -402,29 +399,36 @@
         }
 
         let horizPoints = [];
-        if (bestHorizSegment && maxHorizLen >= 2) {
+        // Добавляем горизонтальную линию только если она реально длинная
+        if (bestHorizSegment && maxHorizLen >= 3 && maxHorizLen >= (x2 - x1) * 0.4) {
             for (let x = bestHorizSegment.start; x <= bestHorizSegment.end; x++) {
                 horizPoints.push({ x: x, y: bestHorizSegment.fixedY });
                 let idx = (bestHorizSegment.fixedY * width + x) * 4;
-                data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0; // Зеленый
+                data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
             }
         }
 
+        // Если в рамку попала только горизонтальная или только вертикальная — оставляем доминирующую
+        if (vertPoints.length > 0 && horizPoints.length > 0) {
+            if (maxVertLen > maxHorizLen * 1.5) horizPoints = [];
+            else if (maxHorizLen > maxVertLen * 1.5) vertPoints = [];
+        }
+
         if (vertPoints.length === 0 && horizPoints.length === 0) {
-            log("⚠️ Внутри рамки не найдено отрезков линий.");
+            log("⚠️ Внутри рамки не найдено подходящих линий.");
             return;
         }
 
-        log(`🟢 Шаг 1: Найдена вертикаль (${maxVertLen}px) и горизонталь (${maxHorizLen}px).`);
+        log(`🟢 Шаг 1: Найдена ось линии (вертикаль: ${vertPoints.length}px, горизонталь: ${horizPoints.length}px).`);
 
         ctx.putImageData(imgData, 0, 0);
 
         cachedAxisData = { vertPoints, horizPoints, x1, x2, y1, y2 };
         alignStep = 2;
-        document.getElementById('btnAlign').textContent = "📐 Шаг 2: Выровнять обе линии (3px)";
+        document.getElementById('btnAlign').textContent = "📐 Шаг 2: Выровнять в линию (3px)";
     }
 
-    // ШАГ 2: СТРОИТ И ОСТАВЛЯЕТ И ОБЕ ЛИНИИ (ВЕРТИКАЛЬ И ГОРИЗОНТАЛЬ) ТОЛЩИНОЙ 3PX
+    // ШАГ 2: ВЫРАВНИВАЕТ И СТРОИТ ТОЛЬКО НАЙДЕННУЮ ЛИНИЮ ТОЛЩИНОЙ 3PX
     function runStep2_DrawLines() {
         if (!cachedAxisData) return;
 
@@ -452,7 +456,7 @@
             }
         }
 
-        // Отрисовка вертикальной линии (толщина 3px)
+        // Строим вертикальную линию 3px, если она была найдена
         if (vertPoints && vertPoints.length > 0) {
             vertPoints.forEach(p => {
                 for (let dx = -1; dx <= 1; dx++) {
@@ -465,7 +469,7 @@
             });
         }
 
-        // Отрисовка горизонтальной линии (толщина 3px)
+        // Строим горизонтальную линию 3px, если она была найдена
         if (horizPoints && horizPoints.length > 0) {
             horizPoints.forEach(p => {
                 for (let dy = -1; dy <= 1; dy++) {
@@ -482,11 +486,11 @@
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 
-        log(`✅ Шаг 2: Обе линии (вертикальная и горизонтальная) выровнены и построены (3px).`);
+        log(`✅ Шаг 2: Выделенный участок успешно выровнен (3px).`);
 
         alignStep = 1;
         cachedAxisData = null;
-        document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти оси (1px)";
+        document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти ось (1px)";
     }
 </script>
 </body>
