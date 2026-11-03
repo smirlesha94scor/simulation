@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Идеальные линии 3px</title>
+    <title>CV Circuit Scanner — Пошаговое выравнивание (1px ось -> 3px линия)</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Поиск оси 1px и ровная линия (3px)</h1>
+    <h1>⚡ Сканер схем: Пошаговое выравнивание (Шаг 1: Ось -> Шаг 2: Линия 3px)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -65,10 +65,10 @@
         <div class="btn-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Найти ось 1px и начертить (3px)</button>
+            <button id="btnAlign" class="btn-align" onclick="handleAlignStep()" disabled>📐 Шаг 1: Найти ось (1px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> Выделите рамкой участок линии. Код найдет её центральную ось в 1 пиксель и построит абсолютно ровную линию толщиной 3 пикселя.
+            💡 <b>Инструкция:</b> Выделите рамкой участок. Нажмите <b>1 раз</b> — найдет и покажет зеленую ось. Нажмите <b>2 раз</b> — выровняет в ровную линию 3px.
         </p>
     </div>
 
@@ -92,6 +92,9 @@
     let endX = 0, endY = 0;
     let originalImageSnapshot = null;
     let cleanedImageSnapshot = null;
+
+    let alignStep = 1; // 1 — найти ось, 2 — начертить ровную линию 3px
+    let cachedAxisData = null; // Данные найденной оси для второго шага
 
     window.onload = () => {
         setupCanvasInteraction();
@@ -117,6 +120,9 @@
                     cleanedImageSnapshot = null;
                     
                     selectedColorRgb = null;
+                    alignStep = 1;
+                    cachedAxisData = null;
+                    document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти ось (1px)";
                     document.getElementById('colorBox').style.display = 'none';
                     document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
                     document.getElementById('btnMakeWhite').disabled = true;
@@ -168,6 +174,9 @@
             endX = currentX;
             endY = currentY;
             isDrawing = true;
+            alignStep = 1; // Сброс на шаг 1 при новом выделении рамкой
+            cachedAxisData = null;
+            document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти ось (1px)";
         });
 
         canvas.addEventListener('mousemove', (e) => {
@@ -195,7 +204,7 @@
         canvas.addEventListener('mouseup', (e) => {
             if (!isDrawing) return;
             isDrawing = false;
-            log(`📐 Область выделена рамкой.`);
+            log(`📐 Область выделена рамкой. Нажмите кнопку для Шага 1.`);
         });
     }
 
@@ -249,13 +258,22 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ПОИСК ОСИ 1PX И ПОСТРОЕНИЕ ИДЕАЛЬНОЙ ЛИНИИ ТОЛЩИНОЙ 3PX
-    function alignSelectedArea() {
+    // УПРАВЛЕНИЕ ПОШАГОВЫМ ВЫРАВНИВАНИЕМ
+    function handleAlignStep() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
             return;
         }
 
+        if (alignStep === 1) {
+            runStep1_FindAxis();
+        } else if (alignStep === 2) {
+            runStep2_DrawLine();
+        }
+    }
+
+    // ШАГ 1: НАХОДИТ И ПОКАЗЫВАЕТ ЗЕЛЕНУЮ ОСЬ 1PX
+    function runStep1_FindAxis() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
@@ -285,17 +303,7 @@
             return (r < 180 || g < 180 || b < 180);
         }
 
-        log(`⚙️ Поиск центральной оси 1px и построение ровной линии (3px)...`);
-
-        // 1. Стираем рамку белым цветом
-        for (let x = x1; x <= x2; x++) {
-            for (let y = y1; y <= y2; y++) {
-                let idx = (y * width + x) * 4;
-                data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
-            }
-        }
-
-        // 2. Собираем координаты всех черных пикселей внутри рамки
+        // Собираем черные пиксели
         let linePixels = [];
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
@@ -311,7 +319,6 @@
             return;
         }
 
-        // 3. Определяем ориентацию (горизонтальная или вертикальная) по размаху координат
         let minX = Math.min(...linePixels.map(p => p.x));
         let maxX = Math.max(...linePixels.map(p => p.x));
         let minY = Math.min(...linePixels.map(p => p.y));
@@ -319,20 +326,91 @@
 
         let spanX = maxX - minX;
         let spanY = maxY - minY;
+        let isHorizontal = spanX >= spanY;
 
-        if (spanX >= spanY) {
-            // ГОРИЗОНТАЛЬНАЯ ЛИНИЯ: находим истинную центральную ось 1px по среднему значению Y для каждого X
-            let axisMap = {};
+        // Стираем область рамки
+        for (let x = x1; x <= x2; x++) {
+            for (let y = y1; y <= y2; y++) {
+                let idx = (y * width + x) * 4;
+                data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+            }
+        }
+
+        // Вычисляем и подсвечиваем ось ярко-зеленым цветом (1px)
+        let axisMapData = {};
+        if (isHorizontal) {
             linePixels.forEach(p => {
-                if (!axisMap[p.x]) axisMap[p.x] = [];
-                axisMap[p.x].push(p.y);
+                if (!axisMapData[p.x]) axisMapData[p.x] = [];
+                axisMapData[p.x].push(p.y);
             });
-
-            // Строим сплошную линию толщиной ровно 3px (симметрично: от -1 до +1 от оси)
             for (let x = minX; x <= maxX; x++) {
-                if (axisMap[x]) {
-                    let sumY = axisMap[x].reduce((a, b) => a + b, 0);
-                    let centerY = Math.round(sumY / axisMap[x].length); // Ось в 1 пиксель
+                if (axisMapData[x]) {
+                    let sumY = axisMapData[x].reduce((a, b) => a + b, 0);
+                    let centerY = Math.round(sumY / axisMapData[x].length);
+                    let idx = (centerY * width + x) * 4;
+                    data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0; // Зеленый цвет оси
+                }
+            }
+            log(`🟢 Шаг 1 выполнен: Найдена горизонтальная ось 1px (подсвечена зеленым).`);
+        } else {
+            linePixels.forEach(p => {
+                if (!axisMapData[p.y]) axisMapData[p.y] = [];
+                axisMapData[p.y].push(p.x);
+            });
+            for (let y = minY; y <= maxY; y++) {
+                if (axisMapData[y]) {
+                    let sumX = axisMapData[y].reduce((a, b) => a + b, 0);
+                    let centerX = Math.round(sumX / axisMapData[y].length);
+                    let idx = (y * width + centerX) * 4;
+                    data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0; // Зеленый цвет оси
+                }
+            }
+            log(`🟢 Шаг 1 выполнен: Найдена вертикальная ось 1px (подсвечена зеленым).`);
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+
+        // Сохраняем данные для второго шага
+        cachedAxisData = { isHorizontal, minX, maxX, minY, maxY, axisMapData, x1, x2, y1, y2 };
+        alignStep = 2;
+        document.getElementById('btnAlign').textContent = "📐 Шаг 2: Выровнять в линию (3px)";
+    }
+
+    // ШАГ 2: СТРОИТ ИТОГОВУЮ РОВНУЮ ЛИНИЮ 3PX ПО НАЙДЕННОЙ ОСИ
+    function runStep2_DrawLine() {
+        if (!cachedAxisData) return;
+
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Восстанавливаем чистый фон перед отрисовкой итоговой линии
+        if (cleanedImageSnapshot) {
+            ctx.putImageData(cleanedImageSnapshot, 0, 0);
+        } else {
+            ctx.putImageData(originalImageSnapshot, 0, 0);
+        }
+        
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        let { isHorizontal, minX, maxX, minY, maxY, axisMapData, x1, x2, y1, y2 } = cachedAxisData;
+
+        // Стираем область рамки
+        for (let x = x1; x <= x2; x++) {
+            for (let y = y1; y <= y2; y++) {
+                let idx = (y * width + x) * 4;
+                data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+            }
+        }
+
+        // Строим ровную черную линию толщиной ровно 3px (симметрично от оси: от -1 до +1)
+        if (isHorizontal) {
+            for (let x = minX; x <= maxX; x++) {
+                if (axisMapData[x]) {
+                    let sumY = axisMapData[x].reduce((a, b) => a + b, 0);
+                    let centerY = Math.round(sumY / axisMapData[x].length);
 
                     for (let dy = -1; dy <= 1; dy++) {
                         let py = centerY + dy;
@@ -343,20 +421,12 @@
                     }
                 }
             }
-            log(`✅ Найдена горизонтальная ось 1px, начерчена линия 3px (длина: ${spanX}px).`);
+            log(`✅ Шаг 2 выполнен: Построена идеальная горизонтальная линия 3px.`);
         } else {
-            // ВЕРТИКАЛЬНАЯ ЛИНИЯ: находим истинную центральную ось 1px по среднему значению X для каждого Y
-            let axisMap = {};
-            linePixels.forEach(p => {
-                if (!axisMap[p.y]) axisMap[p.y] = [];
-                axisMap[p.y].push(p.x);
-            });
-
-            // Строим сплошную линию толщиной ровно 3px (симметрично: от -1 до +1 от оси)
             for (let y = minY; y <= maxY; y++) {
-                if (axisMap[y]) {
-                    let sumX = axisMap[y].reduce((a, b) => a + b, 0);
-                    let centerX = Math.round(sumX / axisMap[y].length); // Ось в 1 пиксель
+                if (axisMapData[y]) {
+                    let sumX = axisMapData[y].reduce((a, b) => a + b, 0);
+                    let centerX = Math.round(sumX / axisMapData[y].length);
 
                     for (let dx = -1; dx <= 1; dx++) {
                         let px = centerX + dx;
@@ -367,12 +437,17 @@
                     }
                 }
             }
-            log(`✅ Найдена вертикальная ось 1px, начерчена линия 3px (длина: ${spanY}px).`);
+            log(`✅ Шаг 2 выполнен: Построена идеальная вертикальная линия 3px.`);
         }
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
+
+        // Возвращаем кнопку на Шаг 1 для следующих участков
+        alignStep = 1;
+        cachedAxisData = null;
+        document.getElementById('btnAlign').textContent = "📐 Шаг 1: Найти ось (1px)";
     }
 </script>
 </body>
