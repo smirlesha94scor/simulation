@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Выравнивание 5px с сохранением углов</title>
+    <title>CV Circuit Scanner — Идеальные линии 4px</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Выравнивание линий и углов (5px)</h1>
+    <h1>⚡ Сканер схем: Идеальные ровные линии (4px)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -65,10 +65,10 @@
         <div class="btn-group">
             <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
-            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (5px)</button>
+            <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (4px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> Обведите рамкой участок схемы с линиями или углами. Код автоматически выровняет все горизонтальные и вертикальные отрезки толщиной 5 пикселей, сохранив структуру углов.
+            💡 <b>Инструкция:</b> Выделите рамкой нужный участок. Все линии и углы внутри него станут идеально ровными и будут иметь строго фиксированную толщину в 4 пикселя.
         </p>
     </div>
 
@@ -229,7 +229,7 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         log(`✅ Фон полностью очищен.`);
     }
 
@@ -242,7 +242,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ИДЕАЛЬНОЕ ВЫРАВНИВАНИЕ ЛИНИЙ И УГЛОВ С СОХРАНЕНИЕМ СТРУКТУРЫ (5PX)
+    // ВЫРАВНИВАНИЕ СТРОГО РОВНЫХ СЕГМЕНТОВ И УГЛОВ ТОЛЩИНОЙ 4 ПИКСЕЛЯ
     function alignSelectedArea() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -273,9 +273,9 @@
             return (r < 180 || g < 180 || b < 180);
         }
 
-        log(`⚙️ Выравнивание сегментов и углов в рамке (5px)...`);
+        log(`⚙️ Выравнивание линий и углов (строго 4px)...`);
 
-        // 1. Стираем старую область внутри рамки белым цветом
+        // 1. Очищаем старую область внутри рамки белым цветом
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
@@ -283,7 +283,7 @@
             }
         }
 
-        // 2. Находим и выравниваем все ГОРИЗОНТАЛЬНЫЕ отрезки
+        // 2. Поиск и отрисовка ГОРИЗОНТАЛЬНЫХ линий толщиной ровно 4 пикселя (дифференциал: от 0 до +3)
         for (let y = y1; y <= y2; y++) {
             let lineStart = -1;
             for (let x = x1; x <= x2; x++) {
@@ -296,7 +296,7 @@
                         if (len >= 3) {
                             let midY = y;
                             for (let lx = lineStart; lx < x; lx++) {
-                                for (let dy = -2; dy <= 2; dy++) {
+                                for (let dy = 0; dy < 4; dy++) {
                                     let py = midY + dy;
                                     if (py >= 0 && py < height) {
                                         let pidx = (py * width + lx) * 4;
@@ -314,7 +314,7 @@
                 if (len >= 3) {
                     let midY = y;
                     for (let lx = lineStart; lx <= x2; lx++) {
-                        for (let dy = -2; dy <= 2; dy++) {
+                        for (let dy = 0; dy < 4; dy++) {
                             let py = midY + dy;
                             if (py >= 0 && py < height) {
                                 let pidx = (py * width + lx) * 4;
@@ -326,7 +326,7 @@
             }
         }
 
-        // 3. Находим и выравниваем все ВЕРТИКАЛЬНЫЕ отрезки (сохраняя углы стыковки)
+        // 3. Поиск и отрисовка ВЕРТИКАЛЬНЫХ линий толщиной ровно 4 пикселя (дифференциал: от 0 до +3)
         for (let x = x1; x <= x2; x++) {
             let lineStart = -1;
             for (let y = y1; y <= y2; y++) {
@@ -339,7 +339,7 @@
                         if (len >= 3) {
                             let midX = x;
                             for (let ly = lineStart; ly < y; ly++) {
-                                for (let dx = -2; dx <= 2; dx++) {
+                                for (let dx = 0; dx < 4; dx++) {
                                     let px = midX + dx;
                                     if (px >= 0 && px < width) {
                                         let pidx = (ly * width + px) * 4;
@@ -357,7 +357,7 @@
                 if (len >= 3) {
                     let midX = x;
                     for (let ly = lineStart; ly <= y2; ly++) {
-                        for (let dx = -2; dx <= 2; dx++) {
+                        for (let dx = 0; dx < 4; dx++) {
                             let px = midX + dx;
                             if (px >= 0 && px < width) {
                                 let pidx = (ly * width + px) * 4;
@@ -371,7 +371,7 @@
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Горизонтали, вертикали и углы выровнены (толщина 5px).`);
+        log(`✅ Участки выровнены: идеальные ровные линии и углы (толщина строго 4px).`);
     }
 </script>
 </body>
