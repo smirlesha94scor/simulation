@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Автосканирование всей схемы</title>
+    <title>CV Circuit Scanner — Выравнивание всей схемы</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         
@@ -35,8 +35,6 @@
         .btn-auto:hover { background: #00cc52; }
         .btn-bg { background: #00bcd4; color: #fff; }
         .btn-bg:hover { background: #008ba3; }
-        .btn-align { background: #9b51e0; color: #fff; }
-        .btn-align:hover { background: #823ab7; }
         .btn-fullscan { background: #ff9900; color: #000; }
         .btn-fullscan:hover { background: #e08500; }
 
@@ -80,8 +78,8 @@
         </div>
 
         <div class="toolbar-group">
-            <label>Порог: <span id="sensValue">50</span></label>
-            <input type="range" id="sensitivity" min="10" max="150" value="50" oninput="onSensitivityChange(this.value)">
+            <label>Порог: <span id="sensValue">65</span></label>
+            <input type="range" id="sensitivity" min="10" max="150" value="65" oninput="onSensitivityChange(this.value)">
         </div>
 
         <div class="toolbar-group">
@@ -96,7 +94,7 @@
         </div>
 
         <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -5px;">
-            💡 <b>Инструкция:</b> Очистите фон, затем нажмите <b>«⚡ Сканировать всю схему»</b> для автоматического выравнивания всех линий (3px) с защитой элементов.
+            💡 <b>Инструкция:</b> Выберите цвет пипеткой, выберите <b>«🪄 Авто-фон»</b>, затем нажмите <b>«⚡ Сканировать всю схему»</b>.
         </div>
     </div>
 
@@ -166,11 +164,6 @@
                 const ctx = canvas.getContext('2d');
                 const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
 
-                if (pixel[0] > 180 && pixel[1] < 100 && pixel[2] < 100) {
-                    log("⚠️ Вы кликнули на красный фон! Кликните по черной линии.");
-                    return;
-                }
-
                 selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
                 const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
                 const colorBox = document.getElementById('colorBox');
@@ -208,14 +201,11 @@
                 Math.pow(g - selectedColorRgb.g, 2) +
                 Math.pow(b - selectedColorRgb.b, 2)
             );
-            let isRedBackground = (r > 100 && r > g * 1.5 && r > b * 1.5);
             
-            if (distanceToLine > tolerance || isRedBackground) {
+            if (distanceToLine > tolerance) {
                 data[i] = 255; data[i+1] = 255; data[i+2] = 255;
             } else {
-                let gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
-                if (gray > 120) gray = 0;
-                data[i] = gray; data[i+1] = gray; data[i+2] = gray;
+                data[i] = 0; data[i+1] = 0; data[i+2] = 0;
             }
         }
 
@@ -234,7 +224,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ГЛОБАЛЬНОЕ СКАНИРОВАНИЕ И ВЫРАВНИВАНИЕ ВСЕЙ СХЕМЫ ЦЕЛИКОМ
+    // ПОЛНАЯ ЗАЧИСТКА И ВЫРАВНИВАНИЕ ВСЕХ ЛИНИЙ
     function scanEntireCircuit() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -249,48 +239,30 @@
         
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
-        const origData = cleanedImageSnapshot ? cleanedImageSnapshot.data : originalImageSnapshot.data;
+        const srcData = new Uint8ClampedArray(data); // Копия исхода
 
-        function isDark(r, g, b) {
-            return ((r + g + b) / 3) < 130;
+        function isBlack(x, y) {
+            if (x < 0 || x >= width || y < 0 || y >= height) return false;
+            let idx = (y * width + x) * 4;
+            return srcData[idx] < 100;
         }
 
-        log("⚡ Запущено глобальное сканирование и выравнивание всей схемы...");
+        log("⚡ Выравнивание длинных проводников и стирание искривлений...");
 
-        let horizSegments = [];
-        let vertSegments = [];
+        let vertAxes = [];
+        let horizAxes = [];
 
-        // 1. Поиск горизонтальных проводников по всей схеме
-        for (let y = 5; y < height - 5; y++) {
-            let currentLen = 0;
-            let startX = -1;
-            for (let x = 5; x < width - 5; x++) {
-                let idx = (y * width + x) * 4;
-                if (isDark(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (startX === -1) startX = x;
-                    currentLen++;
-                } else {
-                    if (currentLen >= 10 && currentLen <= 150) { // Длинные линии проводников
-                        horizSegments.push({ y: y, start: startX, end: x - 1 });
-                    }
-                    currentLen = 0;
-                    startX = -1;
-                }
-            }
-        }
-
-        // 2. Поиск вертикальных проводников по всей схеме
-        for (let x = 5; x < width - 5; x++) {
+        // 1. Поиск центральных осей длинных вертикальных линий
+        for (let x = 2; x < width - 2; x++) {
             let currentLen = 0;
             let startY = -1;
-            for (let y = 5; y < height - 5; y++) {
-                let idx = (y * width + x) * 4;
-                if (isDark(origData[idx], origData[idx+1], origData[idx+2])) {
+            for (let y = 2; y < height - 2; y++) {
+                if (isBlack(x, y)) {
                     if (startY === -1) startY = y;
                     currentLen++;
                 } else {
-                    if (currentLen >= 10 && currentLen <= 150) {
-                        vertSegments.push({ x: x, start: startY, end: y - 1 });
+                    if (currentLen > 15) { // Ищем протяженные отрезки
+                        vertAxes.push({ x: x, y1: startY, y2: y - 1 });
                     }
                     currentLen = 0;
                     startY = -1;
@@ -298,42 +270,79 @@
             }
         }
 
-        // 3. Аккуратная зачистка старых линий и отрисовка ровных проводников (3px) с защитой элементов
-        let count = 0;
+        // 2. Поиск центральных осей длинных горизонтальных линий
+        for (let y = 2; y < height - 2; y++) {
+            let currentLen = 0;
+            let startX = -1;
+            for (let x = 2; x < width - 2; x++) {
+                if (isBlack(x, y)) {
+                    if (startX === -1) startX = x;
+                    currentLen++;
+                } else {
+                    if (currentLen > 15) {
+                        horizAxes.push({ y: y, x1: startX, x2: x - 1 });
+                    }
+                    currentLen = 0;
+                    startX = -1;
+                }
+            }
+        }
 
-        horizSegments.forEach(seg => {
-            let midY = seg.y;
-            for (let x = seg.start; x <= seg.end; x++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    let py = midY + dy;
-                    if (py >= 0 && py < height) {
-                        let idx = (py * width + x) * 4;
-                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+        // 3. Стираем старые кривые сегменты вдоль найденных осей (на 6px вокруг)
+        vertAxes.forEach(line => {
+            for (let y = line.y1; y <= line.y2; y++) {
+                for (let dx = -6; dx <= 6; dx++) {
+                    let px = line.x + dx;
+                    if (px >= 0 && px < width) {
+                        let idx = (y * width + px) * 4;
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
                     }
                 }
             }
-            count++;
         });
 
-        vertSegments.forEach(seg => {
-            let midX = seg.x;
-            for (let y = seg.start; y <= seg.end; y++) {
+        horizAxes.forEach(line => {
+            for (let x = line.x1; x <= line.x2; x++) {
+                for (let dy = -6; dy <= 6; dy++) {
+                    let py = line.y + dy;
+                    if (py >= 0 && py < height) {
+                        let idx = (py * width + x) * 4;
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                    }
+                }
+            }
+        });
+
+        // 4. Отрисовываем идеально ровные черные линии толщиной 3px
+        vertAxes.forEach(line => {
+            for (let y = line.y1; y <= line.y2; y++) {
                 for (let dx = -1; dx <= 1; dx++) {
-                    let px = midX + dx;
+                    let px = line.x + dx;
                     if (px >= 0 && px < width) {
                         let idx = (y * width + px) * 4;
                         data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
                     }
                 }
             }
-            count++;
+        });
+
+        horizAxes.forEach(line => {
+            for (let x = line.x1; x <= line.x2; x++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    let py = line.y + dy;
+                    if (py >= 0 && py < height) {
+                        let idx = (py * width + x) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                    }
+                }
+            }
         });
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 
-        log(`✅ Вся схема отсканирована! Успешно выровнено элементов проводки: ${count}. Радиодетали защищены.`);
+        log(`✅ Готово! Старые неровные контуры устранены, созданы прямые проводники 3px.`);
     }
 </script>
 </body>
