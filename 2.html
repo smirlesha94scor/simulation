@@ -94,7 +94,7 @@
         </div>
 
         <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -5px;">
-            💡 <b>Инструкция:</b> Выделите рамкой участок. Нажмите <b>1 раз</b> — найдет зеленую ось. Нажмите <b>2 раз</b> — выровняет в ровную линию (3px).
+            💡 <b>Инструкция:</b> Выделите рамкой участок с линией. Нажмите <b>1 раз</b> — найдет зеленую ось. Нажмите <b>2 раз</b> — выровняет проводник (3px), не трогая элементы.
         </div>
     </div>
 
@@ -297,7 +297,7 @@
         }
     }
 
-    // ШАГ 1: ТОЧНЫЙ ПОИСК ТЕМНЫХ ЛИНИЙ И УЗЛОВ ВНУТРИ РАМКИ
+    // ШАГ 1: ПОИСК ТОЛЬКО ТОНКИХ ПРОВОДНИКОВ (ИГНОРИРУЯ МАССИВНЫЕ ДЕТАЛИ)
     function runStep1_FindAxes() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -324,13 +324,11 @@
             return;
         }
 
-        // Строгая проверка на темный пиксель линии (отсекаем светлый фон > 130)
         function isLinePixel(r, g, b) {
-            let brightness = (r + g + b) / 3;
-            return brightness < 130; 
+            return ((r + g + b) / 3) < 130; 
         }
 
-        // Стираем область рамки белым перед отрисовкой зеленых осей
+        // Подсветка рамки временно белым
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
@@ -340,11 +338,10 @@
 
         let frameWidth = x2 - x1;
         let frameHeight = y2 - y1;
-
         let vertPoints = [];
         let horizPoints = [];
 
-        // 1. Ищем вертикальные линии (если рамка не строго горизонтальная)
+        // Ищем вертикальную линию (толщиной не более 3 пикселей, чтобы не захватывать детали)
         if (frameWidth <= frameHeight * 2.5) {
             let maxVertLen = 0;
             let bestVertSegment = null;
@@ -357,7 +354,8 @@
                         if (currentStart === -1) currentStart = y;
                         currentLen++;
                     } else {
-                        if (currentLen > maxVertLen) {
+                        // Ограничение: если непрерывный темный блок слишком толстый (>3px), это элемент, а не линия
+                        if (currentLen > maxVertLen && currentLen <= 4) {
                             maxVertLen = currentLen;
                             bestVertSegment = { start: currentStart, end: y - 1, fixedX: x };
                         }
@@ -365,7 +363,7 @@
                         currentStart = -1;
                     }
                 }
-                if (currentLen > maxVertLen) {
+                if (currentLen > maxVertLen && currentLen <= 4) {
                     maxVertLen = currentLen;
                     bestVertSegment = { start: currentStart, end: y2, fixedX: x };
                 }
@@ -380,7 +378,7 @@
             }
         }
 
-        // 2. Ищем горизонтальные линии (если рамка не строго вертикальная)
+        // Ищем горизонтальную линию (толщиной не более 3 пикселей)
         if (frameHeight <= frameWidth * 2.5) {
             let maxHorizLen = 0;
             let bestHorizSegment = null;
@@ -393,7 +391,7 @@
                         if (currentStart === -1) currentStart = x;
                         currentLen++;
                     } else {
-                        if (currentLen > maxHorizLen) {
+                        if (currentLen > maxHorizLen && currentLen <= 4) {
                             maxHorizLen = currentLen;
                             bestHorizSegment = { start: currentStart, end: x - 1, fixedY: y };
                         }
@@ -401,7 +399,7 @@
                         currentStart = -1;
                     }
                 }
-                if (currentLen > maxHorizLen) {
+                if (currentLen > maxHorizLen && currentLen <= 4) {
                     maxHorizLen = currentLen;
                     bestHorizSegment = { start: currentStart, end: x2, fixedY: y };
                 }
@@ -417,20 +415,20 @@
         }
 
         if (vertPoints.length === 0 && horizPoints.length === 0) {
-            log("⚠️ Внутри рамки не найдено темных линий соединения.");
+            log("⚠️ Внутри рамки не найдено проводников (элементы защищены).");
             return;
         }
 
-        log(`🟢 Шаг 1: Найдена темная ось (вертикаль: ${vertPoints.length}px, горизонталь: ${horizPoints.length}px).`);
+        log(`🟢 Шаг 1: Найдена ось проводника (вертикаль: ${vertPoints.length}px, горизонталь: ${horizPoints.length}px).`);
 
         ctx.putImageData(imgData, 0, 0);
 
         cachedAxisData = { vertPoints, horizPoints, x1, x2, y1, y2 };
         alignStep = 2;
-        document.getElementById('btnAlign').textContent = "📐 Шаг 2: Выровнять в линию (3px)";
+        document.getElementById('btnAlign').textContent = "📐 Шаг 2: Выровнять проводник (3px)";
     }
 
-    // ШАГ 2: ВЫРАВНИВАЕТ И СТРОИТ ЛИНИЮ ТОЛЩИНОЙ 3PX
+    // ШАГ 2: ВЫРАВНИВАЕТ ТОЛЬКО НАЙДЕННЫЙ ПРОВОДНИК, НЕ ЗАТРАГИВАЯ ТЕЛО ЭЛЕМЕНТОВ
     function runStep2_DrawLines() {
         if (!cachedAxisData) return;
 
@@ -447,17 +445,42 @@
         
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
+        const origData = cleanedImageSnapshot ? cleanedImageSnapshot.data : originalImageSnapshot.data;
 
         let { vertPoints, horizPoints, x1, x2, y1, y2 } = cachedAxisData;
 
-        // Стираем область рамки белым
+        // Осторожно зачищаем старый проводник внутри рамки, оставляя крупные элементы нетронутыми
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
-                data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                // Стираем только пиксели, которые принадлежат тонким линиям шума/старого кривого проводника
+                let r = origData[idx], g = origData[idx+1], b = origData[idx+2];
+                let isDark = ((r + g + b) / 3) < 130;
+                
+                // Проверяем, не является ли пиксель частью крупного блока (элемента)
+                if (isDark) {
+                    // Если вокруг него много темных соседей — это тело элемента, его НЕ трогаем
+                    let darkNeighbors = 0;
+                    for (let dx = -2; dx <= 2; dx++) {
+                        for (let dy = -2; dy <= 2; dy++) {
+                            let nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                let nIdx = (ny * width + nx) * 4;
+                                if (((origData[nIdx] + origData[nIdx+1] + origData[nIdx+2]) / 3) < 130) {
+                                    darkNeighbors++;
+                                }
+                            }
+                        }
+                    }
+                    // Если соседей немного — это тонкий проводник, стираем его под ровную линию
+                    if (darkNeighbors < 10) {
+                        data[idx] = 255; data[idx+1] = 255; data[idx+2] = 255;
+                    }
+                }
             }
         }
 
+        // Рисуем ровную вертикальную линию (3px)
         if (vertPoints && vertPoints.length > 0) {
             vertPoints.forEach(p => {
                 for (let dx = -1; dx <= 1; dx++) {
@@ -470,6 +493,7 @@
             });
         }
 
+        // Рисуем ровную горизонтальную линию (3px)
         if (horizPoints && horizPoints.length > 0) {
             horizPoints.forEach(p => {
                 for (let dy = -1; dy <= 1; dy++) {
@@ -486,7 +510,7 @@
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
         cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 
-        log(`✅ Шаг 2: Участок успешно выровнен (3px).`);
+        log(`✅ Шаг 2: Проводник выровнен (3px), радиодетали защищены.`);
 
         alignStep = 1;
         cachedAxisData = null;
