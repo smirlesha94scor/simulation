@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Идеальные линии 4px</title>
+    <title>CV Circuit Scanner — Исправление сброса фона (4px)</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0e0e12; color: #fff; }
         .card { background: #181820; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 </head>
 <body>
 
-    <h1>⚡ Сканер схем: Идеальные ровные линии (4px)</h1>
+    <h1>⚡ Сканер схем: Стабильная очистка и выравнивание (4px)</h1>
 
     <div class="card">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)"><br>
@@ -68,7 +68,7 @@
             <button id="btnAlign" class="btn-align" onclick="alignSelectedArea()" disabled>📐 Выровнять линии и углы (4px)</button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin-top: 10px;">
-            💡 <b>Инструкция:</b> Выделите рамкой нужный участок. Все линии и углы внутри него станут идеально ровными и будут иметь строго фиксированную толщину в 4 пикселя.
+            💡 <b>Инструкция:</b> После очистки фона выделяйте рамку — очищенный вид сохраняется. Все линии и углы выравниваются ровно в 4 пикселя.
         </p>
     </div>
 
@@ -91,6 +91,7 @@
     let startX = 0, startY = 0;
     let endX = 0, endY = 0;
     let originalImageSnapshot = null;
+    let cleanedImageSnapshot = null; // Отдельный срез для сохранения очищенного фона
 
     window.onload = () => {
         setupCanvasInteraction();
@@ -113,6 +114,7 @@
                     ctx.clearRect(0, 0, 1000, 600);
                     ctx.drawImage(imgElement, 0, 0, 1000, 600);
                     originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+                    cleanedImageSnapshot = null;
                     
                     selectedColorRgb = null;
                     document.getElementById('colorBox').style.display = 'none';
@@ -177,7 +179,12 @@
             endY = Math.floor((e.clientY - rect.top) * scaleY);
 
             const ctx = canvas.getContext('2d');
-            ctx.putImageData(originalImageSnapshot, 0, 0);
+            // Используем очищенный снимок при рисовании рамки, чтобы фон не сбрасывался
+            if (cleanedImageSnapshot) {
+                ctx.putImageData(cleanedImageSnapshot, 0, 0);
+            } else {
+                ctx.putImageData(originalImageSnapshot, 0, 0);
+            }
             
             ctx.strokeStyle = '#ff007f';
             ctx.lineWidth = 2;
@@ -229,8 +236,9 @@
         }
 
         ctx.putImageData(imgData, 0, 0);
-        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Фон полностью очищен.`);
+        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        cleanedImageSnapshot = ctx.getImageData(0, 0, 1000, 600); // Фиксируем очищенный фон
+        log(`✅ Фон полностью очищен и зафиксирован.`);
     }
 
     function autoCleanBackground() {
@@ -242,7 +250,7 @@
         runColorFilter(autoSensitivity);
     }
 
-    // ВЫРАВНИВАНИЕ СТРОГО РОВНЫХ СЕГМЕНТОВ И УГЛОВ ТОЛЩИНОЙ 4 ПИКСЕЛЯ
+    // ВЫРАВНИВАНИЕ СЕГМЕНТОВ И УГЛОВ СТРОГО 4 ПИКСЕЛЯ
     function alignSelectedArea() {
         if (!selectedColorRgb) {
             alert('Сначала выберите цвет линии!');
@@ -254,10 +262,16 @@
         const width = canvas.width;
         const height = canvas.height;
         
-        ctx.putImageData(originalImageSnapshot, 0, 0);
+        // Восстанавливаем актуальное состояние холста перед изменениями
+        if (cleanedImageSnapshot) {
+            ctx.putImageData(cleanedImageSnapshot, 0, 0);
+        } else {
+            ctx.putImageData(originalImageSnapshot, 0, 0);
+        }
+        
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
-        const origData = originalImageSnapshot.data;
+        const origData = cleanedImageSnapshot ? cleanedImageSnapshot.data : originalImageSnapshot.data;
 
         let x1 = Math.max(0, Math.min(startX, endX));
         let x2 = Math.min(width, Math.max(startX, endX));
@@ -283,7 +297,7 @@
             }
         }
 
-        // 2. Поиск и отрисовка ГОРИЗОНТАЛЬНЫХ линий толщиной ровно 4 пикселя (дифференциал: от 0 до +3)
+        // 2. Горизонтальные линии (толщина 4px)
         for (let y = y1; y <= y2; y++) {
             let lineStart = -1;
             for (let x = x1; x <= x2; x++) {
@@ -326,7 +340,7 @@
             }
         }
 
-        // 3. Поиск и отрисовка ВЕРТИКАЛЬНЫХ линий толщиной ровно 4 пикселя (дифференциал: от 0 до +3)
+        // 3. Вертикальные линии (толщина 4px)
         for (let x = x1; x <= x2; x++) {
             let lineStart = -1;
             for (let y = y1; y <= y2; y++) {
@@ -371,7 +385,8 @@
 
         ctx.putImageData(imgData, 0, 0);
         originalImageSnapshot = ctx.getImageData(0, 0, width, height);
-        log(`✅ Участки выровнены: идеальные ровные линии и углы (толщина строго 4px).`);
+        cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
+        log(`✅ Участки успешно выровнены (строго 4px).`);
     }
 </script>
 </body>
