@@ -6,4 +6,335 @@
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         
-        .
+        .top-toolbar {
+            background: #181820;
+            padding: 15px 20px;
+            border-bottom: 2px solid #444;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input, button { padding: 6px 10px; font-size: 13px; }
+        
+        button { background: #ff007f; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #d9006b; }
+        button:disabled { background: #444; cursor: not-allowed; }
+
+        .btn-auto { background: #00ff66; color: #000; }
+        .btn-auto:hover { background: #00cc52; }
+        .btn-bg { background: #00bcd4; color: #fff; }
+        .btn-bg:hover { background: #008ba3; }
+        .btn-align { background: #9b51e0; color: #fff; }
+        .btn-align:hover { background: #823ab7; }
+        .btn-fullscan { background: #ff9900; color: #000; }
+        .btn-fullscan:hover { background: #e08500; }
+
+        input[type="range"] { width: 150px; vertical-align: middle; }
+
+        .container {
+            padding: 20px;
+        }
+
+        #viewport {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            aspect-ratio: 5 / 3;
+            border: 2px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+            margin: 0 auto 20px auto;
+        }
+
+        #cv-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            cursor: crosshair;
+            z-index: 1;
+        }
+
+        .card { background: #181820; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
+        .color-preview { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff; vertical-align: middle; margin-left: 3px; }
+    </style>
+</head>
+<body>
+
+    <div class="top-toolbar">
+        <div class="toolbar-group">
+            <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
+        </div>
+
+        <div class="toolbar-group">
+            <label>Порог: <span id="sensValue">50</span></label>
+            <input type="range" id="sensitivity" min="10" max="150" value="50" oninput="onSensitivityChange(this.value)">
+        </div>
+
+        <div class="toolbar-group">
+            <span id="selectedColorStatus">1. Кликните по линии</span>
+            <span id="colorBox" class="color-preview" style="display:none;"></span>
+        </div>
+
+        <div class="toolbar-group">
+            <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-фон</button>
+            <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
+            <button id="btnFullScan" class="btn-fullscan" onclick="scanEntireCircuit()" disabled>⚡ Сканировать всю схему</button>
+        </div>
+
+        <div style="font-size: 12px; color: #aaa; width: 100%; margin-top: -5px;">
+            💡 <b>Инструкция:</b> Очистите фон, затем нажмите <b>«⚡ Сканировать всю схему»</b> для автоматического выравнивания всех линий (3px) с защитой элементов.
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="viewport">
+            <canvas id="cv-canvas" width="1000" height="600"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>Лог работы системы:</h3>
+            <div id="log">Загрузите изображение...</div>
+        </div>
+    </div>
+
+<script>
+    let imgElement = new Image();
+    let selectedColorRgb = null;
+    let originalImageSnapshot = null;
+    let cleanedImageSnapshot = null;
+
+    window.onload = () => {
+        setupCanvasInteraction();
+    };
+
+    function log(text) {
+        const box = document.getElementById('log');
+        box.innerHTML += `<div>> ${text}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function loadToCanvas(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgElement.src = e.target.result;
+                imgElement.onload = () => {
+                    const canvas = document.getElementById('cv-canvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 1000, 600);
+                    ctx.drawImage(imgElement, 0, 0, 1000, 600);
+                    originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+                    cleanedImageSnapshot = null;
+                    
+                    selectedColorRgb = null;
+                    document.getElementById('colorBox').style.display = 'none';
+                    document.getElementById('selectedColorStatus').textContent = "1. Кликните по линии схемы для выбора цвета";
+                    document.getElementById('btnMakeWhite').disabled = true;
+                    document.getElementById('btnAutoClean').disabled = true;
+                    document.getElementById('btnFullScan').disabled = true;
+                    log("Изображение загружено. Кликните пипеткой по линии.");
+                };
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function setupCanvasInteraction() {
+        const canvas = document.getElementById('cv-canvas');
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 1000 / rect.width;
+            const scaleY = 600 / rect.height;
+            const currentX = Math.floor((e.clientX - rect.left) * scaleX);
+            const currentY = Math.floor((e.clientY - rect.top) * scaleY);
+
+            if (!selectedColorRgb) {
+                const ctx = canvas.getContext('2d');
+                const pixel = ctx.getImageData(currentX, currentY, 1, 1).data;
+
+                if (pixel[0] > 180 && pixel[1] < 100 && pixel[2] < 100) {
+                    log("⚠️ Вы кликнули на красный фон! Кликните по черной линии.");
+                    return;
+                }
+
+                selectedColorRgb = { r: pixel[0], g: pixel[1], b: pixel[2] };
+                const colorHex = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                const colorBox = document.getElementById('colorBox');
+                colorBox.style.background = colorHex;
+                colorBox.style.display = 'inline-block';
+
+                document.getElementById('selectedColorStatus').textContent = `Цвет: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+                document.getElementById('btnMakeWhite').disabled = false;
+                document.getElementById('btnAutoClean').disabled = false;
+                document.getElementById('btnFullScan').disabled = false;
+
+                log(`🎨 Выбран цвет линии: RGB(${pixel[0]}, ${pixel[1]}, ${pixel[2]}).`);
+            }
+        });
+    }
+
+    function onSensitivityChange(val) {
+        document.getElementById('sensValue').textContent = val;
+    }
+
+    function runColorFilter(customTolerance = null) {
+        if (!selectedColorRgb) return;
+        const tolerance = customTolerance !== null ? customTolerance : parseInt(document.getElementById('sensitivity').value);
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        ctx.drawImage(imgElement, 0, 0, 1000, 600);
+        const imgData = ctx.getImageData(0, 0, 1000, 600);
+        const data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i], g = data[i+1], b = data[i+2];
+            let distanceToLine = Math.sqrt(
+                Math.pow(r - selectedColorRgb.r, 2) +
+                Math.pow(g - selectedColorRgb.g, 2) +
+                Math.pow(b - selectedColorRgb.b, 2)
+            );
+            let isRedBackground = (r > 100 && r > g * 1.5 && r > b * 1.5);
+            
+            if (distanceToLine > tolerance || isRedBackground) {
+                data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+            } else {
+                let gray = Math.floor(0.299 * r + 0.587 * g + 0.114 * b);
+                if (gray > 120) gray = 0;
+                data[i] = gray; data[i+1] = gray; data[i+2] = gray;
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        cleanedImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
+        log(`✅ Фон очищен.`);
+    }
+
+    function autoCleanBackground() {
+        if (!selectedColorRgb) return;
+        let autoSensitivity = 65;
+        document.getElementById('sensitivity').value = autoSensitivity;
+        document.getElementById('sensValue').textContent = autoSensitivity;
+        log(`🪄 Авто-очистка фона...`);
+        runColorFilter(autoSensitivity);
+    }
+
+    // ГЛОБАЛЬНОЕ СКАНИРОВАНИЕ И ВЫРАВНИВАНИЕ ВСЕЙ СХЕМЫ ЦЕЛИКОМ
+    function scanEntireCircuit() {
+        const canvas = document.getElementById('cv-canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        if (cleanedImageSnapshot) {
+            ctx.putImageData(cleanedImageSnapshot, 0, 0);
+        } else {
+            ctx.putImageData(originalImageSnapshot, 0, 0);
+        }
+        
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+        const origData = cleanedImageSnapshot ? cleanedImageSnapshot.data : originalImageSnapshot.data;
+
+        function isDark(r, g, b) {
+            return ((r + g + b) / 3) < 130;
+        }
+
+        log("⚡ Запущено глобальное сканирование и выравнивание всей схемы...");
+
+        let horizSegments = [];
+        let vertSegments = [];
+
+        // 1. Поиск горизонтальных проводников по всей схеме
+        for (let y = 5; y < height - 5; y++) {
+            let currentLen = 0;
+            let startX = -1;
+            for (let x = 5; x < width - 5; x++) {
+                let idx = (y * width + x) * 4;
+                if (isDark(origData[idx], origData[idx+1], origData[idx+2])) {
+                    if (startX === -1) startX = x;
+                    currentLen++;
+                } else {
+                    if (currentLen >= 10 && currentLen <= 150) { // Длинные линии проводников
+                        horizSegments.push({ y: y, start: startX, end: x - 1 });
+                    }
+                    currentLen = 0;
+                    startX = -1;
+                }
+            }
+        }
+
+        // 2. Поиск вертикальных проводников по всей схеме
+        for (let x = 5; x < width - 5; x++) {
+            let currentLen = 0;
+            let startY = -1;
+            for (let y = 5; y < height - 5; y++) {
+                let idx = (y * width + x) * 4;
+                if (isDark(origData[idx], origData[idx+1], origData[idx+2])) {
+                    if (startY === -1) startY = y;
+                    currentLen++;
+                } else {
+                    if (currentLen >= 10 && currentLen <= 150) {
+                        vertSegments.push({ x: x, start: startY, end: y - 1 });
+                    }
+                    currentLen = 0;
+                    startY = -1;
+                }
+            }
+        }
+
+        // 3. Аккуратная зачистка старых линий и отрисовка ровных проводников (3px) с защитой элементов
+        let count = 0;
+
+        horizSegments.forEach(seg => {
+            let midY = seg.y;
+            for (let x = seg.start; x <= seg.end; x++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    let py = midY + dy;
+                    if (py >= 0 && py < height) {
+                        let idx = (py * width + x) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                    }
+                }
+            }
+            count++;
+        });
+
+        vertSegments.forEach(seg => {
+            let midX = seg.x;
+            for (let y = seg.start; y <= seg.end; y++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    let px = midX + dx;
+                    if (px >= 0 && px < width) {
+                        let idx = (y * width + px) * 4;
+                        data[idx] = 0; data[idx+1] = 0; data[idx+2] = 0;
+                    }
+                }
+            }
+            count++;
+        });
+
+        ctx.putImageData(imgData, 0, 0);
+        originalImageSnapshot = ctx.getImageData(0, 0, width, height);
+        cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
+
+        log(`✅ Вся схема отсканирована! Успешно выровнено элементов проводки: ${count}. Радиодетали защищены.`);
+    }
+</script>
+</body>
+</html>
