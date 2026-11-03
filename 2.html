@@ -297,7 +297,7 @@
         }
     }
 
-    // ШАГ 1: ПОИСК ОСЕЙ (БЕЗ ЖЕСТКИХ ФИЛЬТРОВ РАМОК)
+    // ШАГ 1: ТОЧНЫЙ ПОИСК ТЕМНЫХ ЛИНИЙ И УЗЛОВ ВНУТРИ РАМКИ
     function runStep1_FindAxes() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -324,11 +324,13 @@
             return;
         }
 
+        // Строгая проверка на темный пиксель линии (отсекаем светлый фон > 130)
         function isLinePixel(r, g, b) {
-            return (r < 180 || g < 180 || b < 180);
+            let brightness = (r + g + b) / 3;
+            return brightness < 130; 
         }
 
-        // Стираем область рамки белым
+        // Стираем область рамки белым перед отрисовкой зеленых осей
         for (let x = x1; x <= x2; x++) {
             for (let y = y1; y <= y2; y++) {
                 let idx = (y * width + x) * 4;
@@ -336,82 +338,90 @@
             }
         }
 
-        // 1. Ищем вертикальную линию
-        let maxVertLen = 0;
-        let bestVertSegment = null;
-        for (let x = x1; x <= x2; x++) {
-            let currentLen = 0;
-            let currentStart = -1;
-            for (let y = y1; y <= y2; y++) {
-                let idx = (y * width + x) * 4;
-                if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (currentStart === -1) currentStart = y;
-                    currentLen++;
-                } else {
-                    if (currentLen > maxVertLen) {
-                        maxVertLen = currentLen;
-                        bestVertSegment = { start: currentStart, end: y - 1, fixedX: x };
-                    }
-                    currentLen = 0;
-                    currentStart = -1;
-                }
-            }
-            if (currentLen > maxVertLen) {
-                maxVertLen = currentLen;
-                bestVertSegment = { start: currentStart, end: y2, fixedX: x };
-            }
-        }
+        let frameWidth = x2 - x1;
+        let frameHeight = y2 - y1;
 
         let vertPoints = [];
-        if (bestVertSegment && maxVertLen >= 2) {
-            for (let y = bestVertSegment.start; y <= bestVertSegment.end; y++) {
-                vertPoints.push({ x: bestVertSegment.fixedX, y: y });
-                let idx = (y * width + bestVertSegment.fixedX) * 4;
-                data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
-            }
-        }
+        let horizPoints = [];
 
-        // 2. Ищем горизонтальную линию
-        let maxHorizLen = 0;
-        let bestHorizSegment = null;
-        for (let y = y1; y <= y2; y++) {
-            let currentLen = 0;
-            let currentStart = -1;
+        // 1. Ищем вертикальные линии (если рамка не строго горизонтальная)
+        if (frameWidth <= frameHeight * 2.5) {
+            let maxVertLen = 0;
+            let bestVertSegment = null;
             for (let x = x1; x <= x2; x++) {
-                let idx = (y * width + x) * 4;
-                if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
-                    if (currentStart === -1) currentStart = x;
-                    currentLen++;
-                } else {
-                    if (currentLen > maxHorizLen) {
-                        maxHorizLen = currentLen;
-                        bestHorizSegment = { start: currentStart, end: x - 1, fixedY: y };
+                let currentLen = 0;
+                let currentStart = -1;
+                for (let y = y1; y <= y2; y++) {
+                    let idx = (y * width + x) * 4;
+                    if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
+                        if (currentStart === -1) currentStart = y;
+                        currentLen++;
+                    } else {
+                        if (currentLen > maxVertLen) {
+                            maxVertLen = currentLen;
+                            bestVertSegment = { start: currentStart, end: y - 1, fixedX: x };
+                        }
+                        currentLen = 0;
+                        currentStart = -1;
                     }
-                    currentLen = 0;
-                    currentStart = -1;
+                }
+                if (currentLen > maxVertLen) {
+                    maxVertLen = currentLen;
+                    bestVertSegment = { start: currentStart, end: y2, fixedX: x };
                 }
             }
-            if (currentLen > maxHorizLen) {
-                maxHorizLen = currentLen;
-                bestHorizSegment = { start: currentStart, end: x2, fixedY: y };
+
+            if (bestVertSegment && maxVertLen >= 3) {
+                for (let y = bestVertSegment.start; y <= bestVertSegment.end; y++) {
+                    vertPoints.push({ x: bestVertSegment.fixedX, y: y });
+                    let idx = (y * width + bestVertSegment.fixedX) * 4;
+                    data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
+                }
             }
         }
 
-        let horizPoints = [];
-        if (bestHorizSegment && maxHorizLen >= 2) {
-            for (let x = bestHorizSegment.start; x <= bestHorizSegment.end; x++) {
-                horizPoints.push({ x: x, y: bestHorizSegment.fixedY });
-                let idx = (bestHorizSegment.fixedY * width + x) * 4;
-                data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
+        // 2. Ищем горизонтальные линии (если рамка не строго вертикальная)
+        if (frameHeight <= frameWidth * 2.5) {
+            let maxHorizLen = 0;
+            let bestHorizSegment = null;
+            for (let y = y1; y <= y2; y++) {
+                let currentLen = 0;
+                let currentStart = -1;
+                for (let x = x1; x <= x2; x++) {
+                    let idx = (y * width + x) * 4;
+                    if (isLinePixel(origData[idx], origData[idx+1], origData[idx+2])) {
+                        if (currentStart === -1) currentStart = x;
+                        currentLen++;
+                    } else {
+                        if (currentLen > maxHorizLen) {
+                            maxHorizLen = currentLen;
+                            bestHorizSegment = { start: currentStart, end: x - 1, fixedY: y };
+                        }
+                        currentLen = 0;
+                        currentStart = -1;
+                    }
+                }
+                if (currentLen > maxHorizLen) {
+                    maxHorizLen = currentLen;
+                    bestHorizSegment = { start: currentStart, end: x2, fixedY: y };
+                }
+            }
+
+            if (bestHorizSegment && maxHorizLen >= 3) {
+                for (let x = bestHorizSegment.start; x <= bestHorizSegment.end; x++) {
+                    horizPoints.push({ x: x, y: bestHorizSegment.fixedY });
+                    let idx = (bestHorizSegment.fixedY * width + x) * 4;
+                    data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
+                }
             }
         }
 
         if (vertPoints.length === 0 && horizPoints.length === 0) {
-            log("⚠️ Внутри рамки не найдено линий.");
+            log("⚠️ Внутри рамки не найдено темных линий соединения.");
             return;
         }
 
-        log(`🟢 Шаг 1: Найдена ось (вертикаль: ${vertPoints.length}px, горизонталь: ${horizPoints.length}px).`);
+        log(`🟢 Шаг 1: Найдена темная ось (вертикаль: ${vertPoints.length}px, горизонталь: ${horizPoints.length}px).`);
 
         ctx.putImageData(imgData, 0, 0);
 
