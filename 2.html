@@ -88,7 +88,7 @@
         </div>
 
         <div class="toolbar-group">
-            <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона123</button>
+            <button id="btnAutoClean" class="btn-auto" onclick="autoCleanBackground()" disabled>🪄 Авто-очистка фона</button>
             <button id="btnMakeWhite" class="btn-bg" onclick="runColorFilter()" disabled>Ручная очистка</button>
             <button id="btnAlign" class="btn-align" onclick="handleAlignStep()" disabled>📐 Шаг 1: Найти ось (1px)</button>
         </div>
@@ -297,7 +297,7 @@
         }
     }
 
-    // ШАГ 1: УМНЫЙ ПОИСК ОСИ С УЧЕТОМ ПРОПОРЦИЙ РАМКИ
+    // ШАГ 1: ПОИСК ОСЕЙ (БЕЗ ЖЕСТКИХ ФИЛЬТРОВ РАМОК)
     function runStep1_FindAxes() {
         const canvas = document.getElementById('cv-canvas');
         const ctx = canvas.getContext('2d');
@@ -404,16 +404,6 @@
                 let idx = (bestHorizSegment.fixedY * width + x) * 4;
                 data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
             }
-        }
-
-        // УМНЫЙ ФИЛЬТР ПО ФОРМЕ РАМКИ
-        let frameWidth = x2 - x1;
-        let frameHeight = y2 - y1;
-
-        if (frameWidth > frameHeight * 1.5) {
-            vertPoints = []; // Горизонтальная рамка — убираем вертикальную
-        } else if (frameHeight > frameWidth * 1.5) {
-            horizPoints = []; // Вертикальная рамка — убираем горизонтальную
         }
 
         if (vertPoints.length === 0 && horizPoints.length === 0) {
