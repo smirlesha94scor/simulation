@@ -1,6 +1,6 @@
-// script.js — Фильтрация длинных проводников схемы и анимация прохода луча 1 сек.
+// script.js — Попиксельный пошаговый сканер (1 пиксель = 500 мс)
 
-logSys("🔌 script.js подключен. Сканер цепей активен.");
+logSys("🔌 script.js подключен. Попиксельный пошаговый режим активен.");
 
 let rawImageSnapshot = null;
 let isScanningAnim = false;
@@ -95,7 +95,7 @@ function runCircuitScan() {
     const outputImgData = ctx.createImageData(width, height);
     const outData = outputImgData.data;
     
-    // Заливка белым фоном
+    // Белый фон
     for (let i = 0; i < outData.length; i += 4) {
         outData[i] = 255;     
         outData[i+1] = 255;   
@@ -165,7 +165,7 @@ function runCircuitScan() {
         }
     }
 
-    // 3. Запись результатов на холст (окрашивание схемы)
+    // 3. Запись результатов на холст
     let vertCount = 0;
     let horizCount = 0;
 
@@ -178,10 +178,10 @@ function runCircuitScan() {
             let isHoriz = validHorizontalPixels[pIdx] === 1;
 
             if (isVert || isHoriz) {
-                outData[i] = 0;       // R
-                outData[i+1] = 120;   // G
-                outData[i+2] = 220;   // B
-                outData[i+3] = 255;   // A
+                outData[i] = 0;       
+                outData[i+1] = 120;   
+                outData[i+2] = 220;   
+                outData[i+3] = 255;   
 
                 if (isVert) vertCount++;
                 if (isHoriz) horizCount++;
@@ -192,44 +192,59 @@ function runCircuitScan() {
     ctx.putImageData(outputImgData, 0, 0);
     const scannedSnapshot = ctx.getImageData(0, 0, width, height);
 
-    // 4. Двунаправленная анимация сканирующих лучей (ровно 1 секунда / 1000 мс)
-    let startTime = performance.now();
-    const duration = 1000; 
+    // 4. СТРОГИЙ ПОПИКСЕЛЬНЫЙ ПРОХОД: ровно 1 пиксель в 500 мс
+    let currentX = 0;
+    let currentY = 0;
+    let phase = 1; // 1 - движение вертикального луча слева направо (по X), 2 - горизонтального сверху вниз (по Y)
 
-    function animateScanBeams(currentTime) {
-        let elapsed = currentTime - startTime;
-        let progress = Math.min(elapsed / duration, 1.0);
-
+    function stepPixelScan() {
         ctx.putImageData(scannedSnapshot, 0, 0);
 
-        if (progress <= 0.5) {
-            let currentX = Math.floor((progress * 2) * width);
+        if (phase === 1) {
+            // Фаза 1: двигаем вертикальную линию по X (каждый шаг = ровно 1 пиксель)
             ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(currentX, 0);
             ctx.lineTo(currentX, height);
             ctx.stroke();
-        } else {
-            let currentY = Math.floor(((progress - 0.5) * 2) * height);
+
+            logSys(`📍 [Шаг по X] Лучи на позиции X = ${currentX}px`);
+
+            currentX++;
+            if (currentX < width) {
+                setTimeout(stepPixelScan, 500); // Пауза ровно 500 мс до следующего пикселя
+            } else {
+                phase = 2; // Переходим к сканированию по Y
+                setTimeout(stepPixelScan, 500);
+            }
+        } 
+        else if (phase === 2) {
+            // Фаза 2: двигаем горизонтальную линию по Y (каждый шаг = ровно 1 пиксель)
             ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(0, currentY);
             ctx.lineTo(width, currentY);
             ctx.stroke();
-        }
 
-        if (progress < 1.0) {
-            requestAnimationFrame(animateScanBeams);
-        } else {
-            ctx.putImageData(scannedSnapshot, 0, 0);
-            isScanningAnim = false;
+            logSys(`📍 [Шаг по Y] Луч на позиции Y = ${currentY}px`);
+
+            currentY++;
+            if (currentY < height) {
+                setTimeout(stepPixelScan, 500); // Пауза ровно 500 мс до следующего пикселя
+            } else {
+                // Завершение сканирования
+                ctx.putImageData(scannedSnapshot, 0, 0);
+                isScanningAnim = false;
+                logSys(`✅ Попиксельное сканирование завершено.`);
+            }
         }
     }
 
-    requestAnimationFrame(animateScanBeams);
+    // Запуск пошагового сканирования
+    stepPixelScan();
 
     const thresholdVal = document.getElementById('thresholdRange').value;
-    logSys(`🎯 [Порог: ${thresholdVal} | Мин. длина: ${MIN_LINE_LENGTH}px] ➔ Пикселей: верт. ${vertCount}, гориз. ${horizCount}`);
+    logSys(`🎯 [Порог: ${thresholdVal} | Мин. длина: ${MIN_LINE_LENGTH}px] ➔ Запуск попиксельного луча...`);
 }
