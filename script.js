@@ -1,6 +1,6 @@
-// script.js — Динамическое сканирование с поддержкой двух ползунков управления
+// script.js — Фильтрация длинных проводников схемы и анимация прохода луча 1 сек.
 
-logSys("🔌 script.js подключен. Панель ползунков активна.");
+logSys("🔌 script.js подключен. Сканер цепей активен.");
 
 let rawImageSnapshot = null;
 let isScanningAnim = false;
@@ -10,7 +10,6 @@ function resetRawSnapshot() {
     rawImageSnapshot = null;
 }
 
-// Обработка ползунка порога
 function onThresholdInput(val) {
     const valSpan = document.getElementById('thresholdVal');
     if (valSpan) valSpan.textContent = val;
@@ -23,7 +22,6 @@ function onThresholdInput(val) {
     }, 300);
 }
 
-// Обработка нового ползунка минимальной длины
 function onMinLengthInput(val) {
     const valSpan = document.getElementById('minLengthVal');
     if (valSpan) valSpan.textContent = val;
@@ -84,7 +82,6 @@ function convertToBlackAndWhite() {
     cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 }
 
-// Главная функция сканирования и попиксельной подсветки длинных линий
 function runCircuitScan() {
     const canvas = document.getElementById('cv-canvas');
     if (!canvas || !originalImageSnapshot || isScanningAnim) return;
@@ -98,6 +95,7 @@ function runCircuitScan() {
     const outputImgData = ctx.createImageData(width, height);
     const outData = outputImgData.data;
     
+    // Заливка белым фоном
     for (let i = 0; i < outData.length; i += 4) {
         outData[i] = 255;     
         outData[i+1] = 255;   
@@ -106,12 +104,10 @@ function runCircuitScan() {
     }
 
     const cleanData = cleanedImageSnapshot.data;
-
-    // Считываем значение минимальной длины прямо с нового ползунка
     const minLenInput = document.getElementById('minLengthRange');
     const MIN_LINE_LENGTH = minLenInput ? parseInt(minLenInput.value) : 35;
 
-    // 1. Поиск длинных вертикальных пикселей
+    // 1. Поиск пикселей длинных вертикальных линий
     let validVerticalPixels = new Uint8Array(width * height);
     for (let x = 2; x < width - 2; x++) {
         let inLine = false;
@@ -140,7 +136,7 @@ function runCircuitScan() {
         }
     }
 
-    // 2. Поиск длинных горизонтальных пикселей
+    // 2. Поиск пикселей длинных горизонтальных линий
     let validHorizontalPixels = new Uint8Array(width * height);
     for (let y = 2; y < height - 2; y++) {
         let inLine = false;
@@ -169,7 +165,7 @@ function runCircuitScan() {
         }
     }
 
-    // 3. Окрашивание
+    // 3. Запись результатов на холст (окрашивание схемы)
     let vertCount = 0;
     let horizCount = 0;
 
@@ -196,9 +192,9 @@ function runCircuitScan() {
     ctx.putImageData(outputImgData, 0, 0);
     const scannedSnapshot = ctx.getImageData(0, 0, width, height);
 
-    // 4. Анимация сканирующих лучей
+    // 4. Двунаправленная анимация сканирующих лучей (ровно 1 секунда / 1000 мс)
     let startTime = performance.now();
-    const duration = 600;
+    const duration = 1000; 
 
     function animateScanBeams(currentTime) {
         let elapsed = currentTime - startTime;
@@ -235,5 +231,5 @@ function runCircuitScan() {
     requestAnimationFrame(animateScanBeams);
 
     const thresholdVal = document.getElementById('thresholdRange').value;
-    logSys(`🎚️ [Порог: ${thresholdVal} | Мин. длина: ${MIN_LINE_LENGTH}px] ➔ Пикселей: верт. ${vertCount}, гориз. ${horizCount}`);
+    logSys(`🎯 [Порог: ${thresholdVal} | Мин. длина: ${MIN_LINE_LENGTH}px] ➔ Пикселей: верт. ${vertCount}, гориз. ${horizCount}`);
 }
