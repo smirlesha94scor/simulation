@@ -2,116 +2,193 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Настройка параметров</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электронная утка — Схема SVG</title>
     <style>
-        body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
-        .top-toolbar {
-            background: #181820;
-            padding: 12px 15px;
-            border-bottom: 2px solid #444;
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #121216;
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
+            min-height: 100vh;
         }
-        .container { padding: 20px; text-align: center; }
-        #viewport {
-            position: relative;
-            display: inline-block;
-            border: 2px solid #444;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #fff;
-            max-width: 100%;
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            max-width: 950px;
+            width: 100%;
         }
-        #cv-canvas {
-            display: block;
-            max-width: 100%;
-            height: auto;
-        }
-        .card { background: #181820; padding: 15px 20px; border-radius: 8px; max-width: 1000px; margin: 20px auto 0 auto; text-align: left; }
-        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
-        input[type="file"] { padding: 6px 10px; font-size: 12px; }
-        .slider-group { display: flex; align-items: center; gap: 8px; border-left: 1px solid #444; padding-left: 15px; }
     </style>
 </head>
 <body>
 
-    <div class="top-toolbar">
-        <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
-        
-        <!-- Ползунок порога тонирования -->
-        <div class="slider-group" style="border-left: none; padding-left: 0;">
-            <label for="thresholdRange" style="font-size: 13px;">Порог:</label>
-            <input type="range" id="thresholdRange" min="0.30" max="0.95" step="0.01" value="0.68" oninput="onThresholdInput(this.value)">
-            <span id="thresholdVal" style="font-size: 13px; font-family: monospace; width: 35px;">0.68</span>
-        </div>
-
-        <!-- Новый ползунок минимальной длины линий -->
-        <div class="slider-group">
-            <label for="minLengthRange" style="font-size: 13px;">Мин. длина линии:</label>
-            <input type="range" id="minLengthRange" min="10" max="100" step="1" value="35" oninput="onMinLengthInput(this.value)">
-            <span id="minLengthVal" style="font-size: 13px; font-family: monospace; width: 30px;">35</span>
-        </div>
-
-        <span id="statusLabel" style="font-size: 13px; color: #aaa; margin-left: auto;">Загрузите схему</span>
-    </div>
-
     <div class="container">
-        <div id="viewport">
-            <canvas id="cv-canvas"></canvas>
-        </div>
+        <!-- Сюда вставлен ваш SVG код -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="100%" height="100%" style="background-color: #ffffff;">
+          <style>
+            .schematic-line { stroke: #000000; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+            .schematic-thin { stroke: #000000; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+            .schematic-text { font-family: 'Arial', 'Helvetica', sans-serif; font-weight: bold; fill: #000000; }
+            .node-dot { fill: #000000; }
+          </style>
 
-        <div class="card">
-            <h3>Системный лог:</h3>
-            <div id="log">Ожидание загрузки изображения...</div>
-        </div>
+          <!-- Заголовок схемы -->
+          <g id="title-text">
+            <text x="420" y="55" class="schematic-text" font-size="34" text-anchor="middle">электронная утка</text>
+            <text x="140" y="120" class="schematic-text" font-size="22">Звонок «Утка»</text>
+          </g>
+
+          <!-- Входные контакты E1, E2 -->
+          <g id="contacts-E1-E2">
+            <!-- E1 -->
+            <rect x="140" y="278" width="35" height="12" fill="#000" />
+            <line x1="175" y1="284" x2="210" y2="284" class="schematic-line" />
+            <text x="142" y="315" class="schematic-text" font-size="18">E1</text>
+            
+            <!-- E2 -->
+            <rect x="140" y="448" width="35" height="12" fill="#000" />
+            <line x1="175" y1="454" x2="550" y2="454" class="schematic-line" />
+            <text x="142" y="435" class="schematic-text" font-size="18">E2</text>
+          </g>
+
+          <!-- Проводники и магистрали -->
+          <g id="conductors">
+            <!-- Верхняя шина питания (+) -->
+            <line x1="330" y1="140" x2="550" y2="140" class="schematic-line" />
+            
+            <!-- Линии соединения базы и эмиттеров -->
+            <line x1="210" y1="284" x2="235" y2="284" class="schematic-line" />
+            <line x1="285" y1="284" x2="315" y2="284" class="schematic-line" />
+            <line x1="315" y1="284" x2="360" y2="284" class="schematic-line" />
+            <line x1="315" y1="284" x2="315" y2="225" class="schematic-line" />
+            <line x1="315" y1="225" x2="275" y2="225" class="schematic-line" />
+            
+            <!-- Обратные связи и ветвления -->
+            <line x1="330" y1="140" x2="330" y2="165" class="schematic-line" />
+            <line x1="330" y1="195" x2="330" y2="225" class="schematic-line" />
+            <line x1="330" y1="225" x2="370" y2="225" class="schematic-line" />
+            <line x1="330" y1="225" x2="330" y2="284" class="schematic-line" />
+            
+            <line x1="450" y1="140" x2="450" y2="170" class="schematic-line" />
+            <line x1="450" y1="210" x2="450" y2="250" class="schematic-line" />
+            <line x1="450" y1="250" x2="400" y2="250" class="schematic-line" />
+            <line x1="400" y1="250" x2="400" y2="225" class="schematic-line" />
+
+            <!-- Вертикаль эмиттера VT2 на минус -->
+            <line x1="450" y1="345" x2="450" y2="454" class="schematic-line" />
+            <line x1="550" y1="140" x2="550" y2="200" class="schematic-line" />
+            <line x1="550" y1="240" x2="550" y2="350" class="schematic-line" />
+            <line x1="550" y1="390" x2="550" y2="454" class="schematic-line" />
+          </g>
+
+          <!-- Точки соединений (узлы) -->
+          <g id="nodes">
+            <circle cx="330" cy="140" r="5" class="node-dot" />
+            <circle cx="450" cy="140" r="5" class="node-dot" />
+            <circle cx="315" cy="284" r="5" class="node-dot" />
+            <circle cx="330" cy="225" r="5" class="node-dot" />
+            <circle cx="450" cy="250" r="5" class="node-dot" />
+            <circle cx="450" cy="454" r="5" class="node-dot" />
+          </g>
+
+          <!-- Резисторы R1, R2 -->
+          <g id="resistors">
+            <!-- R1 -->
+            <g transform="translate(235, 274)">
+              <rect x="0" y="0" width="50" height="20" class="schematic-line" />
+              <path d="M 5,17 L 45,3 M 20,17 L 45,7" class="schematic-thin" />
+              <text x="-15" y="42" class="schematic-text" font-size="17">R1 750k</text>
+            </g>
+            <!-- R2 -->
+            <g transform="translate(315, 274)">
+              <rect x="0" y="0" width="45" height="20" class="schematic-line" />
+              <path d="M 5,17 L 40,3 M 15,17 L 40,7" class="schematic-thin" />
+              <text x="-5" y="42" class="schematic-text" font-size="17">R2 470k</text>
+            </g>
+          </g>
+
+          <!-- Конденсаторы C1, C2 -->
+          <g id="capacitors">
+            <!-- C1 -->
+            <g transform="translate(275, 215)">
+              <line x1="0" y1="0" x2="0" y2="20" class="schematic-line" stroke-width="4" />
+              <line x1="8" y1="0" x2="8" y2="20" class="schematic-line" stroke-width="4" />
+              <line x1="8" y1="10" x2="25" y2="10" class="schematic-line" />
+              <text x="-30" y="-8" class="schematic-text" font-size="17">C1</text>
+              <text x="-35" y="12" class="schematic-text" font-size="16">47н</text>
+            </g>
+            <!-- C2 -->
+            <g transform="translate(370, 215)">
+              <line x1="0" y1="10" x2="17" y2="10" class="schematic-line" />
+              <line x1="17" y1="0" x2="17" y2="20" class="schematic-line" stroke-width="4" />
+              <line x1="25" y1="0" x2="25" y2="20" class="schematic-line" stroke-width="4" />
+              <text x="-25" y="42" class="schematic-text" font-size="17">C2 6800</text>
+            </g>
+          </g>
+
+          <!-- Диод VD1 -->
+          <g id="diode-VD1" transform="translate(320, 165)">
+            <polygon points="0,0 20,0 10,18" fill="#000" />
+            <line x1="0" y1="18" x2="20" y2="18" class="schematic-line" />
+            <text x="28" y="10" class="schematic-text" font-size="17">VD1</text>
+            <text x="28" y="28" class="schematic-text" font-size="17">Д9Б</text>
+          </g>
+
+          <!-- Динамик BF1 -->
+          <g id="speaker-BF1" transform="translate(435, 170)">
+            <rect x="0" y="0" width="30" height="40" class="schematic-line" />
+            <text x="40" y="26" class="schematic-text" font-size="18">BF1</text>
+          </g>
+
+          <!-- Транзистор VT1 (NPN) -->
+          <g id="transistor-VT1" transform="translate(375, 250)">
+            <circle cx="35" cy="35" r="30" class="schematic-line" />
+            <line x1="20" y1="18" x2="20" y2="52" class="schematic-line" stroke-width="5" />
+            <line x1="-15" y1="35" x2="20" y2="35" class="schematic-line" />
+            <line x1="20" y1="25" x2="42" y2="12" class="schematic-line" />
+            <line x1="20" y1="45" x2="42" y2="58" class="schematic-line" />
+            <polygon points="42,58 32,54 36,46" fill="#000" />
+            <text x="15" y="82" class="schematic-text" font-size="17">VT1</text>
+            <text x="-25" y="100" class="schematic-text" font-size="17">КТ315А</text>
+          </g>
+
+          <!-- Транзистор VT2 (PNP) -->
+          <g id="transistor-VT2" transform="translate(425, 310)">
+            <circle cx="35" cy="35" r="30" class="schematic-line" />
+            <line x1="20" y1="18" x2="20" y2="52" class="schematic-line" stroke-width="5" />
+            <line x1="-25" y1="35" x2="20" y2="35" class="schematic-line" />
+            <line x1="20" y1="25" x2="42" y2="12" class="schematic-line" />
+            <line x1="20" y1="45" x2="42" y2="58" class="schematic-line" />
+            <polygon points="20,45 28,40 31,48" fill="#000" />
+            <text x="45" y="75" class="schematic-text" font-size="17">VT2</text>
+            <text x="-35" y="95" class="schematic-text" font-size="17">КТ361</text>
+          </g>
+
+          <!-- Батарея питания GB1 (9 B) -->
+          <g id="battery-GB1" transform="translate(530, 200)">
+            <line x1="0" y1="0" x2="40" y2="0" class="schematic-line" stroke-width="4" />
+            <line x1="10" y1="10" x2="30" y2="10" class="schematic-line" stroke-width="2" />
+            <line x1="0" y1="20" x2="40" y2="20" class="schematic-line" stroke-width="4" />
+            <line x1="10" y1="30" x2="30" y2="30" class="schematic-line" stroke-width="2" />
+            
+            <line x1="20" y1="35" x2="20" y2="135" stroke="#000" stroke-width="2" stroke-dasharray="4,4" />
+
+            <line x1="0" y1="140" x2="40" y2="140" class="schematic-line" stroke-width="4" />
+            <line x1="10" y1="150" x2="30" y2="150" class="schematic-line" stroke-width="2" />
+            <line x1="0" y1="160" x2="40" y2="160" class="schematic-line" stroke-width="4" />
+            <line x1="10" y1="170" x2="30" y2="170" class="schematic-line" stroke-width="2" />
+
+            <text x="-48" y="75" class="schematic-text" font-size="18">GB1</text>
+            <text x="-43" y="98" class="schematic-text" font-size="18">9 B</text>
+            <text x="-15" y="10" class="schematic-text" font-size="20">+</text>
+            <text x="-15" y="175" class="schematic-text" font-size="22">-</text>
+          </g>
+        </svg>
     </div>
 
-    <script>
-        let imgElement = new Image();
-        let originalImageSnapshot = null;
-        let cleanedImageSnapshot = null;
-
-        function logSys(text) {
-            const box = document.getElementById('log');
-            if (box) {
-                box.innerHTML += `<div>> ${text}</div>`;
-                box.scrollTop = box.scrollHeight;
-            }
-            console.log("SYS:", text);
-        }
-
-        function loadToCanvas(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imgElement.src = e.target.result;
-                    imgElement.onload = () => {
-                        const canvas = document.getElementById('cv-canvas');
-                        const ctx = canvas.getContext('2d');
-
-                        canvas.width = imgElement.naturalWidth;
-                        canvas.height = imgElement.naturalHeight;
-
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(imgElement, 0, 0);
-                        
-                        originalImageSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        cleanedImageSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        
-                        logSys(`✅ Картинка загружена: ${canvas.width}x${canvas.height}px`);
-                        document.getElementById('statusLabel').textContent = `Размер: ${canvas.width}x${canvas.height}`;
-
-                        if (typeof resetRawSnapshot === 'function') resetRawSnapshot();
-                        if (typeof convertToBlackAndWhite === 'function') convertToBlackAndWhite();
-                    };
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-    </script>
-
-    <script src="script.js"></script>
 </body>
 </html>
