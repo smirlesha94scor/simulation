@@ -34,10 +34,7 @@
         }
         .card { background: #181820; padding: 15px 20px; border-radius: 8px; max-width: 1000px; margin: 0 auto; }
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
-        input, button { padding: 6px 10px; font-size: 12px; }
-        button { background: #00bcd4; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #008ba3; }
-        button:disabled { background: #444; cursor: not-allowed; }
+        input[type="file"] { padding: 6px 10px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -45,12 +42,11 @@
     <div class="top-toolbar">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         
-        <!-- Панель управления ползунком порога -->
+        <!-- Ползунок без кнопки (срабатывает «на лету») -->
         <div style="display: flex; align-items: center; gap: 8px; margin-left: 15px; border-left: 1px solid #444; padding-left: 15px;">
             <label for="thresholdRange" style="font-size: 13px;">Порог тонирования:</label>
-            <input type="range" id="thresholdRange" min="0.30" max="0.95" step="0.01" value="0.68" oninput="updateThresholdValue(this.value)">
+            <input type="range" id="thresholdRange" min="0.30" max="0.95" step="0.01" value="0.68" oninput="onThresholdInput(this.value)">
             <span id="thresholdVal" style="font-size: 13px; font-family: monospace; width: 35px;">0.68</span>
-            <button onclick="reapplyThreshold()">Применить</button>
         </div>
 
         <span id="statusLabel" style="font-size: 13px; color: #aaa; margin-left: auto;">Загрузите схему</span>
@@ -67,7 +63,7 @@
         </div>
     </div>
 
-    <!-- Базовое ядро загрузки и инициализации -->
+    <!-- Ядро загрузки -->
     <script>
         let imgElement = new Image();
         let originalImageSnapshot = null;
@@ -96,15 +92,13 @@
                         originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                         cleanedImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                         
-                        // Сбрасываем сырой буфер в script.js при загрузке новой картинки
-                        if (typeof rawImageSnapshot !== 'undefined') {
-                            rawImageSnapshot = null;
-                        }
-
-                        logSys("✅ Картинка успешно загружена.");
+                        logSys("✅ Картинка успешно загружена на холст.");
                         document.getElementById('statusLabel').textContent = "Загружено";
 
-                        // Автоматически запускаем конвертацию в Ч/Б
+                        if (typeof resetRawSnapshot === 'function') {
+                            resetRawSnapshot();
+                        }
+
                         if (typeof convertToBlackAndWhite === 'function') {
                             convertToBlackAndWhite();
                         }
@@ -115,7 +109,7 @@
         }
     </script>
 
-    <!-- Подключение файла с алгоритмами обработки (script.js) -->
+    <!-- Подключение логики -->
     <script src="script.js"></script>
 </body>
 </html>
