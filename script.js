@@ -1,31 +1,37 @@
-// script.js — Сканирование и подсветка только длинных линий (текст игнорируется)
+// script.js — Динамическое сканирование с поддержкой двух ползунков управления
 
-logSys("🔌 script.js подключен. Фильтр длинных линий активен.");
+logSys("🔌 script.js подключен. Панель ползунков активна.");
 
 let rawImageSnapshot = null;
+let isScanningAnim = false;
 let scanDebounceTimer = null;
 
 function resetRawSnapshot() {
     rawImageSnapshot = null;
 }
 
+// Обработка ползунка порога
 function onThresholdInput(val) {
     const valSpan = document.getElementById('thresholdVal');
     if (valSpan) valSpan.textContent = val;
-
-    if (!rawImageSnapshot && originalImageSnapshot) {
-        convertToBlackAndWhite();
-        return;
-    }
 
     convertToBlackAndWhite();
 
     clearTimeout(scanDebounceTimer);
     scanDebounceTimer = setTimeout(() => {
-        if (typeof runCircuitScan === 'function') {
-            runCircuitScan();
-        }
+        if (typeof runCircuitScan === 'function') runCircuitScan();
     }, 300);
+}
+
+// Обработка нового ползунка минимальной длины
+function onMinLengthInput(val) {
+    const valSpan = document.getElementById('minLengthVal');
+    if (valSpan) valSpan.textContent = val;
+
+    clearTimeout(scanDebounceTimer);
+    scanDebounceTimer = setTimeout(() => {
+        if (typeof runCircuitScan === 'function') runCircuitScan();
+    }, 200);
 }
 
 function convertToBlackAndWhite() {
@@ -78,117 +84,156 @@ function convertToBlackAndWhite() {
     cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
 }
 
-// Сканирование с фильтром по минимальной длине (игнорирование текста)
+// Главная функция сканирования и попиксельной подсветки длинных линий
 function runCircuitScan() {
     const canvas = document.getElementById('cv-canvas');
-    if (!canvas || !originalImageSnapshot) return;
+    if (!canvas || !originalImageSnapshot || isScanningAnim) return;
 
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
     
-    // Восстанавливаем чистую Ч/Б картинку перед отрисовкой новых линий
-    ctx.putImageData(cleanedImageSnapshot, 0, 0);
+    isScanningAnim = true;
 
-    const imgData = ctx.getImageData(0, 0, width, height);
-    const data = imgData.data;
+    const outputImgData = ctx.createImageData(width, height);
+    const outData = outputImgData.data;
+    
+    for (let i = 0; i < outData.length; i += 4) {
+        outData[i] = 255;     
+        outData[i+1] = 255;   
+        outData[i+2] = 255;   
+        outData[i+3] = 255;   
+    }
 
-    let longVerticalLines = 0;
-    let longHorizontalLines = 0;
+    const cleanData = cleanedImageSnapshot.data;
 
-    // МИНКИМАЛЬНАЯ ДЛИНА ЛИНИИ В ПИКСЕЛЯХ (все, что короче — текст/символы, игнорируется)
-    const MIN_LINE_LENGTH = 45; 
+    // Считываем значение минимальной длины прямо с нового ползунка
+    const minLenInput = document.getElementById('minLengthRange');
+    const MIN_LINE_LENGTH = minLenInput ? parseInt(minLenInput.value) : 35;
 
-    ctx.lineWidth = 2; // Делаем линии подсветки чуть заметнее
-
-    // 1. Поиск длинных вертикальных линий (синие)
-    for (let x = 0; x < width; x++) {
-        let inLineSegment = false;
-        let segmentPixelCount = 0;
-        let segmentStartY = 0;
-
+    // 1. Поиск длинных вертикальных пикселей
+    let validVerticalPixels = new Uint8Array(width * height);
+    for (let x = 2; x < width - 2; x++) {
+        let inLine = false;
+        let sY = 0;
         for (let y = 0; y < height; y++) {
             let idx = (y * width + x) * 4;
-            let isBlack = (data[idx] === 0);
-
+            let isBlack = (cleanData[idx] === 0 || cleanData[(y * width + (x - 1)) * 4] === 0 || cleanData[(y * width + (x + 1)) * 4] === 0);
             if (isBlack) {
-                if (!inLineSegment) {
-                    inLineSegment = true;
-                    segmentStartY = y;
-                    segmentPixelCount = 1;
-                } else {
-                    segmentPixelCount++;
-                }
+                if (!inLine) { inLine = true; sY = y; }
             } else {
-                if (inLineSegment) {
-                    if (segmentPixelCount >= MIN_LINE_LENGTH) {
-                        longVerticalLines++;
-                        ctx.strokeStyle = 'rgba(0, 120, 255, 0.8)';
-                        ctx.beginPath();
-                        ctx.moveTo(x, segmentStartY);
-                        ctx.lineTo(x, y - 1);
-                        ctx.stroke();
+                if (inLine) {
+                    let len = y - sY;
+                    if (len >= MIN_LINE_LENGTH) {
+                        for (let py = sY; py < y; py++) {
+                            validVerticalPixels[py * width + x] = 1;
+                        }
                     }
-                    inLineSegment = false;
-                    segmentPixelCount = 0;
+                    inLine = false;
                 }
             }
         }
-        if (inLineSegment && segmentPixelCount >= MIN_LINE_LENGTH) {
-            longVerticalLines++;
-            ctx.strokeStyle = 'rgba(0, 120, 255, 0.8)';
-            ctx.beginPath();
-            ctx.moveTo(x, segmentStartY);
-            ctx.lineTo(x, height - 1);
-            ctx.stroke();
+        if (inLine && (height - sY) >= MIN_LINE_LENGTH) {
+            for (let py = sY; py < height; py++) {
+                validVerticalPixels[py * width + x] = 1;
+            }
         }
     }
 
-    // 2. Поиск длинных горизонтальных линий (зеленые)
-    for (let y = 0; y < height; y++) {
-        let inLineSegment = false;
-        let segmentPixelCount = 0;
-        let segmentStartX = 0;
-
+    // 2. Поиск длинных горизонтальных пикселей
+    let validHorizontalPixels = new Uint8Array(width * height);
+    for (let y = 2; y < height - 2; y++) {
+        let inLine = false;
+        let sX = 0;
         for (let x = 0; x < width; x++) {
             let idx = (y * width + x) * 4;
-            let isBlack = (data[idx] === 0);
-
+            let isBlack = (cleanData[idx] === 0 || cleanData[((y - 1) * width + x) * 4] === 0 || cleanData[((y + 1) * width + x) * 4] === 0);
             if (isBlack) {
-                if (!inLineSegment) {
-                    inLineSegment = true;
-                    segmentStartX = x;
-                    segmentPixelCount = 1;
-                } else {
-                    segmentPixelCount++;
-                }
+                if (!inLine) { inLine = true; sX = x; }
             } else {
-                if (inLineSegment) {
-                    if (segmentPixelCount >= MIN_LINE_LENGTH) {
-                        longHorizontalLines++;
-                        ctx.strokeStyle = 'rgba(0, 220, 100, 0.8)';
-                        ctx.beginPath();
-                        ctx.moveTo(segmentStartX, y);
-                        ctx.lineTo(x - 1, y);
-                        ctx.stroke();
+                if (inLine) {
+                    let len = x - sX;
+                    if (len >= MIN_LINE_LENGTH) {
+                        for (let px = sX; px < x; px++) {
+                            validHorizontalPixels[y * width + px] = 1;
+                        }
                     }
-                    inLineSegment = false;
-                    segmentPixelCount = 0;
+                    inLine = false;
                 }
             }
         }
-        if (inLineSegment && segmentPixelCount >= MIN_LINE_LENGTH) {
-            longHorizontalLines++;
-            ctx.strokeStyle = 'rgba(0, 220, 100, 0.8)';
-            ctx.beginPath();
-            ctx.moveTo(segmentStartX, y);
-            ctx.lineTo(width - 1, y);
-            ctx.stroke();
+        if (inLine && (width - sX) >= MIN_LINE_LENGTH) {
+            for (let px = sX; px < width; px++) {
+                validHorizontalPixels[y * width + px] = 1;
+            }
         }
     }
 
-    const rangeInput = document.getElementById('thresholdRange');
-    const currentVal = rangeInput ? rangeInput.value : '0.68';
-    
-    logSys(`🎯 [Только длинные линии] Порог: ${currentVal} ➔ Вертикалей: ${longVerticalLines}, Горизонталей: ${longHorizontalLines}`);
+    // 3. Окрашивание
+    let vertCount = 0;
+    let horizCount = 0;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let pIdx = y * width + x;
+            let i = pIdx * 4;
+
+            let isVert = validVerticalPixels[pIdx] === 1;
+            let isHoriz = validHorizontalPixels[pIdx] === 1;
+
+            if (isVert || isHoriz) {
+                outData[i] = 0;       // R
+                outData[i+1] = 120;   // G
+                outData[i+2] = 220;   // B
+                outData[i+3] = 255;   // A
+
+                if (isVert) vertCount++;
+                if (isHoriz) horizCount++;
+            }
+        }
+    }
+
+    ctx.putImageData(outputImgData, 0, 0);
+    const scannedSnapshot = ctx.getImageData(0, 0, width, height);
+
+    // 4. Анимация сканирующих лучей
+    let startTime = performance.now();
+    const duration = 600;
+
+    function animateScanBeams(currentTime) {
+        let elapsed = currentTime - startTime;
+        let progress = Math.min(elapsed / duration, 1.0);
+
+        ctx.putImageData(scannedSnapshot, 0, 0);
+
+        if (progress <= 0.5) {
+            let currentX = Math.floor((progress * 2) * width);
+            ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(currentX, 0);
+            ctx.lineTo(currentX, height);
+            ctx.stroke();
+        } else {
+            let currentY = Math.floor(((progress - 0.5) * 2) * height);
+            ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, currentY);
+            ctx.lineTo(width, currentY);
+            ctx.stroke();
+        }
+
+        if (progress < 1.0) {
+            requestAnimationFrame(animateScanBeams);
+        } else {
+            ctx.putImageData(scannedSnapshot, 0, 0);
+            isScanningAnim = false;
+        }
+    }
+
+    requestAnimationFrame(animateScanBeams);
+
+    const thresholdVal = document.getElementById('thresholdRange').value;
+    logSys(`🎚️ [Порог: ${thresholdVal} | Мин. длина: ${MIN_LINE_LENGTH}px] ➔ Пикселей: верт. ${vertCount}, гориз. ${horizCount}`);
 }
