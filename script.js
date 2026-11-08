@@ -1,33 +1,49 @@
-// script.js — Динамический подбор порога утончения
+// script.js — Мгновенный пересчет порогового значения при движении ползунка
 
-logSys("🔌 script.js подключен. Модуль настройки порога активен.");
+logSys("🔌 script.js подключен. Динамический отклик ползунка активен.");
 
-let rawImageSnapshot = null; // Буфер для хранения оригинала перед Ч/Б
+let rawImageSnapshot = null;
+let scanDebounceTimer = null;
 
-// Функция обновления текста рядом со слайдером
-function updateThresholdValue(val) {
-    const valSpan = document.getElementById('thresholdVal');
-    if (valSpan) valSpan.textContent = val;
+function resetRawSnapshot() {
+    rawImageSnapshot = null;
 }
 
-// Главная функция конвертации с настраиваемым коэффициентом
-function convertToBlackAndWhite() {
-    const canvas = document.getElementById('cv-canvas');
-    if (!canvas || !originalImageSnapshot) {
-        logSys("❌ Ошибка: нет данных холста.");
+// Вызывается «на лету» прямо во время перемещения ползунка
+function onThresholdInput(val) {
+    const valSpan = document.getElementById('thresholdVal');
+    if (valSpan) valSpan.textContent = val;
+
+    if (!rawImageSnapshot && originalImageSnapshot) {
+        convertToBlackAndWhite();
         return;
     }
+
+    // Мгновенная бинаризация при любом сдвиге
+    convertToBlackAndWhite();
+
+    // Запуск сканирования с небольшой задержкой (чтобы не перегружать при быстрой прокрутке)
+    clearTimeout(scanDebounceTimer);
+    scanDebounceTimer = setTimeout(() => {
+        if (typeof runCircuitScan === 'function') {
+            runCircuitScan();
+        }
+    }, 300);
+}
+
+function convertToBlackAndWhite() {
+    const canvas = document.getElementById('cv-canvas');
+    if (!canvas || !originalImageSnapshot) return;
 
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
 
-    // Сохраняем чистый оригинал при первой загрузке
+    // Фиксируем исходные цветные данные при первом запуске
     if (!rawImageSnapshot) {
         rawImageSnapshot = ctx.getImageData(0, 0, width, height);
     }
 
-    // Всегда берем данные из исходного буфера для чистоты эксперимента
     const imgData = new ImageData(
         new Uint8ClampedArray(rawImageSnapshot.data),
         rawImageSnapshot.width,
@@ -35,11 +51,8 @@ function convertToBlackAndWhite() {
     );
     const data = imgData.data;
 
-    // Читаем текущее значение ползунка из интерфейса
     const rangeInput = document.getElementById('thresholdRange');
     const multiplier = rangeInput ? parseFloat(rangeInput.value) : 0.68;
-
-    logSys(`🎨 Пересчет порогового значения (коэф: ${multiplier})...`);
 
     const lumaArray = new Float32Array(width * height);
     let sumLuma = 0;
@@ -67,18 +80,41 @@ function convertToBlackAndWhite() {
 
     originalImageSnapshot = ctx.getImageData(0, 0, width, height);
     cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
-
-    logSys(`✅ Готово! Порог: ${Math.round(threshold)} (коэф: ${multiplier})`);
 }
 
-// Кнопка пересчета при изменении ползунка
-function reapplyThreshold() {
-    if (!rawImageSnapshot) {
-        logSys("⚠️ Сначала загрузите изображение.");
-        return;
+// Модуль сканирования
+function runCircuitScan() {
+    const canvas = document.getElementById('cv-canvas');
+    if (!canvas || !originalImageSnapshot) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+
+    let verticalConductors = 0;
+    let horizontalConductors = 0;
+
+    for (let x = 0; x < width; x++) {
+        let darkPixelsInCol = 0;
+        for (let y = 0; y < height; y++) {
+            let idx = (y * width + x) * 4;
+            if (data[idx] === 0) darkPixelsInCol++;
+        }
+        if (darkPixelsInCol > 10) verticalConductors++;
     }
-    convertToBlackAndWhite();
-}
 
-// Сбрасываем сырой буфер при загрузке новой картинки
-const originalLoad = window.loadToCanvas; // если нужно перехватить
+    for (let y = 0; y < height; y++) {
+        let darkPixelsInRow = 0;
+        for (let x = 0; x < width; x++) {
+            let idx = (y * width + x) * 4;
+            if (data[idx] === 0) darkPixelsInRow++;
+        }
+        if (darkPixelsInRow > 10) horizontalConductors++;
+    }
+
+    const rangeInput = document.getElementById('thresholdRange');
+    const currentVal = rangeInput ? rangeInput.value : '0.68';
+    logSys(`🎚️ Порог [${currentVal}]: найдено вертикалей ~${Math.round(verticalConductors/3)}, горизонталей ~${Math.round(horizontalConductors/3)}`);
+}
