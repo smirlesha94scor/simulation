@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Рабочая среда</title>
+    <title>CV Circuit Scanner — Загрузка и Ч/Б</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         .top-toolbar {
@@ -12,6 +12,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-wrap: wrap;
         }
         .container { padding: 20px; }
         #viewport {
@@ -30,17 +31,20 @@
             top: 0; left: 0;
             width: 100%; height: 100%;
             object-fit: contain;
-            cursor: crosshair;
         }
         .card { background: #181820; padding: 15px 20px; border-radius: 8px; max-width: 1000px; margin: 0 auto; }
-        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 100px; overflow-y: auto; font-size: 12px; }
+        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
+        input, button { padding: 6px 10px; font-size: 12px; }
+        button { background: #00bcd4; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #008ba3; }
+        button:disabled { background: #444; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
     <div class="top-toolbar">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
-        <span id="statusLabel" style="font-size: 13px; color: #aaa;">Статус: Загрузите схему</span>
+        <span id="statusLabel" style="font-size: 13px; color: #aaa;">Загрузите схему</span>
     </div>
 
     <div class="container">
@@ -49,17 +53,16 @@
         </div>
 
         <div class="card">
-            <h3>Системный лог и тесты:</h3>
-            <div id="log">Инициализация среды...</div>
+            <h3>Системный лог:</h3>
+            <div id="log">Ожидание загрузки изображения...</div>
         </div>
     </div>
 
-    <!-- Базовый код загрузки (Ядро) -->
+    <!-- Базовое ядро: только загрузка -->
     <script>
         let imgElement = new Image();
         let originalImageSnapshot = null;
         let cleanedImageSnapshot = null;
-        let selectedColorRgb = null;
 
         function logSys(text) {
             const box = document.getElementById('log');
@@ -84,23 +87,21 @@
                         originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                         cleanedImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                         
-                        logSys("✅ Картинка успешно загружена и зафиксирована в памяти.");
-                        document.getElementById('statusLabel').textContent = "Статус: Готова к обработке";
-                        
-                        // Запуск самопроверки после загрузки
-                        if (typeof runModuleTests === 'function') {
-                            runModuleTests();
+                        logSys("✅ Картинка успешно загружена.");
+                        document.getElementById('statusLabel').textContent = "Загружено";
+
+                        // Вызываем функцию конвертации из script.js сразу после загрузки
+                        if (typeof convertToBlackAndWhite === 'function') {
+                            convertToBlackAndWhite();
                         }
                     };
                 }
                 reader.readAsDataURL(input.files[0]);
             }
         }
-
-        logSys("HTML-ядро инициализировано. Ожидание подключения script.js...");
     </script>
 
-    <!-- Подключение файла с расширенной логикой и тестами -->
+    <!-- Подключение файла с продолжением логики -->
     <script src="script.js"></script>
 </body>
 </html>
