@@ -1,6 +1,6 @@
-// script.js — Попиксельный пошаговый сканер (1 пиксель = 500 мс)
+// script.js — Контурная подсветка проводников и радиодеталей (резисторы и корпуса внутри пустые)
 
-logSys("🔌 script.js подключен. Попиксельный пошаговый режим активен.");
+logSys("🔌 script.js подключен. Контурный режим подсветки активен.");
 
 let rawImageSnapshot = null;
 let isScanningAnim = false;
@@ -92,23 +92,16 @@ function runCircuitScan() {
     
     isScanningAnim = true;
 
-    const outputImgData = ctx.createImageData(width, height);
-    const outData = outputImgData.data;
-    
-    // Белый фон
-    for (let i = 0; i < outData.length; i += 4) {
-        outData[i] = 255;     
-        outData[i+1] = 255;   
-        outData[i+2] = 255;   
-        outData[i+3] = 255;   
-    }
-
+    const baseSnapshot = ctx.getImageData(0, 0, width, height);
     const cleanData = cleanedImageSnapshot.data;
+
     const minLenInput = document.getElementById('minLengthRange');
     const MIN_LINE_LENGTH = minLenInput ? parseInt(minLenInput.value) : 35;
 
-    // 1. Поиск пикселей длинных вертикальных линий
-    let validVerticalPixels = new Uint8Array(width * height);
+    // Массив для сбора пикселей проводников и внешних контуров деталей
+    let highlightPixels = new Uint8Array(width * height);
+
+    // 1. Поиск длинных линий
     for (let x = 2; x < width - 2; x++) {
         let inLine = false;
         let sY = 0;
@@ -121,23 +114,17 @@ function runCircuitScan() {
                 if (inLine) {
                     let len = y - sY;
                     if (len >= MIN_LINE_LENGTH) {
-                        for (let py = sY; py < y; py++) {
-                            validVerticalPixels[py * width + x] = 1;
-                        }
+                        for (let py = sY; py < y; py++) highlightPixels[py * width + x] = 1;
                     }
                     inLine = false;
                 }
             }
         }
         if (inLine && (height - sY) >= MIN_LINE_LENGTH) {
-            for (let py = sY; py < height; py++) {
-                validVerticalPixels[py * width + x] = 1;
-            }
+            for (let py = sY; py < height; py++) highlightPixels[py * width + x] = 1;
         }
     }
 
-    // 2. Поиск пикселей длинных горизонтальных линий
-    let validHorizontalPixels = new Uint8Array(width * height);
     for (let y = 2; y < height - 2; y++) {
         let inLine = false;
         let sX = 0;
@@ -150,101 +137,190 @@ function runCircuitScan() {
                 if (inLine) {
                     let len = x - sX;
                     if (len >= MIN_LINE_LENGTH) {
-                        for (let px = sX; px < x; px++) {
-                            validHorizontalPixels[y * width + px] = 1;
-                        }
+                        for (let px = sX; px < x; px++) highlightPixels[y * width + px] = 1;
                     }
                     inLine = false;
                 }
             }
         }
         if (inLine && (width - sX) >= MIN_LINE_LENGTH) {
-            for (let px = sX; px < width; px++) {
-                validHorizontalPixels[y * width + px] = 1;
+            for (let px = sX; px < width; px++) highlightPixels[y * width + px] = 1;
+        }
+    }
+
+    // 2. Захват связанных элементов (резисторы, круги транзисторов, диагонали)
+    let expandedPixels = new Uint8Array(highlightPixels);
+    let queue = [];
+
+    for (let i = 0; i < width * height; i++) {
+        if (highlightPixels[i] === 1) queue.push(i);
+    }
+
+    let distMap = new Int16Array(width * height).fill(-1);
+    queue.forEach(idx => distMap[idx] = 0);
+
+    let head = 0;
+    const MAX_DIST = 10;
+
+    while (head < queue.length) {
+        let curr = queue[head++];
+        let currDist = distMap[curr];
+
+        if (currDist >= MAX_DIST) continue;
+
+        let cx = curr % width;
+        let cy = Math.floor(curr / width);
+
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                let nx = cx + dx;
+                let ny = cy + dy;
+
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    let nIdx = ny * width + nx;
+                    let imgIdx = nIdx * 4;
+
+                    if (cleanData[imgIdx] === 0 && distMap[nIdx] === -1) {
+                        distMap[nIdx] = currDist + 1;
+                        expandedPixels[nIdx] = 1;
+                        queue.push(nIdx);
+                    }
+                }
             }
         }
     }
 
-    // 3. Запись результатов на холст
-    let vertCount = 0;
-    let horizCount = 0;
+    // 3. ПРЕОБРАЗОВАНИЕ В КОНТУР (оставляем только внешнюю границу, чтобы внутри резисторы и круги были пустыми)
+    let contourPixels = new Uint8Array(width * height);
+
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            let pIdx = y * width + x;
+            if (expandedPixels[pIdx] === 1) {
+                // Проверяем, есть ли белые соседи (если есть — это пиксель на границе контура)
+                let isEdge = false;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        let nx = x + dx;
+                        let ny = y + dy;
+                        if (cleanData[(ny * width + nx) * 4] !== 0) {
+                            isEdge = true;
+                        }
+                    }
+                }
+                // Также сохраняем тонкие линии в 1px, у которых нет толстой внутренней заливки
+                if (isEdge || expandedPixels[(y-1)*width + x] === 0 || expandedPixels[(y+1)*width + x] === 0 || 
+                    expandedPixels[y*width + (x-1)] === 0 || expandedPixels[y*width + (x+1)] === 0) {
+                    contourPixels[pIdx] = 1;
+                }
+            }
+        }
+    }
+
+    // Формируем целевой кадр
+    const targetImgData = ctx.createImageData(width, height);
+    const targetData = targetImgData.data;
+
+    for (let i = 0; i < targetData.length; i += 4) {
+        targetData[i] = baseSnapshot.data[i];     
+        targetData[i+1] = baseSnapshot.data[i+1];   
+        targetData[i+2] = baseSnapshot.data[i+2];   
+        targetData[i+3] = 255;
+    }
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             let pIdx = y * width + x;
             let i = pIdx * 4;
-
-            let isVert = validVerticalPixels[pIdx] === 1;
-            let isHoriz = validHorizontalPixels[pIdx] === 1;
-
-            if (isVert || isHoriz) {
-                outData[i] = 0;       
-                outData[i+1] = 120;   
-                outData[i+2] = 220;   
-                outData[i+3] = 255;   
-
-                if (isVert) vertCount++;
-                if (isHoriz) horizCount++;
+            if (cleanData[i] === 0 && contourPixels[pIdx] === 1) {
+                targetData[i] = 0;       // R
+                targetData[i+1] = 120;   // G (Контурная подсветка)
+                targetData[i+2] = 220;   // B
             }
         }
     }
 
-    ctx.putImageData(outputImgData, 0, 0);
-    const scannedSnapshot = ctx.getImageData(0, 0, width, height);
+    const targetSnapshot = new ImageData(targetData, width, height);
 
-    // 4. СТРОГИЙ ПОПИКСЕЛЬНЫЙ ПРОХОД: ровно 1 пиксель в 500 мс
+    // 4. Попиксельный сканирующий луч (1 пиксель = 500 мс)
     let currentX = 0;
     let currentY = 0;
-    let phase = 1; // 1 - движение вертикального луча слева направо (по X), 2 - горизонтального сверху вниз (по Y)
+    let phase = 1;
 
-    function stepPixelScan() {
-        ctx.putImageData(scannedSnapshot, 0, 0);
+    function stepRealtimeScan() {
+        const currentFrameData = ctx.createImageData(width, height);
+        for (let k = 0; k < currentFrameData.data.length; k += 4) {
+            currentFrameData.data[k] = baseSnapshot.data[k];
+            currentFrameData.data[k+1] = baseSnapshot.data[k+1];
+            currentFrameData.data[k+2] = baseSnapshot.data[k+2];
+            currentFrameData.data[k+3] = 255;
+        }
 
         if (phase === 1) {
-            // Фаза 1: двигаем вертикальную линию по X (каждый шаг = ровно 1 пиксель)
-            ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(currentX, 0);
-            ctx.lineTo(currentX, height);
-            ctx.stroke();
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x <= currentX; x++) {
+                    let pIdx = y * width + x;
+                    let i = pIdx * 4;
+                    if (targetSnapshot.data[i] === 0 && targetSnapshot.data[i+1] === 120) {
+                        currentFrameData.data[i] = targetSnapshot.data[i];
+                        currentFrameData.data[i+1] = targetSnapshot.data[i+1];
+                        currentFrameData.data[i+2] = targetSnapshot.data[i+2];
+                    }
+                }
+            }
 
-            logSys(`📍 [Шаг по X] Лучи на позиции X = ${currentX}px`);
+            for (let y = 0; y < height; y++) {
+                let i = (y * width + currentX) * 4;
+                currentFrameData.data[i] = 255;   
+                currentFrameData.data[i+1] = 50;
+                currentFrameData.data[i+2] = 50;
+            }
+
+            ctx.putImageData(currentFrameData, 0, 0);
+            logSys(`🔴 [Сканирование X] Позиция: ${currentX}px`);
 
             currentX++;
             if (currentX < width) {
-                setTimeout(stepPixelScan, 500); // Пауза ровно 500 мс до следующего пикселя
+                setTimeout(stepRealtimeScan, 500);
             } else {
-                phase = 2; // Переходим к сканированию по Y
-                setTimeout(stepPixelScan, 500);
+                phase = 2;
+                setTimeout(stepRealtimeScan, 500);
             }
         } 
         else if (phase === 2) {
-            // Фаза 2: двигаем горизонтальную линию по Y (каждый шаг = ровно 1 пиксель)
-            ctx.strokeStyle = 'rgba(255, 50, 50, 0.9)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, currentY);
-            ctx.lineTo(width, currentY);
-            ctx.stroke();
+            for (let y = 0; y <= currentY; y++) {
+                for (let x = 0; x < width; x++) {
+                    let pIdx = y * width + x;
+                    let i = pIdx * 4;
+                    if (targetSnapshot.data[i] === 0 && targetSnapshot.data[i+1] === 120) {
+                        currentFrameData.data[i] = targetSnapshot.data[i];
+                        currentFrameData.data[i+1] = targetSnapshot.data[i+1];
+                        currentFrameData.data[i+2] = targetSnapshot.data[i+2];
+                    }
+                }
+            }
 
-            logSys(`📍 [Шаг по Y] Луч на позиции Y = ${currentY}px`);
+            for (let x = 0; x < width; x++) {
+                let i = (currentY * width + x) * 4;
+                currentFrameData.data[i] = 255;
+                currentFrameData.data[i+1] = 50;
+                currentFrameData.data[i+2] = 50;
+            }
+
+            ctx.putImageData(currentFrameData, 0, 0);
+            logSys(`🔴 [Сканирование Y] Позиция: ${currentY}px`);
 
             currentY++;
             if (currentY < height) {
-                setTimeout(stepPixelScan, 500); // Пауза ровно 500 мс до следующего пикселя
+                setTimeout(stepRealtimeScan, 500);
             } else {
-                // Завершение сканирования
-                ctx.putImageData(scannedSnapshot, 0, 0);
+                ctx.putImageData(targetSnapshot, 0, 0);
                 isScanningAnim = false;
-                logSys(`✅ Попиксельное сканирование завершено.`);
+                logSys(`✅ Завершено: резисторы и транзисторы подсвечены по контуру (внутри пустые).`);
             }
         }
     }
 
-    // Запуск пошагового сканирования
-    stepPixelScan();
-
-    const thresholdVal = document.getElementById('thresholdRange').value;
-    logSys(`🎯 [Порог: ${thresholdVal} | Мин. длина: ${MIN_LINE_LENGTH}px] ➔ Запуск попиксельного луча...`);
+    stepRealtimeScan();
 }
