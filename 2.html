@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Исходный размер</title>
+    <title>CV Circuit Scanner — Настройка параметров</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         .top-toolbar {
@@ -11,7 +11,7 @@
             border-bottom: 2px solid #444;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
             flex-wrap: wrap;
         }
         .container { padding: 20px; text-align: center; }
@@ -27,11 +27,12 @@
         #cv-canvas {
             display: block;
             max-width: 100%;
-            height: auto; /* Сохраняет пропорции на экране */
+            height: auto;
         }
         .card { background: #181820; padding: 15px 20px; border-radius: 8px; max-width: 1000px; margin: 20px auto 0 auto; text-align: left; }
         #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
         input[type="file"] { padding: 6px 10px; font-size: 12px; }
+        .slider-group { display: flex; align-items: center; gap: 8px; border-left: 1px solid #444; padding-left: 15px; }
     </style>
 </head>
 <body>
@@ -39,10 +40,18 @@
     <div class="top-toolbar">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
         
-        <div style="display: flex; align-items: center; gap: 8px; margin-left: 15px; border-left: 1px solid #444; padding-left: 15px;">
-            <label for="thresholdRange" style="font-size: 13px;">Порог тонирования:</label>
+        <!-- Ползунок порога тонирования -->
+        <div class="slider-group" style="border-left: none; padding-left: 0;">
+            <label for="thresholdRange" style="font-size: 13px;">Порог:</label>
             <input type="range" id="thresholdRange" min="0.30" max="0.95" step="0.01" value="0.68" oninput="onThresholdInput(this.value)">
             <span id="thresholdVal" style="font-size: 13px; font-family: monospace; width: 35px;">0.68</span>
+        </div>
+
+        <!-- Новый ползунок минимальной длины линий -->
+        <div class="slider-group">
+            <label for="minLengthRange" style="font-size: 13px;">Мин. длина линии:</label>
+            <input type="range" id="minLengthRange" min="10" max="100" step="1" value="35" oninput="onMinLengthInput(this.value)">
+            <span id="minLengthVal" style="font-size: 13px; font-family: monospace; width: 30px;">35</span>
         </div>
 
         <span id="statusLabel" style="font-size: 13px; color: #aaa; margin-left: auto;">Загрузите схему</span>
@@ -50,7 +59,6 @@
 
     <div class="container">
         <div id="viewport">
-            <!-- Холст больше не имеет фиксированных 1000x600 в HTML, они зададутся динамически -->
             <canvas id="cv-canvas"></canvas>
         </div>
 
@@ -60,7 +68,6 @@
         </div>
     </div>
 
-    <!-- Ядро загрузки с подстройкой под исходный размер -->
     <script>
         let imgElement = new Image();
         let originalImageSnapshot = null;
@@ -84,27 +91,20 @@
                         const canvas = document.getElementById('cv-canvas');
                         const ctx = canvas.getContext('2d');
 
-                        // Устанавливаем реальные размеры картинки в пикселях для холста
                         canvas.width = imgElement.naturalWidth;
                         canvas.height = imgElement.naturalHeight;
 
-                        // Очищаем и рисуем изображение один в один
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
                         ctx.drawImage(imgElement, 0, 0);
                         
                         originalImageSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         cleanedImageSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         
-                        logSys(`✅ Картинка загружена в исходном разрешении: ${canvas.width}x${canvas.height}px`);
+                        logSys(`✅ Картинка загружена: ${canvas.width}x${canvas.height}px`);
                         document.getElementById('statusLabel').textContent = `Размер: ${canvas.width}x${canvas.height}`;
 
-                        if (typeof resetRawSnapshot === 'function') {
-                            resetRawSnapshot();
-                        }
-
-                        if (typeof convertToBlackAndWhite === 'function') {
-                            convertToBlackAndWhite();
-                        }
+                        if (typeof resetRawSnapshot === 'function') resetRawSnapshot();
+                        if (typeof convertToBlackAndWhite === 'function') convertToBlackAndWhite();
                     };
                 }
                 reader.readAsDataURL(input.files[0]);
