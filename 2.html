@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Загрузка и Ч/Б</title>
+    <title>CV Circuit Scanner — Рабочая среда</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
         .top-toolbar {
@@ -44,7 +44,16 @@
 
     <div class="top-toolbar">
         <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
-        <span id="statusLabel" style="font-size: 13px; color: #aaa;">Загрузите схему</span>
+        
+        <!-- Панель управления ползунком порога -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-left: 15px; border-left: 1px solid #444; padding-left: 15px;">
+            <label for="thresholdRange" style="font-size: 13px;">Порог тонирования:</label>
+            <input type="range" id="thresholdRange" min="0.30" max="0.95" step="0.01" value="0.68" oninput="updateThresholdValue(this.value)">
+            <span id="thresholdVal" style="font-size: 13px; font-family: monospace; width: 35px;">0.68</span>
+            <button onclick="reapplyThreshold()">Применить</button>
+        </div>
+
+        <span id="statusLabel" style="font-size: 13px; color: #aaa; margin-left: auto;">Загрузите схему</span>
     </div>
 
     <div class="container">
@@ -58,7 +67,7 @@
         </div>
     </div>
 
-    <!-- Базовое ядро: только загрузка -->
+    <!-- Базовое ядро загрузки и инициализации -->
     <script>
         let imgElement = new Image();
         let originalImageSnapshot = null;
@@ -87,10 +96,15 @@
                         originalImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                         cleanedImageSnapshot = ctx.getImageData(0, 0, 1000, 600);
                         
+                        // Сбрасываем сырой буфер в script.js при загрузке новой картинки
+                        if (typeof rawImageSnapshot !== 'undefined') {
+                            rawImageSnapshot = null;
+                        }
+
                         logSys("✅ Картинка успешно загружена.");
                         document.getElementById('statusLabel').textContent = "Загружено";
 
-                        // Вызываем функцию конвертации из script.js сразу после загрузки
+                        // Автоматически запускаем конвертацию в Ч/Б
                         if (typeof convertToBlackAndWhite === 'function') {
                             convertToBlackAndWhite();
                         }
@@ -101,7 +115,7 @@
         }
     </script>
 
-    <!-- Подключение файла с продолжением логики -->
+    <!-- Подключение файла с алгоритмами обработки (script.js) -->
     <script src="script.js"></script>
 </body>
 </html>
