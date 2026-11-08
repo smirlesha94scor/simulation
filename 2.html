@@ -1,117 +1,326 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>CV Circuit Scanner — Замкнутая схема</title>
-    <style>
-        body { font-family: sans-serif; margin: 0; background: #0e0e12; color: #fff; }
-        .top-toolbar {
-            background: #181820;
-            padding: 12px 15px;
-            border-bottom: 2px solid #444;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        .container { padding: 20px; text-align: center; }
-        #viewport {
-            position: relative;
-            display: inline-block;
-            border: 2px solid #444;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #fff;
-            max-width: 100%;
-        }
-        #cv-canvas {
-            display: block;
-            max-width: 100%;
-            height: auto;
-        }
-        .card { background: #181820; padding: 15px 20px; border-radius: 8px; max-width: 1000px; margin: 20px auto 0 auto; text-align: left; }
-        #log { background: #050508; color: #00ff66; padding: 10px; border-radius: 4px; font-family: monospace; height: 120px; overflow-y: auto; font-size: 12px; }
-        input[type="file"] { padding: 6px 10px; font-size: 12px; }
-        .slider-group { display: flex; align-items: center; gap: 8px; border-left: 1px solid #444; padding-left: 15px; }
-    </style>
-</head>
-<body>
+// script.js — Контурная подсветка проводников и радиодеталей (резисторы и корпуса внутри пустые)
 
-    <div class="top-toolbar">
-        <input type="file" id="imageInput" accept="image/*" onchange="loadToCanvas(this)">
-        
-        <!-- Ползунок порога тонирования -->
-        <div class="slider-group" style="border-left: none; padding-left: 0;">
-            <label for="thresholdRange" style="font-size: 13px;">Порог:</label>
-            <input type="range" id="thresholdRange" min="0.30" max="0.95" step="0.01" value="0.68" oninput="onThresholdInput(this.value)">
-            <span id="thresholdVal" style="font-size: 13px; font-family: monospace; width: 35px;">0.68</span>
-        </div>
+logSys("🔌 script.js подключен. Контурный режим подсветки активен.");
 
-        <!-- Ползунок минимальной длины линий -->
-        <div class="slider-group">
-            <label for="minLengthRange" style="font-size: 13px;">Мин. длина линии:</label>
-            <input type="range" id="minLengthRange" min="10" max="100" step="1" value="35" oninput="onMinLengthInput(this.value)">
-            <span id="minLengthVal" style="font-size: 13px; font-family: monospace; width: 30px;">35</span>
-        </div>
+let rawImageSnapshot = null;
+let isScanningAnim = false;
+let scanDebounceTimer = null;
 
-        <span id="statusLabel" style="font-size: 13px; color: #aaa; margin-left: auto;">Загрузите схему</span>
-    </div>
+function resetRawSnapshot() {
+    rawImageSnapshot = null;
+}
 
-    <div class="container">
-        <div id="viewport">
-            <canvas id="cv-canvas"></canvas>
-        </div>
+function onThresholdInput(val) {
+    const valSpan = document.getElementById('thresholdVal');
+    if (valSpan) valSpan.textContent = val;
 
-        <div class="card">
-            <h3>Системный лог:</h3>
-            <div id="log">Ожидание загрузки изображения...</div>
-        </div>
-    </div>
+    convertToBlackAndWhite();
 
-    <script>
-        let imgElement = new Image();
-        let originalImageSnapshot = null;
-        let cleanedImageSnapshot = null;
+    clearTimeout(scanDebounceTimer);
+    scanDebounceTimer = setTimeout(() => {
+        if (typeof runCircuitScan === 'function') runCircuitScan();
+    }, 300);
+}
 
-        function logSys(text) {
-            const box = document.getElementById('log');
-            if (box) {
-                box.innerHTML += `<div>> ${text}</div>`;
-                box.scrollTop = box.scrollHeight;
-            }
-            console.log("SYS:", text);
-        }
+function onMinLengthInput(val) {
+    const valSpan = document.getElementById('minLengthVal');
+    if (valSpan) valSpan.textContent = val;
 
-        function loadToCanvas(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imgElement.src = e.target.result;
-                    imgElement.onload = () => {
-                        const canvas = document.getElementById('cv-canvas');
-                        const ctx = canvas.getContext('2d');
+    clearTimeout(scanDebounceTimer);
+    scanDebounceTimer = setTimeout(() => {
+        if (typeof runCircuitScan === 'function') runCircuitScan();
+    }, 200);
+}
 
-                        canvas.width = imgElement.naturalWidth;
-                        canvas.height = imgElement.naturalHeight;
+function convertToBlackAndWhite() {
+    const canvas = document.getElementById('cv-canvas');
+    if (!canvas || !originalImageSnapshot) return;
 
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(imgElement, 0, 0);
-                        
-                        originalImageSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        cleanedImageSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        
-                        logSys(`✅ Картинка загружена: ${canvas.width}x${canvas.height}px`);
-                        document.getElementById('statusLabel').textContent = `Размер: ${canvas.width}x${canvas.height}`;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
 
-                        if (typeof resetRawSnapshot === 'function') resetRawSnapshot();
-                        if (typeof convertToBlackAndWhite === 'function') convertToBlackAndWhite();
-                    };
+    if (!rawImageSnapshot) {
+        rawImageSnapshot = ctx.getImageData(0, 0, width, height);
+    }
+
+    const imgData = new ImageData(
+        new Uint8ClampedArray(rawImageSnapshot.data),
+        rawImageSnapshot.width,
+        rawImageSnapshot.height
+    );
+    const data = imgData.data;
+
+    const rangeInput = document.getElementById('thresholdRange');
+    const multiplier = rangeInput ? parseFloat(rangeInput.value) : 0.68;
+
+    const lumaArray = new Float32Array(width * height);
+    let sumLuma = 0;
+
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+        let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+        lumaArray[p] = luma;
+        sumLuma += luma;
+    }
+
+    let avgLuma = sumLuma / lumaArray.length;
+    let threshold = avgLuma * multiplier;
+
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        let val = lumaArray[p] < threshold ? 0 : 255;
+        data[i]     = val; 
+        data[i + 1] = val; 
+        data[i + 2] = val; 
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+
+    originalImageSnapshot = ctx.getImageData(0, 0, width, height);
+    cleanedImageSnapshot = ctx.getImageData(0, 0, width, height);
+}
+
+function runCircuitScan() {
+    const canvas = document.getElementById('cv-canvas');
+    if (!canvas || !originalImageSnapshot || isScanningAnim) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    isScanningAnim = true;
+
+    const baseSnapshot = ctx.getImageData(0, 0, width, height);
+    const cleanData = cleanedImageSnapshot.data;
+
+    const minLenInput = document.getElementById('minLengthRange');
+    const MIN_LINE_LENGTH = minLenInput ? parseInt(minLenInput.value) : 35;
+
+    // Массив для сбора пикселей проводников и внешних контуров деталей
+    let highlightPixels = new Uint8Array(width * height);
+
+    // 1. Поиск длинных линий
+    for (let x = 2; x < width - 2; x++) {
+        let inLine = false;
+        let sY = 0;
+        for (let y = 0; y < height; y++) {
+            let idx = (y * width + x) * 4;
+            let isBlack = (cleanData[idx] === 0 || cleanData[(y * width + (x - 1)) * 4] === 0 || cleanData[(y * width + (x + 1)) * 4] === 0);
+            if (isBlack) {
+                if (!inLine) { inLine = true; sY = y; }
+            } else {
+                if (inLine) {
+                    let len = y - sY;
+                    if (len >= MIN_LINE_LENGTH) {
+                        for (let py = sY; py < y; py++) highlightPixels[py * width + x] = 1;
+                    }
+                    inLine = false;
                 }
-                reader.readAsDataURL(input.files[0]);
             }
         }
-    </script>
+        if (inLine && (height - sY) >= MIN_LINE_LENGTH) {
+            for (let py = sY; py < height; py++) highlightPixels[py * width + x] = 1;
+        }
+    }
 
-    <script src="script.js"></script>
-</body>
-</html>
+    for (let y = 2; y < height - 2; y++) {
+        let inLine = false;
+        let sX = 0;
+        for (let x = 0; x < width; x++) {
+            let idx = (y * width + x) * 4;
+            let isBlack = (cleanData[idx] === 0 || cleanData[((y - 1) * width + x) * 4] === 0 || cleanData[((y + 1) * width + x) * 4] === 0);
+            if (isBlack) {
+                if (!inLine) { inLine = true; sX = x; }
+            } else {
+                if (inLine) {
+                    let len = x - sX;
+                    if (len >= MIN_LINE_LENGTH) {
+                        for (let px = sX; px < x; px++) highlightPixels[y * width + px] = 1;
+                    }
+                    inLine = false;
+                }
+            }
+        }
+        if (inLine && (width - sX) >= MIN_LINE_LENGTH) {
+            for (let px = sX; px < width; px++) highlightPixels[y * width + px] = 1;
+        }
+    }
+
+    // 2. Захват связанных элементов (резисторы, круги транзисторов, диагонали)
+    let expandedPixels = new Uint8Array(highlightPixels);
+    let queue = [];
+
+    for (let i = 0; i < width * height; i++) {
+        if (highlightPixels[i] === 1) queue.push(i);
+    }
+
+    let distMap = new Int16Array(width * height).fill(-1);
+    queue.forEach(idx => distMap[idx] = 0);
+
+    let head = 0;
+    const MAX_DIST = 10;
+
+    while (head < queue.length) {
+        let curr = queue[head++];
+        let currDist = distMap[curr];
+
+        if (currDist >= MAX_DIST) continue;
+
+        let cx = curr % width;
+        let cy = Math.floor(curr / width);
+
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                let nx = cx + dx;
+                let ny = cy + dy;
+
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    let nIdx = ny * width + nx;
+                    let imgIdx = nIdx * 4;
+
+                    if (cleanData[imgIdx] === 0 && distMap[nIdx] === -1) {
+                        distMap[nIdx] = currDist + 1;
+                        expandedPixels[nIdx] = 1;
+                        queue.push(nIdx);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. ПРЕОБРАЗОВАНИЕ В КОНТУР (оставляем только внешнюю границу, чтобы внутри резисторы и круги были пустыми)
+    let contourPixels = new Uint8Array(width * height);
+
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            let pIdx = y * width + x;
+            if (expandedPixels[pIdx] === 1) {
+                // Проверяем, есть ли белые соседи (если есть — это пиксель на границе контура)
+                let isEdge = false;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        let nx = x + dx;
+                        let ny = y + dy;
+                        if (cleanData[(ny * width + nx) * 4] !== 0) {
+                            isEdge = true;
+                        }
+                    }
+                }
+                // Также сохраняем тонкие линии в 1px, у которых нет толстой внутренней заливки
+                if (isEdge || expandedPixels[(y-1)*width + x] === 0 || expandedPixels[(y+1)*width + x] === 0 || 
+                    expandedPixels[y*width + (x-1)] === 0 || expandedPixels[y*width + (x+1)] === 0) {
+                    contourPixels[pIdx] = 1;
+                }
+            }
+        }
+    }
+
+    // Формируем целевой кадр
+    const targetImgData = ctx.createImageData(width, height);
+    const targetData = targetImgData.data;
+
+    for (let i = 0; i < targetData.length; i += 4) {
+        targetData[i] = baseSnapshot.data[i];     
+        targetData[i+1] = baseSnapshot.data[i+1];   
+        targetData[i+2] = baseSnapshot.data[i+2];   
+        targetData[i+3] = 255;
+    }
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let pIdx = y * width + x;
+            let i = pIdx * 4;
+            if (cleanData[i] === 0 && contourPixels[pIdx] === 1) {
+                targetData[i] = 0;       // R
+                targetData[i+1] = 120;   // G (Контурная подсветка)
+                targetData[i+2] = 220;   // B
+            }
+        }
+    }
+
+    const targetSnapshot = new ImageData(targetData, width, height);
+
+    // 4. Попиксельный сканирующий луч (1 пиксель = 500 мс)
+    let currentX = 0;
+    let currentY = 0;
+    let phase = 1;
+
+    function stepRealtimeScan() {
+        const currentFrameData = ctx.createImageData(width, height);
+        for (let k = 0; k < currentFrameData.data.length; k += 4) {
+            currentFrameData.data[k] = baseSnapshot.data[k];
+            currentFrameData.data[k+1] = baseSnapshot.data[k+1];
+            currentFrameData.data[k+2] = baseSnapshot.data[k+2];
+            currentFrameData.data[k+3] = 255;
+        }
+
+        if (phase === 1) {
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x <= currentX; x++) {
+                    let pIdx = y * width + x;
+                    let i = pIdx * 4;
+                    if (targetSnapshot.data[i] === 0 && targetSnapshot.data[i+1] === 120) {
+                        currentFrameData.data[i] = targetSnapshot.data[i];
+                        currentFrameData.data[i+1] = targetSnapshot.data[i+1];
+                        currentFrameData.data[i+2] = targetSnapshot.data[i+2];
+                    }
+                }
+            }
+
+            for (let y = 0; y < height; y++) {
+                let i = (y * width + currentX) * 4;
+                currentFrameData.data[i] = 255;   
+                currentFrameData.data[i+1] = 50;
+                currentFrameData.data[i+2] = 50;
+            }
+
+            ctx.putImageData(currentFrameData, 0, 0);
+            logSys(`🔴 [Сканирование X] Позиция: ${currentX}px`);
+
+            currentX++;
+            if (currentX < width) {
+                setTimeout(stepRealtimeScan, 500);
+            } else {
+                phase = 2;
+                setTimeout(stepRealtimeScan, 500);
+            }
+        } 
+        else if (phase === 2) {
+            for (let y = 0; y <= currentY; y++) {
+                for (let x = 0; x < width; x++) {
+                    let pIdx = y * width + x;
+                    let i = pIdx * 4;
+                    if (targetSnapshot.data[i] === 0 && targetSnapshot.data[i+1] === 120) {
+                        currentFrameData.data[i] = targetSnapshot.data[i];
+                        currentFrameData.data[i+1] = targetSnapshot.data[i+1];
+                        currentFrameData.data[i+2] = targetSnapshot.data[i+2];
+                    }
+                }
+            }
+
+            for (let x = 0; x < width; x++) {
+                let i = (currentY * width + x) * 4;
+                currentFrameData.data[i] = 255;
+                currentFrameData.data[i+1] = 50;
+                currentFrameData.data[i+2] = 50;
+            }
+
+            ctx.putImageData(currentFrameData, 0, 0);
+            logSys(`🔴 [Сканирование Y] Позиция: ${currentY}px`);
+
+            currentY++;
+            if (currentY < height) {
+                setTimeout(stepRealtimeScan, 500);
+            } else {
+                ctx.putImageData(targetSnapshot, 0, 0);
+                isScanningAnim = false;
+                logSys(`✅ Завершено: резисторы и транзисторы подсвечены по контуру (внутри пустые).`);
+            }
+        }
+    }
+
+    stepRealtimeScan();
+}
