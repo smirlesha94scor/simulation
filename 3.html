@@ -11,58 +11,58 @@
             padding: 0;
         }
 
-        body {
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Запрет прокрутки страницы */
             background-color: #0b0f19;
             color: #f3f4f6;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+        }
+
+        body {
+            padding: 10px 15px;
+            gap: 10px;
         }
 
         h1 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
+            font-size: 1.15rem;
             font-weight: 500;
             letter-spacing: 0.5px;
             color: #e5e7eb;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 12px;
             width: 100%;
-            max-width: 1200px;
-            margin-bottom: 20px;
-        }
-
-        @media (max-width: 900px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
+            flex: 1;
+            min-height: 0;
         }
 
         .card {
             background: #111827;
             border: 1px solid #1f2937;
-            border-radius: 12px;
-            padding: 15px;
+            border-radius: 10px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
-            position: relative;
+            min-height: 0;
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
-            font-size: 0.95rem;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
             font-weight: 600;
+            flex-shrink: 0;
         }
 
         .badge-fox {
@@ -77,7 +77,8 @@
             background: #030712;
             border-radius: 8px;
             width: 100%;
-            height: 320px;
+            flex: 1;
+            min-height: 0;
             cursor: crosshair;
             display: block;
         }
@@ -85,18 +86,18 @@
         .panel {
             background: #111827;
             border: 1px solid #1f2937;
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 10px;
+            padding: 12px 15px;
             width: 100%;
-            max-width: 1200px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
         .controls-row {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             flex-wrap: wrap;
             align-items: center;
         }
@@ -105,10 +106,11 @@
             background: #1f2937;
             color: #f3f4f6;
             border: 1px solid #374151;
-            padding: 8px 16px;
+            padding: 5px 12px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
+            font-size: 0.8rem;
             transition: all 0.2s;
         }
 
@@ -140,24 +142,30 @@
 
         .sliders-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+        }
+
+        @media (max-width: 1000px) {
+            .sliders-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         .slider-group {
             background: #030712;
-            padding: 12px;
-            border-radius: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
             border: 1px solid #1f2937;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 2px;
         }
 
         .slider-label {
             display: flex;
             justify-content: space-between;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #9ca3af;
         }
 
@@ -170,30 +178,28 @@
             width: 100%;
             accent-color: #f59e0b;
             cursor: pointer;
+            height: 14px;
         }
 
         .info-text {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #9ca3af;
-            line-height: 1.4;
             border-top: 1px solid #1f2937;
-            padding-top: 10px;
+            padding-top: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
         }
 
         .presets-bar {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
 
         .presets-bar button {
-            font-size: 0.8rem;
-            padding: 6px 10px;
+            font-size: 0.75rem;
+            padding: 4px 8px;
         }
     </style>
 </head>
@@ -227,7 +233,7 @@
     <!-- Панель управления -->
     <div class="panel">
         <div class="presets-bar">
-            <span style="font-size: 0.85rem; color: #f59e0b; align-self: center; font-weight: 600;">Режимы:</span>
+            <span style="font-size: 0.75rem; color: #f59e0b; align-self: center; font-weight: 600;">Режимы:</span>
             <button onclick="setPreset('base')">🌱 Базовый баланс</button>
             <button onclick="setPreset('boom')">🌊 Вспышка и коллапс</button>
             <button onclick="setPreset('fast')">⚡ Быстрые циклы</button>
@@ -239,7 +245,7 @@
             <button id="playPauseBtn" class="primary" onclick="togglePlay()">⏸ Пауза</button>
             <button onclick="resetSimulation()">🔄 Сбросить к старту</button>
             <button onclick="clearTrail()">🧹 Очистить след</button>
-            <div style="margin-left: auto; display: flex; gap: 10px;">
+            <div style="margin-left: auto; display: flex; gap: 6px;">
                 <button onclick="addAnimals(10, 0)">+10 Кроликов</button>
                 <button onclick="addAnimals(0, 5)">+5 Лис</button>
             </div>
@@ -247,27 +253,27 @@
 
         <div class="sliders-grid">
             <div class="slider-group">
-                <div class="slider-label"><span>α (Рост кроликов)</span><span id="valAlpha">0.50</span></div>
+                <div class="slider-label"><span>α (Рост)</span><span id="valAlpha">0.50</span></div>
                 <input type="range" id="alphaRange" min="0.1" max="2.0" step="0.05" value="0.50" oninput="updateParams()">
             </div>
             <div class="slider-group">
-                <div class="slider-label"><span>β (Успех охоты)</span><span id="valBeta">0.050</span></div>
+                <div class="slider-label"><span>β (Охота)</span><span id="valBeta">0.050</span></div>
                 <input type="range" id="betaRange" min="0.005" max="0.15" step="0.005" value="0.050" oninput="updateParams()">
             </div>
             <div class="slider-group">
-                <div class="slider-label"><span>γ (Смертность лис)</span><span id="valGamma">1.30</span></div>
+                <div class="slider-label"><span>γ (Смерть)</span><span id="valGamma">1.30</span></div>
                 <input type="range" id="gammaRange" min="0.1" max="3.0" step="0.05" value="1.30" oninput="updateParams()">
             </div>
             <div class="slider-group">
-                <div class="slider-label"><span>δ (Прибыль лис)</span><span id="valDelta">0.040</span></div>
+                <div class="slider-label"><span>δ (Прибыль)</span><span id="valDelta">0.040</span></div>
                 <input type="range" id="deltaRange" min="0.005" max="0.1" step="0.005" value="0.040" oninput="updateParams()">
             </div>
             <div class="slider-group" id="kGroup" style="opacity: 0.4;">
-                <div class="slider-label"><span>K (Емкость травы / Спираль)</span><span id="valK">100</span></div>
+                <div class="slider-label"><span>K (Емкость)</span><span id="valK">100</span></div>
                 <input type="range" id="kRange" min="40" max="200" step="5" value="100" oninput="updateParams()" disabled>
             </div>
             <div class="slider-group">
-                <div class="slider-label"><span>Скорость времени</span><span id="valSpeed">1.0x</span></div>
+                <div class="slider-label"><span>Скорость</span><span id="valSpeed">1.0x</span></div>
                 <input type="range" id="speedRange" min="0.2" max="3.0" step="0.2" value="1.0" oninput="updateParams()">
             </div>
         </div>
@@ -298,6 +304,10 @@
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
 
+        // SVG Векторы фигурок животных
+        const rabbitPath = new Path2D("M -3,6 C -5,6 -6,4 -6,2 C -6,-1 -4,-4 -1,-5 C -2,-7 -3,-10 -2,-12 C -1,-13 1,-12 1,-9 C 2,-12 4,-12 4,-9 C 4,-7 2,-5 1,-4 C 4,-3 6,-1 6,2 C 6,5 4,6 1,6 Z");
+        const foxPath = new Path2D("M -9,3 L -6,-2 L -4,0 L -1,-5 L 2,-5 L 3,-2 L 7,-3 L 10,0 L 7,2 L 3,1 L 1,4 L -5,4 L -7,6 Z");
+
         // Состояние симуляции
         let R = 40.0;
         let F = 9.0;
@@ -311,7 +321,6 @@
         let isRunning = true;
 
         let trail = [];
-        const maxTrailLength = 400;
 
         // Агенты для левого экрана
         let agents = [];
@@ -387,7 +396,6 @@
             document.getElementById('deltaRange').value = delta;
             
             updateParams();
-            trail = [];
         }
 
         function togglePlay() {
@@ -398,7 +406,6 @@
         function resetSimulation() {
             R = 40;
             F = 9;
-            trail = [];
         }
 
         function clearTrail() {
@@ -440,7 +447,6 @@
             if (newR >= 1 && newR <= maxR && newF >= 1 && newF <= maxF) {
                 R = newR;
                 F = newF;
-                trail = [];
             }
         }
 
@@ -496,18 +502,23 @@
             agents.forEach(a => {
                 a.x += a.vx;
                 a.y += a.vy;
-                if (a.x < 10 || a.x > dynCanvas.width - 10) a.vx *= -1;
-                if (a.y < 10 || a.y > dynCanvas.height - 10) a.vy *= -1;
+                if (a.x < 15 || a.x > dynCanvas.width - 15) a.vx *= -1;
+                if (a.y < 15 || a.y > dynCanvas.height - 15) a.vy *= -1;
 
-                dynCtx.beginPath();
+                let angle = Math.atan2(a.vy, a.vx);
+
+                dynCtx.save();
+                dynCtx.translate(a.x, a.y);
+                dynCtx.rotate(angle);
+
                 if (a.type === 'rabbit') {
                     dynCtx.fillStyle = '#f472b6';
-                    dynCtx.arc(a.x, a.y, 4, 0, Math.PI * 2);
+                    dynCtx.fill(rabbitPath);
                 } else {
                     dynCtx.fillStyle = '#60a5fa';
-                    dynCtx.arc(a.x, a.y, 6, 0, Math.PI * 2);
+                    dynCtx.fill(foxPath);
                 }
-                dynCtx.fill();
+                dynCtx.restore();
             });
 
             document.getElementById('rCount').innerText = Math.round(R);
@@ -587,13 +598,12 @@
 
             if (isRunning) {
                 trail.push({ r: R, f: F });
-                if (trail.length > maxTrailLength) trail.shift();
             }
 
             if (trail.length > 1) {
                 phaseCtx.beginPath();
                 phaseCtx.strokeStyle = '#f59e0b';
-                phaseCtx.lineWidth = 2;
+                phaseCtx.lineWidth = 1.5;
                 for (let i = 0; i < trail.length; i++) {
                     let tx = scaleX(trail[i].r);
                     let ty = scaleY(trail[i].f);
