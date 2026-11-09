@@ -275,7 +275,7 @@
         <div class="info-text">
             <div>
                 <strong>Уравнения:</strong> 
-                <span id="eqText"> dR/dt = αR - βRF &nbsp;|&nbsp; dF/dt = δRF - γF</span>
+                <span id="eqText">dR/dt = αR - βRF &nbsp;|&nbsp; dF/dt = δRF - γF</span>
             </div>
             <div id="equilibriumInfo" style="color: #60a5fa;">
                 Точка равновесия (центр): R* = 32.5, F* = 10.0
@@ -305,8 +305,8 @@
         let beta = 0.050;
         let gamma = 1.30;
         let delta = 0.040;
-        let K = 100; // Емкость среды для спирали
-        let useLogistic = false; // Режим спирали
+        let K = 100;
+        let useLogistic = false;
         let timeSpeed = 1.0;
         let isRunning = true;
 
@@ -347,7 +347,7 @@
             const rStar = gamma / delta;
             const fStar = alpha / beta;
             if (useLogistic) {
-                document.getElementById('equilibriumInfo.innerText = `Режим спирали (затухание к центру K=${K})`;');
+                document.getElementById('equilibriumInfo').innerText = `Режим спирали (затухание к центру K=${K})`;
                 document.getElementById('eqText').innerText = 'dR/dt = αR(1 - R/K) - βRF | dF/dt = δRF - γF';
             } else {
                 document.getElementById('equilibriumInfo').innerText = `Точка равновесия (центр): R* = ${rStar.toFixed(1)}, F* = ${fStar.toFixed(1)}`;
@@ -410,7 +410,6 @@
             F += fAdd;
         }
 
-        // Интерактив на фазовом графике (клик мышкой)
         let isDraggingPhase = false;
         phaseCanvas.addEventListener('mousedown', (e) => {
             isDraggingPhase = true;
@@ -445,7 +444,6 @@
             }
         }
 
-        // Шаг симуляции (метод Рунге-Кутты 4-го порядка для точности спиралей)
         function stepSimulation(dt) {
             function derivatives(r, f) {
                 let dr, df;
@@ -459,7 +457,6 @@
                 return { dr, df };
             }
 
-            // РК4
             let dt2 = dt * 0.5;
             let k1 = derivatives(R, F);
             let k2 = derivatives(R + k1.dr * dt2, F + k1.df * dt2);
@@ -473,12 +470,10 @@
             if (F < 0.1) F = 0.1;
         }
 
-        // Отрисовка левого экрана (Животные)
         function drawDynamics() {
             dynCtx.fillStyle = '#030712';
-            dynCtx.fillRect(0, dynCanvas.width, dynCanvas.height);
+            dynCtx.fillRect(0, 0, dynCanvas.width, dynCanvas.height);
 
-            // Синхронизируем количество агентов с моделью
             let targetR = Math.min(Math.round(R), 90);
             let targetF = Math.min(Math.round(F), 50);
 
@@ -498,7 +493,6 @@
                 if (idx !== -1) agents.splice(idx, 1);
             }
 
-            // Рендер агентов
             agents.forEach(a => {
                 a.x += a.vx;
                 a.y += a.vy;
@@ -520,7 +514,6 @@
             document.getElementById('fCount').innerText = Math.round(F);
         }
 
-        // Отрисовка правого экрана (Фазовое пространство)
         function drawPhaseSpace() {
             const w = phaseCanvas.width;
             const h = phaseCanvas.height;
@@ -535,7 +528,6 @@
             function scaleX(r) { return pad + (r / maxR) * (w - pad * 2); }
             function scaleY(f) { return h - pad - (f / maxF) * (h - pad * 2); }
 
-            // Оси координат
             phaseCtx.strokeStyle = '#374151';
             phaseCtx.lineWidth = 1;
             phaseCtx.beginPath();
@@ -545,7 +537,6 @@
             phaseCtx.lineTo(pad, h - pad);
             phaseCtx.stroke();
 
-            // Подписи осей
             phaseCtx.fillStyle = '#9ca3af';
             phaseCtx.font = '11px sans-serif';
             phaseCtx.fillText('Кролики (R) →', w - 90, h - 15);
@@ -555,7 +546,6 @@
             phaseCtx.fillText('Лисы (F) →', 0, 0);
             phaseCtx.restore();
 
-            // Векторное поле (стрелочки)
             phaseCtx.strokeStyle = '#1f2937';
             phaseCtx.fillStyle = '#1f2937';
             let stepX = 15;
@@ -586,7 +576,6 @@
                 }
             }
 
-            // Точка равновесия / Центр
             let rStar = gamma / delta;
             let fStar = alpha / beta;
             if (!useLogistic && rStar < maxR && fStar < maxF) {
@@ -596,13 +585,11 @@
                 phaseCtx.fill();
             }
 
-            // Добавляем текущую точку в след
             if (isRunning) {
                 trail.push({ r: R, f: F });
                 if (trail.length > maxTrailLength) trail.shift();
             }
 
-            // Отрисовка следа (траектории)
             if (trail.length > 1) {
                 phaseCtx.beginPath();
                 phaseCtx.strokeStyle = '#f59e0b';
@@ -616,7 +603,6 @@
                 phaseCtx.stroke();
             }
 
-            // Текущая точка на фазовом графике
             let curX = scaleX(R);
             let curY = scaleY(F);
             phaseCtx.fillStyle = '#fff';
@@ -627,7 +613,6 @@
             document.getElementById('phaseCoords').innerText = `Кролики: ${R.toFixed(1)}, Лисы: ${F.toFixed(1)}`;
         }
 
-        // Главный цикл анимации
         let lastTime = performance.now();
         function loop(now) {
             let dt = (now - lastTime) / 1000;
