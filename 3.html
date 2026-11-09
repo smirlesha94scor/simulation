@@ -304,16 +304,12 @@
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
 
-        // Отрисовка четких понятных фигурок через команды контекста (с центром в 0,0)
+        // Отрисовка фигур стоя на ногах
         function drawRabbitShape(ctx) {
             ctx.beginPath();
-            // Тело
             ctx.ellipse(0, 2, 7, 5, 0, 0, Math.PI * 2);
-            // Голова
             ctx.arc(6, -2, 4, 0, Math.PI * 2);
-            // Хвостик
             ctx.arc(-7, 2, 2.5, 0, Math.PI * 2);
-            // Уши (длинные вверх)
             ctx.ellipse(5, -9, 2, 5, -0.2, 0, Math.PI * 2);
             ctx.ellipse(8, -8, 1.8, 4.5, 0.2, 0, Math.PI * 2);
             ctx.fill();
@@ -321,22 +317,17 @@
 
         function drawFoxShape(ctx) {
             ctx.beginPath();
-            // Вытянутое тело хищника
             ctx.ellipse(0, 1, 10, 5, 0, 0, Math.PI * 2);
-            // Острая морда
             ctx.moveTo(7, -2);
             ctx.lineTo(15, 0);
             ctx.lineTo(8, 3);
-            // Пушистый большой хвост
             ctx.ellipse(-12, -2, 7, 3.5, -0.4, 0, Math.PI * 2);
-            // Острые ушки
             ctx.moveTo(6, -4);
             ctx.lineTo(8, -10);
             ctx.lineTo(10, -3);
             ctx.fill();
         }
 
-        // Состояние симуляции
         let R = 40.0;
         let F = 9.0;
         let alpha = 0.50;
@@ -350,7 +341,6 @@
 
         let trail = [];
 
-        // Агенты для левого экрана
         let agents = [];
         function initAgents() {
             agents = [];
@@ -514,7 +504,6 @@
             let targetR = Math.min(Math.round(R), 90);
             let targetF = Math.min(Math.round(F), 50);
 
-            // Регулировка количества агентов на экране
             while (agents.filter(a => a.type === 'rabbit').length < targetR) {
                 let speed = 1.0 + Math.random();
                 let angle = Math.random() * Math.PI * 2;
@@ -537,13 +526,11 @@
 
             const margin = 25;
             agents.forEach(a => {
-                // Плавное отталкивание от границ без дёрганий
                 if (a.x < margin) a.vx += 0.2;
                 if (a.x > dynCanvas.width - margin) a.vx -= 0.2;
                 if (a.y < margin) a.vy += 0.2;
                 if (a.y > dynCanvas.height - margin) a.vy -= 0.2;
 
-                // Нормализация скорости
                 let currSpeed = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
                 if (currSpeed > 0) {
                     a.vx = (a.vx / currSpeed) * a.speed;
@@ -553,15 +540,22 @@
                 a.x += a.vx;
                 a.y += a.vy;
 
-                // Строгое удержание в пределах холста
                 a.x = Math.max(margin, Math.min(dynCanvas.width - margin, a.x));
                 a.y = Math.max(margin, Math.min(dynCanvas.height - margin, a.y));
 
-                let angle = Math.atan2(a.vy, a.vx);
-
                 dynCtx.save();
                 dynCtx.translate(a.x, a.y);
-                dynCtx.rotate(angle);
+                
+                // Предотвращение переворота "вверх ногами":
+                // Если вектор движения направлен влево, зеркалируем фигурку по оси Y
+                if (a.vx < 0) {
+                    dynCtx.scale(-1, 1);
+                    let angle = Math.atan2(-a.vy, -a.vx);
+                    dynCtx.rotate(angle);
+                } else {
+                    let angle = Math.atan2(a.vy, a.vx);
+                    dynCtx.rotate(angle);
+                }
 
                 if (a.type === 'rabbit') {
                     dynCtx.fillStyle = '#f472b6';
