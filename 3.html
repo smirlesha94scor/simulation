@@ -65,6 +65,29 @@
             flex-shrink: 0;
         }
 
+        .fixed-speeds {
+            display: flex;
+            gap: 12px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .speed-tag-v1 {
+            color: #f472b6;
+            background: #1f2937;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #f472b6;
+        }
+
+        .speed-tag-v2 {
+            color: #60a5fa;
+            background: #1f2937;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #60a5fa;
+        }
+
         canvas {
             background: #030712;
             border-radius: 8px;
@@ -173,7 +196,10 @@
         <!-- Слева: Физическая симуляция -->
         <div class="card">
             <div class="card-header">
-                <span>1. Движение кубиков</span>
+                <div class="fixed-speeds">
+                    <span class="speed-tag-v1">v₁ (у стены): <span id="valV1">0.00</span></span>
+                    <span class="speed-tag-v2">v₂ (свободный): <span id="valV2">-1.50</span></span>
+                </div>
                 <span style="color: #f59e0b;">Ударов: <span id="collisionCount">0</span></span>
             </div>
             <canvas id="simCanvas"></canvas>
@@ -182,7 +208,7 @@
         <!-- Справа: Фазовое пространство -->
         <div class="card">
             <div class="card-header">
-                <span>2. Фазовый портрет (Оси: у стены v₁ / свободный v₂)</span>
+                <span>2. Фазовый портрет (Оси: v₁ у стены / v₂ свободный)</span>
                 <span style="color: #60a5fa;">v₁ vs v₂</span>
             </div>
             <canvas id="phaseCanvas"></canvas>
@@ -221,7 +247,7 @@
         </div>
 
         <div class="info-text">
-            <span>Скорости: v₁ — кубик у стены, v₂ — свободный кубик.</span>
+            <span>Скорости зафиксированы вверху левой панели. Кубики подсвечены для хорошей видимости.</span>
             <span id="statusText" style="color: #10b981;">Запущено</span>
         </div>
     </div>
@@ -247,9 +273,8 @@
         let isRunning = true;
         let collisionCount = 0;
 
-        // Уменьшенный масштаб объектов и скорректированное положение
-        let x1 = 110, v1 = 0, size1 = 24;  // Кубик у стены (m1)
-        let x2 = 240, v2 = -1.5, size2 = 42; // Свободный кубик (m2)
+        let x1 = 110, v1 = 0, size1 = 24;
+        let x2 = 240, v2 = -1.5, size2 = 42;
         const wallX = 35;
 
         let phaseTrail = [];
@@ -279,6 +304,7 @@
             v2 = -1.5;
             phaseTrail = [];
             document.getElementById('collisionCount').innerText = collisionCount;
+            updateSpeedDisplays();
             
             phaseTrail.push({
                 pv1: Math.sqrt(m1) * v1,
@@ -300,6 +326,11 @@
             document.getElementById('statusText').style.color = isRunning ? '#10b981' : '#f59e0b';
         }
 
+        function updateSpeedDisplays() {
+            document.getElementById('valV1').innerText = v1.toFixed(2);
+            document.getElementById('valV2').innerText = v2.toFixed(2);
+        }
+
         function physicsStep() {
             let dt = 1.0 / subSteps;
 
@@ -309,7 +340,7 @@
 
                 let collided = false;
 
-                // 1. Удар кубика у стены (m1) о стену
+                // 1. Удар о стену
                 if (x1 <= wallX) {
                     x1 = wallX;
                     v1 = -v1;
@@ -341,6 +372,7 @@
                 }
             }
             document.getElementById('collisionCount').innerText = collisionCount;
+            updateSpeedDisplays();
         }
 
         function drawSim() {
@@ -361,25 +393,38 @@
             simCtx.fillStyle = '#4b5563';
             simCtx.fillRect(wallX - 12, groundY - 100, 12, 100);
 
-            // Кубик 1 (у стены, m1)
+            // Свечение и выравнивание кубиков при высокой скорости
+            simCtx.shadowBlur = 10;
+
+            // Кубик 1 (у стены)
+            simCtx.shadowColor = '#f472b6';
             simCtx.fillStyle = '#f472b6';
             simCtx.fillRect(x1, groundY - size1, size1, size1);
 
-            // Значения v1 над кубиком
-            simCtx.fillStyle = '#f472b6';
-            simCtx.font = '10px monospace';
-            simCtx.textAlign = 'center';
-            simCtx.fillText(`v₁: ${v1.toFixed(2)}`, x1 + size1 / 2, groundY - size1 - 6);
+            simCtx.strokeStyle = '#ffffff';
+            simCtx.lineWidth = 2;
+            simCtx.strokeRect(x1, groundY - size1, size1, size1);
 
-            // Кубик 2 (свободный, m2)
+            simCtx.shadowBlur = 0; // сброс эффекта для текста
+            simCtx.fillStyle = '#030712';
+            simCtx.font = 'bold 10px sans-serif';
+            simCtx.textAlign = 'center';
+            simCtx.fillText(`m₁`, x1 + size1 / 2, groundY - size1 / 2 + 3);
+
+            // Кубик 2 (свободный)
+            simCtx.shadowBlur = 10;
+            simCtx.shadowColor = '#60a5fa';
             simCtx.fillStyle = '#60a5fa';
             simCtx.fillRect(x2, groundY - size2, size2, size2);
 
-            // Значения v2 над кубиком
-            simCtx.fillStyle = '#60a5fa';
-            simCtx.font = '10px monospace';
-            simCtx.textAlign = 'center';
-            simCtx.fillText(`v₂: ${v2.toFixed(2)}`, x2 + size2 / 2, groundY - size2 - 6);
+            simCtx.strokeStyle = '#ffffff';
+            simCtx.lineWidth = 2;
+            simCtx.strokeRect(x2, groundY - size2, size2, size2);
+
+            simCtx.shadowBlur = 0;
+            simCtx.fillStyle = '#030712';
+            simCtx.font = 'bold 11px sans-serif';
+            simCtx.fillText(`m₂`, x2 + size2 / 2, groundY - size2 / 2 + 4);
         }
 
         function drawPhaseSpace() {
