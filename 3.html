@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Физическая модель: Кубики и Стена ($\pi$ + График зависимости)</title>
+    <title>Физическая модель: Кубики, Стена и Внешние факторы ($\pi$)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -23,12 +23,12 @@
         }
 
         body {
-            padding: 10px 15px;
-            gap: 10px;
+            padding: 8px 12px;
+            gap: 8px;
         }
 
         h1 {
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             font-weight: 500;
             letter-spacing: 0.5px;
             color: #e5e7eb;
@@ -36,36 +36,10 @@
             flex-shrink: 0;
         }
 
-        .tabs-header {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .tab-btn {
-            background: #111827;
-            color: #9ca3af;
-            border: 1px solid #1f2937;
-            padding: 6px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-
-        .tab-btn.active {
-            background: #f59e0b;
-            color: #030712;
-            border-color: #d97706;
-            font-weight: 600;
-        }
-
         .container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
             width: 100%;
             flex: 1;
             min-height: 0;
@@ -74,8 +48,8 @@
         .card {
             background: #111827;
             border: 1px solid #1f2937;
-            border-radius: 10px;
-            padding: 10px;
+            border-radius: 8px;
+            padding: 8px;
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -85,23 +59,23 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
             font-weight: 600;
             flex-shrink: 0;
         }
 
         .fixed-speeds {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
         .speed-tag-v1 {
             color: #f472b6;
             background: #1f2937;
-            padding: 2px 6px;
+            padding: 2px 5px;
             border-radius: 4px;
             border: 1px solid #f472b6;
         }
@@ -109,14 +83,14 @@
         .speed-tag-v2 {
             color: #60a5fa;
             background: #1f2937;
-            padding: 2px 6px;
+            padding: 2px 5px;
             border-radius: 4px;
             border: 1px solid #60a5fa;
         }
 
         canvas {
             background: #030712;
-            border-radius: 8px;
+            border-radius: 6px;
             width: 100%;
             flex: 1;
             min-height: 0;
@@ -127,17 +101,17 @@
         .panel {
             background: #111827;
             border: 1px solid #1f2937;
-            border-radius: 10px;
-            padding: 12px 15px;
+            border-radius: 8px;
+            padding: 10px 12px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             flex-shrink: 0;
         }
 
         .controls-row {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
             align-items: center;
         }
@@ -146,11 +120,11 @@
             background: #1f2937;
             color: #f3f4f6;
             border: 1px solid #374151;
-            padding: 5px 12px;
-            border-radius: 6px;
+            padding: 4px 10px;
+            border-radius: 5px;
             cursor: pointer;
             font-weight: 500;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             transition: all 0.2s;
         }
 
@@ -170,27 +144,28 @@
 
         .presets-bar {
             display: flex;
-            gap: 6px;
+            gap: 5px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .inputs-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
         }
 
         .input-group {
             background: #030712;
-            padding: 4px 8px;
-            border-radius: 6px;
+            padding: 3px 6px;
+            border-radius: 5px;
             border: 1px solid #1f2937;
             display: flex;
             flex-direction: column;
         }
 
         .input-group label {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #9ca3af;
         }
 
@@ -198,17 +173,17 @@
             background: #111827;
             border: 1px solid #374151;
             color: #fff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.8rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.75rem;
             width: 100%;
         }
 
         .info-text {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #9ca3af;
             border-top: 1px solid #1f2937;
-            padding-top: 6px;
+            padding-top: 4px;
             display: flex;
             justify-content: space-between;
         }
@@ -220,15 +195,15 @@
 </head>
 <body>
 
-    <h1>Модель «Кубики и Стена»: Физика, Фазовый Портрет и График N(m₂/m₁)</h1>
+    <h1>Модель «Кубики и Стена»: Физика, Фазовый портрет со спиралью и График</h1>
 
     <div class="container">
         <!-- Слева: Физическая симуляция -->
         <div class="card">
             <div class="card-header">
                 <div class="fixed-speeds">
-                    <span class="speed-tag-v1">v₁ (у стены): <span id="valV1">0.00</span></span>
-                    <span class="speed-tag-v2">v₂ (свободный): <span id="valV2">-1.50</span></span>
+                    <span class="speed-tag-v1">v₁: <span id="valV1">0.00</span></span>
+                    <span class="speed-tag-v2">v₂: <span id="valV2">-1.50</span></span>
                 </div>
                 <span style="color: #f59e0b;">Ударов: <span id="collisionCount">0</span></span>
             </div>
@@ -244,8 +219,8 @@
             <canvas id="phaseCanvas"></canvas>
         </div>
 
-        <!-- Снизу на всю ширину: График зависимости ударов N от отношение масс m2/m1 -->
-        <div class="card full-width-card" style="height: 220px;">
+        <!-- Снизу на всю ширину: График зависимости -->
+        <div class="card full-width-card" style="height: 160px;">
             <div class="card-header">
                 <span>3. Зависимость количества столкновений N от отношения масс (m₂ / m₁)</span>
                 <span style="color: #f59e0b;">N = ⌊ π / arctan(√(m₁/m₂)) ⌋</span>
@@ -257,11 +232,11 @@
     <!-- Панель управления -->
     <div class="panel">
         <div class="presets-bar">
-            <span style="font-size: 0.75rem; color: #f59e0b; align-self: center; font-weight: 600;">Пресеты (m₂/m₁):</span>
-            <button onclick="setMassPreset(1)">1 : 1 (3 удара)</button>
-            <button onclick="setMassPreset(100)">1 : 100 (31 удар)</button>
-            <button onclick="setMassPreset(10000)">1 : 10 000 (314 ударов)</button>
-            <button onclick="setMassPreset(1000000)">1 : 1 000 000 (3141 удар)</button>
+            <span style="font-size: 0.7rem; color: #f59e0b; font-weight: 600;">Пресеты:</span>
+            <button onclick="setMassPreset(1)">1:1 (3)</button>
+            <button onclick="setMassPreset(100)">1:100 (31)</button>
+            <button onclick="setMassPreset(10000)">1:10⁴ (314)</button>
+            <button onclick="setMassPreset(1000000)">1:10⁶ (3141)</button>
         </div>
 
         <div class="controls-row">
@@ -269,24 +244,32 @@
             <button onclick="resetSimulation()">🔄 Перезапуск</button>
             <button onclick="clearTrail()">🧹 Очистить след</button>
             
-            <div class="inputs-grid" style="margin-left: auto; width: 320px;">
+            <div class="inputs-grid" style="margin-left: auto; width: 480px;">
                 <div class="input-group">
-                    <label>Масса 1 (m₁ - у стены)</label>
+                    <label>Масса m₁</label>
                     <input type="number" id="m1Input" value="1" min="1" onchange="updateParams()">
                 </div>
                 <div class="input-group">
-                    <label>Масса 2 (m₂ - свободный)</label>
+                    <label>Масса m₂</label>
                     <input type="number" id="m2Input" value="100" min="1" onchange="updateParams()">
                 </div>
                 <div class="input-group">
                     <label>Шагов/кадр</label>
                     <input type="number" id="subStepsInput" value="200" min="1" max="2000" onchange="updateParams()">
                 </div>
+                <div class="input-group">
+                    <label>Упругость (e)</label>
+                    <input type="number" id="restitutionInput" value="1.0" min="0.5" max="1.0" step="0.01" onchange="updateParams()">
+                </div>
+                <div class="input-group">
+                    <label>Трение (поверх.)</label>
+                    <input type="number" id="frictionInput" value="0.0" min="0.0" max="0.001" step="0.0001" onchange="updateParams()">
+                </div>
             </div>
         </div>
 
         <div class="info-text">
-            <span>График показывает рост числа ударов $N$ в зависимости от $m_2/m_1$ в логарифмическом масштабе.</span>
+            <span>Внешние факторы ($e < 1$ и трение) превращают фазовый многоугольник в затухающую спираль.</span>
             <span id="statusText" style="color: #10b981;">Запущено</span>
         </div>
     </div>
@@ -313,6 +296,8 @@
         let m1 = 1;
         let m2 = 100;
         let subSteps = 200;
+        let restitution = 1.0;
+        let friction = 0.0;
         let isRunning = true;
         let collisionCount = 0;
 
@@ -326,6 +311,10 @@
             m1 = parseFloat(document.getElementById('m1Input').value) || 1;
             m2 = parseFloat(document.getElementById('m2Input').value) || 100;
             subSteps = parseInt(document.getElementById('subStepsInput').value) || 200;
+            restitution = parseFloat(document.getElementById('restitutionInput').value);
+            if (isNaN(restitution)) restitution = 1.0;
+            friction = parseFloat(document.getElementById('frictionInput').value);
+            if (isNaN(friction)) friction = 0.0;
             resetSimulation();
         }
 
@@ -378,18 +367,26 @@
             let dt = 1.0 / subSteps;
 
             for (let step = 0; step < subSteps; step++) {
+                // Внешний фактор: трение/сопротивление о пол во время движения
+                if (friction > 0) {
+                    v1 -= v1 * friction;
+                    v2 -= v2 * friction;
+                }
+
                 x1 += v1 * dt;
                 x2 += v2 * dt;
 
                 let collided = false;
 
+                // 1. Удар о стену с учетом коэффициента упругости
                 if (x1 <= wallX) {
                     x1 = wallX;
-                    v1 = -v1;
+                    v1 = -v1 * restitution;
                     collisionCount++;
                     collided = true;
                 }
 
+                // 2. Удар между кубиками с учетом коэффициента упругости
                 if (x1 + size1 >= x2) {
                     let overlap = (x1 + size1) - x2;
                     x1 -= overlap / 2;
@@ -398,18 +395,21 @@
                     let u1 = v1;
                     let u2 = v2;
 
-                    v1 = ((m1 - m2) * u1 + 2 * m2 * u2) / (m1 + m2);
-                    v2 = ((m2 - m1) * u2 + 2 * m1 * u1) / (m1 + m2);
+                    // Удар с коэффициентом восстановления
+                    v1 = ((m1 - m2) * u1 + (1 + restitution) * m2 * u2) / (m1 + m2);
+                    v2 = ((1 + restitution) * m1 * u1 + (m2 - m1) * u2) / (m1 + m2);
 
                     collisionCount++;
                     collided = true;
                 }
 
-                if (collided) {
+                // Записываем точки в фазовый след в моменты ударов (или при наличии трения записываем плавно)
+                if (collided || friction > 0) {
                     phaseTrail.push({
                         pv1: Math.sqrt(m1) * v1,
                         pv2: Math.sqrt(m2) * v2
                     });
+                    if (phaseTrail.length > 5000) phaseTrail.shift();
                 }
             }
             document.getElementById('collisionCount').innerText = collisionCount;
@@ -420,8 +420,9 @@
             simCtx.fillStyle = '#030712';
             simCtx.fillRect(0, 0, simCanvas.width, simCanvas.height);
 
-            const groundY = simCanvas.height / 2 + 40;
+            const groundY = simCanvas.height / 2 + 30;
 
+            // Пол
             simCtx.strokeStyle = '#374151';
             simCtx.lineWidth = 2;
             simCtx.beginPath();
@@ -429,34 +430,37 @@
             simCtx.lineTo(simCanvas.width - 20, groundY);
             simCtx.stroke();
 
+            // Стена
             simCtx.fillStyle = '#4b5563';
-            simCtx.fillRect(wallX - 12, groundY - 100, 12, 100);
+            simCtx.fillRect(wallX - 12, groundY - 80, 12, 80);
 
-            simCtx.shadowBlur = 10;
+            // Кубик 1 (у стены)
+            simCtx.shadowBlur = 8;
             simCtx.shadowColor = '#f472b6';
             simCtx.fillStyle = '#f472b6';
             simCtx.fillRect(x1, groundY - size1, size1, size1);
             simCtx.strokeStyle = '#ffffff';
-            simCtx.lineWidth = 2;
+            simCtx.lineWidth = 1.5;
             simCtx.strokeRect(x1, groundY - size1, size1, size1);
 
             simCtx.shadowBlur = 0;
             simCtx.fillStyle = '#030712';
-            simCtx.font = 'bold 10px sans-serif';
+            simCtx.font = 'bold 9px sans-serif';
             simCtx.textAlign = 'center';
             simCtx.fillText(`m₁`, x1 + size1 / 2, groundY - size1 / 2 + 3);
 
-            simCtx.shadowBlur = 10;
+            // Кубик 2 (свободный)
+            simCtx.shadowBlur = 8;
             simCtx.shadowColor = '#60a5fa';
             simCtx.fillStyle = '#60a5fa';
             simCtx.fillRect(x2, groundY - size2, size2, size2);
             simCtx.strokeStyle = '#ffffff';
-            simCtx.lineWidth = 2;
+            simCtx.lineWidth = 1.5;
             simCtx.strokeRect(x2, groundY - size2, size2, size2);
 
             simCtx.shadowBlur = 0;
             simCtx.fillStyle = '#030712';
-            simCtx.font = 'bold 11px sans-serif';
+            simCtx.font = 'bold 10px sans-serif';
             simCtx.fillText(`m₂`, x2 + size2 / 2, groundY - size2 / 2 + 4);
         }
 
@@ -477,18 +481,18 @@
             phaseCtx.stroke();
 
             phaseCtx.fillStyle = '#9ca3af';
-            phaseCtx.font = '11px sans-serif';
+            phaseCtx.font = '10px sans-serif';
             phaseCtx.textAlign = 'left';
-            phaseCtx.fillText('√m₁·v₁ (у стены) →', w - 125, cy - 8);
-            phaseCtx.fillText('↑ √m₂·v₂ (свободный)', cx + 8, 30);
+            phaseCtx.fillText('√m₁·v₁ →', w - 75, cy - 6);
+            phaseCtx.fillText('↑ √m₂·v₂', cx + 6, 20);
 
             const maxEnergySpeed = Math.abs(Math.sqrt(m2) * -1.5) * 1.3;
-            const scale = (Math.min(w, h) / 2 - 40) / (maxEnergySpeed || 1);
+            const scale = (Math.min(w, h) / 2 - 30) / (maxEnergySpeed || 1);
 
             if (phaseTrail.length > 1) {
                 phaseCtx.beginPath();
                 phaseCtx.strokeStyle = '#f59e0b';
-                phaseCtx.lineWidth = 1.5;
+                phaseCtx.lineWidth = 1.2;
 
                 for (let i = 0; i < phaseTrail.length; i++) {
                     let px = cx + phaseTrail[i].pv1 * scale;
@@ -507,18 +511,17 @@
 
             phaseCtx.fillStyle = '#ffffff';
             phaseCtx.beginPath();
-            phaseCtx.arc(curX, curY, 4, 0, Math.PI * 2);
+            phaseCtx.arc(curX, curY, 3.5, 0, Math.PI * 2);
             phaseCtx.fill();
         }
 
-        // Отрисовка графика зависимости N(m2/m1)
         function drawGraph() {
             const w = graphCanvas.width;
             const h = graphCanvas.height;
-            const paddingLeft = 45;
-            const paddingBottom = 25;
-            const paddingTop = 15;
-            const paddingRight = 20;
+            const paddingLeft = 35;
+            const paddingBottom = 20;
+            const paddingTop = 10;
+            const paddingRight = 15;
 
             const graphW = w - paddingLeft - paddingRight;
             const graphH = h - paddingTop - paddingBottom;
@@ -526,7 +529,6 @@
             graphCtx.fillStyle = '#030712';
             graphCtx.fillRect(0, 0, w, h);
 
-            // Осевые линии
             graphCtx.strokeStyle = '#374151';
             graphCtx.lineWidth = 1;
             graphCtx.beginPath();
@@ -535,13 +537,11 @@
             graphCtx.lineTo(w - paddingRight, h - paddingBottom);
             graphCtx.stroke();
 
-            // Логарифмический масштаб по оси X: log10(m2/m1) от 0 до 6
             const maxLog = 6;
-            const maxN = 3500; // По оси Y
+            const maxN = 3500;
 
-            // Сетка и деления по X (10^0 ... 10^6)
             graphCtx.fillStyle = '#9ca3af';
-            graphCtx.font = '10px sans-serif';
+            graphCtx.font = '9px sans-serif';
             graphCtx.textAlign = 'center';
 
             for (let exp = 0; exp <= maxLog; exp += 2) {
@@ -552,13 +552,12 @@
                 graphCtx.lineTo(gx, h - paddingBottom);
                 graphCtx.stroke();
 
-                graphCtx.fillText(`10²` + (exp > 0 ? `^${exp/2}` : '⁰'), gx, h - 8);
+                graphCtx.fillText(`10^${exp}`, gx, h - 6);
             }
 
-            // Отрисовка кривой N(m2/m1)
             graphCtx.beginPath();
             graphCtx.strokeStyle = '#f59e0b';
-            graphCtx.lineWidth = 2;
+            graphCtx.lineWidth = 1.5;
 
             for (let px = 0; px <= graphW; px += 2) {
                 let logRatio = (px / graphW) * maxLog;
@@ -574,7 +573,6 @@
             }
             graphCtx.stroke();
 
-            // Отметка текущего положения выбранного пресета (m2/m1)
             let curRatio = m2 / m1;
             let curLog = Math.log10(curRatio);
             if (curLog <= maxLog) {
@@ -586,13 +584,13 @@
 
                 graphCtx.fillStyle = '#10b981';
                 graphCtx.beginPath();
-                graphCtx.arc(curGx, Math.max(paddingTop, curGy), 5, 0, Math.PI * 2);
+                graphCtx.arc(curGx, Math.max(paddingTop, curGy), 4, 0, Math.PI * 2);
                 graphCtx.fill();
 
                 graphCtx.fillStyle = '#10b981';
-                graphCtx.font = 'bold 11px sans-serif';
+                graphCtx.font = 'bold 10px sans-serif';
                 graphCtx.textAlign = 'left';
-                graphCtx.fillText(`m₂/m₁=${curRatio} → N=${expectedN}`, curGx + 8, Math.max(paddingTop + 12, curGy - 4));
+                graphCtx.fillText(`m₂/m₁=${curRatio} → N=${expectedN}`, curGx + 6, Math.max(paddingTop + 10, curGy - 4));
             }
         }
 
