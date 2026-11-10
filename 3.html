@@ -182,7 +182,7 @@
         <!-- Справа: Фазовое пространство -->
         <div class="card">
             <div class="card-header">
-                <span>2. Фазовый портрет (Оси: у стены v₂ / свободный v₁)</span>
+                <span>2. Фазовый портрет (Движение по дуге энергии)</span>
                 <span style="color: #60a5fa;">v₂ vs v₁</span>
             </div>
             <canvas id="phaseCanvas"></canvas>
@@ -252,7 +252,12 @@
         const wallX = 50;
 
         let phaseTrail = [];
-        const maxTrailLength = 5000; // Ограничение длины следа для производительности
+        const maxTrailLength = 4000;
+
+        // Переменные для плавной интерполяции угла по окружности энергии
+        let currentAngle = 0;
+        let targetAngle = 0;
+        let currentRadius = 1;
 
         function updateParams() {
             m1 = parseFloat(document.getElementById('m1Input').value) || 1;
@@ -271,6 +276,10 @@
             updateParams();
         }
 
+        function getAngle(pv2, pv1) {
+            return Math.atan2(pv1, pv2);
+        }
+
         function resetSimulation() {
             collisionCount = 0;
             x1 = wallX + 60;
@@ -278,11 +287,15 @@
             x2 = wallX + 220;
             v2 = -1.5;
             phaseTrail = [];
+            
+            let pv2 = Math.sqrt(m2) * v2;
+            let pv1 = Math.sqrt(m1) * v1;
+            currentRadius = Math.sqrt(pv2 * pv2 + pv1 * pv1) || 1;
+            currentAngle = getAngle(pv2, pv1);
+            targetAngle = currentAngle;
+
             document.getElementById('collisionCount').innerText = collisionCount;
-            phaseTrail.push({
-                pv2: Math.sqrt(m2) * v2,
-                pv1: Math.sqrt(m1) * v1
-            });
+            phaseTrail.push({ pv2: pv2, pv1: pv1 });
         }
 
         function clearTrail() {
@@ -303,11 +316,14 @@
                 x1 += v1 * dt;
                 x2 += v2 * dt;
 
+                let stateChanged = false;
+
                 // 1. Удар первого кубика о стену
                 if (x1 <= wallX) {
                     x1 = wallX;
                     v1 = -v1;
                     collisionCount++;
+                    stateChanged = true;
                 }
 
                 // 2. Удар кубиков друг о друга
@@ -323,12 +339,30 @@
                     v2 = ((m2 - m1) * u2 + 2 * m1 * u1) / (m1 + m2);
 
                     collisionCount++;
+                    stateChanged = true;
                 }
 
-                // Плавная запись каждой микроитерации в фазовый след
+                let pv2 = Math.sqrt(m2) * v2;
+                let pv1 = Math.sqrt(m1) * v1;
+                let targetR = Math.sqrt(pv2 * pv2 + pv1 * pv1);
+                if (targetR > 0) currentRadius = targetR;
+
+                targetAngle = getAngle(pv2, pv1);
+
+                // Плавное сглаживание угла для движения по круговой дуге между столкновениями
+                let angleDiff = targetAngle - currentAngle;
+                // Нормализация разницы углов в диапазон [-PI, PI]
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+                currentAngle += angleDiff * 0.15; // Скорость интерполяции по дуге
+
+                let smoothPv2 = currentRadius * Math.cos(currentAngle);
+                let smoothPv1 = currentRadius * Math.sin(currentAngle);
+
                 phaseTrail.push({
-                    pv2: Math.sqrt(m2) * v2,
-                    pv1: Math.sqrt(m1) * v1
+                    pv2: smoothPv2,
+                    pv1: smoothPv1
                 });
 
                 if (phaseTrail.length > maxTrailLength) {
@@ -402,10 +436,8 @@
                 phaseCtx.stroke();
             }
 
-            let currPv2 = Math.sqrt(m2) * v2;
-            let currPv1 = Math.sqrt(m1) * v1;
-            let curX = cx + currPv2 * scale;
-            let curY = cy - currPv1 * scale;
+            let curX = cx + (currentRadius * Math.cos(currentAngle)) * scale;
+            let curY = cy - (currentRadius * Math.sin(currentAngle)) * scale;
 
             phaseCtx.fillStyle = '#ffffff';
             phaseCtx.beginPath();
