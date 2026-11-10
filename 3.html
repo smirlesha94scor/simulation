@@ -14,12 +14,12 @@
         html, body {
             width: 100%;
             height: 100%;
-            overflow: hidden;
             background-color: #0b0f19;
             color: #f3f4f6;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
 
         body {
@@ -41,8 +41,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             width: 100%;
-            flex: 1;
-            min-height: 0;
+            min-height: 320px;
         }
 
         .card {
@@ -52,7 +51,7 @@
             padding: 10px;
             display: flex;
             flex-direction: column;
-            min-height: 0;
+            min-height: 300px;
         }
 
         .card-header {
@@ -65,20 +64,15 @@
             flex-shrink: 0;
         }
 
-        .badge-fox {
-            color: #60a5fa;
-        }
-
-        .badge-rabbit {
-            color: #f472b6;
-        }
+        .badge-fox { color: #60a5fa; }
+        .badge-rabbit { color: #f472b6; }
 
         canvas {
             background: #030712;
             border-radius: 8px;
             width: 100%;
-            flex: 1;
-            min-height: 0;
+            height: 100%;
+            min-height: 250px;
             cursor: crosshair;
             display: block;
         }
@@ -91,8 +85,7 @@
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            flex-shrink: 0;
+            gap: 10px;
         }
 
         .controls-row {
@@ -126,9 +119,7 @@
             font-weight: 600;
         }
 
-        button.primary:hover {
-            background: #fbbf24;
-        }
+        button.primary:hover { background: #fbbf24; }
 
         button.purple {
             background: #7c3aed;
@@ -136,9 +127,7 @@
             color: #fff;
         }
 
-        button.purple:hover {
-            background: #8b5cf6;
-        }
+        button.purple:hover { background: #8b5cf6; }
 
         .sliders-grid {
             display: grid;
@@ -147,9 +136,8 @@
         }
 
         @media (max-width: 1000px) {
-            .sliders-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
+            .sliders-grid { grid-template-columns: repeat(3, 1fr); }
+            .container { grid-template-columns: 1fr; }
         }
 
         .slider-group {
@@ -179,6 +167,71 @@
             accent-color: #f59e0b;
             cursor: pointer;
             height: 14px;
+        }
+
+        .svg-editors-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            border-top: 1px solid #1f2937;
+            padding-top: 10px;
+        }
+
+        .svg-editor-box {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .svg-editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .svg-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Отдельный элемент визуального предпросмотра SVG */
+        .svg-preview-element {
+            width: 60px;
+            height: 60px;
+            background: #030712;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            flex-shrink: 0;
+        }
+
+        .svg-preview-element svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            background: #030712;
+            color: #10b981;
+            border: 1px solid #1f2937;
+            border-radius: 6px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: #f59e0b;
         }
 
         .info-text {
@@ -278,6 +331,50 @@
             </div>
         </div>
 
+        <!-- SVG Редактор с отдельным отображением элементов -->
+        <div class="svg-editors-grid">
+            <div class="svg-editor-box">
+                <div class="svg-editor-header">
+                    <span class="badge-rabbit">SVG Кролик</span>
+                    <button onclick="copySVG('rabbitSvgCode')">📋 Копировать SVG</button>
+                </div>
+                <div class="svg-preview-container">
+                    <div class="svg-preview-element" id="rabbitPreview"></div>
+                    <textarea id="rabbitSvgCode" oninput="updateSvgImages()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -15 24 24">
+  <ellipse cx="0" cy="2.45" rx="7" ry="4.55" fill="#f472b6" />
+  <circle cx="6.25" cy="-2.1" r="3.75" fill="#f472b6" />
+  <circle cx="-7.05" cy="3.95" r="1.75" fill="#f472b6" />
+  <ellipse cx="5.16" cy="-8.77" rx="2" ry="5" transform="rotate(-9.5 5 -9)" fill="#f472b6" />
+  <ellipse cx="8.42" cy="-8.70" rx="1.7" ry="4.25" transform="rotate(11.5 8 -8)" fill="#f472b6" />
+</svg></textarea>
+                </div>
+            </div>
+
+            <div class="svg-editor-box">
+                <div class="svg-editor-header">
+                    <span class="badge-fox">SVG Лиса</span>
+                    <button onclick="copySVG('foxSvgCode')">📋 Копировать SVG</button>
+                </div>
+                <div class="svg-preview-container">
+                    <div class="svg-preview-element" id="foxPreview"></div>
+                    <textarea id="foxSvgCode" oninput="updateSvgImages()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <polygon points="40,90 45,30 90,80" fill="#E65100" />
+  <polygon points="50,85 52,42 82,78" fill="#FFCC80" />
+  <polygon points="160,90 155,30 110,80" fill="#D84315" />
+  <polygon points="150,85 148,42 118,78" fill="#FFB74D" />
+  <polygon points="40,90 100,130 160,90 100,70" fill="#F4511E" />
+  <polygon points="40,90 100,130 65,130" fill="#ECEFF1" />
+  <polygon points="160,90 100,130 135,130" fill="#CFD8DC" />
+  <polygon points="65,80 135,80 100,145" fill="#FF6D00" />
+  <polygon points="70,95 85,92 80,98" fill="#37474F" />
+  <polygon points="130,95 115,92 120,98" fill="#37474F" />
+  <polygon points="90,135 110,135 100,147" fill="#212121" />
+  <circle cx="100" cy="137" r="10" fill="#212121" />
+</svg></textarea>
+                </div>
+            </div>
+        </div>
+
         <div class="info-text">
             <div>
                 <strong>Уравнения:</strong> 
@@ -304,65 +401,28 @@
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
 
-        // Отрисовка кролика по вашим точным SVG-параметрам
-        function drawRabbitShape(ctx) {
-            ctx.beginPath();
-            // Тело
-            ctx.ellipse(0, 2.45, 7, 4.55, 0, 0, Math.PI * 2);
-            // Голова
-            ctx.arc(6.25, -2.1, 3.75, 0, Math.PI * 2);
-            // Хвостик
-            ctx.arc(-7.05, 3.95, 1.75, 0, Math.PI * 2);
-            // Левое ухо
-            ctx.ellipse(5.164248, -8.769733, 2, 5, -9.5 * Math.PI / 180, 0, Math.PI * 2);
-            // Правое ухо
-            ctx.ellipse(8.415606, -8.701919, 1.7, 4.25, 11.5 * Math.PI / 180, 0, Math.PI * 2);
-            ctx.fill();
+        let rabbitImg = new Image();
+        let foxImg = new Image();
+
+        function updateSvgImages() {
+            const rabbitSvg = document.getElementById('rabbitSvgCode').value;
+            const foxSvg = document.getElementById('foxSvgCode').value;
+
+            // Обновляем визуальные элементы предпросмотра
+            document.getElementById('rabbitPreview').innerHTML = rabbitSvg;
+            document.getElementById('foxPreview').innerHTML = foxSvg;
+
+            // Загружаем в теги Image для отрисовки на Canvas
+            rabbitImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(rabbitSvg);
+            foxImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(foxSvg);
         }
+        updateSvgImages();
 
-        // SVG голова лисы (масштаб 0.14)
-        function drawFoxShape(ctx) {
-            ctx.save();
-            ctx.scale(0.14, 0.14);
-            ctx.translate(-100, -100);
-
-            // Левое ухо
-            ctx.fillStyle = "#E65100";
-            ctx.beginPath(); ctx.moveTo(40,90); ctx.lineTo(45,30); ctx.lineTo(90,80); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#FFCC80";
-            ctx.beginPath(); ctx.moveTo(50,85); ctx.lineTo(52,42); ctx.lineTo(82,78); ctx.closePath(); ctx.fill();
-
-            // Правое ухо
-            ctx.fillStyle = "#D84315";
-            ctx.beginPath(); ctx.moveTo(160,90); ctx.lineTo(155,30); ctx.lineTo(110,80); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#FFB74D";
-            ctx.beginPath(); ctx.moveTo(150,85); ctx.lineTo(148,42); ctx.lineTo(118,78); ctx.closePath(); ctx.fill();
-
-            // Задняя часть головы / основа щек
-            ctx.fillStyle = "#F4511E";
-            ctx.beginPath(); ctx.moveTo(40,90); ctx.lineTo(100,130); ctx.lineTo(160,90); ctx.lineTo(100,70); ctx.closePath(); ctx.fill();
-
-            // Белые щеки
-            ctx.fillStyle = "#ECEFF1";
-            ctx.beginPath(); ctx.moveTo(40,90); ctx.lineTo(100,130); ctx.lineTo(65,130); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#CFD8DC";
-            ctx.beginPath(); ctx.moveTo(160,90); ctx.lineTo(100,130); ctx.lineTo(135,130); ctx.closePath(); ctx.fill();
-
-            // Главная оранжевая морда
-            ctx.fillStyle = "#FF6D00";
-            ctx.beginPath(); ctx.moveTo(65,80); ctx.lineTo(135,80); ctx.lineTo(100,145); ctx.closePath(); ctx.fill();
-
-            // Глаза
-            ctx.fillStyle = "#37474F";
-            ctx.beginPath(); ctx.moveTo(70,95); ctx.lineTo(85,92); ctx.lineTo(80,98); ctx.closePath(); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(130,95); ctx.lineTo(115,92); ctx.lineTo(120,98); ctx.closePath(); ctx.fill();
-
-            // Нос
-            ctx.fillStyle = "#212121";
-            ctx.beginPath(); ctx.moveTo(90,135); ctx.lineTo(110,135); ctx.lineTo(100,147); ctx.closePath(); ctx.fill();
-            ctx.beginPath(); ctx.arc(100, 137, 10, 0, Math.PI * 2); ctx.fill();
-
-            ctx.restore();
+        function copySVG(elementId) {
+            const textarea = document.getElementById(elementId);
+            textarea.select();
+            navigator.clipboard.writeText(textarea.value);
+            alert('SVG код скопирован в буфер обмена!');
         }
 
         let R = 40.0;
@@ -546,17 +606,13 @@
             let targetR = Math.min(Math.round(R), 90);
             let targetF = Math.min(Math.round(F), 50);
 
-            while (agents.filter(a => a.type === 'rabbit').length < targetR) {
-                agents.push(createAgent('rabbit'));
-            }
+            while (agents.filter(a => a.type === 'rabbit').length < targetR) agents.push(createAgent('rabbit'));
             while (agents.filter(a => a.type === 'rabbit').length > targetR) {
                 let idx = agents.findIndex(a => a.type === 'rabbit');
                 if (idx !== -1) agents.splice(idx, 1);
             }
 
-            while (agents.filter(a => a.type === 'fox').length < targetF) {
-                agents.push(createAgent('fox'));
-            }
+            while (agents.filter(a => a.type === 'fox').length < targetF) agents.push(createAgent('fox'));
             while (agents.filter(a => a.type === 'fox').length > targetF) {
                 let idx = agents.findIndex(a => a.type === 'fox');
                 if (idx !== -1) agents.splice(idx, 1);
@@ -575,9 +631,7 @@
                     a.vy = (a.vy / currSpeed) * a.speed;
                 }
 
-                if (Math.abs(a.vx) > 0.1) {
-                    a.facing = a.vx > 0 ? 1 : -1;
-                }
+                if (Math.abs(a.vx) > 0.1) a.facing = a.vx > 0 ? 1 : -1;
 
                 a.x += a.vx;
                 a.y += a.vy;
@@ -593,10 +647,9 @@
                 }
 
                 if (a.type === 'rabbit') {
-                    dynCtx.fillStyle = '#f472b6';
-                    drawRabbitShape(dynCtx);
+                    dynCtx.drawImage(rabbitImg, -12, -12, 24, 24);
                 } else {
-                    drawFoxShape(dynCtx);
+                    dynCtx.drawImage(foxImg, -14, -14, 28, 28);
                 }
                 dynCtx.restore();
             });
