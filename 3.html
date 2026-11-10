@@ -241,18 +241,18 @@
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
 
-        // Физические параметры
-        let m1 = 1; // Кубик 1 (у стены)
-        let m2 = 100; // Кубик 2 (свободный)
+        let m1 = 1;
+        let m2 = 100;
         let subSteps = 100;
         let isRunning = true;
         let collisionCount = 0;
 
-        let x1 = 150, v1 = 0, size1 = 35; // у стены
-        let x2 = 320, v2 = -1.5, size2 = 60; // свободный
+        let x1 = 150, v1 = 0, size1 = 35;
+        let x2 = 320, v2 = -1.5, size2 = 60;
         const wallX = 50;
 
         let phaseTrail = [];
+        const maxTrailLength = 5000; // Ограничение длины следа для производительности
 
         function updateParams() {
             m1 = parseFloat(document.getElementById('m1Input').value) || 1;
@@ -280,8 +280,8 @@
             phaseTrail = [];
             document.getElementById('collisionCount').innerText = collisionCount;
             phaseTrail.push({
-                pv2: Math.sqrt(m2) * v2, // Горизонтальная ось (кубик у стены)
-                pv1: Math.sqrt(m1) * v1  // Вертикальная ось (свободный кубик)
+                pv2: Math.sqrt(m2) * v2,
+                pv1: Math.sqrt(m1) * v1
             });
         }
 
@@ -303,14 +303,11 @@
                 x1 += v1 * dt;
                 x2 += v2 * dt;
 
-                let collided = false;
-
                 // 1. Удар первого кубика о стену
                 if (x1 <= wallX) {
                     x1 = wallX;
                     v1 = -v1;
                     collisionCount++;
-                    collided = true;
                 }
 
                 // 2. Удар кубиков друг о друга
@@ -326,14 +323,16 @@
                     v2 = ((m2 - m1) * u2 + 2 * m1 * u1) / (m1 + m2);
 
                     collisionCount++;
-                    collided = true;
                 }
 
-                if (collided || step % Math.max(1, Math.floor(subSteps / 10)) === 0) {
-                    phaseTrail.push({
-                        pv2: Math.sqrt(m2) * v2,
-                        pv1: Math.sqrt(m1) * v1
-                    });
+                // Плавная запись каждой микроитерации в фазовый след
+                phaseTrail.push({
+                    pv2: Math.sqrt(m2) * v2,
+                    pv1: Math.sqrt(m1) * v1
+                });
+
+                if (phaseTrail.length > maxTrailLength) {
+                    phaseTrail.shift();
                 }
             }
             document.getElementById('collisionCount').innerText = collisionCount;
@@ -394,8 +393,8 @@
                 phaseCtx.lineWidth = 1.5;
 
                 for (let i = 0; i < phaseTrail.length; i++) {
-                    let px = cx + phaseTrail[i].pv2 * scale; // Горизонтально: v2
-                    let py = cy - phaseTrail[i].pv1 * scale; // Вертикально: v1
+                    let px = cx + phaseTrail[i].pv2 * scale;
+                    let py = cy - phaseTrail[i].pv1 * scale;
 
                     if (i === 0) phaseCtx.moveTo(px, py);
                     else phaseCtx.lineTo(px, py);
