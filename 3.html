@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Физическая модель: Кубики и Стена ($\pi$ + Фазовое пространство)</title>
+    <title>Физическая модель: Кубики и Стена ($\pi$ + График зависимости)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -34,6 +34,32 @@
             color: #e5e7eb;
             text-align: center;
             flex-shrink: 0;
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            background: #111827;
+            color: #9ca3af;
+            border: 1px solid #1f2937;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: #f59e0b;
+            color: #030712;
+            border-color: #d97706;
+            font-weight: 600;
         }
 
         .container {
@@ -186,11 +212,15 @@
             display: flex;
             justify-content: space-between;
         }
+
+        .full-width-card {
+            grid-column: span 2;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Модель «Кубики и Стена»: Физика и Фазовый Многоугольник ($\pi$)</h1>
+    <h1>Модель «Кубики и Стена»: Физика, Фазовый Портрет и График N(m₂/m₁)</h1>
 
     <div class="container">
         <!-- Слева: Физическая симуляция -->
@@ -212,6 +242,15 @@
                 <span style="color: #60a5fa;">v₁ vs v₂</span>
             </div>
             <canvas id="phaseCanvas"></canvas>
+        </div>
+
+        <!-- Снизу на всю ширину: График зависимости ударов N от отношение масс m2/m1 -->
+        <div class="card full-width-card" style="height: 220px;">
+            <div class="card-header">
+                <span>3. Зависимость количества столкновений N от отношения масс (m₂ / m₁)</span>
+                <span style="color: #f59e0b;">N = ⌊ π / arctan(√(m₁/m₂)) ⌋</span>
+            </div>
+            <canvas id="graphCanvas"></canvas>
         </div>
     </div>
 
@@ -247,7 +286,7 @@
         </div>
 
         <div class="info-text">
-            <span>Скорости зафиксированы вверху левой панели. Кубики подсвечены для хорошей видимости.</span>
+            <span>График показывает рост числа ударов $N$ в зависимости от $m_2/m_1$ в логарифмическом масштабе.</span>
             <span id="statusText" style="color: #10b981;">Запущено</span>
         </div>
     </div>
@@ -257,12 +296,16 @@
         const simCtx = simCanvas.getContext('2d');
         const phaseCanvas = document.getElementById('phaseCanvas');
         const phaseCtx = phaseCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
 
         function resizeCanvases() {
             simCanvas.width = simCanvas.clientWidth;
             simCanvas.height = simCanvas.clientHeight;
             phaseCanvas.width = phaseCanvas.clientWidth;
             phaseCanvas.height = phaseCanvas.clientHeight;
+            graphCanvas.width = graphCanvas.clientWidth;
+            graphCanvas.height = graphCanvas.clientHeight;
         }
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
@@ -340,7 +383,6 @@
 
                 let collided = false;
 
-                // 1. Удар о стену
                 if (x1 <= wallX) {
                     x1 = wallX;
                     v1 = -v1;
@@ -348,7 +390,6 @@
                     collided = true;
                 }
 
-                // 2. Удар между кубиками
                 if (x1 + size1 >= x2) {
                     let overlap = (x1 + size1) - x2;
                     x1 -= overlap / 2;
@@ -381,7 +422,6 @@
 
             const groundY = simCanvas.height / 2 + 40;
 
-            // Пол
             simCtx.strokeStyle = '#374151';
             simCtx.lineWidth = 2;
             simCtx.beginPath();
@@ -389,34 +429,27 @@
             simCtx.lineTo(simCanvas.width - 20, groundY);
             simCtx.stroke();
 
-            // Стена
             simCtx.fillStyle = '#4b5563';
             simCtx.fillRect(wallX - 12, groundY - 100, 12, 100);
 
-            // Свечение и выравнивание кубиков при высокой скорости
             simCtx.shadowBlur = 10;
-
-            // Кубик 1 (у стены)
             simCtx.shadowColor = '#f472b6';
             simCtx.fillStyle = '#f472b6';
             simCtx.fillRect(x1, groundY - size1, size1, size1);
-
             simCtx.strokeStyle = '#ffffff';
             simCtx.lineWidth = 2;
             simCtx.strokeRect(x1, groundY - size1, size1, size1);
 
-            simCtx.shadowBlur = 0; // сброс эффекта для текста
+            simCtx.shadowBlur = 0;
             simCtx.fillStyle = '#030712';
             simCtx.font = 'bold 10px sans-serif';
             simCtx.textAlign = 'center';
             simCtx.fillText(`m₁`, x1 + size1 / 2, groundY - size1 / 2 + 3);
 
-            // Кубик 2 (свободный)
             simCtx.shadowBlur = 10;
             simCtx.shadowColor = '#60a5fa';
             simCtx.fillStyle = '#60a5fa';
             simCtx.fillRect(x2, groundY - size2, size2, size2);
-
             simCtx.strokeStyle = '#ffffff';
             simCtx.lineWidth = 2;
             simCtx.strokeRect(x2, groundY - size2, size2, size2);
@@ -478,12 +511,98 @@
             phaseCtx.fill();
         }
 
+        // Отрисовка графика зависимости N(m2/m1)
+        function drawGraph() {
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            const paddingLeft = 45;
+            const paddingBottom = 25;
+            const paddingTop = 15;
+            const paddingRight = 20;
+
+            const graphW = w - paddingLeft - paddingRight;
+            const graphH = h - paddingTop - paddingBottom;
+
+            graphCtx.fillStyle = '#030712';
+            graphCtx.fillRect(0, 0, w, h);
+
+            // Осевые линии
+            graphCtx.strokeStyle = '#374151';
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            graphCtx.moveTo(paddingLeft, paddingTop);
+            graphCtx.lineTo(paddingLeft, h - paddingBottom);
+            graphCtx.lineTo(w - paddingRight, h - paddingBottom);
+            graphCtx.stroke();
+
+            // Логарифмический масштаб по оси X: log10(m2/m1) от 0 до 6
+            const maxLog = 6;
+            const maxN = 3500; // По оси Y
+
+            // Сетка и деления по X (10^0 ... 10^6)
+            graphCtx.fillStyle = '#9ca3af';
+            graphCtx.font = '10px sans-serif';
+            graphCtx.textAlign = 'center';
+
+            for (let exp = 0; exp <= maxLog; exp += 2) {
+                let gx = paddingLeft + (exp / maxLog) * graphW;
+                graphCtx.beginPath();
+                graphCtx.strokeStyle = '#1f2937';
+                graphCtx.moveTo(gx, paddingTop);
+                graphCtx.lineTo(gx, h - paddingBottom);
+                graphCtx.stroke();
+
+                graphCtx.fillText(`10²` + (exp > 0 ? `^${exp/2}` : '⁰'), gx, h - 8);
+            }
+
+            // Отрисовка кривой N(m2/m1)
+            graphCtx.beginPath();
+            graphCtx.strokeStyle = '#f59e0b';
+            graphCtx.lineWidth = 2;
+
+            for (let px = 0; px <= graphW; px += 2) {
+                let logRatio = (px / graphW) * maxLog;
+                let ratio = Math.pow(10, logRatio);
+                let theta = Math.atan(Math.sqrt(1 / ratio));
+                let N = Math.floor(Math.PI / theta);
+
+                let gy = (h - paddingBottom) - (N / maxN) * graphH;
+                let gx = paddingLeft + px;
+
+                if (px === 0) graphCtx.moveTo(gx, gy);
+                else graphCtx.lineTo(gx, gy);
+            }
+            graphCtx.stroke();
+
+            // Отметка текущего положения выбранного пресета (m2/m1)
+            let curRatio = m2 / m1;
+            let curLog = Math.log10(curRatio);
+            if (curLog <= maxLog) {
+                let theta = Math.atan(Math.sqrt(1 / curRatio));
+                let expectedN = Math.floor(Math.PI / theta);
+
+                let curGx = paddingLeft + (curLog / maxLog) * graphW;
+                let curGy = (h - paddingBottom) - (expectedN / maxN) * graphH;
+
+                graphCtx.fillStyle = '#10b981';
+                graphCtx.beginPath();
+                graphCtx.arc(curGx, Math.max(paddingTop, curGy), 5, 0, Math.PI * 2);
+                graphCtx.fill();
+
+                graphCtx.fillStyle = '#10b981';
+                graphCtx.font = 'bold 11px sans-serif';
+                graphCtx.textAlign = 'left';
+                graphCtx.fillText(`m₂/m₁=${curRatio} → N=${expectedN}`, curGx + 8, Math.max(paddingTop + 12, curGy - 4));
+            }
+        }
+
         function loop() {
             if (isRunning) {
                 physicsStep();
             }
             drawSim();
             drawPhaseSpace();
+            drawGraph();
             requestAnimationFrame(loop);
         }
 
