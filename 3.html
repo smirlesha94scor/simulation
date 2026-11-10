@@ -304,40 +304,60 @@
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
 
-        // Фигурки спроектированы так, чтобы лапы (низ) были снизу (y > 0), а голова/уши сверху (y < 0)
+        // Отрисовка кролика
         function drawRabbitShape(ctx) {
             ctx.beginPath();
-            // Тело
-            ctx.ellipse(0, 2, 6, 4.5, 0, 0, Math.PI * 2);
-            // Голова
-            ctx.arc(5, -3, 3.5, 0, Math.PI * 2);
-            // Уши (направлены вверх)
-            ctx.ellipse(3, -9, 1.5, 4, -0.1, 0, Math.PI * 2);
-            ctx.ellipse(6, -9, 1.5, 4, 0.1, 0, Math.PI * 2);
-            // Лапки снизу
-            ctx.ellipse(-3, 6, 2, 1.5, 0, 0, Math.PI * 2);
-            ctx.ellipse(3, 6, 2, 1.5, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, 2, 7, 5, 0, 0, Math.PI * 2);
+            ctx.arc(6, -2, 4, 0, Math.PI * 2);
+            ctx.arc(-7, 2, 2.5, 0, Math.PI * 2);
+            ctx.ellipse(5, -9, 2, 5, -0.2, 0, Math.PI * 2);
+            ctx.ellipse(8, -8, 1.8, 4.5, 0.2, 0, Math.PI * 2);
             ctx.fill();
         }
 
+        // Интегрированная детализированная лиса из вашего SVG (с масштабированием и центровкой)
         function drawFoxShape(ctx) {
-            ctx.beginPath();
-            // Тело
-            ctx.ellipse(0, 2, 8, 4.5, 0, 0, Math.PI * 2);
-            // Морда
-            ctx.moveTo(6, -1);
-            ctx.lineTo(12, 1);
-            ctx.lineTo(6, 4);
-            // Хвостик сзади
-            ctx.ellipse(-9, -1, 5, 2.5, -0.3, 0, Math.PI * 2);
-            // Ушки сверху
-            ctx.moveTo(4, -3);
-            ctx.lineTo(6, -8);
-            ctx.lineTo(8, -2);
-            // Лапы снизу
-            ctx.ellipse(-4, 6, 1.8, 1.5, 0, 0, Math.PI * 2);
-            ctx.ellipse(4, 6, 1.8, 1.5, 0, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.save();
+            ctx.scale(0.55, 0.55); // Масштаб под размер агента
+            ctx.translate(-100, -100); // Центрирование по координатам SVG (200x200)
+
+            // Левое ухо (внешнее и внутреннее)
+            ctx.fillStyle = "#E65100";
+            ctx.beginPath(); ctx.moveTo(40,90); ctx.lineTo(45,30); ctx.lineTo(90,80); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#FFCC80";
+            ctx.beginPath(); ctx.moveTo(50,85); ctx.lineTo(52,42); ctx.lineTo(82,78); ctx.closePath(); ctx.fill();
+
+            // Правое ухо (внешнее и внутреннее)
+            ctx.fillStyle = "#D84315";
+            ctx.beginPath(); ctx.moveTo(160,90); ctx.lineTo(155,30); ctx.lineTo(110,80); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#FFB74D";
+            ctx.beginPath(); ctx.moveTo(150,85); ctx.lineTo(148,42); ctx.lineTo(118,78); ctx.closePath(); ctx.fill();
+
+            // Задняя часть головы / основа щек
+            ctx.fillStyle = "#F4511E";
+            ctx.beginPath(); ctx.moveTo(40,90); ctx.lineTo(100,130); ctx.lineTo(160,90); ctx.lineTo(100,70); ctx.closePath(); ctx.fill();
+
+            // Белые щеки
+            ctx.fillStyle = "#ECEFF1";
+            ctx.beginPath(); ctx.moveTo(40,90); ctx.lineTo(100,130); ctx.lineTo(65,130); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#CFD8DC";
+            ctx.beginPath(); ctx.moveTo(160,90); ctx.lineTo(100,130); ctx.lineTo(135,130); ctx.closePath(); ctx.fill();
+
+            // Главная оранжевая морда (лоб и нос)
+            ctx.fillStyle = "#FF6D00";
+            ctx.beginPath(); ctx.moveTo(65,80); ctx.lineTo(135,80); ctx.lineTo(100,145); ctx.closePath(); ctx.fill();
+
+            // Глаза
+            ctx.fillStyle = "#37474F";
+            ctx.beginPath(); ctx.moveTo(70,95); ctx.lineTo(85,92); ctx.lineTo(80,98); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(130,95); ctx.lineTo(115,92); ctx.lineTo(120,98); ctx.closePath(); ctx.fill();
+
+            // Нос
+            ctx.fillStyle = "#212121";
+            ctx.beginPath(); ctx.moveTo(90,135); ctx.lineTo(110,135); ctx.lineTo(100,147); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.arc(100, 137, 10, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
         }
 
         let R = 40.0;
@@ -364,6 +384,7 @@
                 y: 30 + Math.random() * (dynCanvas.height - 60),
                 vx: vx,
                 vy: vy,
+                facing: vx >= 0 ? 1 : -1,
                 speed: speed
             };
         }
@@ -538,8 +559,8 @@
 
             const margin = 25;
             agents.forEach(a => {
-                if (a.x < margin) a.vx += 0.2;
-                if (a.x > dynCanvas.width - margin) a.vx -= 0.2;
+                if (a.x < margin) { a.vx += 0.2; a.facing = 1; }
+                if (a.x > dynCanvas.width - margin) { a.vx -= 0.2; a.facing = -1; }
                 if (a.y < margin) a.vy += 0.2;
                 if (a.y > dynCanvas.height - margin) a.vy -= 0.2;
 
@@ -547,6 +568,10 @@
                 if (currSpeed > 0) {
                     a.vx = (a.vx / currSpeed) * a.speed;
                     a.vy = (a.vy / currSpeed) * a.speed;
+                }
+
+                if (Math.abs(a.vx) > 0.1) {
+                    a.facing = a.vx > 0 ? 1 : -1;
                 }
 
                 a.x += a.vx;
@@ -558,8 +583,7 @@
                 dynCtx.save();
                 dynCtx.translate(a.x, a.y);
                 
-                // Если животное бежит влево, зеркально отражаем по оси X, чтобы морда смотрела налево, а лапы оставались внизу
-                if (a.vx < 0) {
+                if (a.facing === -1) {
                     dynCtx.scale(-1, 1);
                 }
 
@@ -567,8 +591,7 @@
                     dynCtx.fillStyle = '#f472b6';
                     drawRabbitShape(dynCtx);
                 } else {
-                    dynCtx.fillStyle = '#60a5fa';
-                    drawFoxShape(dynCtx);
+                    drawFoxShape(dynCtx); // Лиса рисуется по цветам из вашего SVG
                 }
                 dynCtx.restore();
             });
