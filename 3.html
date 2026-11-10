@@ -19,7 +19,7 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             flex-direction: column;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         body {
@@ -41,7 +41,8 @@
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             width: 100%;
-            min-height: 320px;
+            flex: 1;
+            min-height: 0;
         }
 
         .card {
@@ -51,7 +52,7 @@
             padding: 10px;
             display: flex;
             flex-direction: column;
-            min-height: 300px;
+            min-height: 0;
         }
 
         .card-header {
@@ -71,8 +72,8 @@
             background: #030712;
             border-radius: 8px;
             width: 100%;
-            height: 100%;
-            min-height: 250px;
+            flex: 1;
+            min-height: 0;
             cursor: crosshair;
             display: block;
         }
@@ -85,7 +86,8 @@
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
         .controls-row {
@@ -131,13 +133,12 @@
 
         .sliders-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 8px;
         }
 
-        @media (max-width: 1000px) {
-            .sliders-grid { grid-template-columns: repeat(3, 1fr); }
-            .container { grid-template-columns: 1fr; }
+        @media (max-width: 1100px) {
+            .sliders-grid { grid-template-columns: repeat(4, 1fr); }
         }
 
         .slider-group {
@@ -167,71 +168,6 @@
             accent-color: #f59e0b;
             cursor: pointer;
             height: 14px;
-        }
-
-        .svg-editors-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            border-top: 1px solid #1f2937;
-            padding-top: 10px;
-        }
-
-        .svg-editor-box {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .svg-editor-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .svg-preview-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Отдельный элемент визуального предпросмотра SVG */
-        .svg-preview-element {
-            width: 60px;
-            height: 60px;
-            background: #030712;
-            border: 1px solid #374151;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 4px;
-            flex-shrink: 0;
-        }
-
-        .svg-preview-element svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        textarea {
-            width: 100%;
-            height: 80px;
-            background: #030712;
-            color: #10b981;
-            border: 1px solid #1f2937;
-            border-radius: 6px;
-            padding: 8px;
-            font-family: monospace;
-            font-size: 0.75rem;
-            resize: vertical;
-            outline: none;
-        }
-
-        textarea:focus {
-            border-color: #f59e0b;
         }
 
         .info-text {
@@ -329,49 +265,9 @@
                 <div class="slider-label"><span>Скорость</span><span id="valSpeed">1.0x</span></div>
                 <input type="range" id="speedRange" min="0.2" max="3.0" step="0.2" value="1.0" oninput="updateParams()">
             </div>
-        </div>
-
-        <!-- SVG Редактор с отдельным отображением элементов -->
-        <div class="svg-editors-grid">
-            <div class="svg-editor-box">
-                <div class="svg-editor-header">
-                    <span class="badge-rabbit">SVG Кролик</span>
-                    <button onclick="copySVG('rabbitSvgCode')">📋 Копировать SVG</button>
-                </div>
-                <div class="svg-preview-container">
-                    <div class="svg-preview-element" id="rabbitPreview"></div>
-                    <textarea id="rabbitSvgCode" oninput="updateSvgImages()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -15 24 24">
-  <ellipse cx="0" cy="2.45" rx="7" ry="4.55" fill="#f472b6" />
-  <circle cx="6.25" cy="-2.1" r="3.75" fill="#f472b6" />
-  <circle cx="-7.05" cy="3.95" r="1.75" fill="#f472b6" />
-  <ellipse cx="5.16" cy="-8.77" rx="2" ry="5" transform="rotate(-9.5 5 -9)" fill="#f472b6" />
-  <ellipse cx="8.42" cy="-8.70" rx="1.7" ry="4.25" transform="rotate(11.5 8 -8)" fill="#f472b6" />
-</svg></textarea>
-                </div>
-            </div>
-
-            <div class="svg-editor-box">
-                <div class="svg-editor-header">
-                    <span class="badge-fox">SVG Лиса</span>
-                    <button onclick="copySVG('foxSvgCode')">📋 Копировать SVG</button>
-                </div>
-                <div class="svg-preview-container">
-                    <div class="svg-preview-element" id="foxPreview"></div>
-                    <textarea id="foxSvgCode" oninput="updateSvgImages()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <polygon points="40,90 45,30 90,80" fill="#E65100" />
-  <polygon points="50,85 52,42 82,78" fill="#FFCC80" />
-  <polygon points="160,90 155,30 110,80" fill="#D84315" />
-  <polygon points="150,85 148,42 118,78" fill="#FFB74D" />
-  <polygon points="40,90 100,130 160,90 100,70" fill="#F4511E" />
-  <polygon points="40,90 100,130 65,130" fill="#ECEFF1" />
-  <polygon points="160,90 100,130 135,130" fill="#CFD8DC" />
-  <polygon points="65,80 135,80 100,145" fill="#FF6D00" />
-  <polygon points="70,95 85,92 80,98" fill="#37474F" />
-  <polygon points="130,95 115,92 120,98" fill="#37474F" />
-  <polygon points="90,135 110,135 100,147" fill="#212121" />
-  <circle cx="100" cy="137" r="10" fill="#212121" />
-</svg></textarea>
-                </div>
+            <div class="slider-group">
+                <div class="slider-label"><span>Scale Лисы</span><span id="valFoxScale">0.14</span></div>
+                <input type="range" id="foxScaleRange" min="0.05" max="0.30" step="0.01" value="0.14" oninput="updateParams()">
             </div>
         </div>
 
@@ -401,29 +297,36 @@
         window.addEventListener('resize', resizeCanvases);
         resizeCanvases();
 
+        // SVG код кролика
+        const rabbitSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -15 24 24">
+          <ellipse cx="0" cy="2.45" rx="7" ry="4.55" fill="#f472b6" />
+          <circle cx="6.25" cy="-2.1" r="3.75" fill="#f472b6" />
+          <circle cx="-7.05" cy="3.95" r="1.75" fill="#f472b6" />
+          <ellipse cx="5.16" cy="-8.77" rx="2" ry="5" transform="rotate(-9.5 5 -9)" fill="#f472b6" />
+          <ellipse cx="8.42" cy="-8.70" rx="1.7" ry="4.25" transform="rotate(11.5 8 -8)" fill="#f472b6" />
+        </svg>`;
+
+        // SVG код лисы
+        const foxSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+          <polygon points="40,90 45,30 90,80" fill="#E65100" />
+          <polygon points="50,85 52,42 82,78" fill="#FFCC80" />
+          <polygon points="160,90 155,30 110,80" fill="#D84315" />
+          <polygon points="150,85 148,42 118,78" fill="#FFB74D" />
+          <polygon points="40,90 100,130 160,90 100,70" fill="#F4511E" />
+          <polygon points="40,90 100,130 65,130" fill="#ECEFF1" />
+          <polygon points="160,90 100,130 135,130" fill="#CFD8DC" />
+          <polygon points="65,80 135,80 100,145" fill="#FF6D00" />
+          <polygon points="70,95 85,92 80,98" fill="#37474F" />
+          <polygon points="130,95 115,92 120,98" fill="#37474F" />
+          <polygon points="90,135 110,135 100,147" fill="#212121" />
+          <circle cx="100" cy="137" r="10" fill="#212121" />
+        </svg>`;
+
         let rabbitImg = new Image();
         let foxImg = new Image();
 
-        function updateSvgImages() {
-            const rabbitSvg = document.getElementById('rabbitSvgCode').value;
-            const foxSvg = document.getElementById('foxSvgCode').value;
-
-            // Обновляем визуальные элементы предпросмотра
-            document.getElementById('rabbitPreview').innerHTML = rabbitSvg;
-            document.getElementById('foxPreview').innerHTML = foxSvg;
-
-            // Загружаем в теги Image для отрисовки на Canvas
-            rabbitImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(rabbitSvg);
-            foxImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(foxSvg);
-        }
-        updateSvgImages();
-
-        function copySVG(elementId) {
-            const textarea = document.getElementById(elementId);
-            textarea.select();
-            navigator.clipboard.writeText(textarea.value);
-            alert('SVG код скопирован в буфер обмена!');
-        }
+        rabbitImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(rabbitSvg);
+        foxImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(foxSvg);
 
         let R = 40.0;
         let F = 9.0;
@@ -432,6 +335,7 @@
         let gamma = 1.30;
         let delta = 0.040;
         let K = 100;
+        let foxScale = 0.14;
         let useLogistic = false;
         let timeSpeed = 1.0;
         let isRunning = true;
@@ -468,6 +372,7 @@
             delta = parseFloat(document.getElementById('deltaRange').value);
             K = parseFloat(document.getElementById('kRange').value);
             timeSpeed = parseFloat(document.getElementById('speedRange').value);
+            foxScale = parseFloat(document.getElementById('foxScaleRange').value);
 
             document.getElementById('valAlpha').innerText = alpha.toFixed(2);
             document.getElementById('valBeta').innerText = beta.toFixed(3);
@@ -475,6 +380,7 @@
             document.getElementById('valDelta').innerText = delta.toFixed(3);
             document.getElementById('valK').innerText = K;
             document.getElementById('valSpeed').innerText = timeSpeed.toFixed(1) + 'x';
+            document.getElementById('valFoxScale').innerText = foxScale.toFixed(2);
 
             const rStar = gamma / delta;
             const fStar = alpha / beta;
@@ -649,7 +555,9 @@
                 if (a.type === 'rabbit') {
                     dynCtx.drawImage(rabbitImg, -12, -12, 24, 24);
                 } else {
-                    dynCtx.drawImage(foxImg, -14, -14, 28, 28);
+                    // Динамический размер лисы в зависимости от ползунка scale
+                    let foxDrawSize = 200 * foxScale;
+                    dynCtx.drawImage(foxImg, -foxDrawSize / 2, -foxDrawSize / 2, foxDrawSize, foxDrawSize);
                 }
                 dynCtx.restore();
             });
