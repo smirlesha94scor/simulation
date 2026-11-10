@@ -100,20 +100,14 @@
         <!-- Центральный холст -->
         <div class="canvas-area">
             <svg id="svg-canvas" width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
-                <!-- Сетка -->
                 <defs>
                     <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
                         <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="1"/>
                     </pattern>
                 </defs>
                 <rect width="100%" height="100%" fill="url(#grid)" />
-                
-                <!-- Фоновое изображение для обводки -->
                 <image id="bg-image" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" opacity="0.4"/>
-                
-                <!-- Контейнер для рисуемых элементов -->
                 <g id="draw-layer"></g>
-                <!-- Временная линия для рисования -->
                 <line id="temp-wire" stroke="#000" stroke-width="3" stroke-linecap="round" style="display:none;"/>
             </svg>
         </div>
@@ -158,7 +152,6 @@
         let isDrawingWire = false;
         let wireStartX = 0, wireStartY = 0;
 
-        // Загрузка фото подложки
         document.getElementById('bg-upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -181,7 +174,6 @@
             deselect();
         }
 
-        // Привязка к сетке 10px
         function snap(val) { return Math.round(val / 10) * 10; }
 
         function getMousePos(evt) {
@@ -192,7 +184,6 @@
             };
         }
 
-        // Обработка кликов на холсте
         canvas.addEventListener('mousedown', (e) => {
             const pos = getMousePos(e);
             if (mode === 'wire') {
@@ -206,7 +197,6 @@
                     tempWire.setAttribute('y2', wireStartY);
                     tempWire.style.display = 'block';
                 } else {
-                    // Фиксация проводника
                     createWire(wireStartX, wireStartY, pos.x, pos.y);
                     isDrawingWire = false;
                     tempWire.style.display = 'none';
@@ -237,7 +227,6 @@
             drawLayer.appendChild(line);
         }
 
-        // Добавление компонентов
         function addComponent(type) {
             setMode('select');
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -263,14 +252,16 @@
                              <line x1="6" y1="0" x2="20" y2="0" stroke="#000" stroke-width="2.5"/>
                              <text x="18" y="-2" font-family="Arial" font-size="11" font-weight="bold">VD1</text>`;
             } else if (type === 'vt1') {
+                // NPN (VT1): Стрелка эмиттера наружу
                 innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
                              <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
                              <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
                              <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/>
                              <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>
-                             <polygon points="10,15 2,12 5,7" fill="#000"/>
+                             <polygon points="10,15 2,10 6,6" fill="#000"/>
                              <text x="0" y="32" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT1 КТ315А</text>`;
             } else if (type === 'vt2') {
+                // PNP (VT2): Стрелка эмиттера вовнутрь
                 innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
                              <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
                              <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
@@ -298,7 +289,6 @@
             selectElement(g);
         }
 
-        // Выбор и перемещение
         function makeSelectable(el) {
             el.addEventListener('mousedown', (e) => {
                 if (mode === 'select') {
@@ -404,7 +394,6 @@
             }
         }
 
-        // Экспорт в SVG
         function exportSVG() {
             deselect();
             const cloneLayer = drawLayer.cloneNode(true);
