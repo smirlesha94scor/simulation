@@ -3,358 +3,421 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Электронная утка — Схема SVG</title>
+    <title>SVG Редактор электрических схем</title>
     <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: #121216;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            max-width: 950px;
-            width: 100%;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { background: #2a2a32; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3a3a46; }
+        h1 { font-size: 18px; font-weight: 600; color: #61afef; }
+        .toolbar { display: flex; gap: 10px; align-items: center; }
+        button, label.btn { background: #3b3e4c; color: #fff; border: 1px solid #4b4e5c; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        button:hover, label.btn:hover { background: #4b4e5c; border-color: #61afef; }
+        button.active { background: #61afef; color: #1e1e24; font-weight: bold; border-color: #61afef; }
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 240px; background: #25252d; border-right: 1px solid #3a3a46; padding: 15px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .section-title { font-size: 12px; font-weight: bold; text-transform: uppercase; color: #abb2bf; letter-spacing: 1px; margin-bottom: 10px; }
+        .component-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .comp-btn { background: #2c2d38; border: 1px solid #3a3a46; padding: 10px; border-radius: 6px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; }
+        .comp-btn:hover { background: #3b3e4c; border-color: #98c379; }
+        .comp-btn svg { width: 40px; height: 30px; stroke: #fff; fill: none; }
+        .canvas-area { flex: 1; position: relative; background: #18181c; overflow: auto; display: flex; justify-content: center; align-items: center; }
+        #svg-canvas { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: crosshair; }
+        .properties-panel { width: 220px; background: #25252d; border-left: 1px solid #3a3a46; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+        .prop-group { display: flex; flex-direction: column; gap: 5px; }
+        .prop-group label { font-size: 12px; color: #abb2bf; }
+        .prop-group input { background: #1e1e24; border: 1px solid #3a3a46; color: #fff; padding: 6px; border-radius: 4px; font-size: 13px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: #25252d; padding: 20px; border-radius: 8px; width: 80%; max-width: 700px; max-height: 80%; display: flex; flex-direction: column; gap: 15px; }
+        textarea { background: #1e1e24; color: #abb2bf; border: 1px solid #3a3a46; padding: 10px; border-radius: 4px; font-family: monospace; height: 300px; resize: vertical; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <!-- Сюда вставлен ваш SVG код -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="100%" height="100%" style="background-color: #ffffff;">
-          <style>
-            .schematic-line { stroke: #000000; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
-            .schematic-thin { stroke: #000000; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
-            .schematic-text { font-family: 'Arial', 'Helvetica', sans-serif; font-weight: bold; fill: #000000; }
-            .node-dot { fill: #000000; }
-          </style>
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Электронная утка — Компактная схема SVG</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: #0e0e12;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: sans-serif;
-        }
-        .canvas-card {
-            background: #ffffff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            max-width: 650px;
-            width: 100%;
-        }
-    </style>
-</head>
-<body>
+    <header>
+        <h1>⚡ SVG Редактор схем («Утка»)</h1>
+        <div class="toolbar">
+            <label class="btn">
+                🖼️ Загрузить фоновое фото
+                <input type="file" id="bg-upload" accept="image/*" style="display:none;">
+            </label>
+            <button id="btn-wire" onclick="setMode('wire')">✏️ Проводник (Линия)</button>
+            <button id="btn-select" class="active" onclick="setMode('select')">🖐️ Выбор / Перемещение</button>
+            <button onclick="exportSVG()">📥 Скачать / Код SVG</button>
+            <button onclick="clearCanvas()" style="background:#e06c75; border-color:#e06c75;">🗑️ Очистить</button>
+        </div>
+    </header>
 
-    <div class="canvas-card">
-        <!-- Компактный SVG схемы -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 320" width="100%" height="100%" style="background:#fff;">
-          <style>
-            .l { stroke:#000; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; fill:none; }
-            .t { font-family:sans-serif; font-weight:bold; fill:#000; font-size:12px; }
-          </style>
+    <div class="main-container">
+        <!-- Левая панель инструментов -->
+        <div class="sidebar">
+            <div class="section-title">Компоненты схемы</div>
+            <div class="component-grid">
+                <div class="comp-btn" onclick="addComponent('resistor')">
+                    <svg viewBox="0 0 40 20"><rect x="5" y="5" width="30" height="10" stroke-width="2"/><line x1="0" y1="10" x2="5" y2="10" stroke-width="2"/><line x1="35" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
+                    Резистор
+                </div>
+                <div class="comp-btn" onclick="addComponent('capacitor')">
+                    <svg viewBox="0 0 40 20"><line x1="0" y1="10" x2="16" y2="10" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="18" stroke-width="3"/><line x1="24" y1="2" x2="24" y2="18" stroke-width="3"/><line x1="24" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
+                    Конденсатор
+                </div>
+                <div class="comp-btn" onclick="addComponent('diode')">
+                    <svg viewBox="0 0 40 20"><polygon points="12,3 28,10 12,17" fill="#fff"/><line x1="28" y1="3" x2="28" y2="17" stroke-width="2"/><line x1="0" y1="10" x2="12" y2="10" stroke-width="2"/><line x1="28" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
+                    Диод VD1
+                </div>
+                <div class="comp-btn" onclick="addComponent('vt1')">
+                    <svg viewBox="0 0 40 30"><circle cx="20" cy="15" r="12" stroke-width="1.5"/><line x1="12" y1="9" x2="12" y2="21" stroke-width="2.5"/><line x1="0" y1="15" x2="12" y2="15" stroke-width="1.5"/></svg>
+                    VT1 (КТ315А)
+                </div>
+                <div class="comp-btn" onclick="addComponent('vt2')">
+                    <svg viewBox="0 0 40 30"><circle cx="20" cy="15" r="12" stroke-width="1.5"/><line x1="12" y1="9" x2="12" y2="21" stroke-width="2.5"/><line x1="0" y1="15" x2="12" y2="15" stroke-width="1.5"/></svg>
+                    VT2 (КТ361)
+                </div>
+                <div class="comp-btn" onclick="addComponent('speaker')">
+                    <svg viewBox="0 0 40 20"><rect x="12" y="3" width="16" height="14" stroke-width="2"/><line x1="0" y1="10" x2="12" y2="10" stroke-width="2"/><line x1="28" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
+                    Динамик BF1
+                </div>
+                <div class="comp-btn" onclick="addComponent('battery')">
+                    <svg viewBox="0 0 40 20"><line x1="10" y1="2" x2="30" y2="2" stroke-width="3"/><line x1="15" y1="7" x2="25" y2="7" stroke-width="1.5"/><line x1="10" y1="13" x2="30" y2="13" stroke-width="3"/><line x1="15" y1="18" x2="25" y2="18" stroke-width="1.5"/></svg>
+                    Батарея GB1
+                </div>
+                <div class="comp-btn" onclick="addComponent('contact')">
+                    <svg viewBox="0 0 40 20"><rect x="10" y="7" width="20" height="6" fill="#fff"/></svg>
+                    Контакт E1/E2
+                </div>
+                <div class="comp-btn" onclick="addComponent('node')">
+                    <svg viewBox="0 0 40 20"><circle cx="20" cy="10" r="5" fill="#fff"/></svg>
+                    Узел (Точка)
+                </div>
+            </div>
 
-          <!-- Заголовок -->
-          <text x="260" y="30" class="t" font-size="20" text-anchor="middle">электронная утка</text>
-          <text x="100" y="65" class="t" font-size="11">Звонок «Утка»</text>
+            <div class="section-title">Настройка подложки</div>
+            <div class="prop-group">
+                <label>Прозрачность фото</label>
+                <input type="range" id="bg-opacity" min="0" max="1" step="0.05" value="0.4" oninput="updateBgOpacity()">
+            </div>
+        </div>
 
-          <!-- Входы E1, E2 -->
-          <rect x="100" y="160" width="22" height="7" fill="#000"/>
-          <line x1="122" y1="163" x2="160" y2="163" class="l"/>
-          <text x="102" y="180" class="t">E1</text>
+        <!-- Центральный холст -->
+        <div class="canvas-area">
+            <svg id="svg-canvas" width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                <!-- Сетка -->
+                <defs>
+                    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="1"/>
+                    </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+                
+                <!-- Фоновое изображение для обводки -->
+                <image id="bg-image" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" opacity="0.4"/>
+                
+                <!-- Контейнер для рисуемых элементов -->
+                <g id="draw-layer"></g>
+                <!-- Временная линия для рисования -->
+                <line id="temp-wire" stroke="#000" stroke-width="3" stroke-linecap="round" style="display:none;"/>
+            </svg>
+        </div>
 
-          <rect x="100" y="240" width="22" height="7" fill="#000"/>
-          <line x1="122" y1="243" x2="360" y2="243" class="l"/>
-          <text x="102" y="235" class="t">E2</text>
-
-          <!-- Проводники -->
-          <line x1="230" y1="85" x2="360" y2="85" class="l"/>
-          <line x1="160" y1="163" x2="175" y2="163" class="l"/>
-          <line x1="215" y1="163" x2="235" y2="163" class="l"/>
-          <line x1="235" y1="163" x2="270" y2="163" class="l"/>
-          <line x1="235" y1="163" x2="235" y2="125" class="l"/>
-          <line x1="235" y1="125" x2="210" y2="125" class="l"/>
-          
-          <line x1="230" y1="85" x2="230" y2="100" class="l"/>
-          <line x1="230" y1="115" x2="230" y2="125" class="l"/>
-          <line x1="230" y1="125" x2="255" y2="125" class="l"/>
-          <line x1="230" y1="125" x2="230" y2="163" class="l"/>
-
-          <line x1="300" y1="85" x2="300" y2="105" class="l"/>
-          <line x1="300" y1="130" x2="300" y2="148" class="l"/>
-          <line x1="300" y1="148" x2="280" y2="148" class="l"/>
-          <line x1="280" y1="148" x2="280" y2="125" class="l"/>
-
-          <line x1="300" y1="185" x2="300" y2="243" class="l"/>
-          <line x1="360" y1="85" x2="360" y2="130" class="l"/>
-          <line x1="360" y1="150" x2="360" y2="190" class="l"/>
-          <line x1="360" y1="210" x2="360" y2="243" class="l"/>
-
-          <!-- Узлы -->
-          <circle cx="230" cy="85" r="3" fill="#000"/>
-          <circle cx="300" cy="85" r="3" fill="#000"/>
-          <circle cx="235" cy="163" r="3" fill="#000"/>
-          <circle cx="230" cy="125" r="3" fill="#000"/>
-          <circle cx="300" cy="148" r="3" fill="#000"/>
-          <circle cx="300" cy="243" r="3" fill="#000"/>
-
-          <!-- R1, R2 -->
-          <g transform="translate(175,157)">
-            <rect x="0" y="0" width="40" height="12" class="l"/>
-            <path d="M 3,10 L 37,2 M 15,10 L 37,5" stroke="#000" stroke-width="1.5"/>
-            <text x="-8" y="24" class="t" font-size="10">R1 750k</text>
-          </g>
-          <g transform="translate(235,157)">
-            <rect x="0" y="0" width="30" height="12" class="l"/>
-            <path d="M 3,10 L 27,2 M 10,10 L 27,5" stroke="#000" stroke-width="1.5"/>
-            <text x="-2" y="24" class="t" font-size="10">R2 470k</text>
-          </g>
-
-          <!-- C1, C2 -->
-          <g transform="translate(200,120)">
-            <line x1="0" y1="0" x2="0" y2="10" class="l" stroke-width="2.5"/>
-            <line x1="5" y1="0" x2="5" y2="10" class="l" stroke-width="2.5"/>
-            <line x1="5" y1="5" x2="10" y2="5" class="l"/>
-            <text x="-18" y="-3" class="t" font-size="10">C1</text>
-            <text x="-20" y="8" class="t" font-size="9">47н</text>
-          </g>
-          <g transform="translate(255,120)">
-            <line x1="0" y1="5" x2="10" y2="5" class="l"/>
-            <line x1="10" y1="0" x2="10" y2="10" class="l" stroke-width="2.5"/>
-            <line x1="15" y1="0" x2="15" y2="10" class="l" stroke-width="2.5"/>
-            <text x="-15" y="22" class="t" font-size="10">C2 6800</text>
-          </g>
-
-          <!-- VD1 -->
-          <g transform="translate(223,100)">
-            <polygon points="0,0 14,0 7,10" fill="#000"/>
-            <line x1="0" y1="10" x2="14" y2="10" class="l"/>
-            <text x="18" y="4" class="t" font-size="10">VD1</text>
-            <text x="18" y="14" class="t" font-size="10">Д9Б</text>
-          </g>
-
-          <!-- BF1 -->
-          <g transform="translate(290,105)">
-            <rect x="0" y="0" width="20" height="25" class="l"/>
-            <text x="24" y="16" class="t" font-size="11">BF1</text>
-          </g>
-
-          <!-- VT1 -->
-          <g transform="translate(255,145)">
-            <circle cx="20" cy="20" r="17" class="l"/>
-            <line x1="11" y1="10" x2="11" y2="30" class="l" stroke-width="3.5"/>
-            <line x1="-5" y1="20" x2="11" y2="20" class="l"/>
-            <line x1="11" y1="14" x2="25" y2="5" class="l"/>
-            <line x1="11" y1="26" x2="25" y2="35" class="l"/>
-            <polygon points="25,35 18,32 21,27" fill="#000"/>
-            <text x="8" y="47" class="t" font-size="10">VT1</text>
-            <text x="-15" y="57" class="t" font-size="10">КТ315А</text>
-          </g>
-
-          <!-- VT2 -->
-          <g transform="translate(288,170)">
-            <circle cx="20" cy="20" r="17" class="l"/>
-            <line x1="11" y1="10" x2="11" y2="30" class="l" stroke-width="3.5"/>
-            <line x1="-8" y1="20" x2="11" y2="20" class="l"/>
-            <line x1="11" y1="14" x2="25" y2="5" class="l"/>
-            <line x1="11" y1="26" x2="25" y2="35" class="l"/>
-            <polygon points="11,26 16,23 18,27" fill="#000"/>
-            <text x="26" y="42" class="t" font-size="10">VT2</text>
-            <text x="-18" y="53" class="t" font-size="10">КТ361</text>
-          </g>
-
-          <!-- GB1 -->
-          <g transform="translate(345,130)">
-            <line x1="0" y1="0" x2="30" y2="0" class="l" stroke-width="3"/>
-            <line x1="7" y1="6" x2="23" y2="6" class="l"/>
-            <line x1="0" y1="12" x2="30" y2="12" class="l" stroke-width="3"/>
-            <line x1="7" y1="18" x2="23" y2="18" class="l"/>
-            <line x1="15" y1="22" x2="15" y2="58" stroke="#000" stroke-width="1.5" stroke-dasharray="2,2"/>
-            <line x1="0" y1="60" x2="30" y2="60" class="l" stroke-width="3"/>
-            <line x1="7" y1="66" x2="23" y2="66" class="l"/>
-            <line x1="0" y1="72" x2="30" y2="72" class="l" stroke-width="3"/>
-            <line x1="7" y1="78" x2="23" y2="78" class="l"/>
-            <text x="-32" y="36" class="t">GB1</text>
-            <text x="-28" y="48" class="t">9 B</text>
-            <text x="-10" y="5" class="t">+</text>
-            <text x="-10" y="80" class="t">-</text>
-          </g>
-        </svg>
+        <!-- Правая панель свойств -->
+        <div class="properties-panel">
+            <div class="section-title">Свойства элемента</div>
+            <div id="prop-controls" style="display:none;">
+                <div class="prop-group">
+                    <label>Подпись (Текст)</label>
+                    <input type="text" id="prop-label" oninput="updateSelectedLabel()">
+                </div>
+                <div class="prop-group" style="margin-top:10px;">
+                    <button onclick="rotateSelected()">🔄 Повернуть на 90°</button>
+                    <button onclick="deleteSelected()" style="background:#e06c75; margin-top:5px;">❌ Удалить</button>
+                </div>
+            </div>
+            <div id="no-prop" style="color:#5c6370; font-size:12px;">Выберите элемент на холсте</div>
+        </div>
     </div>
 
-</body>
-</html>
-          <!-- Заголовок схемы -->
-          <g id="title-text">
-            <text x="420" y="55" class="schematic-text" font-size="34" text-anchor="middle">электронная утка</text>
-            <text x="140" y="120" class="schematic-text" font-size="22">Звонок «Утка»</text>
-          </g>
-
-          <!-- Входные контакты E1, E2 -->
-          <g id="contacts-E1-E2">
-            <!-- E1 -->
-            <rect x="140" y="278" width="35" height="12" fill="#000" />
-            <line x1="175" y1="284" x2="210" y2="284" class="schematic-line" />
-            <text x="142" y="315" class="schematic-text" font-size="18">E1</text>
-            
-            <!-- E2 -->
-            <rect x="140" y="448" width="35" height="12" fill="#000" />
-            <line x1="175" y1="454" x2="550" y2="454" class="schematic-line" />
-            <text x="142" y="435" class="schematic-text" font-size="18">E2</text>
-          </g>
-
-          <!-- Проводники и магистрали -->
-          <g id="conductors">
-            <!-- Верхняя шина питания (+) -->
-            <line x1="330" y1="140" x2="550" y2="140" class="schematic-line" />
-            
-            <!-- Линии соединения базы и эмиттеров -->
-            <line x1="210" y1="284" x2="235" y2="284" class="schematic-line" />
-            <line x1="285" y1="284" x2="315" y2="284" class="schematic-line" />
-            <line x1="315" y1="284" x2="360" y2="284" class="schematic-line" />
-            <line x1="315" y1="284" x2="315" y2="225" class="schematic-line" />
-            <line x1="315" y1="225" x2="275" y2="225" class="schematic-line" />
-            
-            <!-- Обратные связи и ветвления -->
-            <line x1="330" y1="140" x2="330" y2="165" class="schematic-line" />
-            <line x1="330" y1="195" x2="330" y2="225" class="schematic-line" />
-            <line x1="330" y1="225" x2="370" y2="225" class="schematic-line" />
-            <line x1="330" y1="225" x2="330" y2="284" class="schematic-line" />
-            
-            <line x1="450" y1="140" x2="450" y2="170" class="schematic-line" />
-            <line x1="450" y1="210" x2="450" y2="250" class="schematic-line" />
-            <line x1="450" y1="250" x2="400" y2="250" class="schematic-line" />
-            <line x1="400" y1="250" x2="400" y2="225" class="schematic-line" />
-
-            <!-- Вертикаль эмиттера VT2 на минус -->
-            <line x1="450" y1="345" x2="450" y2="454" class="schematic-line" />
-            <line x1="550" y1="140" x2="550" y2="200" class="schematic-line" />
-            <line x1="550" y1="240" x2="550" y2="350" class="schematic-line" />
-            <line x1="550" y1="390" x2="550" y2="454" class="schematic-line" />
-          </g>
-
-          <!-- Точки соединений (узлы) -->
-          <g id="nodes">
-            <circle cx="330" cy="140" r="5" class="node-dot" />
-            <circle cx="450" cy="140" r="5" class="node-dot" />
-            <circle cx="315" cy="284" r="5" class="node-dot" />
-            <circle cx="330" cy="225" r="5" class="node-dot" />
-            <circle cx="450" cy="250" r="5" class="node-dot" />
-            <circle cx="450" cy="454" r="5" class="node-dot" />
-          </g>
-
-          <!-- Резисторы R1, R2 -->
-          <g id="resistors">
-            <!-- R1 -->
-            <g transform="translate(235, 274)">
-              <rect x="0" y="0" width="50" height="20" class="schematic-line" />
-              <path d="M 5,17 L 45,3 M 20,17 L 45,7" class="schematic-thin" />
-              <text x="-15" y="42" class="schematic-text" font-size="17">R1 750k</text>
-            </g>
-            <!-- R2 -->
-            <g transform="translate(315, 274)">
-              <rect x="0" y="0" width="45" height="20" class="schematic-line" />
-              <path d="M 5,17 L 40,3 M 15,17 L 40,7" class="schematic-thin" />
-              <text x="-5" y="42" class="schematic-text" font-size="17">R2 470k</text>
-            </g>
-          </g>
-
-          <!-- Конденсаторы C1, C2 -->
-          <g id="capacitors">
-            <!-- C1 -->
-            <g transform="translate(275, 215)">
-              <line x1="0" y1="0" x2="0" y2="20" class="schematic-line" stroke-width="4" />
-              <line x1="8" y1="0" x2="8" y2="20" class="schematic-line" stroke-width="4" />
-              <line x1="8" y1="10" x2="25" y2="10" class="schematic-line" />
-              <text x="-30" y="-8" class="schematic-text" font-size="17">C1</text>
-              <text x="-35" y="12" class="schematic-text" font-size="16">47н</text>
-            </g>
-            <!-- C2 -->
-            <g transform="translate(370, 215)">
-              <line x1="0" y1="10" x2="17" y2="10" class="schematic-line" />
-              <line x1="17" y1="0" x2="17" y2="20" class="schematic-line" stroke-width="4" />
-              <line x1="25" y1="0" x2="25" y2="20" class="schematic-line" stroke-width="4" />
-              <text x="-25" y="42" class="schematic-text" font-size="17">C2 6800</text>
-            </g>
-          </g>
-
-          <!-- Диод VD1 -->
-          <g id="diode-VD1" transform="translate(320, 165)">
-            <polygon points="0,0 20,0 10,18" fill="#000" />
-            <line x1="0" y1="18" x2="20" y2="18" class="schematic-line" />
-            <text x="28" y="10" class="schematic-text" font-size="17">VD1</text>
-            <text x="28" y="28" class="schematic-text" font-size="17">Д9Б</text>
-          </g>
-
-          <!-- Динамик BF1 -->
-          <g id="speaker-BF1" transform="translate(435, 170)">
-            <rect x="0" y="0" width="30" height="40" class="schematic-line" />
-            <text x="40" y="26" class="schematic-text" font-size="18">BF1</text>
-          </g>
-
-          <!-- Транзистор VT1 (NPN) -->
-          <g id="transistor-VT1" transform="translate(375, 250)">
-            <circle cx="35" cy="35" r="30" class="schematic-line" />
-            <line x1="20" y1="18" x2="20" y2="52" class="schematic-line" stroke-width="5" />
-            <line x1="-15" y1="35" x2="20" y2="35" class="schematic-line" />
-            <line x1="20" y1="25" x2="42" y2="12" class="schematic-line" />
-            <line x1="20" y1="45" x2="42" y2="58" class="schematic-line" />
-            <polygon points="42,58 32,54 36,46" fill="#000" />
-            <text x="15" y="82" class="schematic-text" font-size="17">VT1</text>
-            <text x="-25" y="100" class="schematic-text" font-size="17">КТ315А</text>
-          </g>
-
-          <!-- Транзистор VT2 (PNP) -->
-          <g id="transistor-VT2" transform="translate(425, 310)">
-            <circle cx="35" cy="35" r="30" class="schematic-line" />
-            <line x1="20" y1="18" x2="20" y2="52" class="schematic-line" stroke-width="5" />
-            <line x1="-25" y1="35" x2="20" y2="35" class="schematic-line" />
-            <line x1="20" y1="25" x2="42" y2="12" class="schematic-line" />
-            <line x1="20" y1="45" x2="42" y2="58" class="schematic-line" />
-            <polygon points="20,45 28,40 31,48" fill="#000" />
-            <text x="45" y="75" class="schematic-text" font-size="17">VT2</text>
-            <text x="-35" y="95" class="schematic-text" font-size="17">КТ361</text>
-          </g>
-
-          <!-- Батарея питания GB1 (9 B) -->
-          <g id="battery-GB1" transform="translate(530, 200)">
-            <line x1="0" y1="0" x2="40" y2="0" class="schematic-line" stroke-width="4" />
-            <line x1="10" y1="10" x2="30" y2="10" class="schematic-line" stroke-width="2" />
-            <line x1="0" y1="20" x2="40" y2="20" class="schematic-line" stroke-width="4" />
-            <line x1="10" y1="30" x2="30" y2="30" class="schematic-line" stroke-width="2" />
-            
-            <line x1="20" y1="35" x2="20" y2="135" stroke="#000" stroke-width="2" stroke-dasharray="4,4" />
-
-            <line x1="0" y1="140" x2="40" y2="140" class="schematic-line" stroke-width="4" />
-            <line x1="10" y1="150" x2="30" y2="150" class="schematic-line" stroke-width="2" />
-            <line x1="0" y1="160" x2="40" y2="160" class="schematic-line" stroke-width="4" />
-            <line x1="10" y1="170" x2="30" y2="170" class="schematic-line" stroke-width="2" />
-
-            <text x="-48" y="75" class="schematic-text" font-size="18">GB1</text>
-            <text x="-43" y="98" class="schematic-text" font-size="18">9 B</text>
-            <text x="-15" y="10" class="schematic-text" font-size="20">+</text>
-            <text x="-15" y="175" class="schematic-text" font-size="22">-</text>
-          </g>
-        </svg>
+    <!-- Модальное окно кода SVG -->
+    <div class="modal" id="modal-export">
+        <div class="modal-content">
+            <h3>Чистый SVG код</h3>
+            <textarea id="svg-code-output" readonly></textarea>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="document.getElementById('modal-export').style.display='none'">Закрыть</button>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('svg-code-output').value)">📋 Копировать код</button>
+            </div>
+        </div>
     </div>
 
+    <script>
+        const canvas = document.getElementById('svg-canvas');
+        const drawLayer = document.getElementById('draw-layer');
+        const bgImage = document.getElementById('bg-image');
+        const tempWire = document.getElementById('temp-wire');
+        
+        let mode = 'select';
+        let selectedElement = null;
+        let isDrawingWire = false;
+        let wireStartX = 0, wireStartY = 0;
+
+        // Загрузка фото подложки
+        document.getElementById('bg-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    bgImage.setAttribute('href', evt.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function updateBgOpacity() {
+            bgImage.setAttribute('opacity', document.getElementById('bg-opacity').value);
+        }
+
+        function setMode(newMode) {
+            mode = newMode;
+            document.getElementById('btn-wire').classList.toggle('active', mode === 'wire');
+            document.getElementById('btn-select').classList.toggle('active', mode === 'select');
+            deselect();
+        }
+
+        // Привязка к сетке 10px
+        function snap(val) { return Math.round(val / 10) * 10; }
+
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: snap(evt.clientX - rect.left),
+                y: snap(evt.clientY - rect.top)
+            };
+        }
+
+        // Обработка кликов на холсте
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            if (mode === 'wire') {
+                if (!isDrawingWire) {
+                    isDrawingWire = true;
+                    wireStartX = pos.x;
+                    wireStartY = pos.y;
+                    tempWire.setAttribute('x1', wireStartX);
+                    tempWire.setAttribute('y1', wireStartY);
+                    tempWire.setAttribute('x2', wireStartX);
+                    tempWire.setAttribute('y2', wireStartY);
+                    tempWire.style.display = 'block';
+                } else {
+                    // Фиксация проводника
+                    createWire(wireStartX, wireStartY, pos.x, pos.y);
+                    isDrawingWire = false;
+                    tempWire.style.display = 'none';
+                }
+            } else if (mode === 'select' && e.target === canvas) {
+                deselect();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawingWire) {
+                const pos = getMousePos(e);
+                tempWire.setAttribute('x2', pos.x);
+                tempWire.setAttribute('y2', pos.y);
+            }
+        });
+
+        function createWire(x1, y1, x2, y2) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.setAttribute('stroke', '#000');
+            line.setAttribute('stroke-width', '3');
+            line.setAttribute('stroke-linecap', 'round');
+            makeSelectable(line);
+            drawLayer.appendChild(line);
+        }
+
+        // Добавление компонентов
+        function addComponent(type) {
+            setMode('select');
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute('transform', 'translate(100, 100) rotate(0)');
+            g.dataset.rotation = "0";
+
+            let innerHTML = '';
+            if (type === 'resistor') {
+                innerHTML = `<rect x="-20" y="-8" width="40" height="16" stroke="#000" stroke-width="2.5" fill="none"/>
+                             <line x1="-35" y1="0" x2="-20" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <line x1="20" y1="0" x2="35" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <text x="0" y="24" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle">R1 750k</text>`;
+            } else if (type === 'capacitor') {
+                innerHTML = `<line x1="-20" y1="0" x2="-5" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-5" y1="-12" x2="-5" y2="12" stroke="#000" stroke-width="3.5"/>
+                             <line x1="3" y1="-12" x2="3" y2="12" stroke="#000" stroke-width="3.5"/>
+                             <line x1="3" y1="0" x2="20" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <text x="0" y="26" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle">C1 47н</text>`;
+            } else if (type === 'diode') {
+                innerHTML = `<polygon points="-10,-8 6,0 -10,8" fill="#000"/>
+                             <line x1="6" y1="-8" x2="6" y2="8" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-22" y1="0" x2="-10" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <line x1="6" y1="0" x2="20" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <text x="18" y="-2" font-family="Arial" font-size="11" font-weight="bold">VD1</text>`;
+            } else if (type === 'vt1') {
+                innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
+                             <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
+                             <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>
+                             <polygon points="10,15 2,12 5,7" fill="#000"/>
+                             <text x="0" y="32" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT1 КТ315А</text>`;
+            } else if (type === 'vt2') {
+                innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
+                             <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
+                             <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>
+                             <polygon points="-8,5 -2,0 0,6" fill="#000"/>
+                             <text x="0" y="32" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT2 КТ361</text>`;
+            } else if (type === 'battery') {
+                innerHTML = `<line x1="-15" y1="-15" x2="15" y2="-15" stroke="#000" stroke-width="3"/>
+                             <line x1="-8" y1="-8" x2="8" y2="-8" stroke="#000" stroke-width="1.5"/>
+                             <line x1="-15" y1="0" x2="15" y2="0" stroke="#000" stroke-width="3"/>
+                             <line x1="-8" y1="7" x2="8" y2="7" stroke="#000" stroke-width="1.5"/>
+                             <text x="-25" y="0" font-family="Arial" font-size="12" font-weight="bold">GB1 9V</text>`;
+            } else if (type === 'contact') {
+                innerHTML = `<rect x="-12" y="-5" width="24" height="10" fill="#000"/>
+                             <text x="-8" y="20" font-family="Arial" font-size="12" font-weight="bold">E1</text>`;
+            } else if (type === 'node') {
+                innerHTML = `<circle cx="0" cy="0" r="4" fill="#000"/>`;
+            }
+
+            g.innerHTML = innerHTML;
+            makeSelectable(g);
+            makeDraggable(g);
+            drawLayer.appendChild(g);
+            selectElement(g);
+        }
+
+        // Выбор и перемещение
+        function makeSelectable(el) {
+            el.addEventListener('mousedown', (e) => {
+                if (mode === 'select') {
+                    e.stopPropagation();
+                    selectElement(el);
+                }
+            });
+        }
+
+        function selectElement(el) {
+            deselect();
+            selectedElement = el;
+            if (el.tagName === 'g') {
+                el.style.outline = "2px dashed #61afef";
+                const txt = el.querySelector('text');
+                if (txt) {
+                    document.getElementById('prop-label').value = txt.textContent;
+                }
+            } else {
+                el.setAttribute('stroke', '#61afef');
+            }
+            document.getElementById('prop-controls').style.display = 'block';
+            document.getElementById('no-prop').style.display = 'none';
+        }
+
+        function deselect() {
+            if (selectedElement) {
+                if (selectedElement.tagName === 'g') {
+                    selectedElement.style.outline = "none";
+                } else {
+                    selectedElement.setAttribute('stroke', '#000');
+                }
+            }
+            selectedElement = null;
+            document.getElementById('prop-controls').style.display = 'none';
+            document.getElementById('no-prop').style.display = 'block';
+        }
+
+        function makeDraggable(g) {
+            let isDragging = false;
+            let startX, startY, transX = 100, transY = 100;
+
+            g.addEventListener('mousedown', (e) => {
+                if (mode !== 'select') return;
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                
+                const transform = g.getAttribute('transform');
+                const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
+                if (match) {
+                    transX = parseFloat(match[1]);
+                    transY = parseFloat(match[2]);
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (isDragging && selectedElement === g) {
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    const newX = snap(transX + dx);
+                    const newY = snap(transY + dy);
+                    const rot = g.dataset.rotation || 0;
+                    g.setAttribute('transform', `translate(${newX}, ${newY}) rotate(${rot})`);
+                }
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+        }
+
+        function rotateSelected() {
+            if (selectedElement && selectedElement.tagName === 'g') {
+                let rot = parseInt(selectedElement.dataset.rotation || 0) + 90;
+                if (rot >= 360) rot = 0;
+                selectedElement.dataset.rotation = rot;
+                
+                const transform = selectedElement.getAttribute('transform');
+                const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
+                if (match) {
+                    selectedElement.setAttribute('transform', `translate(${match[1]}, ${match[2]}) rotate(${rot})`);
+                }
+            }
+        }
+
+        function updateSelectedLabel() {
+            if (selectedElement && selectedElement.tagName === 'g') {
+                const txt = selectedElement.querySelector('text');
+                if (txt) txt.textContent = document.getElementById('prop-label').value;
+            }
+        }
+
+        function deleteSelected() {
+            if (selectedElement) {
+                selectedElement.remove();
+                deselect();
+            }
+        }
+
+        function clearCanvas() {
+            if (confirm("Очистить весь холст?")) {
+                drawLayer.innerHTML = '';
+                deselect();
+            }
+        }
+
+        // Экспорт в SVG
+        function exportSVG() {
+            deselect();
+            const cloneLayer = drawLayer.cloneNode(true);
+            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%" style="background:#fff;">
+  <style>
+    .schematic-text { font-family: 'Arial', sans-serif; font-weight: bold; fill: #000; }
+  </style>
+  ${cloneLayer.innerHTML}
+</svg>`;
+            
+            document.getElementById('svg-code-output').value = svgContent;
+            document.getElementById('modal-export').style.display = 'flex';
+        }
+    </script>
 </body>
 </html>
