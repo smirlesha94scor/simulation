@@ -182,8 +182,8 @@
         <!-- Справа: Фазовое пространство -->
         <div class="card">
             <div class="card-header">
-                <span>2. Фазовый портрет (Точки ударов образуют $\pi$)</span>
-                <span style="color: #60a5fa;">v₂ vs v₁</span>
+                <span>2. Фазовый портрет (Оси: у стены v₁ / свободный v₂)</span>
+                <span style="color: #60a5fa;">v₁ vs v₂</span>
             </div>
             <canvas id="phaseCanvas"></canvas>
         </div>
@@ -221,7 +221,7 @@
         </div>
 
         <div class="info-text">
-            <span>Точка на фазовом графике меняет положение строго в моменты ударов, вычерчивая точный многоугольник.</span>
+            <span>Скорости: v₁ — кубик у стены, v₂ — свободный кубик.</span>
             <span id="statusText" style="color: #10b981;">Запущено</span>
         </div>
     </div>
@@ -247,9 +247,10 @@
         let isRunning = true;
         let collisionCount = 0;
 
-        let x1 = 150, v1 = 0, size1 = 35;
-        let x2 = 320, v2 = -1.5, size2 = 60;
-        const wallX = 50;
+        // Уменьшенный масштаб объектов и скорректированное положение
+        let x1 = 110, v1 = 0, size1 = 24;  // Кубик у стены (m1)
+        let x2 = 240, v2 = -1.5, size2 = 42; // Свободный кубик (m2)
+        const wallX = 35;
 
         let phaseTrail = [];
 
@@ -272,24 +273,23 @@
 
         function resetSimulation() {
             collisionCount = 0;
-            x1 = wallX + 60;
+            x1 = wallX + 50;
             v1 = 0;
-            x2 = wallX + 220;
+            x2 = wallX + 180;
             v2 = -1.5;
             phaseTrail = [];
             document.getElementById('collisionCount').innerText = collisionCount;
             
-            // Фиксируем начальную точку фазового пространства
             phaseTrail.push({
-                pv2: Math.sqrt(m2) * v2,
-                pv1: Math.sqrt(m1) * v1
+                pv1: Math.sqrt(m1) * v1,
+                pv2: Math.sqrt(m2) * v2
             });
         }
 
         function clearTrail() {
             phaseTrail = [{
-                pv2: Math.sqrt(m2) * v2,
-                pv1: Math.sqrt(m1) * v1
+                pv1: Math.sqrt(m1) * v1,
+                pv2: Math.sqrt(m2) * v2
             }];
         }
 
@@ -309,7 +309,7 @@
 
                 let collided = false;
 
-                // 1. Удар первого кубика о стену
+                // 1. Удар кубика у стены (m1) о стену
                 if (x1 <= wallX) {
                     x1 = wallX;
                     v1 = -v1;
@@ -317,7 +317,7 @@
                     collided = true;
                 }
 
-                // 2. Удар кубиков друг о друга
+                // 2. Удар между кубиками
                 if (x1 + size1 >= x2) {
                     let overlap = (x1 + size1) - x2;
                     x1 -= overlap / 2;
@@ -333,11 +333,10 @@
                     collided = true;
                 }
 
-                // Записываем точку в фазовый след ТОЛЬКО в момент реального соударения
                 if (collided) {
                     phaseTrail.push({
-                        pv2: Math.sqrt(m2) * v2,
-                        pv1: Math.sqrt(m1) * v1
+                        pv1: Math.sqrt(m1) * v1,
+                        pv2: Math.sqrt(m2) * v2
                     });
                 }
             }
@@ -350,6 +349,7 @@
 
             const groundY = simCanvas.height / 2 + 40;
 
+            // Пол
             simCtx.strokeStyle = '#374151';
             simCtx.lineWidth = 2;
             simCtx.beginPath();
@@ -357,16 +357,29 @@
             simCtx.lineTo(simCanvas.width - 20, groundY);
             simCtx.stroke();
 
+            // Стена
             simCtx.fillStyle = '#4b5563';
-            simCtx.fillRect(wallX - 15, groundY - 120, 15, 120);
+            simCtx.fillRect(wallX - 12, groundY - 100, 12, 100);
 
-            // Кубик 1 (у стены)
+            // Кубик 1 (у стены, m1)
             simCtx.fillStyle = '#f472b6';
             simCtx.fillRect(x1, groundY - size1, size1, size1);
 
-            // Кубик 2 (свободный)
+            // Значения v1 над кубиком
+            simCtx.fillStyle = '#f472b6';
+            simCtx.font = '10px monospace';
+            simCtx.textAlign = 'center';
+            simCtx.fillText(`v₁: ${v1.toFixed(2)}`, x1 + size1 / 2, groundY - size1 - 6);
+
+            // Кубик 2 (свободный, m2)
             simCtx.fillStyle = '#60a5fa';
             simCtx.fillRect(x2, groundY - size2, size2, size2);
+
+            // Значения v2 над кубиком
+            simCtx.fillStyle = '#60a5fa';
+            simCtx.font = '10px monospace';
+            simCtx.textAlign = 'center';
+            simCtx.fillText(`v₂: ${v2.toFixed(2)}`, x2 + size2 / 2, groundY - size2 - 6);
         }
 
         function drawPhaseSpace() {
@@ -387,21 +400,21 @@
 
             phaseCtx.fillStyle = '#9ca3af';
             phaseCtx.font = '11px sans-serif';
-            phaseCtx.fillText('√m₂·v₂ (у стены) →', w - 120, cy - 8);
-            phaseCtx.fillText('↑ √m₁·v₁ (свободный)', cx + 8, 30);
+            phaseCtx.textAlign = 'left';
+            phaseCtx.fillText('√m₁·v₁ (у стены) →', w - 125, cy - 8);
+            phaseCtx.fillText('↑ √m₂·v₂ (свободный)', cx + 8, 30);
 
             const maxEnergySpeed = Math.abs(Math.sqrt(m2) * -1.5) * 1.3;
             const scale = (Math.min(w, h) / 2 - 40) / (maxEnergySpeed || 1);
 
-            // Рисуем многоугольник по точкам столкновений
             if (phaseTrail.length > 1) {
                 phaseCtx.beginPath();
                 phaseCtx.strokeStyle = '#f59e0b';
                 phaseCtx.lineWidth = 1.5;
 
                 for (let i = 0; i < phaseTrail.length; i++) {
-                    let px = cx + phaseTrail[i].pv2 * scale;
-                    let py = cy - phaseTrail[i].pv1 * scale;
+                    let px = cx + phaseTrail[i].pv1 * scale;
+                    let py = cy - phaseTrail[i].pv2 * scale;
 
                     if (i === 0) phaseCtx.moveTo(px, py);
                     else phaseCtx.lineTo(px, py);
@@ -409,11 +422,10 @@
                 phaseCtx.stroke();
             }
 
-            // Текущее положение точки на фазовом графике
-            let currPv2 = Math.sqrt(m2) * v2;
             let currPv1 = Math.sqrt(m1) * v1;
-            let curX = cx + currPv2 * scale;
-            let curY = cy - currPv1 * scale;
+            let currPv2 = Math.sqrt(m2) * v2;
+            let curX = cx + currPv1 * scale;
+            let curY = cy - currPv2 * scale;
 
             phaseCtx.fillStyle = '#ffffff';
             phaseCtx.beginPath();
