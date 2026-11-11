@@ -20,7 +20,7 @@
         .comp-btn { background: #2c2d38; border: 1px solid #3a3a46; padding: 10px; border-radius: 6px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; }
         .comp-btn:hover { background: #3b3e4c; border-color: #98c379; }
         .comp-btn svg { width: 40px; height: 30px; stroke: #fff; fill: none; }
-        .canvas-area { flex: 1; position: relative; background: #18181c; overflow: auto; display: flex; justify-content: center; align-items: center; }
+        .canvas-area { flex: 1; position: relative; background: #18181c; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
         #svg-canvas { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: crosshair; }
         .properties-panel { width: 220px; background: #25252d; border-left: 1px solid #3a3a46; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
         .prop-group { display: flex; flex-direction: column; gap: 5px; }
@@ -48,7 +48,6 @@
     </header>
 
     <div class="main-container">
-        <!-- Левая панель инструментов -->
         <div class="sidebar">
             <div class="section-title">Компоненты схемы</div>
             <div class="component-grid">
@@ -93,11 +92,10 @@
             <div class="section-title">Настройка подложки</div>
             <div class="prop-group">
                 <label>Прозрачность фото</label>
-                <input type="range" id="bg-opacity" min="0" max="1" step="0.05" value="0.4" oninput="updateBgOpacity()">
+                <input type="range" id="bg-opacity" min="0" max="1" step="0.05" value="0.5" oninput="updateBgOpacity()">
             </div>
         </div>
 
-        <!-- Центральный холст -->
         <div class="canvas-area">
             <svg id="svg-canvas" width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -105,14 +103,13 @@
                         <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="1"/>
                     </pattern>
                 </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-                <image id="bg-image" x="0" y="0" width="800" height="500" preserveAspectRatio="xMidYMid meet" opacity="0.4"/>
+                <rect id="grid-bg" width="100%" height="100%" fill="url(#grid)" />
+                <image id="bg-image" x="0" y="0" width="800" height="500" preserveAspectRatio="none" opacity="0.5"/>
                 <g id="draw-layer"></g>
                 <line id="temp-wire" stroke="#000" stroke-width="3" stroke-linecap="round" style="display:none;"/>
             </svg>
         </div>
 
-        <!-- Правая панель свойств -->
         <div class="properties-panel">
             <div class="section-title">Свойства элемента</div>
             <div id="prop-controls" style="display:none;">
@@ -129,7 +126,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно кода SVG -->
     <div class="modal" id="modal-export">
         <div class="modal-content">
             <h3>Чистый SVG код</h3>
@@ -147,6 +143,8 @@
         const bgImage = document.getElementById('bg-image');
         const tempWire = document.getElementById('temp-wire');
         
+        let canvasWidth = 800;
+        let canvasHeight = 500;
         let mode = 'select';
         let selectedElement = null;
         let isDrawingWire = false;
@@ -157,7 +155,20 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(evt) {
-                    bgImage.setAttribute('href', evt.target.result);
+                    const img = new Image();
+                    img.onload = function() {
+                        canvasWidth = img.width;
+                        canvasHeight = img.height;
+                        
+                        canvas.setAttribute('width', canvasWidth);
+                        canvas.setAttribute('height', canvasHeight);
+                        canvas.setAttribute('viewBox', `0 0 ${canvasWidth} ${canvasHeight}`);
+                        
+                        bgImage.setAttribute('width', canvasWidth);
+                        bgImage.setAttribute('height', canvasHeight);
+                        bgImage.setAttribute('href', evt.target.result);
+                    };
+                    img.src = evt.target.result;
                 };
                 reader.readAsDataURL(file);
             }
@@ -178,9 +189,11 @@
 
         function getMousePos(evt) {
             const rect = canvas.getBoundingClientRect();
+            const scaleX = canvasWidth / rect.width;
+            const scaleY = canvasHeight / rect.height;
             return {
-                x: snap(evt.clientX - rect.left),
-                y: snap(evt.clientY - rect.top)
+                x: snap((evt.clientX - rect.left) * scaleX),
+                y: snap((evt.clientY - rect.top) * scaleY)
             };
         }
 
@@ -201,7 +214,7 @@
                     isDrawingWire = false;
                     tempWire.style.display = 'none';
                 }
-            } else if (mode === 'select' && e.target === canvas) {
+            } else if (mode === 'select' && (e.target === canvas || e.target.id === 'grid-bg' || e.target.id === 'bg-image')) {
                 deselect();
             }
         });
@@ -230,7 +243,9 @@
         function addComponent(type) {
             setMode('select');
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute('transform', 'translate(100, 100) rotate(0)');
+            const centerX = snap(canvasWidth / 2);
+            const centerY = snap(canvasHeight / 2);
+            g.setAttribute('transform', `translate(${centerX}, ${centerY}) rotate(0)`);
             g.dataset.rotation = "0";
 
             let innerHTML = '';
@@ -252,23 +267,30 @@
                              <line x1="6" y1="0" x2="20" y2="0" stroke="#000" stroke-width="2.5"/>
                              <text x="18" y="-2" font-family="Arial" font-size="11" font-weight="bold">VD1</text>`;
             } else if (type === 'vt1') {
-                // NPN (VT1): Стрелка эмиттера наружу
+                // VT1 (КТ315А, NPN) — Стрелка строго на верхнем эмиттере наружу
                 innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
                              <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
                              <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>
-                             <polygon points="10,15 2,10 6,6" fill="#000"/>
-                             <text x="0" y="32" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT1 КТ315А</text>`;
+                             <line x1="-8" y1="-5" x2="10" y2="-14" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="5" x2="10" y2="14" stroke="#000" stroke-width="2.5"/>
+                             <polygon points="10,-14 2,-9 6,-4" fill="#000"/>
+                             <text x="-5" y="30" font-family="Arial" font-size="11" font-weight="bold">VT1</text>
+                             <text x="-18" y="43" font-family="Arial" font-size="10" font-weight="bold">КТ315А</text>`;
             } else if (type === 'vt2') {
-                // PNP (VT2): Стрелка эмиттера вовнутрь
+                // VT2 (КТ361, PNP)
                 innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
                              <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
                              <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="-5" x2="10" y2="-14" stroke="#000" stroke-width="2.5"/>
+                             <line x1="-8" y1="5" x2="10" y2="14" stroke="#000" stroke-width="2.5"/>
                              <polygon points="-8,5 -2,0 0,6" fill="#000"/>
-                             <text x="0" y="32" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT2 КТ361</text>`;
+                             <text x="14" y="24" font-family="Arial" font-size="11" font-weight="bold">VT2</text>
+                             <text x="-15" y="38" font-family="Arial" font-size="10" font-weight="bold">КТ361</text>`;
+            } else if (type === 'speaker') {
+                innerHTML = `<rect x="-10" y="-12" width="20" height="24" stroke="#000" stroke-width="2" fill="none"/>
+                             <line x1="-25" y1="0" x2="-10" y2="0" stroke="#000" stroke-width="2"/>
+                             <line x1="10" y1="0" x2="25" y2="0" stroke="#000" stroke-width="2"/>
+                             <text x="0" y="24" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">BF1</text>`;
             } else if (type === 'battery') {
                 innerHTML = `<line x1="-15" y1="-15" x2="15" y2="-15" stroke="#000" stroke-width="3"/>
                              <line x1="-8" y1="-8" x2="8" y2="-8" stroke="#000" stroke-width="1.5"/>
@@ -329,13 +351,13 @@
 
         function makeDraggable(g) {
             let isDragging = false;
-            let startX, startY, transX = 100, transY = 100;
+            let startMouseX, startMouseY, transX = 100, transY = 100;
 
             g.addEventListener('mousedown', (e) => {
                 if (mode !== 'select') return;
                 isDragging = true;
-                startX = e.clientX;
-                startY = e.clientY;
+                startMouseX = e.clientX;
+                startMouseY = e.clientY;
                 
                 const transform = g.getAttribute('transform');
                 const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
@@ -347,8 +369,13 @@
 
             window.addEventListener('mousemove', (e) => {
                 if (isDragging && selectedElement === g) {
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvasWidth / rect.width;
+                    const scaleY = canvasHeight / rect.height;
+                    
+                    const dx = (e.clientX - startMouseX) * scaleX;
+                    const dy = (e.clientY - startMouseY) * scaleY;
+                    
                     const newX = snap(transX + dx);
                     const newY = snap(transY + dy);
                     const rot = g.dataset.rotation || 0;
@@ -397,7 +424,7 @@
         function exportSVG() {
             deselect();
             const cloneLayer = drawLayer.cloneNode(true);
-            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%" style="background:#fff;">
+            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" width="100%" height="100%" style="background:#fff;">
   <style>
     .schematic-text { font-family: 'Arial', sans-serif; font-weight: bold; fill: #000; }
   </style>
