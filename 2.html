@@ -3,283 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live ASCII to SVG Generator with SVG Component Editor</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; }
-        header { background: #2a2a32; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3a3a46; }
-        h1 { font-size: 15px; color: #61afef; font-weight: 600; }
-        .main { display: flex; flex: 1; overflow: hidden; }
-        
-        .editor-pane { width: 45%; border-right: 1px solid #3a3a46; display: flex; flex-direction: column; background: #25252d; }
-        .pane-title { background: #1e1e24; padding: 6px 12px; font-size: 11px; color: #abb2bf; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #3a3a46; display: flex; justify-content: space-between; align-items: center; }
-        
-        /* Главное текстовое окно схемы */
-        textarea#ascii-input { flex: 1; min-height: 200px; background: #18181c; color: #98c379; border: none; padding: 12px; font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 1.2; resize: vertical; outline: none; white-space: pre; }
-        
-        /* Панель редакторов под текстом — увеличена высота */
-        .bottom-editors { background: #22222b; border-top: 1px solid #3a3a46; display: flex; flex-direction: column; height: 350px; }
-        .comp-editor-panel { padding: 10px; border-bottom: 1px solid #3a3a46; min-height: 90px; max-height: 120px; overflow-y: auto; }
-        .comp-list { display: flex; flex-wrap: wrap; gap: 8px; }
-        .comp-item { background: #2a2a32; border: 1px solid #3a3a46; padding: 3px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-size: 11px; }
-        .comp-item input { background: #18181c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 2px 5px; width: 75px; font-family: monospace; font-size: 11px; }
-        
-        /* Панель SVG-кода элементов — увеличено окно редактора */
-        .svg-template-editor { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; background: #1b1b22; }
-        .svg-template-controls { display: flex; gap: 10px; align-items: center; }
-        .svg-template-controls select { background: #2a2a32; color: #61afef; border: 1px solid #3a3a46; padding: 4px 8px; border-radius: 3px; font-weight: bold; outline: none; }
-        
-        /* Увеличенная высота текстового поля SVG */
-        .svg-template-code { width: 100%; flex: 1; min-height: 160px; background: #121215; color: #e06c75; border: 1px solid #3a3a46; padding: 10px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.3; border-radius: 4px; resize: vertical; outline: none; }
-
-        .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; }
-        .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }
-    </style>
-</head>
-<body>
-
-    <header>
-        <h1>⚡ Генератор схем (Редактор ASCII + Редактор SVG кода элементов)</h1>
-        <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:5px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">📋 Копировать SVG</button>
-    </header>
-
-    <div class="main">
-        <div class="editor-pane">
-            <div class="pane-title">Текстовый ввод (ASCII Схема)</div>
-            <textarea id="ascii-input" spellcheck="false"></textarea>
-            
-            <div class="bottom-editors">
-                <!-- 1. Редактор обозначений компонентов -->
-                <div class="comp-editor-panel">
-                    <div style="font-size: 10px; color: #61afef; margin-bottom: 6px; font-weight: bold;">ОБОЗНАЧЕНИЯ ЭЛЕМЕНТОВ В СХЕМЕ:</div>
-                    <div id="components-list" class="comp-list"></div>
-                </div>
-
-                <!-- 2. Редактор SVG-кода самих графических элементов -->
-                <div class="svg-template-editor">
-                    <div class="svg-template-controls">
-                        <span style="font-size: 10px; color: #abb2bf; font-weight: bold;">РЕДАКТОР SVG-КОДА ЭЛЕМЕНТА:</span>
-                        <select id="svg-type-select" onchange="loadSVGTemplateToEdit()">
-                            <option value="VT1">VT1 (NPN Транзистор)</option>
-                            <option value="VT2">VT2 (PNP Транзистор)</option>
-                            <option value="R">R (Резистор)</option>
-                            <option value="C">C (Конденсатор)</option>
-                            <option value="VD">VD (Диод)</option>
-                            <option value="BF">BF (Динамик)</option>
-                            <option value="GB">GB (Батарея)</option>
-                        </select>
-                    </div>
-                    <textarea id="svg-template-input" class="svg-template-code" spellcheck="false" placeholder="SVG код элемента..."></textarea>
-                </div>
-            </div>
-        </div>
-        
-        <div class="preview-pane">
-            <div class="pane-title">Реальное время (SVG Отрисовка)</div>
-            <div class="canvas-wrapper">
-                <svg id="svg-output" width="650" height="450" viewBox="0 0 650 450" xmlns="http://www.w3.org/2000/svg">
-                    <g id="render-layer"></g>
-                </svg>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const defaultText = 
-`+-------------[R2]--+
-|          |         |
-[VD1]    [BF1]     [GB1]
-|          |         |
-+---[R1]---[VT1]     |
-|          |         |
-[C1]       |         |
-|          |         |
-+----------+---------+`;
-
-        const customSVG = {
-            VT1: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
-<line x1="{x}-6" y1="{y}-9" x2="{x}-6" y2="{y}+9" stroke="#000" stroke-width="3.5"/>
-<line x1="{x}-18" y1="{y}" x2="{x}-6" y2="{y}" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}-6" y1="{y}-4" x2="{x}+6" y2="{y}-12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}-12" x2="{x}+6" y2="{y}-18" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}-6" y1="{y}+4" x2="{x}+6" y2="{y}+12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}+12" x2="{x}+6" y2="{y}+18" stroke="#000" stroke-width="2.5"/>
-<polygon points="{x}+6,{y}+12 {x}+1,{y}+7 {x}+5,{y}+3" fill="#000"/>
-<text x="{x}+22" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
-
-            VT2: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
-<line x1="{x}-6" y1="{y}-9" x2="{x}-6" y2="{y}+9" stroke="#000" stroke-width="3.5"/>
-<line x1="{x}-18" y1="{y}" x2="{x}-6" y2="{y}" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}-6" y1="{y}-4" x2="{x}+6" y2="{y}-12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}-12" x2="{x}+6" y2="{y}-18" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}-6" y1="{y}+4" x2="{x}+6" y2="{y}+12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}+12" x2="{x}+6" y2="{y}+18" stroke="#000" stroke-width="2.5"/>
-<polygon points="{x}-6,{y}+4 {x}-1,{y} {x}+1,{y}+5" fill="#000"/>
-<text x="{x}+22" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
-
-            R: `<rect x="{x}-18" y="{y}-7" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
-<text x="{x}" y="{y}+22" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
-
-            C: `<rect x="{x}-6" y="{y}-14" width="12" height="28" fill="#fff"/>
-<line x1="{x}-5" y1="{y}-12" x2="{x}-5" y2="{y}+12" stroke="#000" stroke-width="3"/>
-<line x1="{x}+5" y1="{y}-12" x2="{x}+5" y2="{y}+12" stroke="#000" stroke-width="3"/>
-<text x="{x}" y="{y}+24" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
-
-            VD: `<rect x="{x}-12" y="{y}-10" width="24" height="20" fill="#fff"/>
-<polygon points="{x}-8,{y}-6 {x}+4,{y} {x}-8,{y}+6" fill="#000"/>
-<line x1="{x}+4" y1="{y}-7" x2="{x}+4" y2="{y}+7" stroke="#000" stroke-width="2.5"/>
-<text x="{x}" y="{y}+22" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
-
-            BF: `<rect x="{x}-12" y="{y}-12" width="24" height="24" fill="#fff" stroke="#000" stroke-width="2"/>
-<text x="{x}+16" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
-
-            GB: `<rect x="{x}-14" y="{y}-12" width="28" height="24" fill="#fff"/>
-<line x1="{x}-10" y1="{y}-8" x2="{x}+10" y2="{y}-8" stroke="#000" stroke-width="3"/>
-<line x1="{x}-5" y1="{y}-3" x2="{x}+5" y2="{y}-3" stroke="#000" stroke-width="1.5"/>
-<line x1="{x}-10" y1="{y}+2" x2="{x}+10" y2="{y}+2" stroke="#000" stroke-width="3"/>
-<line x1="{x}-5" y1="{y}+7" x2="{x}+5" y2="{y}+7" stroke="#000" stroke-width="1.5"/>
-<text x="{x}+16" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`
-        };
-
-        const textarea = document.getElementById('ascii-input');
-        const renderLayer = document.getElementById('render-layer');
-        const svgOutput = document.getElementById('svg-output');
-        const componentsListEl = document.getElementById('components-list');
-        const svgTypeSelect = document.getElementById('svg-type-select');
-        const svgTemplateInput = document.getElementById('svg-template-input');
-
-        textarea.value = defaultText;
-
-        const CELL_SIZE = 24;
-
-        function loadSVGTemplateToEdit() {
-            const key = svgTypeSelect.value;
-            svgTemplateInput.value = customSVG[key] || '';
-        }
-
-        svgTemplateInput.addEventListener('input', () => {
-            const key = svgTypeSelect.value;
-            customSVG[key] = svgTemplateInput.value;
-            parseAndRender();
-        });
-
-        function updateComponentEditor(text) {
-            const compRegex = /\[([^\]]+)\]/g;
-            let matches = [];
-            let match;
-            while ((match = compRegex.exec(text)) !== null) {
-                if (!matches.includes(match[1])) matches.push(match[1]);
-            }
-
-            componentsListEl.innerHTML = '';
-            matches.forEach(compName => {
-                const item = document.createElement('div');
-                item.className = 'comp-item';
-                
-                const label = document.createElement('span');
-                label.innerText = compName.split(' ')[0] + ':';
-                
-                const input = document.createElement('input');
-                input.value = compName;
-                input.dataset.oldName = compName;
-                
-                input.addEventListener('input', (e) => {
-                    const oldStr = `[${e.target.dataset.oldName}]`;
-                    const newStr = `[${e.target.value}]`;
-                    if (textarea.value.includes(oldStr)) {
-                        textarea.value = textarea.value.replace(oldStr, newStr);
-                        e.target.dataset.oldName = e.target.value;
-                        parseAndRender();
-                    }
-                });
-
-                item.appendChild(label);
-                item.appendChild(input);
-                componentsListEl.appendChild(item);
-            });
-        }
-
-        function parseAndRender() {
-            const rawText = textarea.value;
-            const lines = rawText.split('\n');
-            
-            updateComponentEditor(rawText);
-
-            let wireLines = lines.map(line => {
-                return line.replace(/\[([^\]]+)\]/g, (match) => '-'.repeat(match.length));
-            });
-
-            const maxCols = Math.max(...lines.map(l => l.length), 10);
-            const maxRows = Math.max(lines.length, 10);
-            
-            const width = Math.max(maxCols * CELL_SIZE + 60, 400);
-            const height = Math.max(maxRows * CELL_SIZE + 60, 300);
-
-            svgOutput.setAttribute('width', width);
-            svgOutput.setAttribute('height', height);
-            svgOutput.setAttribute('viewBox', `0 0 ${width} ${height}`);
-
-            let html = '';
-
-            const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
-            const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
-
-            for (let r = 0; r < wireLines.length; r++) {
-                for (let c = 0; c < wireLines[r].length; c++) {
-                    const ch = wireLines[r][c];
-                    const x = c * CELL_SIZE + 40;
-                    const y = r * CELL_SIZE + 40;
-
-                    if (ch === '-') {
-                        html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                    } else if (ch === '|') {
-                        html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
-                    } else if (ch === '+') {
-                        const top = isWire(getWireChar(r - 1, c));
-                        const bottom = isWire(getWireChar(r + 1, c));
-                        const left = isWire(getWireChar(r, c - 1));
-                        const right = isWire(getWireChar(r, c + 1));
-
-                        let count = (top?1:0) + (bottom?1:0) + (left?1:0) + (right?1:0);
-
-                        if (left)  html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (right) html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (top)   html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (bottom)html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
-
-                        if (count >= 3) {
-                            html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
-                        }
-                    }
-                }
-            }
-
-            const compRegex = /\[([^\]]+)\]/g;
-            for (let r = 0; r < lines.length; r++) {
-                let match;
-                while ((match = compRegex.exec(lines[r])) !== null) {
-                    const name = match[1].trim();
-                    const startCol = match.index;
-                    const endCol = match.index + match[0].length;
-                    
-                    const startX = startCol * CELL_SIZE + 40;
-                    const endX = (endCol - 1) * CELL_SIZE + 40;
-                    const centerX = (startX + endX) / 2;
-                    const centerYДля того чтобы увеличить высоту поля текстового редактора ASCII (и при необходимости отрегулировать нижние панели), переработана CSS-структура:
-
-1. **Редактор ASCII (`textarea#ascii-input`)** теперь занимает всё основное свободное пространство слева (`flex: 1`), а минимальная высота увеличена до `350px`.
-2. **Нижние панели (Обозначения элементов и SVG-код)** сделаны компактнее по высоте, благодаря чему окно вводу схемы стало значительно больше и нагляднее.
-
-Вот обновленный полный HTML-код:
-
-```html
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live ASCII to SVG Generator (Higher Editor Pane)</title>
+    <title>Live ASCII to SVG Generator (Simple Default Schematic)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -288,11 +12,9 @@
         
         .main { display: flex; flex: 1; overflow: hidden; }
         
-        /* Левая панель редактора */
         .editor-pane { width: 45%; border-right: 1px solid #3a3a46; display: flex; flex-direction: column; background: #25252d; height: 100%; }
         .pane-title { background: #1e1e24; padding: 6px 12px; font-size: 11px; color: #abb2bf; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #3a3a46; flex-shrink: 0; }
         
-        /* Увеличенная высота текстового редактора схемы */
         textarea#ascii-input { 
             flex: 1; 
             min-height: 350px; 
@@ -308,20 +30,17 @@
             white-space: pre; 
         }
         
-        /* Компактный нижний блок управления */
         .bottom-editors { background: #22222b; border-top: 1px solid #3a3a46; display: flex; flex-direction: column; flex-shrink: 0; }
         .comp-editor-panel { padding: 8px 12px; border-bottom: 1px solid #3a3a46; max-height: 80px; overflow-y: auto; }
         .comp-list { display: flex; flex-wrap: wrap; gap: 6px; }
         .comp-item { background: #2a2a32; border: 1px solid #3a3a46; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-size: 11px; }
         .comp-item input { background: #18181c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 1px 4px; width: 65px; font-family: monospace; font-size: 11px; }
         
-        /* Панель редактирования SVG-кода */
         .svg-template-editor { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; background: #1b1b22; }
         .svg-template-controls { display: flex; gap: 10px; align-items: center; }
         .svg-template-controls select { background: #2a2a32; color: #61afef; border: 1px solid #3a3a46; padding: 2px 6px; border-radius: 3px; font-weight: bold; outline: none; font-size: 11px; }
         .svg-template-code { width: 100%; height: 60px; background: #121215; color: #e06c75; border: 1px solid #3a3a46; padding: 6px; font-family: 'Courier New', monospace; font-size: 11px; border-radius: 4px; resize: none; outline: none; }
 
-        /* Правая панель предпросмотра SVG */
         .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; height: 100%; }
         .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
         #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }
@@ -368,7 +87,7 @@
         <div class="preview-pane">
             <div class="pane-title">Реальное время (SVG Отрисовка)</div>
             <div class="canvas-wrapper">
-                <svg id="svg-output" width="650" height="450" viewBox="0 0 650 450" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+                <svg id="svg-output" width="650" height="450" viewBox="0 0 650 450" xmlns="http://www.w3.org/2000/svg">
                     <g id="render-layer"></g>
                 </svg>
             </div>
@@ -376,16 +95,13 @@
     </div>
 
     <script>
+        // Простая базовая схема по умолчанию (источник питания, резистор и диод)
         const defaultText = 
-`+-------------[R2]--+
-|          |         |
-[VD1]    [BF1]     [GB1]
-|          |         |
-+---[R1]---[VT1]     |
-|          |         |
-[C1]       |         |
-|          |         |
-+----------+---------+`;
+`+--------[GB1]--------+
+|                     |
+[R1]                  [C1]
+|                     |
++--------[VD1]--------+`;
 
         const customSVG = {
             VT1: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
