@@ -3,461 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG Редактор электрических схем</title>
+    <title>Live ASCII to SVG Schematic Generator</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        header { background: #2a2a32; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3a3a46; }
-        h1 { font-size: 18px; font-weight: 600; color: #61afef; }
-        .toolbar { display: flex; gap: 10px; align-items: center; }
-        button, label.btn { background: #3b3e4c; color: #fff; border: 1px solid #4b4e5c; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-        button:hover, label.btn:hover { background: #4b4e5c; border-color: #61afef; }
-        button.active { background: #61afef; color: #1e1e24; font-weight: bold; border-color: #61afef; }
-        .main-container { display: flex; flex: 1; overflow: hidden; }
-        .sidebar { width: 240px; background: #25252d; border-right: 1px solid #3a3a46; padding: 15px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
-        .section-title { font-size: 12px; font-weight: bold; text-transform: uppercase; color: #abb2bf; letter-spacing: 1px; margin-bottom: 10px; }
-        .component-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .comp-btn { background: #2c2d38; border: 1px solid #3a3a46; padding: 10px; border-radius: 6px; text-align: center; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; }
-        .comp-btn:hover { background: #3b3e4c; border-color: #98c379; }
-        .comp-btn svg { width: 40px; height: 30px; stroke: #fff; fill: none; }
-        .canvas-area { flex: 1; position: relative; background: #18181c; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        #svg-canvas { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: crosshair; }
-        .properties-panel { width: 220px; background: #25252d; border-left: 1px solid #3a3a46; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
-        .prop-group { display: flex; flex-direction: column; gap: 5px; }
-        .prop-group label { font-size: 12px; color: #abb2bf; }
-        .prop-group input { background: #1e1e24; border: 1px solid #3a3a46; color: #fff; padding: 6px; border-radius: 4px; font-size: 13px; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: #25252d; padding: 20px; border-radius: 8px; width: 80%; max-width: 700px; max-height: 80%; display: flex; flex-direction: column; gap: 15px; }
-        textarea { background: #1e1e24; color: #abb2bf; border: 1px solid #3a3a46; padding: 10px; border-radius: 4px; font-family: monospace; height: 300px; resize: vertical; }
+        body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; }
+        header { background: #2a2a32; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3a3a46; }
+        h1 { font-size: 16px; color: #61afef; font-weight: 600; }
+        .main { display: flex; flex: 1; overflow: hidden; }
+        .editor-pane { width: 45%; border-right: 1px solid #3a3a46; display: flex; flex-direction: column; background: #25252d; }
+        .pane-title { background: #1e1e24; padding: 8px 15px; font-size: 12px; color: #abb2bf; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #3a3a46; }
+        textarea { flex: 1; background: #18181c; color: #98c379; border: none; padding: 15px; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.2; resize: none; outline: none; white-space: pre; }
+        .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; }
+        .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }
+        .legend { background: #25252d; padding: 10px 15px; border-top: 1px solid #3a3a46; font-size: 11px; color: #abb2bf; display: flex; gap: 15px; flex-wrap: wrap; }
+        .legend span { background: #1e1e24; padding: 2px 6px; border-radius: 3px; color: #61afef; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>⚡ SVG Редактор схем («Утка»)</h1>
-        <div class="toolbar">
-            <label class="btn">
-                🖼️ Загрузить фоновое фото
-                <input type="file" id="bg-upload" accept="image/*" style="display:none;">
-            </label>
-            <button id="btn-wire" onclick="setMode('wire')">✏️ Проводник (Линия)</button>
-            <button id="btn-select" class="active" onclick="setMode('select')">🖐️ Выбор / Перемещение</button>
-            <button onclick="exportSVG()">📥 Скачать / Код SVG</button>
-            <button onclick="clearCanvas()" style="background:#e06c75; border-color:#e06c75;">🗑️ Очистить</button>
-        </div>
+        <h1>⚡ Генератор схем в реальном времени (ASCII ➔ SVG)</h1>
+        <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">📋 Копировать SVG</button>
     </header>
 
-    <div class="main-container">
-        <div class="sidebar">
-            <div class="section-title">Компоненты схемы</div>
-            <div class="component-grid">
-                <div class="comp-btn" onclick="addComponent('resistor')">
-                    <svg viewBox="0 0 40 20"><rect x="5" y="5" width="30" height="10" stroke-width="2"/><line x1="0" y1="10" x2="5" y2="10" stroke-width="2"/><line x1="35" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
-                    Резистор
-                </div>
-                <div class="comp-btn" onclick="addComponent('capacitor')">
-                    <svg viewBox="0 0 40 20"><line x1="0" y1="10" x2="16" y2="10" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="18" stroke-width="3"/><line x1="24" y1="2" x2="24" y2="18" stroke-width="3"/><line x1="24" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
-                    Конденсатор
-                </div>
-                <div class="comp-btn" onclick="addComponent('diode')">
-                    <svg viewBox="0 0 40 20"><polygon points="12,3 28,10 12,17" fill="#fff"/><line x1="28" y1="3" x2="28" y2="17" stroke-width="2"/><line x1="0" y1="10" x2="12" y2="10" stroke-width="2"/><line x1="28" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
-                    Диод VD1
-                </div>
-                <div class="comp-btn" onclick="addComponent('vt1')">
-                    <svg viewBox="0 0 40 30"><circle cx="20" cy="15" r="12" stroke-width="1.5"/><line x1="12" y1="9" x2="12" y2="21" stroke-width="2.5"/><line x1="0" y1="15" x2="12" y2="15" stroke-width="1.5"/></svg>
-                    VT1 NPN (КТ315)
-                </div>
-                <div class="comp-btn" onclick="addComponent('vt2')">
-                    <svg viewBox="0 0 40 30"><circle cx="20" cy="15" r="12" stroke-width="1.5"/><line x1="12" y1="9" x2="12" y2="21" stroke-width="2.5"/><line x1="0" y1="15" x2="12" y2="15" stroke-width="1.5"/></svg>
-                    VT2 PNP (КТ361)
-                </div>
-                <div class="comp-btn" onclick="addComponent('speaker')">
-                    <svg viewBox="0 0 40 20"><rect x="12" y="3" width="16" height="14" stroke-width="2"/><line x1="0" y1="10" x2="12" y2="10" stroke-width="2"/><line x1="28" y1="10" x2="40" y2="10" stroke-width="2"/></svg>
-                    Динамик BF1
-                </div>
-                <div class="comp-btn" onclick="addComponent('battery')">
-                    <svg viewBox="0 0 40 20"><line x1="10" y1="2" x2="30" y2="2" stroke-width="3"/><line x1="15" y1="7" x2="25" y2="7" stroke-width="1.5"/><line x1="10" y1="13" x2="30" y2="13" stroke-width="3"/><line x1="15" y1="18" x2="25" y2="18" stroke-width="1.5"/></svg>
-                    Батарея GB1
-                </div>
-                <div class="comp-btn" onclick="addComponent('contact')">
-                    <svg viewBox="0 0 40 20"><rect x="10" y="7" width="20" height="6" fill="#fff"/></svg>
-                    Контакт E1/E2
-                </div>
-                <div class="comp-btn" onclick="addComponent('node')">
-                    <svg viewBox="0 0 40 20"><circle cx="20" cy="10" r="5" fill="#fff"/></svg>
-                    Узел (Точка)
-                </div>
-            </div>
-
-            <div class="section-title">Настройка подложки</div>
-            <div class="prop-group">
-                <label>Прозрачность фото</label>
-                <input type="range" id="bg-opacity" min="0" max="1" step="0.05" value="0.5" oninput="updateBgOpacity()">
-            </div>
+    <div class="main">
+        <div class="editor-pane">
+            <div class="pane-title">Текстовый ввод (ASCII Схема)</div>
+            <textarea id="ascii-input" spellcheck="false" placeholder="Вводите текст схемы сюда..."></textarea>
         </div>
-
-        <div class="canvas-area">
-            <svg id="svg-canvas" width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" stroke-width="1"/>
-                    </pattern>
-                </defs>
-                <rect id="grid-bg" width="100%" height="100%" fill="url(#grid)" />
-                <image id="bg-image" x="0" y="0" width="800" height="500" preserveAspectRatio="none" opacity="0.5"/>
-                <g id="draw-layer"></g>
-                <line id="temp-wire" stroke="#000" stroke-width="3" stroke-linecap="round" style="display:none;"/>
-            </svg>
-        </div>
-
-        <div class="properties-panel">
-            <div class="section-title">Свойства элемента</div>
-            <div id="prop-controls" style="display:none;">
-                <div class="prop-group">
-                    <label>Подпись (Текст)</label>
-                    <input type="text" id="prop-label" oninput="updateSelectedLabel()">
-                </div>
-                <div class="prop-group" style="margin-top:10px;">
-                    <button onclick="flipHorizontal()">↔️ Отразить по горизонтали</button>
-                    <button onclick="rotateSelected()" style="margin-top:5px;">🔄 Повернуть на 90°</button>
-                    <button onclick="deleteSelected()" style="background:#e06c75; margin-top:5px;">🗑️ Удалить</button>
-                </div>
+        
+        <div class="preview-pane">
+            <div class="pane-title">Реальное время (SVG Отрисовка)</div>
+            <div class="canvas-wrapper">
+                <svg id="svg-output" width="650" height="450" viewBox="0 0 650 450" xmlns="http://www.w3.org/2000/svg">
+                    <g id="render-layer"></g>
+                </svg>
             </div>
-            <div id="no-prop" style="color:#5c6370; font-size:12px;">Выберите элемент на холсте</div>
-        </div>
-    </div>
-
-    <div class="modal" id="modal-export">
-        <div class="modal-content">
-            <h3>Чистый SVG код</h3>
-            <textarea id="svg-code-output" readonly></textarea>
-            <div style="display:flex; gap:10px; justify-content:flex-end;">
-                <button onclick="document.getElementById('modal-export').style.display='none'">Закрыть</button>
-                <button onclick="navigator.clipboard.writeText(document.getElementById('svg-code-output').value)">📋 Копировать код</button>
+            <div class="legend">
+                <div>Проводники: <span>-</span> <span>|</span> <span>+</span></div>
+                <div>Элементы: <span>[R1]</span> <span>[C1]</span> <span>[VD1]</span> <span>[VT1] (NPN)</span> <span>[VT2] (PNP)</span> <span>[BF1]</span> <span>[GB1]</span></div>
             </div>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('svg-canvas');
-        const drawLayer = document.getElementById('draw-layer');
-        const bgImage = document.getElementById('bg-image');
-        const tempWire = document.getElementById('temp-wire');
-        
-        let canvasWidth = 800;
-        let canvasHeight = 500;
-        let mode = 'select';
-        let selectedElement = null;
-        let isDrawingWire = false;
-        let wireStartX = 0, wireStartY = 0;
+        const defaultText = 
+`       +------------+-----------+
+       |            |           |
+     [VD1]        [BF1]       [GB1]
+       |            |           |
+       |            | (Коллектор)
+       +---[R1]----[VT1] (База) |
+       |            | (Эмиттер) |
+      [C1]          |           |
+       |            |           |
+       +------------+-----------+`;
 
-        document.getElementById('bg-upload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    const img = new Image();
-                    img.onload = function() {
-                        canvasWidth = img.width;
-                        canvasHeight = img.height;
-                        
-                        canvas.setAttribute('width', canvasWidth);
-                        canvas.setAttribute('height', canvasHeight);
-                        canvas.setAttribute('viewBox', `0 0 ${canvasWidth} ${canvasHeight}`);
-                        
-                        bgImage.setAttribute('width', canvasWidth);
-                        bgImage.setAttribute('height', canvasHeight);
-                        bgImage.setAttribute('href', evt.target.result);
-                    };
-                    img.src = evt.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+        const textarea = document.getElementById('ascii-input');
+        const renderLayer = document.getElementById('render-layer');
+        const svgOutput = document.getElementById('svg-output');
 
-        function updateBgOpacity() {
-            bgImage.setAttribute('opacity', document.getElementById('bg-opacity').value);
-        }
+        textarea.value = defaultText;
 
-        function setMode(newMode) {
-            mode = newMode;
-            document.getElementById('btn-wire').classList.toggle('active', mode === 'wire');
-            document.getElementById('btn-select').classList.toggle('active', mode === 'select');
-            deselect();
-        }
+        const CELL_SIZE = 24;
 
-        function snap(val) { return Math.round(val / 10) * 10; }
-
-        function getMousePos(evt) {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvasWidth / rect.width;
-            const scaleY = canvasHeight / rect.height;
-            return {
-                x: snap((evt.clientX - rect.left) * scaleX),
-                y: snap((evt.clientY - rect.top) * scaleY)
-            };
-        }
-
-        canvas.addEventListener('mousedown', (e) => {
-            const pos = getMousePos(e);
-            if (mode === 'wire') {
-                if (!isDrawingWire) {
-                    isDrawingWire = true;
-                    wireStartX = pos.x;
-                    wireStartY = pos.y;
-                    tempWire.setAttribute('x1', wireStartX);
-                    tempWire.setAttribute('y1', wireStartY);
-                    tempWire.setAttribute('x2', wireStartX);
-                    tempWire.setAttribute('y2', wireStartY);
-                    tempWire.style.display = 'block';
-                } else {
-                    createWire(wireStartX, wireStartY, pos.x, pos.y);
-                    isDrawingWire = false;
-                    tempWire.style.display = 'none';
-                }
-            } else if (mode === 'select' && (e.target === canvas || e.target.id === 'grid-bg' || e.target.id === 'bg-image')) {
-                deselect();
-            }
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (isDrawingWire) {
-                const pos = getMousePos(e);
-                tempWire.setAttribute('x2', pos.x);
-                tempWire.setAttribute('y2', pos.y);
-            }
-        });
-
-        function createWire(x1, y1, x2, y2) {
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute('x1', x1);
-            line.setAttribute('y1', y1);
-            line.setAttribute('x2', x2);
-            line.setAttribute('y2', y2);
-            line.setAttribute('stroke', '#000');
-            line.setAttribute('stroke-width', '3');
-            line.setAttribute('stroke-linecap', 'round');
-            makeSelectable(line);
-            drawLayer.appendChild(line);
-        }
-
-        function addComponent(type) {
-            setMode('select');
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            const centerX = snap(canvasWidth / 2);
-            const centerY = snap(canvasHeight / 2);
+        function parseAndRender() {
+            const text = textarea.value;
+            const lines = text.split('\n');
             
-            g.setAttribute('transform', `translate(${centerX}, ${centerY}) rotate(0) scale(1, 1)`);
-            g.dataset.rotation = "0";
-            g.dataset.scaleX = "1";
+            const maxCols = Math.max(...lines.map(l => l.length), 10);
+            const maxRows = Math.max(lines.length, 10);
+            
+            const width = Math.max(maxCols * CELL_SIZE + 40, 400);
+            const height = Math.max(maxRows * CELL_SIZE + 40, 300);
 
-            let innerHTML = '';
-            if (type === 'resistor') {
-                innerHTML = `<rect x="-20" y="-8" width="40" height="16" stroke="#000" stroke-width="2.5" fill="none"/>
-                             <line x1="-35" y1="0" x2="-20" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="20" y1="0" x2="35" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <text x="0" y="24" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle">R1 750k</text>`;
-            } else if (type === 'capacitor') {
-                innerHTML = `<line x1="-20" y1="0" x2="-5" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-5" y1="-12" x2="-5" y2="12" stroke="#000" stroke-width="3.5"/>
-                             <line x1="3" y1="-12" x2="3" y2="12" stroke="#000" stroke-width="3.5"/>
-                             <line x1="3" y1="0" x2="20" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <text x="0" y="26" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle">C1 47н</text>`;
-            } else if (type === 'diode') {
-                innerHTML = `<polygon points="-10,-8 6,0 -10,8" fill="#000"/>
-                             <line x1="6" y1="-8" x2="6" y2="8" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-22" y1="0" x2="-10" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="6" y1="0" x2="20" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <text x="18" y="-2" font-family="Arial" font-size="11" font-weight="bold">VD1</text>`;
-            } else if (type === 'vt1') {
-                // NPN (VT1): Эмиттер снизу со стрелкой НАРУЖУ (как на изображении)
-                innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
-                             <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
-                             <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/> <!-- Коллектор (верх) -->
-                             <line x1="10" y1="-15" x2="10" y2="-28" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>   <!-- Эмиттер (низ) -->
-                             <line x1="10" y1="15" x2="10" y2="28" stroke="#000" stroke-width="2.5"/>
-                             <polygon points="10,15 2,10 6,5" fill="#000"/>
-                             <text x="0" y="38" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT1 КТ315А</text>`;
-            } else if (type === 'vt2') {
-                // PNP (VT2): Эмиттер снизу со стрелкой ВОВНУТРЬ (как на изображении)
-                innerHTML = `<circle cx="0" cy="0" r="18" stroke="#000" stroke-width="2" fill="none"/>
-                             <line x1="-8" y1="-10" x2="-8" y2="10" stroke="#000" stroke-width="4"/>
-                             <line x1="-24" y1="0" x2="-8" y2="0" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="-5" x2="10" y2="-15" stroke="#000" stroke-width="2.5"/> <!-- Коллектор (верх) -->
-                             <line x1="10" y1="-15" x2="10" y2="-28" stroke="#000" stroke-width="2.5"/>
-                             <line x1="-8" y1="5" x2="10" y2="15" stroke="#000" stroke-width="2.5"/>   <!-- Эмиттер (низ) -->
-                             <line x1="10" y1="15" x2="10" y2="28" stroke="#000" stroke-width="2.5"/>
-                             <polygon points="-8,5 -2,0 0,6" fill="#000"/>
-                             <text x="0" y="38" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">VT2 КТ361</text>`;
-            } else if (type === 'speaker') {
-                innerHTML = `<rect x="-10" y="-12" width="20" height="24" stroke="#000" stroke-width="2" fill="none"/>
-                             <line x1="-25" y1="0" x2="-10" y2="0" stroke="#000" stroke-width="2"/>
-                             <line x1="10" y1="0" x2="25" y2="0" stroke="#000" stroke-width="2"/>
-                             <text x="0" y="24" font-family="Arial" font-size="11" font-weight="bold" text-anchor="middle">BF1</text>`;
-            } else if (type === 'battery') {
-                innerHTML = `<line x1="-15" y1="-15" x2="15" y2="-15" stroke="#000" stroke-width="3"/>
-                             <line x1="-8" y1="-8" x2="8" y2="-8" stroke="#000" stroke-width="1.5"/>
-                             <line x1="-15" y1="0" x2="15" y2="0" stroke="#000" stroke-width="3"/>
-                             <line x1="-8" y1="7" x2="8" y2="7" stroke="#000" stroke-width="1.5"/>
-                             <text x="-25" y="0" font-family="Arial" font-size="12" font-weight="bold">GB1 9V</text>`;
-            } else if (type === 'contact') {
-                innerHTML = `<rect x="-12" y="-5" width="24" height="10" fill="#000"/>
-                             <text x="-8" y="20" font-family="Arial" font-size="12" font-weight="bold">E1</text>`;
-            } else if (type === 'node') {
-                innerHTML = `<circle cx="0" cy="0" r="4" fill="#000"/>`;
+            svgOutput.setAttribute('width', width);
+            svgOutput.setAttribute('height', height);
+            svgOutput.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+            let html = '';
+
+            // 1. Отрисовка линий проводников
+            for (let r = 0; r < lines.length; r++) {
+                for (let c = 0; c < lines[r].length; c++) {
+                    const ch = lines[r][c];
+                    const x = c * CELL_SIZE + 30;
+                    const y = r * CELL_SIZE + 30;
+
+                    if (ch === '-') {
+                        html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
+                    } else if (ch === '|') {
+                        html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
+                    } else if (ch === '+') {
+                        html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
+                        html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
+                        html += `<circle cx="${x}" cy="${y}" r="3" fill="#000"/>`;
+                    }
+                }
             }
 
-            g.innerHTML = innerHTML;
-            makeSelectable(g);
-            makeDraggable(g);
-            drawLayer.appendChild(g);
-            selectElement(g);
+            // 2. Распознавание радиокомпонентов [НАЗВАНИЕ]
+            const compRegex = /\[([^\]]+)\]/g;
+            for (let r = 0; r < lines.length; r++) {
+                let match;
+                while ((match = compRegex.exec(lines[r])) !== null) {
+                    const name = match[1].trim();
+                    const startCol = match.index;
+                    const endCol = match.index + match[0].length;
+                    
+                    const startX = startCol * CELL_SIZE + 30;
+                    const endX = (endCol - 1) * CELL_SIZE + 30;
+                    const centerX = (startX + endX) / 2;
+                    const centerY = r * CELL_SIZE + 30;
+
+                    html += renderComponent(name, centerX, centerY);
+                }
+            }
+
+            renderLayer.innerHTML = html;
         }
 
-        function makeSelectable(el) {
-            el.addEventListener('mousedown', (e) => {
-                if (mode === 'select') {
-                    e.stopPropagation();
-                    selectElement(el);
-                }
-            });
-        }
+        function renderComponent(name, x, y) {
+            let svg = '';
+            const type = name.toUpperCase();
 
-        function selectElement(el) {
-            deselect();
-            selectedElement = el;
-            if (el.tagName === 'g') {
-                el.style.outline = "2px dashed #61afef";
-                const txt = el.querySelector('text');
-                if (txt) {
-                    document.getElementById('prop-label').value = txt.textContent;
-                }
+            if (type.startsWith('VT1')) { 
+                // NPN (VT1): Коллектор (сверху), База (слева), Эмиттер (снизу со стрелкой наружу по центру линии)
+                svg = `<rect x="${x-18}" y="${y-18}" width="36" height="36" fill="#fff" opacity="0"/>
+                       <circle cx="${x}" cy="${y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
+                       <line x1="${x-6}" y1="${y-9}" x2="${x-6}" y2="${y+9}" stroke="#000" stroke-width="3.5"/>
+                       <line x1="${x-18}" y1="${y}" x2="${x-6}" y2="${y}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x-6}" y1="${y-4}" x2="${x+6}" y2="${y-12}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x+6}" y1="${y-12}" x2="${x+6}" y2="${y-20}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x-6}" y1="${y+4}" x2="${x+6}" y2="${y+12}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x+6}" y1="${y+12}" x2="${x+6}" y2="${y+20}" stroke="#000" stroke-width="2.5"/>
+                       <polygon points="${x+6},${y+12} ${x+1},${y+7} ${x+5},${y+3}" fill="#000"/>
+                       <text x="${x+22}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('VT2')) { 
+                // PNP (VT2): Коллектор (сверху), База (слева), Эмиттер (снизу со стрелкой вовнутрь)
+                svg = `<rect x="${x-18}" y="${y-18}" width="36" height="36" fill="#fff" opacity="0"/>
+                       <circle cx="${x}" cy="${y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
+                       <line x1="${x-6}" y1="${y-9}" x2="${x-6}" y2="${y+9}" stroke="#000" stroke-width="3.5"/>
+                       <line x1="${x-18}" y1="${y}" x2="${x-6}" y2="${y}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x-6}" y1="${y-4}" x2="${x+6}" y2="${y-12}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x+6}" y1="${y-12}" x2="${x+6}" y2="${y-20}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x-6}" y1="${y+4}" x2="${x+6}" y2="${y+12}" stroke="#000" stroke-width="2.5"/>
+                       <line x1="${x+6}" y1="${y+12}" x2="${x+6}" y2="${y+20}" stroke="#000" stroke-width="2.5"/>
+                       <polygon points="${x-6},${y+4} ${x-1},${y} ${x+1},${y+5}" fill="#000"/>
+                       <text x="${x+22}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('R')) {
+                svg = `<rect x="${x-18}" y="${y-7}" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
+                       <text x="${x}" y="${y+22}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('C')) {
+                svg = `<rect x="${x-12}" y="${y-12}" width="24" height="24" fill="#fff"/>
+                       <line x1="${x-5}" y1="${y-10}" x2="${x-5}" y2="${y+10}" stroke="#000" stroke-width="3"/>
+                       <line x1="${x+5}" y1="${y-10}" x2="${x+5}" y2="${y+10}" stroke="#000" stroke-width="3"/>
+                       <text x="${x}" y="${y+24}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('VD')) {
+                svg = `<rect x="${x-12}" y="${y-10}" width="24" height="20" fill="#fff"/>
+                       <polygon points="${x-8},${y-6} ${x+4},${y} ${x-8},${y+6}" fill="#000"/>
+                       <line x1="${x+4}" y1="${y-7}" x2="${x+4}" y2="${y+7}" stroke="#000" stroke-width="2.5"/>
+                       <text x="${x}" y="${y+22}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('BF')) {
+                svg = `<rect x="${x-12}" y="${y-10}" width="24" height="20" fill="#fff" stroke="#000" stroke-width="2"/>
+                       <text x="${x}" y="${y+24}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('GB')) {
+                svg = `<line x1="${x-10}" y1="${y-10}" x2="${x+10}" y2="${y-10}" stroke="#000" stroke-width="3"/>
+                       <line x1="${x-5}" y1="${y-5}" x2="${x+5}" y2="${y-5}" stroke="#000" stroke-width="1.5"/>
+                       <line x1="${x-10}" y1="${y}" x2="${x+10}" y2="${y}" stroke="#000" stroke-width="3"/>
+                       <line x1="${x-5}" y1="${y+5}" x2="${x+5}" y2="${y+5}" stroke="#000" stroke-width="1.5"/>
+                       <text x="${x}" y="${y+24}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
             } else {
-                el.setAttribute('stroke', '#61afef');
+                svg = `<rect x="${x-15}" y="${y-8}" width="30" height="16" fill="#fff" stroke="#000" stroke-width="1.5"/>
+                       <text x="${x}" y="${y+4}" font-size="10" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
             }
-            document.getElementById('prop-controls').style.display = 'block';
-            document.getElementById('no-prop').style.display = 'none';
+
+            return svg;
         }
 
-        function deselect() {
-            if (selectedElement) {
-                if (selectedElement.tagName === 'g') {
-                    selectedElement.style.outline = "none";
-                } else {
-                    selectedElement.setAttribute('stroke', '#000');
-                }
-            }
-            selectedElement = null;
-            document.getElementById('prop-controls').style.display = 'none';
-            document.getElementById('no-prop').style.display = 'block';
+        function copySVG() {
+            navigator.clipboard.writeText(svgOutput.outerHTML);
+            alert("SVG код скопирован!");
         }
 
-        function makeDraggable(g) {
-            let isDragging = false;
-            let startMouseX, startMouseY, transX = 100, transY = 100;
-
-            g.addEventListener('mousedown', (e) => {
-                if (mode !== 'select') return;
-                isDragging = true;
-                startMouseX = e.clientX;
-                startMouseY = e.clientY;
-                
-                const transform = g.getAttribute('transform');
-                const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
-                if (match) {
-                    transX = parseFloat(match[1]);
-                    transY = parseFloat(match[2]);
-                }
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (isDragging && selectedElement === g) {
-                    const rect = canvas.getBoundingClientRect();
-                    const scaleX = canvasWidth / rect.width;
-                    const scaleY = canvasHeight / rect.height;
-                    
-                    const dx = (e.clientX - startMouseX) * scaleX;
-                    const dy = (e.clientY - startMouseY) * scaleY;
-                    
-                    const newX = snap(transX + dx);
-                    const newY = snap(transY + dy);
-                    const rot = g.dataset.rotation || 0;
-                    const scX = g.dataset.scaleX || 1;
-                    g.setAttribute('transform', `translate(${newX}, ${newY}) rotate(${rot}) scale(${scX}, 1)`);
-                }
-            });
-
-            window.addEventListener('mouseup', () => { isDragging = false; });
-        }
-
-        // Отражение элемента по горизонтали
-        function flipHorizontal() {
-            if (selectedElement && selectedElement.tagName === 'g') {
-                let scX = parseInt(selectedElement.dataset.scaleX || 1) * -1;
-                selectedElement.dataset.scaleX = scX;
-                
-                const transform = selectedElement.getAttribute('transform');
-                const matchTranslate = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
-                const rot = selectedElement.dataset.rotation || 0;
-                
-                if (matchTranslate) {
-                    selectedElement.setAttribute('transform', `translate(${matchTranslate[1]}, ${matchTranslate[2]}) rotate(${rot}) scale(${scX}, 1)`);
-                }
-            }
-        }
-
-        function rotateSelected() {
-            if (selectedElement && selectedElement.tagName === 'g') {
-                let rot = parseInt(selectedElement.dataset.rotation || 0) + 90;
-                if (rot >= 360) rot = 0;
-                selectedElement.dataset.rotation = rot;
-                
-                const transform = selectedElement.getAttribute('transform');
-                const matchTranslate = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
-                const scX = selectedElement.dataset.scaleX || 1;
-                
-                if (matchTranslate) {
-                    selectedElement.setAttribute('transform', `translate(${matchTranslate[1]}, ${matchTranslate[2]}) rotate(${rot}) scale(${scX}, 1)`);
-                }
-            }
-        }
-
-        function updateSelectedLabel() {
-            if (selectedElement && selectedElement.tagName === 'g') {
-                const txt = selectedElement.querySelector('text');
-                if (txt) txt.textContent = document.getElementById('prop-label').value;
-            }
-        }
-
-        function deleteSelected() {
-            if (selectedElement) {
-                selectedElement.remove();
-                deselect();
-            }
-        }
-
-        function clearCanvas() {
-            if (confirm("Очистить весь холст?")) {
-                drawLayer.innerHTML = '';
-                deselect();
-            }
-        }
-
-        function exportSVG() {
-            deselect();
-            const cloneLayer = drawLayer.cloneNode(true);
-            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasWidth} ${canvasHeight}" width="100%" height="100%" style="background:#fff;">
-  <style>
-    .schematic-text { font-family: 'Arial', sans-serif; font-weight: bold; fill: #000; }
-  </style>
-  ${cloneLayer.innerHTML}
-</svg>`;
-            
-            document.getElementById('svg-code-output').value = svgContent;
-            document.getElementById('modal-export').style.display = 'flex';
-        }
+        textarea.addEventListener('input', parseAndRender);
+        parseAndRender();
     </script>
 </body>
 </html>
