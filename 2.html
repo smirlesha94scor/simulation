@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live ASCII to SVG Schematic Generator (Smart Junctions & Orientation)</title>
+    <title>Live ASCII to SVG Schematic Generator (Fixed)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; }
@@ -23,7 +23,7 @@
 <body>
 
     <header>
-        <h1>⚡ Генератор схем в реальном времени (Умные углы и ориентация)</h1>
+        <h1>⚡ Генератор схем (Исправлены разрывы и подписи)</h1>
         <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">📋 Копировать SVG</button>
     </header>
 
@@ -41,22 +41,23 @@
                 </svg>
             </div>
             <div class="legend">
-                <div>Умный `+`: Угол если 2 линии, Узел с точкой если 3+ линий.</div>
+                <div>Проводники: <span>-</span> <span>|</span> <span>+</span></div>
+                <div>Элементы: <span>[R1]</span> <span>[C1]</span> <span>[VD1]</span> <span>[VT1]</span> <span>[VT2]</span> <span>[BF1]</span> <span>[GB1]</span></div>
             </div>
         </div>
     </div>
 
     <script>
         const defaultText = 
-`+---------------------+-----------+
-|                     |           |
-[VD1]               [BF1]       [GB1]
-|                     |           |
-+------[R1]----------[VT1]        |
-|                     |           |
-[C1]                  |           |
-|                     |           |
-+---------------------+-----------+`;
+`+-------------[R2]--+
+|          |         |
+[VD1]    [BF1]     [GB1]
+|          |         |
++---[R1]---[VT1]     |
+|          |         |
+[C1]       |         |
+|          |         |
++----------+---------+`;
 
         const textarea = document.getElementById('ascii-input');
         const renderLayer = document.getElementById('render-layer');
@@ -64,17 +65,22 @@
 
         textarea.value = defaultText;
 
-        const CELL_SIZE = 22;
+        const CELL_SIZE = 24;
 
         function parseAndRender() {
-            const text = textarea.value;
-            const lines = text.split('\n');
+            const rawText = textarea.value;
+            const lines = rawText.split('\n');
             
+            // Создаем виртуальную сетку проводников, заменяя теги [NAME] на линии (-)
+            let wireLines = lines.map(line => {
+                return line.replace(/\[([^\]]+)\]/g, (match) => '-'.repeat(match.length));
+            });
+
             const maxCols = Math.max(...lines.map(l => l.length), 10);
             const maxRows = Math.max(lines.length, 10);
             
-            const width = Math.max(maxCols * CELL_SIZE + 50, 400);
-            const height = Math.max(maxRows * CELL_SIZE + 50, 300);
+            const width = Math.max(maxCols * CELL_SIZE + 60, 400);
+            const height = Math.max(maxRows * CELL_SIZE + 60, 300);
 
             svgOutput.setAttribute('width', width);
             svgOutput.setAttribute('height', height);
@@ -82,36 +88,33 @@
 
             let html = '';
 
-            const getChar = (r, c) => (r >= 0 && r < lines.length && c >= 0 && c < lines[r].length) ? lines[r][c] : ' ';
+            const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
+            const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
 
-            const isWireOrComp = (ch) => ch !== ' ' && ch !== '';
-
-            // 1. Отрисовка проводников и углов (+)
-            for (let r = 0; r < lines.length; r++) {
-                for (let c = 0; c < lines[r].length; c++) {
-                    const ch = lines[r][c];
-                    const x = c * CELL_SIZE + 35;
-                    const y = r * CELL_SIZE + 35;
+            // 1. Отрисовка непрерывной сетки проводников
+            for (let r = 0; r < wireLines.length; r++) {
+                for (let c = 0; c < wireLines[r].length; c++) {
+                    const ch = wireLines[r][c];
+                    const x = c * CELL_SIZE + 40;
+                    const y = r * CELL_SIZE + 40;
 
                     if (ch === '-') {
                         html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                     } else if (ch === '|') {
                         html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
                     } else if (ch === '+') {
-                        const top = isWireOrComp(getChar(r - 1, c));
-                        const bottom = isWireOrComp(getChar(r + 1, c));
-                        const left = isWireOrComp(getChar(r, c - 1));
-                        const right = isWireOrComp(getChar(r, c + 1));
+                        const top = isWire(getWireChar(r - 1, c));
+                        const bottom = isWire(getWireChar(r + 1, c));
+                        const left = isWire(getWireChar(r, c - 1));
+                        const right = isWire(getWireChar(r, c + 1));
 
                         let count = (top?1:0) + (bottom?1:0) + (left?1:0) + (right?1:0);
 
-                        // Рисуем отрезки лучей
                         if (left)  html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (right) html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (top)   html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (bottom)html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
 
-                        // Если соединение Т-образное или перекресток — рисуем точку узла
                         if (count >= 3) {
                             html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
                         }
@@ -119,7 +122,7 @@
                 }
             }
 
-            // 2. Распознавание радиокомпонентов [НАЗВАНИЕ]
+            // 2. Отрисовка радиокомпонентов поверх проводников
             const compRegex = /\[([^\]]+)\]/g;
             for (let r = 0; r < lines.length; r++) {
                 let match;
@@ -128,14 +131,13 @@
                     const startCol = match.index;
                     const endCol = match.index + match[0].length;
                     
-                    const startX = startCol * CELL_SIZE + 35;
-                    const endX = (endCol - 1) * CELL_SIZE + 35;
+                    const startX = startCol * CELL_SIZE + 40;
+                    const endX = (endCol - 1) * CELL_SIZE + 40;
                     const centerX = (startX + endX) / 2;
-                    const centerY = r * CELL_SIZE + 35;
+                    const centerY = r * CELL_SIZE + 40;
 
-                    // Определение вертикальной или горизонтальной ориентации
-                    const isVertical = isWireOrComp(getChar(r-1, Math.floor((startCol+endCol)/2))) || 
-                                       isWireOrComp(getChar(r+1, Math.floor((startCol+endCol)/2)));
+                    const midCol = Math.floor((startCol + endCol) / 2);
+                    const isVertical = getWireChar(r - 1, midCol) === '|' || getWireChar(r + 1, midCol) === '|';
 
                     html += renderComponent(name, centerX, centerY, isVertical);
                 }
@@ -148,75 +150,93 @@
             let svg = '';
             const type = name.toUpperCase();
 
-            // Поворот компонента при вертикальном расположении
-            const transform = isVertical ? `transform="rotate(90 ${x} ${y})"` : '';
-
-            if (type.startsWith('VT1')) { // NPN Транзистор
+            if (type.startsWith('VT1')) { // NPN Транзистор (Коллектор сверху, База слева, Эмиттер снизу)
                 svg = `<g>
                         <circle cx="${x}" cy="${y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
                         <line x1="${x-6}" y1="${y-9}" x2="${x-6}" y2="${y+9}" stroke="#000" stroke-width="3.5"/>
-                        <line x1="${x-CELL_SIZE}" y1="${y}" x2="${x-6}" y2="${y}" stroke="#000" stroke-width="2.5"/>
+                        <line x1="${x-18}" y1="${y}" x2="${x-6}" y2="${y}" stroke="#000" stroke-width="2.5"/>
                         <line x1="${x-6}" y1="${y-4}" x2="${x+6}" y2="${y-12}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+6}" y1="${y-12}" x2="${x+6}" y2="${y-CELL_SIZE}" stroke="#000" stroke-width="2.5"/>
+                        <line x1="${x+6}" y1="${y-12}" x2="${x+6}" y2="${y-18}" stroke="#000" stroke-width="2.5"/>
                         <line x1="${x-6}" y1="${y+4}" x2="${x+6}" y2="${y+12}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+6}" y1="${y+12}" x2="${x+6}" y2="${y+CELL_SIZE}" stroke="#000" stroke-width="2.5"/>
+                        <line x1="${x+6}" y1="${y+12}" x2="${x+6}" y2="${y+18}" stroke="#000" stroke-width="2.5"/>
                         <polygon points="${x+6},${y+12} ${x+1},${y+7} ${x+5},${y+3}" fill="#000"/>
-                        <text x="${x+22}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>
+                        <text x="${x+22}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
                        </g>`;
             } else if (type.startsWith('VT2')) { // PNP Транзистор
                 svg = `<g>
                         <circle cx="${x}" cy="${y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
                         <line x1="${x-6}" y1="${y-9}" x2="${x-6}" y2="${y+9}" stroke="#000" stroke-width="3.5"/>
-                        <line x1="${x-CELL_SIZE}" y1="${y}" x2="${x-6}" y2="${y}" stroke="#000" stroke-width="2.5"/>
+                        <line x1="${x-18}" y1="${y}" x2="${x-6}" y2="${y}" stroke="#000" stroke-width="2.5"/>
                         <line x1="${x-6}" y1="${y-4}" x2="${x+6}" y2="${y-12}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+6}" y1="${y-12}" x2="${x+6}" y2="${y-CELL_SIZE}" stroke="#000" stroke-width="2.5"/>
+                        <line x1="${x+6}" y1="${y-12}" x2="${x+6}" y2="${y-18}" stroke="#000" stroke-width="2.5"/>
                         <line x1="${x-6}" y1="${y+4}" x2="${x+6}" y2="${y+12}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+6}" y1="${y+12}" x2="${x+6}" y2="${y+CELL_SIZE}" stroke="#000" stroke-width="2.5"/>
+                        <line x1="${x+6}" y1="${y+12}" x2="${x+6}" y2="${y+18}" stroke="#000" stroke-width="2.5"/>
                         <polygon points="${x-6},${y+4} ${x-1},${y} ${x+1},${y+5}" fill="#000"/>
-                        <text x="${x+22}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>
+                        <text x="${x+22}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
                        </g>`;
-            } else if (type.startsWith('R')) { // Резистор (стыковка без разрывов)
-                svg = `<g ${transform}>
-                        <line x1="${x-CELL_SIZE*1.2}" y1="${y}" x2="${x-18}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+18}" y1="${y}" x2="${x+CELL_SIZE*1.2}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <rect x="${x-18}" y="${y-7}" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
-                       </g>
-                       <text x="${x}" y="${isVertical ? y+25 : y+22}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
+            } else if (type.startsWith('R')) { // Резистор
+                if (isVertical) {
+                    svg = `<g>
+                            <rect x="${x-7}" y="${y-18}" width="14" height="36" fill="#fff" stroke="#000" stroke-width="2.5"/>
+                            <text x="${x+14}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
+                           </g>`;
+                } else {
+                    svg = `<g>
+                            <rect x="${x-18}" y="${y-7}" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
+                            <text x="${x}" y="${y+22}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">${name}</text>
+                           </g>`;
+                }
             } else if (type.startsWith('C')) { // Конденсатор
-                svg = `<g ${transform}>
-                        <line x1="${x-CELL_SIZE*1.2}" y1="${y}" x2="${x-5}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+5}" y1="${y}" x2="${x+CELL_SIZE*1.2}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x-5}" y1="${y-12}" x2="${x-5}" y2="${y+12}" stroke="#000" stroke-width="3"/>
-                        <line x1="${x+5}" y1="${y-12}" x2="${x+5}" y2="${y+12}" stroke="#000" stroke-width="3"/>
-                       </g>
-                       <text x="${x+18}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>`;
+                if (isVertical) {
+                    svg = `<g>
+                            <rect x="${x-14}" y="${y-6}" width="28" height="12" fill="#fff"/>
+                            <line x1="${x-12}" y1="${y-5}" x2="${x+12}" y2="${y-5}" stroke="#000" stroke-width="3"/>
+                            <line x1="${x-12}" y1="${y+5}" x2="${x+12}" y2="${y+5}" stroke="#000" stroke-width="3"/>
+                            <text x="${x+18}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
+                           </g>`;
+                } else {
+                    svg = `<g>
+                            <rect x="${x-6}" y="${y-14}" width="12" height="28" fill="#fff"/>
+                            <line x1="${x-5}" y1="${y-12}" x2="${x-5}" y2="${y+12}" stroke="#000" stroke-width="3"/>
+                            <line x1="${x+5}" y1="${y-12}" x2="${x+5}" y2="${y+12}" stroke="#000" stroke-width="3"/>
+                            <text x="${x}" y="${y+24}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">${name}</text>
+                           </g>`;
+                }
             } else if (type.startsWith('VD')) { // Диод
-                svg = `<g ${transform}>
-                        <line x1="${x-CELL_SIZE*1.2}" y1="${y}" x2="${x+4}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <polygon points="${x-8},${y-6} ${x+4},${y} ${x-8},${y+6}" fill="#000"/>
-                        <line x1="${x+4}" y1="${y-7}" x2="${x+4}" y2="${y+7}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+4}" y1="${y}" x2="${x+CELL_SIZE*1.2}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                       </g>
-                       <text x="${x+18}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>`;
+                if (isVertical) {
+                    svg = `<g>
+                            <rect x="${x-12}" y="${y-12}" width="24" height="24" fill="#fff"/>
+                            <polygon points="${x-6},${y-8} ${x}"${y+4} ${x+6},${y-8}" fill="#000"/>
+                            <line x1="${x-7}" y1="${y+4}" x2="${x+7}" y2="${y+4}" stroke="#000" stroke-width="2.5"/>
+                            <text x="${x+16}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
+                           </g>`;
+                } else {
+                    svg = `<g>
+                            <rect x="${x-12}" y="${y-10}" width="24" height="20" fill="#fff"/>
+                            <polygon points="${x-8},${y-6} ${x+4},${y} ${x-8},${y+6}" fill="#000"/>
+                            <line x1="${x+4}" y1="${y-7}" x2="${x+4}" y2="${y+7}" stroke="#000" stroke-width="2.5"/>
+                            <text x="${x}" y="${y+22}" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">${name}</text>
+                           </g>`;
+                }
             } else if (type.startsWith('BF')) { // Динамик
-                svg = `<g ${transform}>
-                        <line x1="${x-CELL_SIZE*1.2}" y1="${y}" x2="${x-12}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+12}" y1="${y}" x2="${x+CELL_SIZE*1.2}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <rect x="${x-12}" y="${y-10}" width="24" height="20" fill="#fff" stroke="#000" stroke-width="2"/>
-                       </g>
-                       <text x="${x+18}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>`;
+                svg = `<g>
+                        <rect x="${x-12}" y="${y-12}" width="24" height="24" fill="#fff" stroke="#000" stroke-width="2"/>
+                        <text x="${x+16}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
+                       </g>`;
             } else if (type.startsWith('GB')) { // Источник питания
-                svg = `<g ${transform}>
-                        <line x1="${x-CELL_SIZE*1.2}" y1="${y}" x2="${x-8}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x+3}" y1="${y}" x2="${x+CELL_SIZE*1.2}" y2="${y}" stroke="#000" stroke-width="2.5"/>
-                        <line x1="${x-8}" y1="${y-10}" x2="${x-8}" y2="${y+10}" stroke="#000" stroke-width="3"/>
-                        <line x1="${x-3}" y1="${y-6}" x2="${x-3}" y2="${y+6}" stroke="#000" stroke-width="1.5"/>
-                        <line x1="${x+3}" y1="${y-10}" x2="${x+3}" y2="${y+10}" stroke="#000" stroke-width="3"/>
-                       </g>
-                       <text x="${x+18}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial">${name}</text>`;
+                svg = `<g>
+                        <rect x="${x-14}" y="${y-12}" width="28" height="24" fill="#fff"/>
+                        <line x1="${x-10}" y1="${y-8}" x2="${x+10}" y2="${y-8}" stroke="#000" stroke-width="3"/>
+                        <line x1="${x-5}" y1="${y-3}" x2="${x+5}" y2="${y-3}" stroke="#000" stroke-width="1.5"/>
+                        <line x1="${x-10}" y1="${y+2}" x2="${x+10}" y2="${y+2}" stroke="#000" stroke-width="3"/>
+                        <line x1="${x-5}" y1="${y+7}" x2="${x+5}" y2="${y+7}" stroke="#000" stroke-width="1.5"/>
+                        <text x="${x+16}" y="${y+4}" font-size="11" font-weight="bold" font-family="Arial" fill="#000">${name}</text>
+                       </g>`;
             } else {
-                svg = `<rect x="${x-15}" y="${y-8}" width="30" height="16" fill="#fff" stroke="#000" stroke-width="1.5"/>
-                       <text x="${x}" y="${y+4}" font-size="10" font-weight="bold" text-anchor="middle" font-family="Arial">${name}</text>`;
+                svg = `<g>
+                        <rect x="${x-15}" y="${y-8}" width="30" height="16" fill="#fff" stroke="#000" stroke-width="1.5"/>
+                        <text x="${x}" y="${y+4}" font-size="10" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">${name}</text>
+                       </g>`;
             }
 
             return svg;
