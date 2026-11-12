@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live ASCII to SVG Generator (Simple Default Schematic)</title>
+    <title>Live ASCII to SVG Generator</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -17,7 +17,7 @@
         
         textarea#ascii-input { 
             flex: 1; 
-            min-height: 350px; 
+            min-height: 300px; 
             background: #18181c; 
             color: #98c379; 
             border: none; 
@@ -59,13 +59,11 @@
             <textarea id="ascii-input" spellcheck="false"></textarea>
             
             <div class="bottom-editors">
-                <!-- 1. Редактор обозначений элементов -->
                 <div class="comp-editor-panel">
                     <div style="font-size: 10px; color: #61afef; margin-bottom: 4px; font-weight: bold;">ОБОЗНАЧЕНИЯ ЭЛЕМЕНТОВ В СХЕМЕ:</div>
                     <div id="components-list" class="comp-list"></div>
                 </div>
 
-                <!-- 2. Редактор SVG-кода самих графических элементов -->
                 <div class="svg-template-editor">
                     <div class="svg-template-controls">
                         <span style="font-size: 10px; color: #abb2bf; font-weight: bold;">РЕДАКТОР SVG-КОДА ЭЛЕМЕНТА:</span>
@@ -95,7 +93,6 @@
     </div>
 
     <script>
-        // Простая базовая схема по умолчанию (источник питания, резистор и диод)
         const defaultText = 
 `+--------[GB1]--------+
 |                     |
@@ -157,6 +154,11 @@
 
         textarea.value = defaultText;
         const CELL_SIZE = 24;
+
+        function copySVG() {
+            navigator.clipboard.writeText(svgOutput.outerHTML);
+            alert("SVG код скопирован!");
+        }
 
         function loadSVGTemplateToEdit() {
             const key = svgTypeSelect.value;
@@ -291,11 +293,6 @@
                                    .replace(/\{name\}/g, fullName);
 
             return `<g>${compiled}</g>`;
-        }
-
-        function copySVG() {
-            navigator.clipboard.writeText(svgOutput.outerHTML);
-            alert("SVG код скопирован!");
         }
 
         textarea.addEventListener('input', parseAndRender);
