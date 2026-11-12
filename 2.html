@@ -151,13 +151,74 @@
 <text x="{x}" y="{y}+4" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`
         };
 
+        const textarea = document.getElementById('ascii-input');
+        const renderLayer = document.getElementById('render-layer');
+        const svgOutput = document.getElementById('svg-output');
+        const componentsListEl = document.getElementById('components-list');
+        const svgTypeSelect = document.getElementById('svg-type-select');
+        const svgTemplateInput = document.getElementById('svg-template-input');
+
+        textarea.value = defaultText;
+        const CELL_SIZE = 24;
+
+        function copySVG() {
+            navigator.clipboard.writeText(svgOutput.outerHTML);
+            alert("SVG код скопирован!");
+        }
+
+        function loadSVGTemplateToEdit() {
+            const key = svgTypeSelect.value;
+            svgTemplateInput.value = customSVG[key] || '';
+        }
+
+        svgTemplateInput.addEventListener('input', () => {
+            const key = svgTypeSelect.value;
+            customSVG[key] = svgTemplateInput.value;
+            parseAndRender();
+        });
+
+        function updateComponentEditor(text) {
+            const compRegex = /\[([^\]]+)\]/g;
+            let matches = [];
+            let match;
+            while ((match = compRegex.exec(text)) !== null) {
+                if (!matches.includes(match[1])) matches.push(match[1]);
+            }
+
+            componentsListEl.innerHTML = '';
+            matches.forEach(compName => {
+                const item = document.createElement('div');
+                item.className = 'comp-item';
+                
+                const label = document.createElement('span');
+                label.innerText = compName.split(' ')[0] + ':';
+                
+                const input = document.createElement('input');
+                input.value = compName;
+                input.dataset.oldName = compName;
+                
+                input.addEventListener('input', (e) => {
+                    const oldStr = `[${e.target.dataset.oldName}]`;
+                    const newStr = `[${e.target.value}]`;
+                    if (textarea.value.includes(oldStr)) {
+                        textarea.value = textarea.value.replace(oldStr, newStr);
+                        e.target.dataset.oldName = e.target.value;
+                        parseAndRender();
+                    }
+                });
+
+                item.appendChild(label);
+                item.appendChild(input);
+                componentsListEl.appendChild(item);
+            });
+        }
+
         function parseAndRender() {
             const rawText = textarea.value;
             const lines = rawText.split('\n');
             
             updateComponentEditor(rawText);
 
-            // Очищаем теги элементов из сетки проводников без создания лишних отступов
             let wireLines = lines.map(line => {
                 return line.replace(/\[([^\]]+)\]/g, (match) => ' '.repeat(match.length));
             });
@@ -177,7 +238,6 @@
             const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
             const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
 
-            // 1. Отрисовка линий
             for (let r = 0; r < wireLines.length; r++) {
                 for (let c = 0; c < wireLines[r].length; c++) {
                     const ch = wireLines[r][c];
@@ -202,13 +262,12 @@
                         if (bottom)html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
 
                         if (count >= 3) {
-                            html += `<circle cx="${x}" cy="{y}" r="3.5" fill="#000"/>`.replace('{y}', y);
+                            html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
                         }
                     }
                 }
             }
 
-            // 2. Отрисовка элементов строго по центру ячейки без интервалов
             const compRegex = /\[([^\]]+)\]/g;
             for (let r = 0; r < lines.length; r++) {
                 let match;
@@ -234,10 +293,9 @@
 
         function renderComponent(fullName, x, y, isVertical) {
             const type = fullName.split(' ')[0].toUpperCase();
-            // Ищем подходящий шаблон по префиксу имени (R, C, VD, VT1 и т.д.), иначе берем DEFAULT
             let key = Object.keys(customSVG)
                 .filter(k => k !== 'DEFAULT')
-                .sort((a, b) => b.length - a.length) // Сначала проверяем более длинные ключи (VT1 перед V)
+                .sort((a, b) => b.length - a.length)
                 .find(k => type.startsWith(k)) || 'DEFAULT';
             
             let template = customSVG[key] || '';
