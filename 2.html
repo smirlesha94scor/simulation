@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live ASCII to SVG Generator</title>
+    <title>Live ASCII to SVG Generator (Clean Elements)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -100,6 +100,7 @@
 |                     |
 +--------[VD1]--------+`;
 
+        // SVG шаблоны компонентов без встроенных боковых палочек
         const customSVG = {
             VT1: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
 <line x1="{x}-6" y1="{y}-9" x2="{x}-6" y2="{y}+9" stroke="#000" stroke-width="3.5"/>
@@ -213,8 +214,9 @@
             
             updateComponentEditor(rawText);
 
+            // ИСПРАВЛЕНИЕ: Заменяем теги [NAME] на пробелы, чтобы они не превращались в линии
             let wireLines = lines.map(line => {
-                return line.replace(/\[([^\]]+)\]/g, (match) => '-'.repeat(match.length));
+                return line.replace(/\[([^\]]+)\]/g, (match) => ' '.repeat(match.length));
             });
 
             const maxCols = Math.max(...lines.map(l => l.length), 10);
