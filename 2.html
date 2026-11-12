@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live ASCII to SVG Generator (Corners with +)</title>
+    <title>Live ASCII to SVG Generator</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -31,15 +31,15 @@
         }
         
         .bottom-editors { background: #22222b; border-top: 1px solid #3a3a46; display: flex; flex-direction: column; flex-shrink: 0; }
-        .comp-editor-panel { padding: 8px 12px; border-bottom: 1px solid #3a3a46; max-height: 80px; overflow-y: auto; }
+        .comp-editor-panel { padding: 8px 12px; border-bottom: 1px solid #3a3a46; max-height: 85px; overflow-y: auto; }
         .comp-list { display: flex; flex-wrap: wrap; gap: 6px; }
         .comp-item { background: #2a2a32; border: 1px solid #3a3a46; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-size: 11px; }
-        .comp-item input { background: #18181c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 1px 4px; width: 65px; font-family: monospace; font-size: 11px; }
+        .comp-item input { background: #18181c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 1px 4px; width: 70px; font-family: monospace; font-size: 11px; }
         
         .svg-template-editor { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; background: #1b1b22; }
         .svg-template-controls { display: flex; gap: 10px; align-items: center; }
         .svg-template-controls select { background: #2a2a32; color: #61afef; border: 1px solid #3a3a46; padding: 2px 6px; border-radius: 3px; font-weight: bold; outline: none; font-size: 11px; }
-        .svg-template-code { width: 100%; height: 60px; background: #121215; color: #e06c75; border: 1px solid #3a3a46; padding: 6px; font-family: 'Courier New', monospace; font-size: 11px; border-radius: 4px; resize: none; outline: none; }
+        .svg-template-code { width: 100%; height: 70px; background: #121215; color: #e06c75; border: 1px solid #3a3a46; padding: 6px; font-family: 'Courier New', monospace; font-size: 11px; border-radius: 4px; resize: vertical; outline: none; }
 
         .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; height: 100%; }
         .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -75,6 +75,7 @@
                             <option value="VD">VD (Диод)</option>
                             <option value="BF">BF (Динамик)</option>
                             <option value="GB">GB (Батарея)</option>
+                            <option value="DEFAULT">Прочий блок [name]</option>
                         </select>
                     </div>
                     <textarea id="svg-template-input" class="svg-template-code" spellcheck="false" placeholder="SVG код элемента..."></textarea>
@@ -93,7 +94,6 @@
     </div>
 
     <script>
-        // Пример схемы с плюсами (+) на углах рамки
         const defaultText = 
 `+-------[GB1]-------+
 |                   |
@@ -122,16 +122,15 @@
 <polygon points="{x}-6,{y}+4 {x}-1,{y} {x}+1,{y}+5" fill="#000"/>
 <text x="{x}+22" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
 
-            R: `<rect x="{x}-20" y="{y}-12" width="40" height="24" fill="#fff"/>
-<rect x="{x}-18" y="{y}-7" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
+            R: `<rect x="{x}-18" y="{y}-7" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
 <text x="{x}" y="{y}+22" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
 
-            C: `<rect x="{x}-14" y="{y}-14" width="28" height="28" fill="#fff"/>
-<line x1="{x}-5" y1="{y}-20" x2="{x}-5" y2="{y}-2" stroke="#000" stroke-width="3"/>
-<line x1="{x}+5" y1="{y}-20" x2="{x}+5" y2="{y}-2" stroke="#000" stroke-width="3"/>
+            C: `<rect x="{x}-6" y="{y}-12" width="12" height="24" fill="#fff"/>
+<line x1="{x}-5" y1="{y}-12" x2="{x}-5" y2="{y}+12" stroke="#000" stroke-width="3"/>
+<line x1="{x}+5" y1="{y}-12" x2="{x}+5" y2="{y}+12" stroke="#000" stroke-width="3"/>
 <text x="{x}" y="{y}+24" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
 
-            VD: `<rect x="{x}-14" y="{y}-12" width="28" height="24" fill="#fff"/>
+            VD: `<rect x="{x}-10" y="{y}-10" width="20" height="20" fill="#fff"/>
 <polygon points="{x}-8,{y}-6 {x}+4,{y} {x}-8,{y}+6" fill="#000"/>
 <line x1="{x}+4" y1="{y}-7" x2="{x}+4" y2="{y}+7" stroke="#000" stroke-width="2.5"/>
 <text x="{x}" y="{y}+22" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
@@ -139,12 +138,15 @@
             BF: `<rect x="{x}-12" y="{y}-12" width="24" height="24" fill="#fff" stroke="#000" stroke-width="2"/>
 <text x="{x}+16" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
 
-            GB: `<rect x="{x}-16" y="{y}-14" width="32" height="28" fill="#fff"/>
+            GB: `<rect x="{x}-10" y="{y}-12" width="20" height="24" fill="#fff"/>
 <line x1="{x}-10" y1="{y}-8" x2="{x}+10" y2="{y}-8" stroke="#000" stroke-width="3"/>
 <line x1="{x}-5" y1="{y}-3" x2="{x}+5" y2="{y}-3" stroke="#000" stroke-width="1.5"/>
 <line x1="{x}-10" y1="{y}+2" x2="{x}+10" y2="{y}+2" stroke="#000" stroke-width="3"/>
 <line x1="{x}-5" y1="{y}+7" x2="{x}+5" y2="{y}+7" stroke="#000" stroke-width="1.5"/>
-<text x="{x}+18" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`
+<text x="{x}+16" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
+
+            DEFAULT: `<rect x="{x}-22" y="{y}-10" width="44" height="20" fill="#fff" stroke="#000" stroke-width="2"/>
+<text x="{x}" y="{y}+4" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`
         };
 
         const textarea = document.getElementById('ascii-input');
@@ -215,8 +217,23 @@
             
             updateComponentEditor(rawText);
 
-            let wireLines = lines.map(line => {
-                return line.replace(/\[([^\]]+)\]/g, (match) => ' '.repeat(match.length));
+            // Подготавливаем сетку проводников: заменяем [name] на линии, если элемент стоит на горизонтали,
+            // или на пробелы, если он стоит на вертикали (чтобы не рисовать лишних горизонтальных усов по бокам)
+            let wireLines = lines.map((line, r) => {
+                return line.replace(/\[([^\]]+)\]/g, (match, content, offset) => {
+                    const midCol = offset + Math.floor(match.length / 2);
+                    const hasVertAbove = r > 0 && lines[r - 1] && (lines[r - 1][midCol] === '|' || lines[r - 1][midCol] === '+');
+                    const hasVertBelow = r < lines.length - 1 && lines[r + 1] && (lines[r + 1][midCol] === '|' || lines[r + 1][midCol] === '+');
+                    
+                    if (hasVertAbove || hasVertBelow) {
+                        // Заменяем центральный символ на '|', остальные на пробелы
+                        let arr = Array(match.length).fill(' ');
+                        arr[Math.floor(match.length / 2)] = '|';
+                        return arr.join('');
+                    } else {
+                        return '-'.repeat(match.length);
+                    }
+                });
             });
 
             const maxCols = Math.max(...lines.map(l => l.length), 10);
@@ -234,6 +251,7 @@
             const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
             const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
 
+            // 1. Отрисовка проводников
             for (let r = 0; r < wireLines.length; r++) {
                 for (let c = 0; c < wireLines[r].length; c++) {
                     const ch = wireLines[r][c];
@@ -245,7 +263,6 @@
                     } else if (ch === '|') {
                         html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
                     } else if (ch === '+') {
-                        // Умная отрисовка плюсов: углы рисуются без точки соединения, тройники и крестовины — с точкой
                         const top = isWire(getWireChar(r - 1, c));
                         const bottom = isWire(getWireChar(r + 1, c));
                         const left = isWire(getWireChar(r, c - 1));
@@ -265,6 +282,7 @@
                 }
             }
 
+            // 2. Замена [name] на соответствующий графический элемент
             const compRegex = /\[([^\]]+)\]/g;
             for (let r = 0; r < lines.length; r++) {
                 let match;
@@ -273,13 +291,14 @@
                     const startCol = match.index;
                     const endCol = match.index + match[0].length;
                     
-                    const startX = startCol * CELL_SIZE + 40;
-                    const endX = (endCol - 1) * CELL_SIZE + 40;
-                    const centerX = (startX + endX) / 2;
-                    const centerY = r * CELL_SIZE + 40;
-
-                    const midCol = Math.floor((startCol + endCol) / 2);
+                    const midCol = startCol + Math.floor(match[0].length / 2);
                     const isVertical = getWireChar(r - 1, midCol) === '|' || getWireChar(r + 1, midCol) === '|';
+
+                    // Выравниваем центр элемента ровно по вертикальной линии, если он вертикальный
+                    const centerX = isVertical 
+                        ? (midCol * CELL_SIZE + 40) 
+                        : (((startCol * CELL_SIZE + 40) + ((endCol - 1) * CELL_SIZE + 40)) / 2);
+                    const centerY = r * CELL_SIZE + 40;
 
                     html += renderComponent(name, centerX, centerY, isVertical);
                 }
@@ -290,7 +309,11 @@
 
         function renderComponent(fullName, x, y, isVertical) {
             const type = fullName.split(' ')[0].toUpperCase();
-            let key = Object.keys(customSVG).find(k => type.startsWith(k)) || 'R';
+            // Ищем подходящий шаблон по префиксу имени (R, C, VD, VT1 и т.д.), иначе берем DEFAULT
+            let key = Object.keys(customSVG)
+                .filter(k => k !== 'DEFAULT')
+                .sort((a, b) => b.length - a.length) // Сначала проверяем более длинные ключи (VT1 перед V)
+                .find(k => type.startsWith(k)) || 'DEFAULT';
             
             let template = customSVG[key] || '';
             
