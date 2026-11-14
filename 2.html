@@ -17,7 +17,7 @@
         
         textarea#ascii-input { 
             flex: 1; 
-            min-height: 250px; 
+            min-height: 200px; 
             background: #18181c; 
             color: #98c379; 
             border: none; 
@@ -44,6 +44,15 @@
         .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; height: 100%; }
         .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
         #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }
+
+        /* Стили для панели отладки */
+        .debug-pane { height: 165px; background: #18181c; border-top: 1px solid #3a3a46; display: flex; flex-direction: column; flex-shrink: 0; }
+        .debug-content { display: flex; flex: 1; overflow: hidden; }
+        .debug-box { flex: 1; padding: 8px 12px; overflow: auto; font-family: 'Courier New', monospace; font-size: 12px; border-right: 1px solid #2a2a32; }
+        .debug-box:last-child { border-right: none; }
+        .debug-label { font-size: 10px; color: #e5c07b; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
+        #debug-wire-grid { color: #56b6c2; white-space: pre; line-height: 1.2; }
+        #debug-state-info { color: #abb2bf; white-space: pre-wrap; line-height: 1.35; }
     </style>
 </head>
 <body>
@@ -90,16 +99,31 @@
                     <g id="render-layer"></g>
                 </svg>
             </div>
+
+            <!-- Панель проверки работы парсера -->
+            <div class="debug-pane">
+                <div class="pane-title">🔍 Панель проверки парсера (Отладка)</div>
+                <div class="debug-content">
+                    <div class="debug-box">
+                        <div class="debug-label">Сетка проводов после замены тегов (wireLines):</div>
+                        <pre id="debug-wire-grid"></pre>
+                    </div>
+                    <div class="debug-box">
+                        <div class="debug-label">Ориентация элементов (verticalMap):</div>
+                        <div id="debug-state-info"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const defaultText = 
-`  +-------[GB1]-------+
-  |                   |
-[R1]                [C1]
-  |                   |
-  +-------[VD1]-------+`;
+        const defaultText = `    +-----[GB1]-----+
+    |               |
+  [R1]             [C1]
+    |               |
+    +-----[VD1]-----+`;
+
         const customSVG = {
             VT1: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
 <line x1="{x}-6" y1="{y}-9" x2="{x}-6" y2="{y}+9" stroke="#000" stroke-width="3.5"/>
@@ -156,6 +180,8 @@
         const componentsListEl = document.getElementById('components-list');
         const svgTypeSelect = document.getElementById('svg-type-select');
         const svgTemplateInput = document.getElementById('svg-template-input');
+        const debugWireGridEl = document.getElementById('debug-wire-grid');
+        const debugStateInfoEl = document.getElementById('debug-state-info');
 
         textarea.value = defaultText;
         const CELL_SIZE = 24;
@@ -218,9 +244,10 @@
             
             updateComponentEditor(rawText);
 
-            // Сначала определяем ориентацию каждого компонента, чтобы скорректировать сетку проводов
+            // 1. Определяем ориентацию каждого компонента
             const compRegex = /\[([^\]]+)\]/g;
             let verticalMap = {};
+            let debugLogs = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let match;
@@ -239,15 +266,15 @@
                         if (lines[r+1] && (lines[r+1][c] === '|' || lines[r+1][c] === '+')) hasVerticalBottom = true;
                     }
 
-                    if (hasVerticalTop && hasVerticalBottom) {
-                        if (!type.startsWith('VT')) {
-                            verticalMap[`${r},${midCol}`] = true;
-                        }
+                    const isVert = (hasVerticalTop && hasVerticalBottom && !type.startsWith('VT'));
+                    if (isVert) {
+                        verticalMap[`${r},${midCol}`] = true;
                     }
+                    debugLogs.push(`[${name}] (стр.${r+1}, кол.${startCol}-${endCol}, центр:${midCol}) → ${isVert ? 'ВЕРТИКАЛЬНЫЙ (|)' : 'ГОРИЗОНТАЛЬНЫЙ (-)'}`);
                 }
             }
 
-            // 2. И только потом заменяем текст тегов на провода нужной ориентации
+            // 2. Формируем сетку проводов с учетом ориентации
             let wireLines = lines.map((line, r) => {
                 let newLine = '';
                 for (let c = 0; c < line.length; c++) {
@@ -273,6 +300,10 @@
                 return newLine;
             });
 
+            // Выводим данные в панель проверки
+            debugWireGridEl.textContent = wireLines.join('\n');
+            debugStateInfoEl.textContent = debugLogs.length ? debugLogs.join('\n') : 'Элементы не найдены';
+
             const maxCols = Math.max(...lines.map(l => l.length), 10);
             const maxRows = Math.max(lines.length, 10);
             
@@ -288,7 +319,7 @@
             const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
             const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
 
-            // 1. Отрисовка линий
+            // 3. Отрисовка линий
             for (let r = 0; r < wireLines.length; r++) {
                 for (let c = 0; c < wireLines[r].length; c++) {
                     const ch = wireLines[r][c];
@@ -307,10 +338,10 @@
 
                         let count = (top?1:0) + (bottom?1:0) + (left?1:0) + (right?1:0);
 
-                        if (left)  html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (right) html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (top)   html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (bottom)html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
+                        if (left)   html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
+                        if (right)  html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
+                        if (top)    html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
+                        if (bottom) html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
 
                         if (count >= 3) {
                             html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
@@ -319,7 +350,7 @@
                 }
             }
 
-            // 2. Отрисовка элементов
+            // 4. Отрисовка элементов
             for (let r = 0; r < lines.length; r++) {
                 let match;
                 while ((match = compRegex.exec(lines[r])) !== null) {
