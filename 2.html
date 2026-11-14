@@ -219,9 +219,49 @@
             
             updateComponentEditor(rawText);
 
-            let wireLines = lines.map(line => {
-    return line.replace(/\[([^\]]+)\]/g, (match) => '-'.repeat(match.length));
-});
+            // Сначала определяем ориентацию каждого компонента, чтобы скорректировать сетку проводов
+            const compRegex = /\[([^\]]+)\]/g;
+            let verticalMap = {}; // хранит координаты вертикальных элементов
+
+            for (let r = 0; r < lines.length; r++) {
+                let match;
+                while ((match = compRegex.exec(lines[r])) !== null) {
+                    const name = match[1].trim();
+                    const type = name.split(' ')[0].toUpperCase();
+                    const startCol = match.index;
+                    const midCol = startCol + Math.floor(match[0].length / 2);
+                    
+                    // Проверяем, стоит ли элемент на вертикальной линии
+                    if (lines[r-1] && (lines[r-1][midCol] === '|' || lines[r-1][midCol] === '+') &&
+                        lines[r+1] && (lines[r+1][midCol] === '|' || lines[r+1][midCol] === '+')) {
+                        if (!type.startsWith('VT')) {
+                            verticalMap[`${r},${midCol}`] = true;
+                        }
+                    }
+                }
+            }
+
+            // Заменяем теги на символы проводов в зависимости от ориентации
+            let wireLines = lines.map((line, r) => {
+                let newLine = '';
+                for (let c = 0; c < line.length; c++) {
+                    if (line[c] === '[') {
+                        // Ищем конец тега
+                        let endIdx = line.indexOf(']', c);
+                        if (endIdx !== -1) {
+                            let midCol = c + Math.floor((endIdx - c) / 2);
+                            // Если элемент вертикальный, внутри него проводим вертикальную линию '|', иначе горизонтальную '-'
+                            let fillChar = verticalMap[`${r},${midCol}`] ? '|' : '-';
+                            newLine += fillChar.repeat(endIdx - c + 1);
+                            c = endIdx;
+                            continue;
+                        }
+                    }
+                    newLine += line[c];
+                }
+                return newLine;
+            });
+
             const maxCols = Math.max(...lines.map(l => l.length), 10);
             const maxRows = Math.max(lines.length, 10);
             
@@ -237,6 +277,7 @@
             const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
             const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
 
+            // 1. Отрисовка линий
             for (let r = 0; r < wireLines.length; r++) {
                 for (let c = 0; c < wireLines[r].length; c++) {
                     const ch = wireLines[r][c];
@@ -258,7 +299,7 @@
                         if (left)  html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (right) html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (top)   html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (bottom)html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
+                        if (bottom)html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
 
                         if (count >= 3) {
                             html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
@@ -267,7 +308,7 @@
                 }
             }
 
-            const compRegex = /\[([^\]]+)\]/g;
+            // 2. Отрисовка элементов
             for (let r = 0; r < lines.length; r++) {
                 let match;
                 while ((match = compRegex.exec(lines[r])) !== null) {
@@ -276,7 +317,7 @@
                     const endCol = match.index + match[0].length;
                     
                     const midCol = startCol + Math.floor(match[0].length / 2);
-                    const isVertical = getWireChar(r - 1, midCol) === '|' || getWireChar(r + 1, midCol) === '|';
+                    const isVertical = !!verticalMap[`${r},${midCol}`];
 
                     const centerX = isVertical 
                         ? (midCol * CELL_SIZE + 40) 
