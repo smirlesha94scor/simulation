@@ -242,17 +242,27 @@
             }
 
             // Заменяем теги на символы проводов в зависимости от ориентации
-            let wireLines = lines.map((line, r) => {
+           let wireLines = lines.map((line, r) => {
                 let newLine = '';
                 for (let c = 0; c < line.length; c++) {
                     if (line[c] === '[') {
-                        // Ищем конец тега
                         let endIdx = line.indexOf(']', c);
                         if (endIdx !== -1) {
                             let midCol = c + Math.floor((endIdx - c) / 2);
-                            // Если элемент вертикальный, внутри него проводим вертикальную линию '|', иначе горизонтальную '-'
-                            let fillChar = verticalMap[`${r},${midCol}`] ? '|' : '-';
-                            newLine += fillChar.repeat(endIdx - c + 1);
+                            let isVert = verticalMap[`${r},${midCol}`];
+                            
+                            // Если элемент вертикальный, проводим вертикальную линию только по центру, а по бокам — пробелы
+                            let replacement = '';
+                            for (let i = c; i <= endIdx; i++) {
+                                if (isVert && i === midCol) {
+                                    replacement += '|';
+                                } else if (!isVert && i === midCol) {
+                                    replacement += '-';
+                                } else {
+                                    replacement += ' ';
+                                }
+                            }
+                            newLine += replacement;
                             c = endIdx;
                             continue;
                         }
