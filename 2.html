@@ -9,67 +9,61 @@
         body { font-family: 'Segoe UI', monospace, sans-serif; background: #1e1e24; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         header { background: #2a2a32; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3a3a46; flex-shrink: 0; }
         h1 { font-size: 15px; color: #61afef; font-weight: 600; }
-        
+
         .main { display: flex; flex: 1; overflow: hidden; }
-        
+
         .editor-pane { width: 45%; border-right: 1px solid #3a3a46; display: flex; flex-direction: column; background: #25252d; height: 100%; }
         .pane-title { background: #1e1e24; padding: 6px 12px; font-size: 11px; color: #abb2bf; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #3a3a46; flex-shrink: 0; }
-        
-        textarea#ascii-input { 
-            flex: 1; 
-            min-height: 200px; 
-            background: #18181c; 
-            color: #98c379; 
-            border: none; 
-            padding: 14px; 
-            font-family: 'Courier New', Courier, monospace; 
-            font-size: 14px; 
-            line-height: 1.25; 
-            resize: vertical; 
-            outline: none; 
-            white-space: pre; 
+
+        textarea#ascii-input {
+            flex: 1;
+            min-height: 200px;
+            background: #18181c;
+            color: #98c379;
+            border: none;
+            padding: 14px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 1.25;
+            resize: vertical;
+            outline: none;
+            white-space: pre;
         }
-        
+
         .bottom-editors { background: #22222b; border-top: 1px solid #3a3a46; display: flex; flex-direction: column; flex-shrink: 0; }
-        .comp-editor-panel { padding: 8px 12px; border-bottom: 1px solid #3a3a46; max-height: 85px; overflow-y: auto; }
+        .comp-editor-panel { padding: 8px 12px; border-bottom: 1px solid #3a3a46; max-height: 110px; overflow-y: auto; }
         .comp-list { display: flex; flex-wrap: wrap; gap: 6px; }
         .comp-item { background: #2a2a32; border: 1px solid #3a3a46; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; font-size: 11px; }
-        .comp-item input { background: #18181c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 1px 4px; width: 70px; font-family: monospace; font-size: 11px; }
-        
+        .comp-item input { background: #18181c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 1px 4px; width: 60px; font-family: monospace; font-size: 11px; }
+        .comp-item input.val { width: 62px; color: #e5c07b; }
+
         .svg-template-editor { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; background: #1b1b22; }
         .svg-template-controls { display: flex; gap: 10px; align-items: center; }
         .svg-template-controls select { background: #2a2a32; color: #61afef; border: 1px solid #3a3a46; padding: 2px 6px; border-radius: 3px; font-weight: bold; outline: none; font-size: 11px; }
         .svg-template-code { width: 100%; height: 70px; background: #121215; color: #e06c75; border: 1px solid #3a3a46; padding: 6px; font-family: 'Courier New', monospace; font-size: 11px; border-radius: 4px; resize: vertical; outline: none; }
 
-        .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; height: 100%; }
-        .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }
+        .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; height: 100%; min-width: 0; }
+        .canvas-wrapper { flex: 1; overflow: auto; display: flex; padding: 20px; }
+        #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; margin: auto; flex-shrink: 0; }
 
-        /* Стили для панели отладки */
-        .debug-pane { height: 165px; background: #18181c; border-top: 1px solid #3a3a46; display: flex; flex-direction: column; flex-shrink: 0; }
-        .debug-content { display: flex; flex: 1; overflow: hidden; }
-        .debug-box { flex: 1; padding: 8px 12px; overflow: auto; font-family: 'Courier New', monospace; font-size: 12px; border-right: 1px solid #2a2a32; }
-        .debug-box:last-child { border-right: none; }
-        .debug-label { font-size: 10px; color: #e5c07b; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
-        #debug-wire-grid { color: #56b6c2; white-space: pre; line-height: 1.2; }
-        #debug-state-info { color: #abb2bf; white-space: pre-wrap; line-height: 1.35; }
     </style>
 </head>
 <body>
 
     <header>
         <h1>⚡ Генератор схем в реальном времени</h1>
+        <label style="font-size:12px; color:#abb2bf; margin-left:auto; margin-right:14px; cursor:pointer;"><input type="checkbox" id="flow-toggle" checked> Показать ток</label>
         <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">📋 Копировать SVG</button>
     </header>
 
     <div class="main">
         <div class="editor-pane">
-            <div class="pane-title">Текстовый ввод (ASCII Схема)</div>
+            <div class="pane-title">Текстовый ввод (ASCII Схема) · # — пересечение проводов без точки</div>
             <textarea id="ascii-input" spellcheck="false"></textarea>
-            
+
             <div class="bottom-editors">
                 <div class="comp-editor-panel">
-                    <div style="font-size: 10px; color: #61afef; margin-bottom: 4px; font-weight: bold;">ОБОЗНАЧЕНИЯ ЭЛЕМЕНТОВ В СХЕМЕ:</div>
+                    <div style="font-size: 10px; color: #61afef; margin-bottom: 4px; font-weight: bold;">ОБОЗНАЧЕНИЯ И НОМИНАЛЫ ЭЛЕМЕНТОВ:</div>
                     <div id="components-list" class="comp-list"></div>
                 </div>
 
@@ -80,10 +74,12 @@
                             <option value="VT1">VT1 (NPN Транзистор)</option>
                             <option value="VT2">VT2 (PNP Транзистор)</option>
                             <option value="R">R (Резистор)</option>
+                            <option value="R1">R1 (Резистор с косыми штрихами)</option>
                             <option value="C">C (Конденсатор)</option>
                             <option value="VD">VD (Диод)</option>
                             <option value="BF">BF (Динамик)</option>
                             <option value="GB">GB (Батарея)</option>
+                            <option value="E">E (Разъём / штекер)</option>
                             <option value="DEFAULT">Прочий блок [name]</option>
                         </select>
                     </div>
@@ -91,7 +87,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="preview-pane">
             <div class="pane-title">Реальное время (SVG Отрисовка)</div>
             <div class="canvas-wrapper">
@@ -99,76 +95,94 @@
                     <g id="render-layer"></g>
                 </svg>
             </div>
-
-            <!-- Панель проверки работы парсера -->
-            <div class="debug-pane">
-                <div class="pane-title">🔍 Панель проверки парсера (Отладка)</div>
-                <div class="debug-content">
-                    <div class="debug-box">
-                        <div class="debug-label">Сетка проводов после замены тегов (wireLines):</div>
-                        <pre id="debug-wire-grid"></pre>
-                    </div>
-                    <div class="debug-box">
-                        <div class="debug-label">Ориентация элементов (verticalMap):</div>
-                        <div id="debug-state-info"></div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
     <script>
+        /*
+          Правила разметки:
+          [R1] [C1] ... — элементы; номинал задаётся в панели «Обозначения и номиналы».
+          Горизонтальные элементы лежат на проводе; вертикальные определяются по '|' / '+' над и под центром тега.
+          Транзистор [VTn]: символ '[' = база (провод слева), второй символ = колонка вывода К/Э.
+          Маркер эмиттера в конце имени: [VT1] или [VT1_] — эмиттер снизу, [VT1^] — эмиттер сверху.
+          '+' — угол/узел (точка при 3+ связях), '#' — пересечение без соединения.
+        */
         const defaultText =
-`   +-----[GB1]-----+
-   |               |
- [R1]            [C1]
-   |               |
-   +-----[VD1]-----+`;
+`                 +----+----+----+
+                 |    |    |    |
+               [VD1]  |  [BF1]  |
+                 |    |    |    |
+            +[C1]+[C2]#----+    |
+            |         |    |    |
+[E1]--[R1]--+--[R2]--[VT1^]|  [GB1]
+                      |    |    |
+                      +---[VT2] |
+                           |    |
+[E2]-----------------------+----+`;
+
+        const compValues = {
+            R1: '750k', R2: '470k',
+            C1: '47н', C2: '6800',
+            VD1: 'Д9Б',
+            VT1: 'KT315A', VT2: 'KT361',
+            GB1: '9 В'
+        };
 
         const customSVG = {
             VT1: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
 <line x1="{x}-6" y1="{y}-9" x2="{x}-6" y2="{y}+9" stroke="#000" stroke-width="3.5"/>
 <line x1="{x}-18" y1="{y}" x2="{x}-6" y2="{y}" stroke="#000" stroke-width="2.5"/>
 <line x1="{x}-6" y1="{y}-4" x2="{x}+6" y2="{y}-12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}-12" x2="{x}+6" y2="{y}-18" stroke="#000" stroke-width="2.5"/>
+<line x1="{x}+6" y1="{y}-12" x2="{x}+6" y2="{y}-24" stroke="#000" stroke-width="2.5"/>
 <line x1="{x}-6" y1="{y}+4" x2="{x}+6" y2="{y}+12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}+12" x2="{x}+6" y2="{y}+18" stroke="#000" stroke-width="2.5"/>
-<polygon points="{x}+6,{y}+12 {x}+1,{y}+7 {x}+5,{y}+3" fill="#000"/>
-<text x="{x}+22" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
+<line x1="{x}+6" y1="{y}+12" x2="{x}+6" y2="{y}+24" stroke="#000" stroke-width="2.5"/>
+<polygon points="{x}+6,{y}+12 {x}-3,{y}+10 {x}+0,{y}+4" fill="#000"/>
+<text x="{x}-4" y="{y}+28" font-size="11" font-weight="bold" text-anchor="end" font-family="Arial" fill="#000">{name}</text>
+<text x="{x}-4" y="{y}+40" font-size="11" text-anchor="end" font-family="Arial" fill="#000">{val}</text>`,
 
             VT2: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
 <line x1="{x}-6" y1="{y}-9" x2="{x}-6" y2="{y}+9" stroke="#000" stroke-width="3.5"/>
 <line x1="{x}-18" y1="{y}" x2="{x}-6" y2="{y}" stroke="#000" stroke-width="2.5"/>
 <line x1="{x}-6" y1="{y}-4" x2="{x}+6" y2="{y}-12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}-12" x2="{x}+6" y2="{y}-18" stroke="#000" stroke-width="2.5"/>
+<line x1="{x}+6" y1="{y}-12" x2="{x}+6" y2="{y}-24" stroke="#000" stroke-width="2.5"/>
 <line x1="{x}-6" y1="{y}+4" x2="{x}+6" y2="{y}+12" stroke="#000" stroke-width="2.5"/>
-<line x1="{x}+6" y1="{y}+12" x2="{x}+6" y2="{y}+18" stroke="#000" stroke-width="2.5"/>
-<polygon points="{x}-6,{y}+4 {x}-1,{y} {x}+1,{y}+5" fill="#000"/>
-<text x="{x}+22" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
+<line x1="{x}+6" y1="{y}+12" x2="{x}+6" y2="{y}+24" stroke="#000" stroke-width="2.5"/>
+<polygon points="{x}-5,{y}+5 {x}+1,{y}+13 {x}+4,{y}+7" fill="#000"/>
+<text x="{x}-4" y="{y}+28" font-size="11" font-weight="bold" text-anchor="end" font-family="Arial" fill="#000">{name}</text>
+<text x="{x}-4" y="{y}+40" font-size="11" text-anchor="end" font-family="Arial" fill="#000">{val}</text>`,
 
-            R: `<rect x="{x}-18" y="{y}-10" width="36" height="20" fill="#fff"/>
-<rect x="{x}-18" y="{y}-7" width="36" height="14" fill="#fff" stroke="#000" stroke-width="2.5"/>
-<text x="{x}" y="{y}+22" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
+            R: `<rect x="{x}-22" y="{y}-8" width="44" height="16" fill="#fff" stroke="#000" stroke-width="2.5"/>
+<text x="{x}" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name} {val}</text>`,
+
+            R1: `<rect x="{x}-22" y="{y}-8" width="44" height="16" fill="#fff" stroke="#000" stroke-width="2.5"/>
+<line x1="{x}-9" y1="{y}+8" x2="{x}-3" y2="{y}-8" stroke="#000" stroke-width="1.5" stroke-dasharray="3 2"/>
+<line x1="{x}+3" y1="{y}+8" x2="{x}+9" y2="{y}-8" stroke="#000" stroke-width="1.5" stroke-dasharray="3 2"/>
+<text x="{x}" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name} {val}</text>`,
 
             C: `<rect x="{x}-5" y="{y}-12" width="10" height="24" fill="#fff"/>
 <line x1="{x}-5" y1="{y}-12" x2="{x}-5" y2="{y}+12" stroke="#000" stroke-width="3"/>
 <line x1="{x}+5" y1="{y}-12" x2="{x}+5" y2="{y}+12" stroke="#000" stroke-width="3"/>
-<text x="{x}" y="{y}+24" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
+<text x="{x}" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name} {val}</text>`,
 
-            VD: `<polygon points="{x}-8,{y}-6 {x}+4,{y} {x}-8,{y}+6" fill="#000"/>
-<line x1="{x}+4" y1="{y}-7" x2="{x}+4" y2="{y}+7" stroke="#000" stroke-width="2.5"/>
-<text x="{x}" y="{y}+22" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
+            VD: `<polygon points="{x}-9,{y}-8 {x}+5,{y} {x}-9,{y}+8" fill="#000"/>
+<line x1="{x}+5" y1="{y}-8" x2="{x}+5" y2="{y}+8" stroke="#000" stroke-width="2.5"/>
+<text x="{x}" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name} {val}</text>`,
 
-            BF: `<rect x="{x}-12" y="{y}-12" width="24" height="24" fill="#fff" stroke="#000" stroke-width="2"/>
-<text x="{x}+16" y="{y}+4" font-size="11" font-weight="bold" font-family="Arial" fill="#000">{name}</text>`,
+            BF: `<polygon points="{x}-2,{y}-8 {x}-12,{y}-16 {x}-12,{y}+16 {x}-2,{y}+8" fill="#fff" stroke="#000" stroke-width="2.5" stroke-linejoin="miter"/>
+<rect x="{x}-2" y="{y}-8" width="10" height="16" fill="#fff" stroke="#000" stroke-width="2.5"/>
+<text x="{x}" y="{y}+30" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
 
-            GB: `<rect x="{x}-12" y="{y}-12" width="24" height="24" fill="#fff"/>
-<line x1="{x}-12" y1="{y}-6" x2="{x}-12" y2="{y}+6" stroke="#000" stroke-width="1.5"/>
-<line x1="{x}-7" y1="{y}-10" x2="{x}-7" y2="{y}+10" stroke="#000" stroke-width="3"/>
-<line x1="{x}-7" y1="{y}" x2="{x}+7" y2="{y}" stroke="#000" stroke-width="2" stroke-dasharray="3, 3"/>
-<line x1="{x}+7" y1="{y}-10" x2="{x}+7" y2="{y}+10" stroke="#000" stroke-width="3"/>
-<line x1="{x}+12" y1="{y}-6" x2="{x}+12" y2="{y}+6" stroke="#000" stroke-width="1.5"/>
-<text x="{x}" y="{y}+24" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
+            GB: `<rect x="{x}-26" y="{y}-12" width="52" height="24" fill="#fff"/>
+<line x1="{x}-26" y1="{y}-7" x2="{x}-26" y2="{y}+7" stroke="#000" stroke-width="4"/>
+<line x1="{x}-20" y1="{y}-12" x2="{x}-20" y2="{y}+12" stroke="#000" stroke-width="2"/>
+<line x1="{x}-20" y1="{y}" x2="{x}+20" y2="{y}" stroke="#000" stroke-width="2" stroke-dasharray="3 3"/>
+<line x1="{x}+20" y1="{y}-7" x2="{x}+20" y2="{y}+7" stroke="#000" stroke-width="4"/>
+<line x1="{x}+26" y1="{y}-12" x2="{x}+26" y2="{y}+12" stroke="#000" stroke-width="2"/>
+<text x="{x}" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name} {val}</text>`,
+
+            E: `<rect x="{x}-36" y="{y}-7" width="38" height="14" fill="#000"/>
+<rect x="{x}+2" y="{y}-4" width="12" height="8" fill="#000"/>
+<text x="{x}-12" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`,
 
             DEFAULT: `<rect x="{x}-22" y="{y}-10" width="44" height="20" fill="#fff" stroke="#000" stroke-width="2"/>
 <text x="{x}" y="{y}+4" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name}</text>`
@@ -180,12 +194,15 @@
         const componentsListEl = document.getElementById('components-list');
         const svgTypeSelect = document.getElementById('svg-type-select');
         const svgTemplateInput = document.getElementById('svg-template-input');
-        const debugWireGridEl = document.getElementById('debug-wire-grid');
-        const debugStateInfoEl = document.getElementById('debug-state-info');
 
         textarea.value = defaultText;
         const CELL_SIZE = 24;
         const WIRE_W = 2.5;
+        let lastCompSig = null;
+
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        // убирает маркер эмиттера (^ или _) в конце имени транзистора
+        const cleanName = (n) => n.toUpperCase().startsWith('VT') ? n.replace(/[\^_]$/, '') : n;
 
         function copySVG() {
             navigator.clipboard.writeText(svgOutput.outerHTML);
@@ -203,38 +220,65 @@
             parseAndRender();
         });
 
-        function updateComponentEditor(text) {
-            const compRegex = /\[([^\]]+)\]/g;
-            let matches = [];
-            let match;
-            while ((match = compRegex.exec(text)) !== null) {
-                if (!matches.includes(match[1])) matches.push(match[1]);
+        function getNames(text) {
+            const re = /\[([^\]]+)\]/g;
+            const names = [];
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                if (!names.includes(m[1])) names.push(m[1]);
             }
+            return names;
+        }
+
+        function updateComponentEditor(text) {
+            const names = getNames(text);
+            const sig = names.join('\u0001');
+            if (sig === lastCompSig) return; // не пересоздаём поля, чтобы не терять фокус
+            lastCompSig = sig;
 
             componentsListEl.innerHTML = '';
-            matches.forEach(compName => {
+            names.forEach(compName => {
                 const item = document.createElement('div');
                 item.className = 'comp-item';
-                
-                const label = document.createElement('span');
-                label.innerText = compName.split(' ')[0] + ':';
-                
+
                 const input = document.createElement('input');
                 input.value = compName;
+                input.title = 'Обозначение';
                 input.dataset.oldName = compName;
-                
+
+                const valInput = document.createElement('input');
+                valInput.className = 'val';
+                valInput.placeholder = 'номинал';
+                valInput.title = 'Номинал / тип';
+                valInput.value = compValues[cleanName(compName)] || '';
+                valInput.dataset.name = cleanName(compName);
+
                 input.addEventListener('input', (e) => {
-                    const oldStr = `[${e.target.dataset.oldName}]`;
-                    const newStr = `[${e.target.value}]`;
-                    if (textarea.value.includes(oldStr)) {
-                        textarea.value = textarea.value.replace(oldStr, newStr);
-                        e.target.dataset.oldName = e.target.value;
-                        parseAndRender();
+                    const oldName = e.target.dataset.oldName;
+                    const newName = e.target.value;
+                    if (!newName.trim() || newName.includes(']')) return;
+                    const oldStr = `[${oldName}]`;
+                    const newStr = `[${newName}]`;
+                    if (!textarea.value.includes(oldStr)) return;
+                    textarea.value = textarea.value.split(oldStr).join(newStr);
+                    const oldKey = cleanName(oldName), newKey = cleanName(newName);
+                    if (oldKey !== newKey && oldKey in compValues) {
+                        compValues[newKey] = compValues[oldKey];
+                        delete compValues[oldKey];
                     }
+                    e.target.dataset.oldName = newName;
+                    valInput.dataset.name = newKey;
+                    lastCompSig = getNames(textarea.value).join('\u0001');
+                    parseAndRender();
                 });
 
-                item.appendChild(label);
+                valInput.addEventListener('input', (e) => {
+                    compValues[e.target.dataset.name] = e.target.value;
+                    parseAndRender();
+                });
+
                 item.appendChild(input);
+                item.appendChild(valInput);
                 componentsListEl.appendChild(item);
             });
         }
@@ -242,13 +286,12 @@
         function parseAndRender() {
             const rawText = textarea.value;
             const lines = rawText.split('\n');
-            
+
             updateComponentEditor(rawText);
 
-            // 1. Строгое определение ориентации по центру тега
+            // 1. Определение ориентации по символам над и под центром тега
             const compRegex = /\[([^\]]+)\]/g;
             let verticalMap = {};
-            let debugLogs = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let match;
@@ -257,11 +300,10 @@
                     const type = name.split(' ')[0].toUpperCase();
                     const startCol = match.index;
                     const midCol = startCol + Math.floor(match[0].length / 2);
-                    
-                    let topRow = lines[r-1];
-                    let botRow = lines[r+1];
-                    
-                    // Проверяем строго символ, находящийся ровно по центру тега (midCol)
+
+                    let topRow = lines[r - 1];
+                    let botRow = lines[r + 1];
+
                     let topCh = (topRow && midCol < topRow.length) ? topRow[midCol] : ' ';
                     let botCh = (botRow && midCol < botRow.length) ? botRow[midCol] : ' ';
 
@@ -272,32 +314,29 @@
                     if (isVert) {
                         verticalMap[`${r},${midCol}`] = true;
                     }
-
-                    debugLogs.push(
-                        `[${name}] стр.${r+1}, центр колонка: ${midCol}\n` +
-                        `  Сверху: '${topCh}' → ${hasVerticalTop ? '✓' : '✗'}\n` +
-                        `  Снизу: '${botCh}' → ${hasVerticalBottom ? '✓' : '✗'}\n` +
-                        `  Итог: ${isVert ? 'ВЕРТИКАЛЬНЫЙ (|)' : 'ГОРИЗОНТАЛЬНЫЙ (-)'}\n`
-                    );
                 }
             }
 
-            // 2. Формируем сетку проводов с учетом ориентации
+            // 2. Сетка проводов с учётом ориентации
             let wireLines = lines.map((line, r) => {
                 let newLine = '';
                 for (let c = 0; c < line.length; c++) {
                     if (line[c] === '[') {
                         let endIdx = line.indexOf(']', c);
                         if (endIdx !== -1) {
-                            let midCol = c + Math.floor((endIdx - c + 1) / 2);
-                            let isVert = verticalMap[`${r},${midCol}`];
-                            
-                            if (isVert) {
+                            const len = endIdx - c + 1;
+                            const type = line.slice(c + 1, endIdx).trim().split(' ')[0].toUpperCase();
+                            let midCol = c + Math.floor(len / 2);
+
+                            if (type.startsWith('VT')) {
+                                // только вывод базы в первой клетке тега
+                                newLine += '-' + ' '.repeat(len - 1);
+                            } else if (verticalMap[`${r},${midCol}`]) {
                                 for (let i = c; i <= endIdx; i++) {
                                     newLine += (i === midCol) ? '|' : ' ';
                                 }
                             } else {
-                                newLine += '-'.repeat(endIdx - c + 1);
+                                newLine += '-'.repeat(len);
                             }
                             c = endIdx;
                             continue;
@@ -308,13 +347,9 @@
                 return newLine;
             });
 
-            // Выводим данные в панель проверки
-            debugWireGridEl.textContent = wireLines.join('\n');
-            debugStateInfoEl.textContent = debugLogs.length ? debugLogs.join('\n') : 'Элементы не найдены';
-
             const maxCols = Math.max(...lines.map(l => l.length), 10);
             const maxRows = Math.max(lines.length, 10);
-            
+
             const width = Math.max(maxCols * CELL_SIZE + 60, 400);
             const height = Math.max(maxRows * CELL_SIZE + 60, 300);
 
@@ -323,22 +358,18 @@
             svgOutput.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
             const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
-            const isH = (ch) => ch === '-' || ch === '+';
-            const isV = (ch) => ch === '|' || ch === '+';
+            const isH = (ch) => ch === '-' || ch === '+' || ch === '#';
+            const isV = (ch) => ch === '|' || ch === '+' || ch === '#';
 
-            // Есть ли горизонтальная связь между (r,c) и (r,c+1)
             const hLink = (r, c) => isH(getWireChar(r, c)) && isH(getWireChar(r, c + 1));
-            // Есть ли вертикальная связь между (r,c) и (r+1,c)
             const vLink = (r, c) => isV(getWireChar(r, c)) && isV(getWireChar(r + 1, c));
 
             const px = (c) => c * CELL_SIZE + 40;
             const py = (r) => r * CELL_SIZE + 40;
 
-            // 3. Провода: сплошные линии от центра клетки до центра клетки.
-            // Одинаковый цвет и квадратные концы -> стыки и углы сливаются в одну линию.
+            // 3. Провода
             let d = '';
 
-            // горизонтальные участки
             for (let r = 0; r < wireLines.length; r++) {
                 let c = 0;
                 const len = wireLines[r].length;
@@ -353,7 +384,6 @@
                 }
             }
 
-            // вертикальные участки
             for (let c = 0; c < maxCols; c++) {
                 let r = 0;
                 while (r < wireLines.length) {
@@ -389,15 +419,21 @@
                 let match;
                 while ((match = compRegex.exec(lines[r])) !== null) {
                     const name = match[1].trim();
+                    const type = name.split(' ')[0].toUpperCase();
                     const startCol = match.index;
                     const endCol = match.index + match[0].length;
-                    
+
                     const midCol = startCol + Math.floor(match[0].length / 2);
                     const isVertical = !!verticalMap[`${r},${midCol}`];
 
-                    const centerX = isVertical 
-                        ? px(midCol)
-                        : ((px(startCol) + px(endCol - 1)) / 2);
+                    let centerX;
+                    if (type.startsWith('VT')) {
+                        centerX = px(startCol + 1) - 6; // коллектор/эмиттер ровно в колонке startCol+1
+                    } else if (isVertical) {
+                        centerX = px(midCol);
+                    } else {
+                        centerX = (px(startCol) + px(endCol - 1)) / 2;
+                    }
                     const centerY = py(r);
 
                     html += renderComponent(name, centerX, centerY, isVertical);
@@ -407,21 +443,153 @@
             renderLayer.innerHTML = html;
         }
 
-        function renderComponent(fullName, x, y, isVertical) {
+        function templateKey(type) {
+            return Object.keys(customSVG)
+                .filter(k => k !== 'DEFAULT')
+                .sort((a, b) => b.length - a.length)
+                .find(k => type.startsWith(k)) || 'DEFAULT';
+        }
+
+        /*
+          Ток идёт от «+» батареи (внизу у вертикальной GB) по проводам к «−».
+          Правила: R, BF, E — проводят в обе стороны; C — постоянный ток не пропускает;
+          VD — от анода к катоду; NPN — от К к Э и от Б к Э; PNP — от Э к К и от Э к Б.
+          Анимируются только участки, лежащие на пути «плюс → минус».
+        */
+        function buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
+            if (!document.getElementById('flow-toggle').checked) return '';
+            const re = /\[([^\]]+)\]/g;
+            const nid = (r, c, p) => getWireChar(r, c) === '#' ? `${r},${c},${p}` : `${r},${c}`;
+            const adj = new Map(), radj = new Map();
+            const edge = (a, b) => {
+                if (!adj.has(a)) adj.set(a, []);
+                if (!radj.has(b)) radj.set(b, []);
+                adj.get(a).push(b);
+                radj.get(b).push(a);
+            };
+            const cut = new Set(), srcs = [], sinks = [], elems = [];
+
+            for (let r = 0; r < lines.length; r++) {
+                let m;
+                while ((m = re.exec(lines[r])) !== null) {
+                    const raw = m[1].trim();
+                    const type = raw.split(' ')[0].toUpperCase();
+                    const s = m.index, e = s + m[0].length, mid = s + Math.floor(m[0].length / 2);
+                    const key = templateKey(type);
+
+                    if (type.startsWith('VT')) {
+                        const col = s + 1;
+                        const top = nid(r - 1, col, 'v'), bot = nid(r + 1, col, 'v'), base = nid(r, s, 'h');
+                        const flip = /\^$/.test(raw);
+                        const c = flip ? bot : top, em = flip ? top : bot;
+                        if (key === 'VT2') { edge(em, c); edge(em, base); }
+                        else { edge(c, em); edge(base, em); }
+                        continue;
+                    }
+
+                    const vert = !!verticalMap[`${r},${mid}`];
+                    let A, B;
+                    if (vert) {
+                        A = nid(r - 1, mid, 'v'); B = nid(r + 1, mid, 'v');
+                        cut.add(`v${r - 1},${mid}`); cut.add(`v${r},${mid}`);
+                    } else {
+                        A = nid(r, s, 'h'); B = nid(r, e - 1, 'h');
+                        for (let c = s; c < e - 1; c++) cut.add(`h${r},${c}`);
+                    }
+                    elems.push({ key, A, B, vert });
+                }
+            }
+
+            const segs = [];
+            for (let r = 0; r < wireLines.length; r++) {
+                for (let c = 0; c < wireLines[r].length; c++) {
+                    if (hLink(r, c) && !cut.has(`h${r},${c}`)) {
+                        const a = nid(r, c, 'h'), b = nid(r, c + 1, 'h');
+                        edge(a, b); edge(b, a);
+                        segs.push([a, b, c, r, c + 1, r]);
+                    }
+                    if (vLink(r, c) && !cut.has(`v${r},${c}`)) {
+                        const a = nid(r, c, 'v'), b = nid(r + 1, c, 'v');
+                        edge(a, b); edge(b, a);
+                        segs.push([a, b, c, r, c, r + 1]);
+                    }
+                }
+            }
+
+            elems.forEach(({ key, A, B, vert }) => {
+                if (key === 'C') return;
+                if (key === 'GB') { srcs.push(B); sinks.push(A); return; } // плюс: снизу / справа
+                if (key === 'VD') { if (vert) edge(B, A); else edge(A, B); return; }
+                edge(A, B); edge(B, A);
+            });
+
+            // расстояние до «−», затем спуск от «+» только в сторону уменьшения расстояния
+            const dts = new Map();
+            let q = [...sinks];
+            sinks.forEach(s => dts.set(s, 0));
+            while (q.length) {
+                const n = q.shift();
+                (radj.get(n) || []).forEach(p => {
+                    if (!dts.has(p)) { dts.set(p, dts.get(n) + 1); q.push(p); }
+                });
+            }
+            const live = new Set();
+            q = srcs.filter(s => dts.has(s));
+            q.forEach(s => live.add(s));
+            while (q.length) {
+                const n = q.shift();
+                (adj.get(n) || []).forEach(t => {
+                    if (!live.has(t) && dts.has(t) && dts.get(t) < dts.get(n)) { live.add(t); q.push(t); }
+                });
+            }
+
+            let d = '';
+            segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                if (!live.has(a) || !live.has(b)) return;
+                const da = dts.get(a), db = dts.get(b);
+                if (da === db) return;
+                d += da > db
+                    ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
+                    : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
+            });
+            if (!d) return '';
+            return `<path d="${d}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 11.9"><animate attributeName="stroke-dashoffset" from="0" to="-12" dur="0.7s" repeatCount="indefinite"/></path>`;
+        }
+
+        function renderComponent(rawName, x, y, isVertical) {
+            // маркер эмиттера у транзистора: [VT1^] — эмиттер сверху, [VT1_] или без знака — снизу
+            const isTr = rawName.toUpperCase().startsWith('VT');
+            const flip = isTr && /\^$/.test(rawName);
+            const fullName = cleanName(rawName);
             const type = fullName.split(' ')[0].toUpperCase();
             let key = Object.keys(customSVG)
                 .filter(k => k !== 'DEFAULT')
                 .sort((a, b) => b.length - a.length)
                 .find(k => type.startsWith(k)) || 'DEFAULT';
-            
+
+            const parts = fullName.split(' ');
+            const val = compValues[fullName] || parts.slice(1).join(' ');
+
             let template = customSVG[key] || '';
-            
+
             let compiled = template.replace(/\{x\}([\+\-]\d+)?/g, (_, offset) => x + (offset ? parseInt(offset) : 0))
                                    .replace(/\{y\}([\+\-]\d+)?/g, (_, offset) => y + (offset ? parseInt(offset) : 0))
-                                   .replace(/\{name\}/g, fullName);
+                                   .replace(/\{name\}/g, () => esc(parts[0]))
+                                   .replace(/\{val\}/g, () => esc(val));
 
             if (isVertical && !type.startsWith('VT')) {
-                return `<g transform="rotate(90 ${x} ${y})">${compiled}</g>`;
+                const rot = type.startsWith('VD') ? -90 : 90; // диод стрелкой вверх
+                const body = compiled.replace(/<text[\s\S]*?<\/text>/g, '');
+                const st = 'font-size="11" font-family="Arial" fill="#000"';
+                let label = `<text x="${x + 20}" y="${y - 1}" ${st} font-weight="bold">${esc(parts[0])}</text>`;
+                if (val) label += `<text x="${x + 20}" y="${y + 12}" ${st}>${esc(val)}</text>`;
+                return `<g transform="rotate(${rot} ${x} ${y})">${body}</g>${label}`;
+            }
+
+            if (flip) {
+                const texts = compiled.match(/<text[\s\S]*?<\/text>/g) || [];
+                const body = compiled.replace(/<text[\s\S]*?<\/text>/g, '');
+                return `<g transform="translate(0 ${2 * y}) scale(1 -1)">${body}</g>${texts.join('')}`;
             }
 
             return `<g>${compiled}</g>`;
