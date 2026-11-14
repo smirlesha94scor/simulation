@@ -186,6 +186,7 @@
 
         textarea.value = defaultText;
         const CELL_SIZE = 24;
+        const WIRE_W = 2.5;
 
         function copySVG() {
             navigator.clipboard.writeText(svgOutput.outerHTML);
@@ -256,7 +257,6 @@
                     const name = match[1].trim();
                     const type = name.split(' ')[0].toUpperCase();
                     const startCol = match.index;
-                    const endCol = startCol + match[0].length - 1;
                     const midCol = startCol + Math.floor(match[0].length / 2);
                     
                     let topRow = lines[r-1];
@@ -323,46 +323,67 @@
             svgOutput.setAttribute('height', height);
             svgOutput.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-            let html = '<g>';
-
             const getWireChar = (r, c) => (r >= 0 && r < wireLines.length && c >= 0 && c < wireLines[r].length) ? wireLines[r][c] : ' ';
-            const isWire = (ch) => ch === '-' || ch === '|' || ch === '+';
+            const isH = (ch) => ch === '-' || ch === '+';
+            const isV = (ch) => ch === '|' || ch === '+';
 
-            // 3. Отрисовка линий
+            // Есть ли горизонтальная связь между (r,c) и (r,c+1)
+            const hLink = (r, c) => isH(getWireChar(r, c)) && isH(getWireChar(r, c + 1));
+            // Есть ли вертикальная связь между (r,c) и (r+1,c)
+            const vLink = (r, c) => isV(getWireChar(r, c)) && isV(getWireChar(r + 1, c));
+
+            const px = (c) => c * CELL_SIZE + 40;
+            const py = (r) => r * CELL_SIZE + 40;
+
+            // 3. Провода: сплошные линии от центра клетки до центра клетки.
+            // Одинаковый цвет и квадратные концы -> стыки и углы сливаются в одну линию.
+            let d = '';
+
+            // горизонтальные участки
             for (let r = 0; r < wireLines.length; r++) {
-                for (let c = 0; c < wireLines[r].length; c++) {
-                    const ch = wireLines[r][c];
-                    const x = c * CELL_SIZE + 40;
-                    const y = r * CELL_SIZE + 40;
-
-                    if (ch === '-') {
-                        html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                    } else if (ch === '|') {
-                        html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
-                    } else if (ch === '+') {
-                        const top = isWire(getWireChar(r - 1, c));
-                        const bottom = isWire(getWireChar(r + 1, c));
-                        const left = isWire(getWireChar(r, c - 1));
-                        const right = isWire(getWireChar(r, c + 1));
-
-                        let count = (top?1:0) + (bottom?1:0) + (left?1:0) + (right?1:0);
-
-                        if (left)   html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (right)  html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (top)    html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (bottom) html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
-
-                        // закрываем стык ровно по толщине провода (2.5), без выступов
-                        html += `<rect x="${x - 1.25}" y="${y - 1.25}" width="2.5" height="2.5" fill="#000"/>`;
-
-                        if (count >= 3) {
-                            html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
-                        }
+                let c = 0;
+                const len = wireLines[r].length;
+                while (c < len) {
+                    if (hLink(r, c)) {
+                        let start = c;
+                        while (hLink(r, c)) c++;
+                        d += `M${px(start)} ${py(r)}L${px(c)} ${py(r)}`;
+                    } else {
+                        c++;
                     }
                 }
             }
 
-            html += '</g>';
+            // вертикальные участки
+            for (let c = 0; c < maxCols; c++) {
+                let r = 0;
+                while (r < wireLines.length) {
+                    if (vLink(r, c)) {
+                        let start = r;
+                        while (vLink(r, c)) r++;
+                        d += `M${px(c)} ${py(start)}L${px(c)} ${py(r)}`;
+                    } else {
+                        r++;
+                    }
+                }
+            }
+
+            let html = `<path d="${d}" fill="none" stroke="#000" stroke-width="${WIRE_W}" stroke-linecap="square" stroke-linejoin="miter"/>`;
+
+            // точки-узлы там, где сходятся 3 и более провода
+            for (let r = 0; r < wireLines.length; r++) {
+                for (let c = 0; c < wireLines[r].length; c++) {
+                    if (wireLines[r][c] !== '+') continue;
+                    const count =
+                        (hLink(r, c) ? 1 : 0) +
+                        (c > 0 && hLink(r, c - 1) ? 1 : 0) +
+                        (vLink(r, c) ? 1 : 0) +
+                        (r > 0 && vLink(r - 1, c) ? 1 : 0);
+                    if (count >= 3) {
+                        html += `<circle cx="${px(c)}" cy="${py(r)}" r="3.5" fill="#000"/>`;
+                    }
+                }
+            }
 
             // 4. Отрисовка элементов
             for (let r = 0; r < lines.length; r++) {
@@ -376,9 +397,9 @@
                     const isVertical = !!verticalMap[`${r},${midCol}`];
 
                     const centerX = isVertical 
-                        ? (midCol * CELL_SIZE + 40) 
-                        : (((startCol * CELL_SIZE + 40) + ((endCol - 1) * CELL_SIZE + 40)) / 2);
-                    const centerY = r * CELL_SIZE + 40;
+                        ? px(midCol)
+                        : ((px(startCol) + px(endCol - 1)) / 2);
+                    const centerY = py(r);
 
                     html += renderComponent(name, centerX, centerY, isVertical);
                 }
