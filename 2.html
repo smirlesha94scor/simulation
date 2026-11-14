@@ -220,9 +220,8 @@
             updateComponentEditor(rawText);
 
             let wireLines = lines.map(line => {
-                return line.replace(/\[([^\]]+)\]/g, (match) => ' '.repeat(match.length));
-            });
-
+    return line.replace(/\[([^\]]+)\]/g, (match) => '-'.repeat(match.length));
+});
             const maxCols = Math.max(...lines.map(l => l.length), 10);
             const maxRows = Math.max(lines.length, 10);
             
