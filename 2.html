@@ -118,11 +118,12 @@
     </div>
 
     <script>
-        const defaultText = `    +-----[GB1]-----+
-    |               |
-  [R1]             [C1]
-    |               |
-    +-----[VD1]-----+`;
+        const defaultText =
+`  +-----[GB1]-----+
+   |               |
+ [R1]             [C1]
+   |               |
+   +-----[VD1]-----+`;
 
         const customSVG = {
             VT1: `<circle cx="{x}" cy="{y}" r="16" fill="#fff" stroke="#000" stroke-width="2"/>
@@ -260,17 +261,31 @@
                     
                     let hasVerticalTop = false;
                     let hasVerticalBottom = false;
+                    let topChars = [];
+                    let bottomChars = [];
 
                     for (let c = startCol; c <= endCol; c++) {
-                        if (lines[r-1] && (lines[r-1][c] === '|' || lines[r-1][c] === '+')) hasVerticalTop = true;
-                        if (lines[r+1] && (lines[r+1][c] === '|' || lines[r+1][c] === '+')) hasVerticalBottom = true;
+                        let topCh = lines[r-1] ? lines[r-1][c] : ' ';
+                        let botCh = lines[r+1] ? lines[r+1][c] : ' ';
+                        topChars.push(`[${c}:'${topCh}']`);
+                        bottomChars.push(`[${c}:'${botCh}']`);
+
+                        if (topCh === '|' || topCh === '+') hasVerticalTop = true;
+                        if (botCh === '|' || botCh === '+') hasVerticalBottom = true;
                     }
 
                     const isVert = (hasVerticalTop && hasVerticalBottom && !type.startsWith('VT'));
                     if (isVert) {
                         verticalMap[`${r},${midCol}`] = true;
                     }
-                    debugLogs.push(`[${name}] (стр.${r+1}, кол.${startCol}-${endCol}, центр:${midCol}) → ${isVert ? 'ВЕРТИКАЛЬНЫЙ (|)' : 'ГОРИЗОНТАЛЬНЫЙ (-)'}`);
+
+                    // Подробный лог для отладки
+                    debugLogs.push(
+                        `[${name}] стр.${r+1}, кол.${startCol}-${endCol}\n` +
+                        `  Верх (${r}): ${topChars.join(' ')} → ${hasVerticalTop ? '✓' : '✗'}\n` +
+                        `  Низ (${r+2}): ${bottomChars.join(' ')} → ${hasVerticalBottom ? '✓' : '✗'}\n` +
+                        `  Итог: ${isVert ? 'ВЕРТИКАЛЬНЫЙ (|)' : 'ГОРИЗОНТАЛЬНЫЙ (-)'}\n`
+                    );
                 }
             }
 
