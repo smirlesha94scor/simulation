@@ -251,7 +251,7 @@
                             let midCol = c + Math.floor((endIdx - c) / 2);
                             let isVert = verticalMap[`${r},${midCol}`];
                             
-                            // Заполняем всю ширину тега сплошной линией (горизонтальной или вертикальной)
+                            // Выбираем правильный провод в зависимости от ориентации элемента
                             let fillChar = isVert ? '|' : '-';
                             newLine += fillChar.repeat(endIdx - c + 1);
                             c = endIdx;
