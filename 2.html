@@ -231,7 +231,6 @@
                     const endCol = startCol + match[0].length - 1;
                     const midCol = startCol + Math.floor(match[0].length / 2);
                     
-                    // Проверяем наличие вертикальных проводов сверху и снизу в пределах ширины тега
                     let hasVerticalTop = false;
                     let hasVerticalBottom = false;
 
@@ -259,12 +258,10 @@
                             let isVert = verticalMap[`${r},${midCol}`];
                             
                             if (isVert) {
-                                // Если элемент вертикальный — по центру ставим вертикальную линию '|'
                                 for (let i = c; i <= endIdx; i++) {
                                     newLine += (i === midCol) ? '|' : ' ';
                                 }
                             } else {
-                                // Если горизонтальный — сплошная горизонтальная линия '-'
                                 newLine += '-'.repeat(endIdx - c + 1);
                             }
                             c = endIdx;
