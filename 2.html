@@ -264,9 +264,14 @@
                     let topChars = [];
                     let bottomChars = [];
 
+                    // Проверяем строго центральную колонку (midCol) и её ближайшие окрестности
                     for (let c = startCol; c <= endCol; c++) {
-                        let topCh = lines[r-1] ? lines[r-1][c] : ' ';
-                        let botCh = lines[r+1] ? lines[r+1][c] : ' ';
+                        let topRow = lines[r-1];
+                        let botRow = lines[r+1];
+                        
+                        let topCh = (topRow && c < topRow.length) ? topRow[c] : ' ';
+                        let botCh = (botRow && c < botRow.length) ? botRow[c] : ' ';
+                        
                         topChars.push(`[${c}:'${topCh}']`);
                         bottomChars.push(`[${c}:'${botCh}']`);
 
@@ -279,11 +284,10 @@
                         verticalMap[`${r},${midCol}`] = true;
                     }
 
-                    // Подробный лог для отладки
                     debugLogs.push(
                         `[${name}] стр.${r+1}, кол.${startCol}-${endCol}\n` +
-                        `  Верх (${r}): ${topChars.join(' ')} → ${hasVerticalTop ? '✓' : '✗'}\n` +
-                        `  Низ (${r+2}): ${bottomChars.join(' ')} → ${hasVerticalBottom ? '✓' : '✗'}\n` +
+                        `  Верх: ${topChars.join(' ')} → ${hasVerticalTop ? '✓' : '✗'}\n` +
+                        `  Низ: ${bottomChars.join(' ')} → ${hasVerticalBottom ? '✓' : '✗'}\n` +
                         `  Итог: ${isVert ? 'ВЕРТИКАЛЬНЫЙ (|)' : 'ГОРИЗОНТАЛЬНЫЙ (-)'}\n`
                     );
                 }
