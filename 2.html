@@ -251,18 +251,9 @@
                             let midCol = c + Math.floor((endIdx - c) / 2);
                             let isVert = verticalMap[`${r},${midCol}`];
                             
-                            // Если элемент вертикальный, проводим вертикальную линию только по центру, а по бокам — пробелы
-                            let replacement = '';
-                            for (let i = c; i <= endIdx; i++) {
-                                if (isVert && i === midCol) {
-                                    replacement += '|';
-                                } else if (!isVert && i === midCol) {
-                                    replacement += '-';
-                                } else {
-                                    replacement += ' ';
-                                }
-                            }
-                            newLine += replacement;
+                            // Заполняем всю ширину тега сплошной линией (горизонтальной или вертикальной)
+                            let fillChar = isVert ? '|' : '-';
+                            newLine += fillChar.repeat(endIdx - c + 1);
                             c = endIdx;
                             continue;
                         }
