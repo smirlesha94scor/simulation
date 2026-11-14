@@ -258,9 +258,15 @@
                             let midCol = c + Math.floor((endIdx - c) / 2);
                             let isVert = verticalMap[`${r},${midCol}`];
                             
-                            // Если элемент вертикальный -> рисуем '|', если горизонтальный -> '-'
-                            let fillChar = isVert ? '|' : '-';
-                            newLine += fillChar.repeat(endIdx - c + 1);
+                            if (isVert) {
+                                // Если элемент вертикальный — по центру ставим вертикальную линию '|'
+                                for (let i = c; i <= endIdx; i++) {
+                                    newLine += (i === midCol) ? '|' : ' ';
+                                }
+                            } else {
+                                // Если горизонтальный — сплошная горизонтальная линия '-'
+                                newLine += '-'.repeat(endIdx - c + 1);
+                            }
                             c = endIdx;
                             continue;
                         }
