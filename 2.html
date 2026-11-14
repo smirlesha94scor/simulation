@@ -245,7 +245,7 @@
             
             updateComponentEditor(rawText);
 
-            // 1. Определяем ориентацию каждого компонента
+            // 1. Строгое определение ориентации по центру тега
             const compRegex = /\[([^\]]+)\]/g;
             let verticalMap = {};
             let debugLogs = [];
@@ -259,25 +259,15 @@
                     const endCol = startCol + match[0].length - 1;
                     const midCol = startCol + Math.floor(match[0].length / 2);
                     
-                    let hasVerticalTop = false;
-                    let hasVerticalBottom = false;
-                    let topChars = [];
-                    let bottomChars = [];
+                    let topRow = lines[r-1];
+                    let botRow = lines[r+1];
+                    
+                    // Проверяем строго символ, находящийся ровно по центру тега (midCol)
+                    let topCh = (topRow && midCol < topRow.length) ? topRow[midCol] : ' ';
+                    let botCh = (botRow && midCol < botRow.length) ? botRow[midCol] : ' ';
 
-                    // Проверяем строго центральную колонку (midCol) и её ближайшие окрестности
-                    for (let c = startCol; c <= endCol; c++) {
-                        let topRow = lines[r-1];
-                        let botRow = lines[r+1];
-                        
-                        let topCh = (topRow && c < topRow.length) ? topRow[c] : ' ';
-                        let botCh = (botRow && c < botRow.length) ? botRow[c] : ' ';
-                        
-                        topChars.push(`[${c}:'${topCh}']`);
-                        bottomChars.push(`[${c}:'${botCh}']`);
-
-                        if (topCh === '|' || topCh === '+') hasVerticalTop = true;
-                        if (botCh === '|' || botCh === '+') hasVerticalBottom = true;
-                    }
+                    let hasVerticalTop = (topCh === '|' || topCh === '+');
+                    let hasVerticalBottom = (botCh === '|' || botCh === '+');
 
                     const isVert = (hasVerticalTop && hasVerticalBottom && !type.startsWith('VT'));
                     if (isVert) {
@@ -285,9 +275,9 @@
                     }
 
                     debugLogs.push(
-                        `[${name}] стр.${r+1}, кол.${startCol}-${endCol}\n` +
-                        `  Верх: ${topChars.join(' ')} → ${hasVerticalTop ? '✓' : '✗'}\n` +
-                        `  Низ: ${bottomChars.join(' ')} → ${hasVerticalBottom ? '✓' : '✗'}\n` +
+                        `[${name}] стр.${r+1}, центр колонка: ${midCol}\n` +
+                        `  Сверху: '${topCh}' → ${hasVerticalTop ? '✓' : '✗'}\n` +
+                        `  Снизу: '${botCh}' → ${hasVerticalBottom ? '✓' : '✗'}\n` +
                         `  Итог: ${isVert ? 'ВЕРТИКАЛЬНЫЙ (|)' : 'ГОРИЗОНТАЛЬНЫЙ (-)'}\n`
                     );
                 }
