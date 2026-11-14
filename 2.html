@@ -121,7 +121,7 @@
         const defaultText =
 `   +-----[GB1]-----+
    |               |
- [R1]             [C1]
+ [R1]            [C1]
    |               |
    +-----[VD1]-----+`;
 
@@ -300,7 +300,7 @@
                     if (line[c] === '[') {
                         let endIdx = line.indexOf(']', c);
                         if (endIdx !== -1) {
-                            let midCol = c + Math.floor((endIdx - c) / 2);
+                            let midCol = c + Math.floor((endIdx - c + 1) / 2);
                             let isVert = verticalMap[`${r},${midCol}`];
                             
                             if (isVert) {
