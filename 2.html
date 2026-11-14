@@ -118,10 +118,9 @@
     </div>
 
     <script>
-        const defaultText =
-`    +-----[GB1]-----+
+        const defaultText = `    +-----[GB1]-----+
     |               |
-  [R1]            [C1]
+  [R1]             [C1]
     |               |
     +-----[VD1]-----+`;
 
@@ -342,7 +341,7 @@
                         if (left)   html += `<line x1="${x - CELL_SIZE/2}" y1="${y}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (right)  html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
                         if (top)    html += `<line x1="${x}" y1="${y - CELL_SIZE/2}" x2="${x}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
-                        if (bottom) html += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + CELL_SIZE/2}" stroke="#000" stroke-width="2.5"/>`;
+                        if (bottom) html += `<line x1="${x}" y1="${y}" x2="${x + CELL_SIZE/2}" y2="${y}" stroke="#000" stroke-width="2.5"/>`;
 
                         if (count >= 3) {
                             html += `<circle cx="${x}" cy="${y}" r="3.5" fill="#000"/>`;
@@ -364,7 +363,7 @@
 
                     const centerX = isVertical 
                         ? (midCol * CELL_SIZE + 40) 
-                        : (((startCol * CELL_SIZE + 40) + ((endCol - 1) * CELL_SIZE + 40)) / 2);
+                        : (((startCol * CELL_SIZE + 40) + ((endCol - 1) * CELL_Size + 40)) / 2);
                     const centerY = r * CELL_SIZE + 40;
 
                     html += renderComponent(name, centerX, centerY, isVertical);
