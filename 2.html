@@ -460,7 +460,7 @@
             const G_EL = 0.05;
             const L = [];
             const link = (a, b, g, oneWay, ctl) => L.push({ a, b, g, d: !!oneWay, ctl });
-            const cut = new Set(), srcs = [], sinks = [], plugs = [], vts = [], caps = [];
+            const cut = new Set(), srcs = [], sinks = [], plugs = [], vts = [], caps = [], gbs = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let m;
@@ -475,7 +475,7 @@
                         const top = nid(r - 1, col, 'v'), bot = nid(r + 1, col, 'v'), base = nid(r, s, 'h');
                         const flip = /\^$/.test(raw);
                         const c = flip ? bot : top, em = flip ? top : bot;
-                        vts.push({ b: base, c, e: em, p: key === 'VT2' ? -1 : 1 });
+                        vts.push({ b: base, c, e: em, p: key === 'VT2' ? -1 : 1, key });
                         if (key === 'VT2') { link(em, c, G_EL, true, { b: base, e: em, p: -1 }); link(em, base, G_EL, true); }
                         else { link(c, em, G_EL, true, { b: base, e: em, p: 1 }); link(base, em, G_EL, true); }
                         continue;
@@ -492,9 +492,10 @@
                     }
 
                     if (key === 'C') {
-                        caps.push({ A, B, r, c1: s, c2: e - 1 });
+                        caps.push({ A, B, r, c1: s, c2: e - 1, vert });
                     } else if (key === 'GB') {
                         srcs.push(B); sinks.push(A);
+                        gbs.push({ A, B });
                     } else if (key === 'VD') {
                         if (vert) link(B, A, G_EL, true); else link(A, B, G_EL, true);
                     } else {
@@ -521,9 +522,9 @@
             }
 
             if (isTouched) for (let i = 1; i < plugs.length; i++) link(plugs[0], plugs[i], G_EL);
-
             if (!srcs.length || !sinks.length) return '';
 
+            // --- 1. РАСЧЕТ ПОСТОЯННОГО ТОКА (DC) ---
             const ids = new Map();
             const ix = (id) => { if (!ids.has(id)) ids.set(id, ids.size); return ids.get(id); };
             L.forEach(l => { l.a = ix(l.a); l.b = ix(l.b); if (l.ctl) { l.ctl.b = ix(l.ctl.b); l.ctl.e = ix(l.ctl.e); } });
@@ -580,9 +581,6 @@
 
             const EPS = 2e-4;
             let dcPath = '';
-            let acPath = '';
-
-            // Рисуем постоянный ток (красный) только если включен чекбокс dc-toggle
             const showDc = document.getElementById('dc-toggle') ? document.getElementById('dc-toggle').checked : true;
             if (showDc) {
                 segs.forEach(([a, b, c1, r1, c2, r2]) => {
@@ -595,22 +593,92 @@
                 });
             }
 
-            // Переменный ток (синий) при касании
-            if (isTouched) {
-                caps.forEach(cap => {
-                    acPath += `M${px(cap.c1)} ${py(cap.r)}L${px(cap.c2)} ${py(cap.r)}`;
-                });
-                
-                let maxR = 0;
-                segs.forEach(([_, __, ___, sr1, ____, sr2]) => {
-                    maxR = Math.max(maxR, sr1, sr2);
-                });
-
-                segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                    if ((r1 === 7 || r1 === 10 || r2 === 7 || r2 === 10) && r1 < maxR && r2 < maxR) {
-                        acPath += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
+            // --- 2. АВТОМАТИЧЕСКИЙ РАСЧЕТ ПЕРЕМЕННОГО ТОКА (AC) ---
+            let acPath = '';
+            if (isTouched && caps.length > 0) {
+                // Ищем активные транзисторы (открытые по DC), которые генерируют переменный сигнал
+                const activeCollectors = [];
+                vts.forEach(t => {
+                    const bb = ids.get(t.b), ee = ids.get(t.e);
+                    if ((V[bb] - V[ee]) * t.p >= VB) {
+                        activeCollectors.push(t);
                     }
                 });
+
+                if (activeCollectors.length > 0) {
+                    const acL = L.map(l => ({ ...l }));
+                    // Для AC конденсаторы — проводники!
+                    caps.forEach(cap => {
+                        const a = ix(cap.A), b = ix(cap.B);
+                        acL.push({ a, b, g: 0.2, d: false });
+                        acL.push({ a: b, b: a, g: 0.2, d: false });
+                    });
+                    // Для AC батарея — перемычка (общий провод по переменному току)
+                    gbs.forEach(gb => {
+                        const a = ix(gb.A), b = ix(gb.B);
+                        acL.push({ a, b, g: 1.0, d: false });
+                        acL.push({ a: b, b: a, g: 1.0, d: false });
+                    });
+
+                    // Источник переменного напряжения — коллектор выходного транзистора (последнего в каскаде),
+                    // сток сигнала — база входного транзистора / общий провод
+                    const outVt = activeCollectors[activeCollectors.length - 1];
+                    const inVt = activeCollectors[0];
+                    const acFixed = new Map();
+                    acFixed.set(ix(outVt.c), 1.0); // Коллектор выходного каскада (генератор импульса)
+                    acFixed.set(ix(inVt.e), 0.0);  // Опорная точка (эмиттер / общий провод)
+
+                    const acNb = Array.from({ length: ids.size }, () => []);
+                    acL.forEach((l, i) => { acNb[l.a].push(i); acNb[l.b].push(i); });
+                    const Vac = new Float64Array(ids.size);
+                    acFixed.forEach((v, n) => { Vac[n] = v; });
+
+                    for (let it = 0; it < 8000; it++) {
+                        let maxd = 0;
+                        for (let n = 0; n < ids.size; n++) {
+                            if (acFixed.has(n)) continue;
+                            let sw = 0, sv = 0;
+                            for (const li of acNb[n]) {
+                                const l = acL[li];
+                                // Диоды и открытые переходы пропускают переменную составляющую
+                                const g = l.g;
+                                if (!g) continue;
+                                const mNode = l.a === n ? l.b : l.a;
+                                sw += g;
+                                sv += g * Vac[mNode];
+                            }
+                            if (sw > 0) {
+                                const nv = sv / sw;
+                                maxd = Math.max(maxd, Math.abs(nv - Vac[n]));
+                                Vac[n] = nv;
+                            }
+                        }
+                        if (maxd < 1e-7) break;
+                    }
+
+                    // Отрисовываем провода и конденсаторы, через которые реально течет переменный ток!
+                    const AC_EPS = 3e-3;
+                    segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                        const ia = ids.get(a), ib = ids.get(b);
+                        if (ia === undefined || ib === undefined) return;
+                        const dv = Vac[ia] - Vac[ib];
+                        if (Math.abs(dv) < AC_EPS) return;
+                        acPath += dv > 0
+                            ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
+                            : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
+                    });
+
+                    caps.forEach(cap => {
+                        const ia = ids.get(cap.A), ib = ids.get(cap.B);
+                        if (ia === undefined || ib === undefined) return;
+                        const dv = Vac[ia] - Vac[ib];
+                        if (Math.abs(dv) >= AC_EPS) {
+                            acPath += dv > 0
+                                ? `M${px(cap.c1)} ${py(cap.r)}L${px(cap.c2)} ${py(cap.r)}`
+                                : `M${px(cap.c2)} ${py(cap.r)}L${px(cap.c1)} ${py(cap.r)}`;
+                        }
+                    });
+                }
             }
 
             const half = CELL_SIZE / 2;
