@@ -457,7 +457,7 @@
             const G_EL = 0.05;
             const L = [];
             const link = (a, b, g, oneWay, ctl) => L.push({ a, b, g, d: !!oneWay, ctl });
-            const cut = new Set(), srcs = [], sinks = [], plugs = [], vts = [];
+            const cut = new Set(), srcs = [], sinks = [], plugs = [], vts = [], caps = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let m;
@@ -489,13 +489,11 @@
                     }
 
                     if (key === 'C') {
-                        if (isTouched) {
-                            link(A, B, 0.05); link(B, A, 0.05);
-                        }
+                        // Конденсатор фиксируем для отрисовки переменного тока, но для постоянного тока (DC) связь НЕ добавляем вообще!
+                        caps.push({ A, B, r, c1: s, c2: e - 1 });
                     } else if (key === 'GB') {
                         srcs.push(B); sinks.push(A);
                     } else if (key === 'VD') {
-                        // Диод пропускает сигнал только в одну сторону
                         if (vert) link(B, A, G_EL, true); else link(A, B, G_EL, true);
                     } else {
                         link(A, B, G_EL); link(B, A, G_EL);
@@ -579,42 +577,26 @@
             });
 
             const EPS = 2e-4;
-            let d = '';
-            segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                if (masked.has(find(ids.get(a)))) return;
-                const dv = V[ids.get(a)] - V[ids.get(b)];
-                if (Math.abs(dv) < EPS) return;
-                d += dv > 0
-                    ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
-                    : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
-            });
-            if (!d) return '';
-
-            const half = CELL_SIZE / 2;
-            const duration = isTouched ? '0.2s' : '0.7s';
-
-            // 1. Красный постоянный ток питания (обрывается на конденсаторах, так как они не добавлены в граф при !isTouched)
             let dcPath = '';
             segs.forEach(([a, b, c1, r1, c2, r2]) => {
                 if (masked.has(find(ids.get(a)))) return;
                 const dv = V[ids.get(a)] - V[ids.get(b)];
                 if (Math.abs(dv) < EPS) return;
-                dcPath += dv > 0 ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}` : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
+                dcPath += dv > 0
+                    ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
+                    : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
             });
 
-            // 2. Синий переменный ток — строго путь сигнала: от входа E1 через конденсаторы C1, C2, диод VD1 к транзисторам
+            // Формируем путь синего переменного тока строго через конденсаторы C1, C2
             let acPath = '';
             if (isTouched) {
-                // Находим координаты для визуализации прохождения сигнала через конденсаторы и диод
-                acPath = `
-                    M${px(2)} ${py(7)}L${px(10)} ${py(7)} 
-                    M${px(10)} ${py(7)}L${px(12)} ${py(7)}
-                    M${px(12)} ${py(7)}L${px(16)} ${py(7)}
-                    M${px(16)} ${py(7)}L${px(20)} ${py(7)}
-                    M${px(16)} ${py(7)}L${px(16)} ${py(3)}
-                    M${px(16)} ${py(3)}L${px(20)} ${py(3)}
-                `;
+                caps.forEach(cap => {
+                    acPath += `M${px(cap.c1)} ${py(cap.r)}L${px(cap.c2)} ${py(cap.r)}`;
+                });
             }
+
+            const half = CELL_SIZE / 2;
+            const duration = isTouched ? '0.2s' : '0.7s';
 
             return `
                 ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>` : ''}
