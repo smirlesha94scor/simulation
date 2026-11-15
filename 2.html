@@ -2,269 +2,85 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Диспетчерская ЖД Сеть — Симулятор Поездов по Расписанию</title>
 <style>
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    user-select: none;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  body, html { width: 100%; height: 100%; overflow: hidden; background: #141a17; color: #e6edf3; }
+  #simCanvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
+  #simCanvas:active { cursor: grabbing; }
 
-  body, html {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #141a17;
-    color: #e6edf3;
-  }
-
-  #simCanvas {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-    cursor: grab;
-  }
-
-  #simCanvas:active {
-    cursor: grabbing;
-  }
-
-  /* Верхняя панель времени и управления симуляцией */
   .top-bar {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(18, 24, 29, 0.88);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    padding: 8px 14px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    z-index: 10;
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); left: 14px;
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(18, 24, 29, 0.88); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px;
+    padding: 8px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 10;
   }
-
-  .clock-box {
-    display: flex;
-    flex-direction: column;
-    padding-right: 12px;
-    border-right: 1px solid rgba(255,255,255,0.12);
-  }
-
-  .clock-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #8b949e;
-  }
-
-  .clock-value {
-    font-size: 20px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: #58a6ff;
-  }
-
-  .speed-controls {
-    display: flex;
-    gap: 4px;
-  }
-
+  .clock-box { display: flex; flex-direction: column; padding-right: 12px; border-right: 1px solid rgba(255,255,255,0.12); }
+  .clock-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: #8b949e; }
+  .clock-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: #58a6ff; }
+  .speed-controls { display: flex; gap: 4px; }
   .btn {
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #c9d1d9;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #c9d1d9; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s ease;
   }
+  .btn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+  .btn.active { background: #1f6feb; border-color: #388bfd; color: #fff; }
 
-  .btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #fff;
-  }
-
-  .btn.active {
-    background: #1f6feb;
-    border-color: #388bfd;
-    color: #fff;
-  }
-
-  /* Табло расписания */
   .schedule-panel {
-    position: fixed;
-    top: 76px;
-    left: 14px;
-    width: 340px;
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 76px); left: 14px; width: 340px;
     max-height: calc(100vh - 100px);
-    background: rgba(18, 24, 29, 0.88);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    padding: 12px;
+    background: rgba(18, 24, 29, 0.88); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 12px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 10;
-    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px; z-index: 10; overflow-y: auto;
   }
-
   .panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #8b949e;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+    color: #8b949e; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1);
   }
-
   .train-card {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-left: 4px solid #58a6ff;
-    border-radius: 6px;
-    padding: 8px 10px;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 4px solid #58a6ff; border-radius: 6px; padding: 8px 10px;
+    cursor: pointer; transition: background 0.15s, transform 0.1s;
   }
-
-  .train-card:hover {
-    background: rgba(255, 255, 255, 0.09);
-  }
-
-  .train-card.selected {
-    background: rgba(31, 111, 235, 0.2);
-    border-color: rgba(56, 139, 253, 0.6);
-  }
-
-  .train-card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-  }
-
-  .train-title {
-    font-weight: 700;
-    font-size: 13px;
-    color: #f0f6fc;
-  }
-
-  .train-badge {
-    font-size: 11px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 600;
-    background: rgba(46, 160, 67, 0.2);
-    color: #3fb950;
-  }
-
-  .train-badge.waiting {
-    background: rgba(210, 153, 34, 0.2);
-    color: #d29922;
-  }
-
-  .train-badge.boarding {
-    background: rgba(56, 139, 253, 0.2);
-    color: #58a6ff;
-  }
-
-  .train-route {
-    font-size: 12px;
-    color: #8b949e;
-    display: flex;
-    justify-content: space-between;
-  }
-
+  .train-card:hover { background: rgba(255, 255, 255, 0.09); }
+  .train-card.selected { background: rgba(31, 111, 235, 0.2); border-color: rgba(56, 139, 253, 0.6); }
+  .train-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .train-title { font-weight: 700; font-size: 13px; color: #f0f6fc; }
+  .train-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; background: rgba(46, 160, 67, 0.2); color: #3fb950; }
+  .train-badge.waiting { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+  .train-badge.boarding { background: rgba(56, 139, 253, 0.2); color: #58a6ff; }
+  .train-route { font-size: 12px; color: #8b949e; display: flex; justify-content: space-between; }
   .train-meta {
-    margin-top: 5px;
-    padding-top: 5px;
-    border-top: 1px dashed rgba(255,255,255,0.08);
-    font-size: 11px;
-    color: #adbac7;
-    display: flex;
-    justify-content: space-between;
+    margin-top: 5px; padding-top: 5px; border-top: 1px dashed rgba(255,255,255,0.08);
+    font-size: 11px; color: #adbac7; display: flex; justify-content: space-between;
   }
 
-  /* Панель зума и камеры справа сверху */
   .camera-controls {
-    position: fixed;
-    top: 14px;
-    right: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: rgba(18, 24, 29, 0.88);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    padding: 8px;
-    z-index: 10;
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 14px;
+    display: flex; flex-direction: column; gap: 6px;
+    background: rgba(18, 24, 29, 0.88); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 8px; z-index: 10;
   }
+  .camera-controls button { width: 34px; height: 34px; font-size: 16px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .zoom-readout { font-size: 11px; text-align: center; color: #8b949e; font-variant-numeric: tabular-nums; }
 
-  .camera-controls button {
-    width: 34px;
-    height: 34px;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-  }
-
-  .zoom-readout {
-    font-size: 11px;
-    text-align: center;
-    color: #8b949e;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Миникарта */
   .minimap-box {
-    position: fixed;
-    bottom: 14px;
-    right: 14px;
-    background: rgba(18, 24, 29, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 10px;
-    padding: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    z-index: 10;
+    position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); right: 14px;
+    background: rgba(18, 24, 29, 0.9); border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 10;
   }
-
-  #minimapCanvas {
-    display: block;
-    border-radius: 6px;
-    cursor: crosshair;
-  }
+  #minimapCanvas { display: block; border-radius: 6px; cursor: crosshair; }
 
   .hint-bar {
-    position: fixed;
-    bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(18, 24, 29, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 6px 16px;
-    font-size: 12px;
-    color: #8b949e;
-    pointer-events: none;
-    z-index: 9;
-    white-space: nowrap;
+    position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%);
+    background: rgba(18, 24, 29, 0.82); border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px; padding: 6px 16px; font-size: 12px; color: #8b949e;
+    pointer-events: none; z-index: 9; white-space: nowrap;
   }
 </style>
 </head>
@@ -272,7 +88,6 @@
 
 <canvas id="simCanvas"></canvas>
 
-<!-- Верхняя панель -->
 <div class="top-bar">
   <div class="clock-box">
     <span class="clock-label">Диспетчерское время</span>
@@ -284,12 +99,9 @@
     <button class="btn" data-speed="3">3x</button>
     <button class="btn" data-speed="8">8x</button>
   </div>
-  <button class="btn" id="toggleAutoSwitchBtn" title="Автоматический перевод стрелок по маршруту поезда">
-    Стрелки: АВТО
-  </button>
+  <button class="btn" id="toggleAutoSwitchBtn" title="Автоматический перевод стрелок по маршруту поезда">Стрелки: АВТО</button>
 </div>
 
-<!-- Расписание поездов -->
 <div class="schedule-panel">
   <div class="panel-header">
     <span>Расписание составов</span>
@@ -298,15 +110,13 @@
   <div id="trainList"></div>
 </div>
 
-<!-- Управление зумом -->
 <div class="camera-controls">
   <button class="btn" id="zoomInBtn" title="Приблизить (+)">+</button>
-  <div class="zoom-readout" id="zoomReadout">45%</div>
+  <div class="zoom-readout" id="zoomReadout">42%</div>
   <button class="btn" id="zoomOutBtn" title="Отдалить (-)">−</button>
   <button class="btn" id="resetCamBtn" title="Показать всю карту">⌂</button>
 </div>
 
-<!-- Миникарта -->
 <div class="minimap-box">
   <canvas id="minimapCanvas" width="240" height="164"></canvas>
 </div>
@@ -316,11 +126,6 @@
 </div>
 
 <script>
-/**
- * ============================================================================
- * 1. КОНФИГУРАЦИЯ МИРА И МАТЕМАТИКА СПЛАЙНОВ
- * ============================================================================
- */
 const WORLD_W = 4400;
 const WORLD_H = 3000;
 
@@ -336,20 +141,13 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Камера с плавной интерполяцией
 const camera = {
-  x: WORLD_W / 2,
-  y: WORLD_H / 2,
-  zoom: 0.42,
-  targetX: WORLD_W / 2,
-  targetY: WORLD_H / 2,
-  targetZoom: 0.42,
-  minZoom: 0.22,
-  maxZoom: 2.2,
-  followTrainId: null
+  x: WORLD_W / 2, y: WORLD_H / 2, zoom: 0.42,
+  targetX: WORLD_W / 2, targetY: WORLD_H / 2, targetZoom: 0.42,
+  minZoom: 0.22, maxZoom: 2.2, followTrainId: null
 };
 
-// Интерполяция Катмулла-Рома для создания плавных криволинейных путей из опорных точек
+// Интерполяция Катмулла-Рома: плавные кривые из опорных точек
 function catmullRomPoint(p0, p1, p2, p3, t) {
   const t2 = t * t;
   const t3 = t2 * t;
@@ -359,20 +157,16 @@ function catmullRomPoint(p0, p1, p2, p3, t) {
   };
 }
 
-/**
- * Класс железнодорожного сегмента (участка пути между двумя узлами)
- * Предварительно дискретизируется по длине дуги для точного движения вагонов по кривым.
- */
+// Участок пути между двумя узлами (дискретизирован по длине дуги)
 class TrackSegment {
   constructor(id, name, fromNode, toNode, controlPoints, maxSpeed = 140) {
     this.id = id;
     this.name = name;
     this.fromNode = fromNode;
     this.toNode = toNode;
-    this.maxSpeed = maxSpeed; // пикс/сек
+    this.maxSpeed = maxSpeed;
     this.samples = [];
     this.length = 0;
-    this.occupiedBy = null;
     this.buildPolyline(controlPoints);
   }
 
@@ -390,12 +184,9 @@ class TrackSegment {
     }
     raw.push({ ...pts[pts.length - 1] });
 
-    // Пересчёт с накоплением дистанции и вычислением касательного угла и кривизны
     let dist = 0;
     for (let i = 0; i < raw.length; i++) {
-      if (i > 0) {
-        dist += Math.hypot(raw[i].x - raw[i - 1].x, raw[i].y - raw[i - 1].y);
-      }
+      if (i > 0) dist += Math.hypot(raw[i].x - raw[i - 1].x, raw[i].y - raw[i - 1].y);
       const prev = raw[Math.max(0, i - 1)];
       const next = raw[Math.min(raw.length - 1, i + 1)];
       const angle = Math.atan2(next.y - prev.y, next.x - prev.x);
@@ -404,10 +195,8 @@ class TrackSegment {
     this.length = dist;
   }
 
-  // Получить координаты и угол на заданной дистанции d (с учётом направления dir: 1 или -1)
   getPointAt(d, dir = 1) {
     const actualDist = dir === 1 ? Math.max(0, Math.min(this.length, d)) : Math.max(0, Math.min(this.length, this.length - d));
-    // Бинарный поиск по samples
     let lo = 0, hi = this.samples.length - 1;
     while (lo < hi - 1) {
       const mid = (lo + hi) >> 1;
@@ -427,98 +216,62 @@ class TrackSegment {
   }
 }
 
-/**
- * ============================================================================
- * 2. ТОПОЛОГИЯ СЕТИ: УЗЛЫ, СТРЕЛКИ, СТАНЦИИ И ОКРУЖЕНИЕ
- * ============================================================================
- */
+/* ===== Топология сети (новая раскладка путей) ===== */
 const nodes = {
   N_WEST:    { id: 'N_WEST',    x: 420,  y: 1450 },
   N_CENTRAL: { id: 'N_CENTRAL', x: 1450, y: 1500 },
-  N_NORTH_J: { id: 'N_NORTH_J', x: 1850, y: 1120 }, // Стрелочный узел Север
-  N_NORTH:   { id: 'N_NORTH',   x: 2450, y: 520  },
-  N_PASS:    { id: 'N_PASS',    x: 3650, y: 780  },
-  N_EAST_J:  { id: 'N_EAST_J',  x: 3450, y: 1650 }, // Стрелочный узел Восток
-  N_FACTORY: { id: 'N_FACTORY', x: 2650, y: 1620 },
-  N_SOUTH:   { id: 'N_SOUTH',   x: 2850, y: 2480 },
-  N_VALLEY:  { id: 'N_VALLEY',  x: 1150, y: 2380 }
+  N_NORTH_J: { id: 'N_NORTH_J', x: 1850, y: 1120 },
+  N_NORTH:   { id: 'N_NORTH',   x: 2493, y: 481  },
+  N_PASS:    { id: 'N_PASS',    x: 3834, y: 700  },
+  N_EAST_J:  { id: 'N_EAST_J',  x: 3445, y: 1558 },
+  N_FACTORY: { id: 'N_FACTORY', x: 2649, y: 1709 },
+  N_SOUTH:   { id: 'N_SOUTH',   x: 2850, y: 2567 },
+  N_VALLEY:  { id: 'N_VALLEY',  x: 1216, y: 2353 }
 };
 
 const segments = [
   new TrackSegment('S1', 'Западный подход', nodes.N_WEST, nodes.N_CENTRAL, [
     nodes.N_WEST, { x: 750, y: 1320 }, { x: 1120, y: 1560 }, nodes.N_CENTRAL
   ], 150),
-
   new TrackSegment('S2', 'Центральная горловина', nodes.N_CENTRAL, nodes.N_NORTH_J, [
-    nodes.N_CENTRAL, { x: 1660, y: 1440 }, nodes.N_NORTH_J
+    nodes.N_CENTRAL, { x: 1621, y: 1300 }, nodes.N_NORTH_J
   ], 120),
-
   new TrackSegment('S3', 'Северный обход', nodes.N_NORTH_J, nodes.N_NORTH, [
-    nodes.N_NORTH_J, { x: 1960, y: 780 }, { x: 2200, y: 550 }, nodes.N_NORTH
+    nodes.N_NORTH_J, { x: 1977, y: 765 }, { x: 2200, y: 550 }, nodes.N_NORTH
   ], 145),
-
   new TrackSegment('S4', 'Горный серпантин', nodes.N_NORTH, nodes.N_PASS, [
-    nodes.N_NORTH, { x: 2850, y: 460 }, { x: 3280, y: 580 }, nodes.N_PASS
+    nodes.N_NORTH, { x: 2969, y: 318 }, { x: 3395, y: 361 }, nodes.N_PASS
   ], 115),
-
   new TrackSegment('S5', 'Восточный спуск', nodes.N_PASS, nodes.N_EAST_J, [
-    nodes.N_PASS, { x: 3860, y: 1150 }, { x: 3680, y: 1480 }, nodes.N_EAST_J
+    nodes.N_PASS, { x: 4072, y: 1126 }, { x: 3872, y: 1496 }, nodes.N_EAST_J
   ], 130),
-
   new TrackSegment('S6', 'Заводская ветка', nodes.N_NORTH_J, nodes.N_FACTORY, [
-    nodes.N_NORTH_J, { x: 2150, y: 1220 }, { x: 2420, y: 1560 }, nodes.N_FACTORY
+    nodes.N_NORTH_J, { x: 2286, y: 1120 }, { x: 2399, y: 1496 }, nodes.N_FACTORY
   ], 135),
-
   new TrackSegment('S7', 'Индустриальный перегон', nodes.N_FACTORY, nodes.N_EAST_J, [
     nodes.N_FACTORY, { x: 3050, y: 1680 }, nodes.N_EAST_J
   ], 145),
-
   new TrackSegment('S8', 'Портовая магистраль', nodes.N_EAST_J, nodes.N_SOUTH, [
-    nodes.N_EAST_J, { x: 3320, y: 2120 }, { x: 3120, y: 2420 }, nodes.N_SOUTH
+    nodes.N_EAST_J, { x: 3376, y: 2028 }, { x: 3121, y: 2393 }, nodes.N_SOUTH
   ], 140),
-
   new TrackSegment('S9', 'Южный берег', nodes.N_SOUTH, nodes.N_VALLEY, [
-    nodes.N_SOUTH, { x: 2350, y: 2620 }, { x: 1750, y: 2560 }, nodes.N_VALLEY
+    nodes.N_SOUTH, { x: 2355, y: 2793 }, { x: 1622, y: 2737 }, nodes.N_VALLEY
   ], 155),
-
   new TrackSegment('S10', 'Речной мост', nodes.N_VALLEY, nodes.N_CENTRAL, [
-    nodes.N_VALLEY, { x: 960, y: 2050 }, { x: 1220, y: 1750 }, nodes.N_CENTRAL
+    nodes.N_VALLEY, { x: 1098, y: 2023 }, { x: 1250, y: 1726 }, nodes.N_CENTRAL
   ], 135)
 ];
 
 const segmentMap = Object.fromEntries(segments.map(s => [s.id, s]));
 
-// Стрелочные переводы (узлы с ветвлением)
 const switches = [
-  {
-    id: 'SW1',
-    nodeId: 'N_NORTH_J',
-    x: nodes.N_NORTH_J.x,
-    y: nodes.N_NORTH_J.y,
-    branches: ['S3', 'S6'],
-    activeIndex: 0 // 0 -> S3 (Север), 1 -> S6 (Заводская)
-  },
-  {
-    id: 'SW2',
-    nodeId: 'N_EAST_J',
-    x: nodes.N_EAST_J.x,
-    y: nodes.N_EAST_J.y,
-    branches: ['S5', 'S7'],
-    activeIndex: 1 // 0 -> S5 (Горный), 1 -> S7 (Заводская)
-  },
-  {
-    id: 'SW3',
-    nodeId: 'N_CENTRAL',
-    x: nodes.N_CENTRAL.x,
-    y: nodes.N_CENTRAL.y,
-    branches: ['S1', 'S10'],
-    activeIndex: 0
-  }
+  { id: 'SW1', nodeId: 'N_NORTH_J', x: nodes.N_NORTH_J.x, y: nodes.N_NORTH_J.y, branches: ['S3', 'S6'], activeIndex: 0 },
+  { id: 'SW2', nodeId: 'N_EAST_J',  x: nodes.N_EAST_J.x,  y: nodes.N_EAST_J.y,  branches: ['S5', 'S7'], activeIndex: 1 },
+  { id: 'SW3', nodeId: 'N_CENTRAL', x: nodes.N_CENTRAL.x, y: nodes.N_CENTRAL.y, branches: ['S1', 'S10'], activeIndex: 0 }
 ];
 
 let autoSwitchMode = true;
 
-// Станции на сегментах
 const stations = [
   { id: 'ST_CENT', name: 'Центральный Вокзал', segmentId: 'S1',  distRatio: 0.92, side: -1, color: '#58a6ff' },
   { id: 'ST_NORT', name: 'Северный Узел',      segmentId: 'S3',  distRatio: 0.88, side: -1, color: '#3fb950' },
@@ -530,7 +283,6 @@ const stations = [
 
 const stationMap = Object.fromEntries(stations.map(st => [st.id, st]));
 
-// Предварительно вычисляем мировые координаты перронов
 stations.forEach(st => {
   const seg = segmentMap[st.segmentId];
   const pt = seg.getPointAt(seg.length * st.distRatio, 1);
@@ -540,46 +292,33 @@ stations.forEach(st => {
   st.targetDist = seg.length * st.distRatio;
 });
 
-// Декорации ландшафта (река, леса, здания)
+// Ландшафт
 const trees = [];
 for (let i = 0; i < 420; i++) {
   const tx = 120 + Math.random() * (WORLD_W - 240);
   const ty = 120 + Math.random() * (WORLD_H - 240);
-  // Не ставим деревья прямо на пути или реку
   let nearTrack = false;
   for (const seg of segments) {
     for (let j = 0; j < seg.samples.length; j += 4) {
-      if (Math.hypot(tx - seg.samples[j].x, ty - seg.samples[j].y) < 95) {
-        nearTrack = true;
-        break;
-      }
+      if (Math.hypot(tx - seg.samples[j].x, ty - seg.samples[j].y) < 95) { nearTrack = true; break; }
     }
     if (nearTrack) break;
   }
   if (!nearTrack) {
-    trees.push({
-      x: tx,
-      y: ty,
-      r: 14 + Math.random() * 18,
-      shade: Math.random() > 0.5 ? '#1f422b' : '#264e34'
-    });
+    trees.push({ x: tx, y: ty, r: 14 + Math.random() * 18, shade: Math.random() > 0.5 ? '#1f422b' : '#264e34' });
   }
 }
 
 const buildings = [
   { x: 1320, y: 1310, w: 130, h: 70, angle: 0.1, color: '#3b434d' },
   { x: 1180, y: 1370, w: 90,  h: 60, angle: -0.1, color: '#48525e' },
-  { x: 2560, y: 1740, w: 190, h: 95, angle: 0.05, color: '#4d3b38' },
-  { x: 2780, y: 1760, w: 120, h: 80, angle: 0.05, color: '#3f4752' },
-  { x: 2820, y: 2600, w: 160, h: 75, angle: -0.2, color: '#394956' },
-  { x: 2380, y: 390,  w: 110, h: 55, angle: 0.15, color: '#4a463d' }
+  { x: 2560, y: 1860, w: 190, h: 95, angle: 0.05, color: '#4d3b38' },
+  { x: 2780, y: 1880, w: 120, h: 80, angle: 0.05, color: '#3f4752' },
+  { x: 2820, y: 2760, w: 160, h: 75, angle: -0.2, color: '#394956' },
+  { x: 2380, y: 330,  w: 110, h: 55, angle: 0.15, color: '#4a463d' }
 ];
 
-/**
- * ============================================================================
- * 3. ПОЕЗДА И РАСПИСАНИЕ ДВИЖЕНИЯ
- * ============================================================================
- */
+/* ===== Поезда и расписание ===== */
 class Train {
   constructor(cfg) {
     this.id = cfg.id;
@@ -588,8 +327,6 @@ class Train {
     this.color = cfg.color;
     this.carsCount = cfg.carsCount;
     this.maxCruiseSpeed = cfg.maxCruiseSpeed;
-
-    // Маршрут — кольцевой или челночный список шагов: { segId, dir, stopStationId?, dwellSec?, depTimeSec? }
     this.route = cfg.route;
     this.stepIndex = 0;
 
@@ -599,23 +336,20 @@ class Train {
     this.distOnSeg = firstStep.startDist || 120;
 
     this.speed = 0;
-    this.state = 'RUNNING'; // RUNNING | BOARDING | WAITING_SIGNAL | WAITING_SWITCH | SCHEDULE_HOLD
+    this.state = 'RUNNING';
     this.dwellTimer = 0;
     this.nextDepartureSec = firstStep.depTimeSec || 0;
+    this.stationServed = false;
     this.headPos = { x: 0, y: 0, angle: 0 };
     this.carTransforms = [];
   }
 
-  get currentStep() {
-    return this.route[this.stepIndex];
-  }
+  get currentStep() { return this.route[this.stepIndex]; }
 
   get nextStationName() {
     for (let i = 0; i < this.route.length; i++) {
       const idx = (this.stepIndex + i) % this.route.length;
-      if (this.route[idx].stopStationId) {
-        return stationMap[this.route[idx].stopStationId].name;
-      }
+      if (this.route[idx].stopStationId) return stationMap[this.route[idx].stopStationId].name;
     }
     return 'Депо';
   }
@@ -624,13 +358,12 @@ class Train {
     const seg = segmentMap[this.segId];
     const step = this.currentStep;
 
-    // 1. Обработка стоянки на станции по расписанию
+    // 1. Стоянка на станции
     if (this.state === 'BOARDING') {
       this.speed = 0;
       this.dwellTimer -= dt;
       if (this.dwellTimer <= 0 && simTimeSec >= this.nextDepartureSec) {
         this.state = 'RUNNING';
-        // Помечаем, что текущая станция пройдена в этом шаге
         this.stationServed = true;
       } else {
         this.computeCarPositions();
@@ -638,10 +371,9 @@ class Train {
       }
     }
 
-    // 2. Вычисление целевой скорости
+    // 2. Целевая скорость
     let targetSpeed = Math.min(this.maxCruiseSpeed, seg.maxSpeed);
 
-    // Замедление перед станцией назначения на текущем сегменте
     if (step.stopStationId && !this.stationServed) {
       const st = stationMap[step.stopStationId];
       const stopPos = this.dir === 1 ? st.targetDist : (seg.length - st.targetDist);
@@ -652,7 +384,6 @@ class Train {
         this.speed = 0;
         this.state = 'BOARDING';
         this.dwellTimer = step.dwellSec || 8;
-        // Планируем время отправления по расписанию (кратно 15 секундам)
         this.nextDepartureSec = Math.ceil((simTimeSec + this.dwellTimer) / 15) * 15;
         this.computeCarPositions();
         return;
@@ -661,7 +392,7 @@ class Train {
       }
     }
 
-    // 3. Проверка дистанции до впереди идущего поезда на этом или следующем сегменте
+    // 3. Дистанция до впереди идущего поезда
     let blockedByTrain = false;
     const totalTrainLen = 46 + this.carsCount * 38;
     for (const other of allTrains) {
@@ -676,7 +407,7 @@ class Train {
       }
     }
 
-    // 4. Проверка конца сегмента, стрелок и занятости следующего участка
+    // 4. Конец сегмента, стрелки, занятость следующего участка
     const remDist = seg.length - this.distOnSeg;
     const nextStepIdx = (this.stepIndex + 1) % this.route.length;
     const nextStep = this.route[nextStepIdx];
@@ -685,21 +416,18 @@ class Train {
       const exitNodeId = this.dir === 1 ? seg.toNode.id : seg.fromNode.id;
       const sw = switches.find(s => s.nodeId === exitNodeId);
 
-      // Если есть стрелка, проверяем её положение
       if (sw && sw.branches.includes(nextStep.segId)) {
         const activeBranch = sw.branches[sw.activeIndex];
         if (activeBranch !== nextStep.segId) {
           if (autoSwitchMode && remDist < 170) {
             sw.activeIndex = sw.branches.indexOf(nextStep.segId);
           } else {
-            // Стрелка переведена в другое направление — тормозим перед светофором
             targetSpeed = remDist < 42 ? 0 : Math.min(targetSpeed, remDist * 0.45);
             if (remDist < 45) this.state = 'WAITING_SWITCH';
           }
         }
       }
 
-      // Проверяем, не занят ли следующий сегмент встречным или попутным поездом у входа
       const nextSeg = segmentMap[nextStep.segId];
       for (const other of allTrains) {
         if (other.id === this.id) continue;
@@ -721,18 +449,15 @@ class Train {
       this.state = 'WAITING_SIGNAL';
     }
 
-    // 5. Плавное ускорение и торможение
+    // 5. Разгон и торможение
     const accel = 48;
     const brake = 75;
-    if (this.speed < targetSpeed) {
-      this.speed = Math.min(targetSpeed, this.speed + accel * dt);
-    } else if (this.speed > targetSpeed) {
-      this.speed = Math.max(targetSpeed, this.speed - brake * dt);
-    }
+    if (this.speed < targetSpeed) this.speed = Math.min(targetSpeed, this.speed + accel * dt);
+    else if (this.speed > targetSpeed) this.speed = Math.max(targetSpeed, this.speed - brake * dt);
 
     this.distOnSeg += this.speed * dt;
 
-    // 6. Переход на следующий сегмент маршрута
+    // 6. Переход на следующий сегмент
     if (this.distOnSeg >= seg.length) {
       const overflow = this.distOnSeg - seg.length;
       this.stepIndex = nextStepIdx;
@@ -745,16 +470,12 @@ class Train {
     this.computeCarPositions();
   }
 
-  // Вычисление координат локомотива и каждого вагона вдоль кривой пути (включая предыдущие сегменты)
   computeCarPositions() {
     this.carTransforms = [];
-    const totalUnits = 1 + this.carsCount; // 1 локомотив + N вагонов
+    const totalUnits = 1 + this.carsCount;
     const unitSpacing = 38;
-
     for (let u = 0; u < totalUnits; u++) {
-      const offsetBack = u * unitSpacing;
-      const pt = this.sampleBackwards(offsetBack);
-      this.carTransforms.push(pt);
+      this.carTransforms.push(this.sampleBackwards(u * unitSpacing));
     }
     this.headPos = this.carTransforms[0];
   }
@@ -767,9 +488,7 @@ class Train {
     let pos = this.distOnSeg;
 
     for (let guard = 0; guard < 6; guard++) {
-      if (pos >= rem) {
-        return segmentMap[sId].getPointAt(pos - rem, d);
-      }
+      if (pos >= rem) return segmentMap[sId].getPointAt(pos - rem, d);
       rem -= pos;
       idx = (idx - 1 + this.route.length) % this.route.length;
       const prevStep = this.route[idx];
@@ -781,15 +500,10 @@ class Train {
   }
 }
 
-// Инициализация 4 составов, курсирующих по расписанию
 const trains = [
   new Train({
-    id: 'T1',
-    number: '№ 101 «Экспресс»',
-    name: 'Северное кольцо',
-    color: '#388bfd',
-    carsCount: 4,
-    maxCruiseSpeed: 135,
+    id: 'T1', number: '№ 101 «Экспресс»', name: 'Северное кольцо',
+    color: '#388bfd', carsCount: 4, maxCruiseSpeed: 135,
     route: [
       { segId: 'S1',  dir: 1, startDist: 450, stopStationId: 'ST_CENT', dwellSec: 7 },
       { segId: 'S2',  dir: 1 },
@@ -802,12 +516,8 @@ const trains = [
     ]
   }),
   new Train({
-    id: 'T2',
-    number: '№ 204 «Индустрия»',
-    name: 'Заводской маршрут',
-    color: '#f85149',
-    carsCount: 5,
-    maxCruiseSpeed: 115,
+    id: 'T2', number: '№ 204 «Индустрия»', name: 'Заводской маршрут',
+    color: '#f85149', carsCount: 5, maxCruiseSpeed: 115,
     route: [
       { segId: 'S7',  dir: 1, startDist: 200, stopStationId: 'ST_FACT', dwellSec: 8 },
       { segId: 'S8',  dir: 1, stopStationId: 'ST_SOUT', dwellSec: 7 },
@@ -818,12 +528,8 @@ const trains = [
     ]
   }),
   new Train({
-    id: 'T3',
-    number: '№ 312 «Горный»',
-    name: 'Альпийский экспресс',
-    color: '#d29922',
-    carsCount: 3,
-    maxCruiseSpeed: 125,
+    id: 'T3', number: '№ 312 «Горный»', name: 'Альпийский экспресс',
+    color: '#d29922', carsCount: 3, maxCruiseSpeed: 125,
     route: [
       { segId: 'S4',  dir: 1, startDist: 300, stopStationId: 'ST_PASS', dwellSec: 8 },
       { segId: 'S5',  dir: 1 },
@@ -833,12 +539,8 @@ const trains = [
     ]
   }),
   new Train({
-    id: 'T4',
-    number: '№ 408 «Пригород»',
-    name: 'Южный челнок',
-    color: '#3fb950',
-    carsCount: 3,
-    maxCruiseSpeed: 120,
+    id: 'T4', number: '№ 408 «Пригород»', name: 'Южный челнок',
+    color: '#3fb950', carsCount: 3, maxCruiseSpeed: 120,
     route: [
       { segId: 'S10', dir: 1, startDist: 400 },
       { segId: 'S2',  dir: 1 },
@@ -850,47 +552,26 @@ const trains = [
   })
 ];
 
-/**
- * ============================================================================
- * 4. УПРАВЛЕНИЕ КАМЕРОЙ, ЗУМОМ И КЛИКАМИ ПО КАРТЕ
- * ============================================================================
- */
+/* ===== Камера, зум, клики ===== */
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let camStart = { x: 0, y: 0 };
 let dragMoved = false;
 const keysPressed = {};
 
-window.addEventListener('keydown', e => {
-  keysPressed[e.code] = true;
-});
-window.addEventListener('keyup', e => {
-  keysPressed[e.code] = false;
-});
+window.addEventListener('keydown', e => { keysPressed[e.code] = true; });
+window.addEventListener('keyup', e => { keysPressed[e.code] = false; });
 
 function screenToWorld(sx, sy) {
-  return {
-    x: (sx - canvas.width / 2) / camera.zoom + camera.x,
-    y: (sy - canvas.height / 2) / camera.zoom + camera.y
-  };
+  return { x: (sx - canvas.width / 2) / camera.zoom + camera.x, y: (sy - canvas.height / 2) / camera.zoom + camera.y };
 }
 
-function worldToScreen(wx, wy) {
-  return {
-    x: (wx - camera.x) * camera.zoom + canvas.width / 2,
-    y: (wy - camera.y) * camera.zoom + canvas.height / 2
-  };
-}
-
-// Зум к точке курсора
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const zoomFactor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
   const newZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.targetZoom * zoomFactor));
-
   const worldBefore = screenToWorld(e.clientX, e.clientY);
   camera.targetZoom = newZoom;
-
   if (!camera.followTrainId) {
     camera.targetX = worldBefore.x - (e.clientX - canvas.width / 2) / newZoom;
     camera.targetY = worldBefore.y - (e.clientY - canvas.height / 2) / newZoom;
@@ -921,15 +602,12 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('mouseup', e => {
   if (!isDragging) return;
   isDragging = false;
-  if (!dragMoved) {
-    handleMapClick(e.clientX, e.clientY);
-  }
+  if (!dragMoved) handleMapClick(e.clientX, e.clientY);
 });
 
 function handleMapClick(sx, sy) {
   const wp = screenToWorld(sx, sy);
 
-  // 1. Проверка клика по стрелке
   for (const sw of switches) {
     if (Math.hypot(wp.x - sw.x, wp.y - sw.y) < 38) {
       sw.activeIndex = (sw.activeIndex + 1) % sw.branches.length;
@@ -937,7 +615,6 @@ function handleMapClick(sx, sy) {
     }
   }
 
-  // 2. Проверка клика по поезду для слежения камеры
   for (const tr of trains) {
     for (const car of tr.carTransforms) {
       if (Math.hypot(wp.x - car.x, wp.y - car.y) < 28) {
@@ -949,28 +626,21 @@ function handleMapClick(sx, sy) {
   }
 }
 
-// Навигация по миникарте
 let miniDragging = false;
 function moveCameraFromMinimap(e) {
   const rect = miniCanvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
   camera.followTrainId = null;
   updateFollowUI();
-  camera.targetX = (mx / miniCanvas.width) * WORLD_W;
-  camera.targetY = (my / miniCanvas.height) * WORLD_H;
+  camera.targetX = ((e.clientX - rect.left) / miniCanvas.width) * WORLD_W;
+  camera.targetY = ((e.clientY - rect.top) / miniCanvas.height) * WORLD_H;
 }
 miniCanvas.addEventListener('mousedown', e => { miniDragging = true; moveCameraFromMinimap(e); });
 window.addEventListener('mousemove', e => { if (miniDragging) moveCameraFromMinimap(e); });
 window.addEventListener('mouseup', () => { miniDragging = false; });
 
-/**
- * ============================================================================
- * 5. ИНТЕРФЕЙС РАСПИСАНИЯ И ЭЛЕМЕНТЫ УПРАВЛЕНИЯ
- * ============================================================================
- */
+/* ===== Интерфейс ===== */
 let simSpeed = 1;
-let simTimeSec = 8 * 3600; // Начало смены: 08:00:00
+let simTimeSec = 8 * 3600;
 
 document.querySelectorAll('.speed-controls .btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1039,10 +709,8 @@ function renderScheduleUI() {
       badgeClass = 'waiting';
       statusText = 'Стрелка закрыта';
     }
-
     const kmh = Math.round(tr.speed * 0.85);
     const isSel = camera.followTrainId === tr.id ? 'selected' : '';
-
     return `
       <div class="train-card ${isSel}" style="border-left-color:${tr.color}" onclick="selectTrain('${tr.id}')">
         <div class="train-card-top">
@@ -1057,8 +725,7 @@ function renderScheduleUI() {
           <span>Участок: ${segmentMap[tr.segId].name}</span>
           <span>Отпр: ${formatTime(tr.nextDepartureSec)}</span>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
@@ -1068,33 +735,23 @@ window.selectTrain = function(id) {
   updateFollowUI();
 };
 
-/**
- * ============================================================================
- * 6. ОТРИСОВКА КАРТЫ, ПУТЕЙ, СТАНЦИЙ И ПОЕЗДОВ
- * ============================================================================
- */
+/* ===== Отрисовка ===== */
 function drawWorld() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.scale(camera.zoom, camera.zoom);
   ctx.translate(-camera.x, -camera.y);
 
-  // 1. Фон местности и координатная сетка
   ctx.fillStyle = '#1b2821';
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
   ctx.strokeStyle = 'rgba(255,255,255,0.03)';
   ctx.lineWidth = 2;
-  for (let gx = 0; gx <= WORLD_W; gx += 200) {
-    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, WORLD_H); ctx.stroke();
-  }
-  for (let gy = 0; gy <= WORLD_H; gy += 200) {
-    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(WORLD_W, gy); ctx.stroke();
-  }
+  for (let gx = 0; gx <= WORLD_W; gx += 200) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, WORLD_H); ctx.stroke(); }
+  for (let gy = 0; gy <= WORLD_H; gy += 200) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(WORLD_W, gy); ctx.stroke(); }
 
-  // 2. Река
+  // Река
   ctx.save();
   ctx.strokeStyle = '#16354d';
   ctx.lineWidth = 115;
@@ -1103,13 +760,11 @@ function drawWorld() {
   ctx.moveTo(650, 0);
   ctx.bezierCurveTo(850, 950, 1250, 1850, 820, WORLD_H);
   ctx.stroke();
-
   ctx.strokeStyle = '#1d4766';
   ctx.lineWidth = 85;
   ctx.stroke();
   ctx.restore();
 
-  // 3. Здания и леса
   for (const b of buildings) {
     ctx.save();
     ctx.translate(b.x, b.y);
@@ -1131,9 +786,8 @@ function drawWorld() {
     ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2); ctx.fill();
   }
 
-  // 4. Железнодорожное полотно (балластная насыпь, шпалы и рельсы)
+  // Полотно
   for (const seg of segments) {
-    // Насыпь
     ctx.strokeStyle = '#36393d';
     ctx.lineWidth = 24;
     ctx.lineCap = 'round';
@@ -1142,7 +796,6 @@ function drawWorld() {
     seg.samples.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
     ctx.stroke();
 
-    // Шпалы (рисуем при достаточном приближении для производительности)
     if (camera.zoom > 0.36) {
       ctx.strokeStyle = '#231f1e';
       ctx.lineWidth = 3;
@@ -1157,7 +810,6 @@ function drawWorld() {
       }
     }
 
-    // Две нитки рельсов
     for (const railOffset of [-4.5, 4.5]) {
       ctx.strokeStyle = '#9aa5b1';
       ctx.lineWidth = 2;
@@ -1171,14 +823,12 @@ function drawWorld() {
     }
   }
 
-  // 5. Станции и перроны
+  // Станции
   for (const st of stations) {
     ctx.save();
     ctx.translate(st.x, st.y);
     ctx.rotate(st.angle);
-
     const platY = st.side * 24;
-    // Платформа
     ctx.fillStyle = '#4c5664';
     ctx.fillRect(-95, platY - 11, 190, 22);
     ctx.strokeStyle = '#e5c07b';
@@ -1187,18 +837,14 @@ function drawWorld() {
     ctx.moveTo(-95, platY - st.side * 9);
     ctx.lineTo(95, platY - st.side * 9);
     ctx.stroke();
-
-    // Павильон вокзала
     ctx.fillStyle = st.color;
     ctx.fillRect(-45, platY + st.side * 12, 90, 24);
     ctx.restore();
 
-    // Название станции
     ctx.save();
     ctx.font = 'bold 15px Segoe UI, sans-serif';
     const textW = ctx.measureText(st.name).width;
     const labelY = st.y + (st.side === -1 ? -54 : 64);
-
     ctx.fillStyle = 'rgba(13, 17, 23, 0.85)';
     ctx.beginPath();
     ctx.roundRect(st.x - textW / 2 - 10, labelY - 14, textW + 20, 24, 6);
@@ -1206,7 +852,6 @@ function drawWorld() {
     ctx.strokeStyle = st.color;
     ctx.lineWidth = 1.5;
     ctx.stroke();
-
     ctx.fillStyle = '#f0f6fc';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1214,14 +859,13 @@ function drawWorld() {
     ctx.restore();
   }
 
-  // 6. Стрелочные переводы
+  // Стрелки
   for (const sw of switches) {
     const activeSeg = segmentMap[sw.branches[sw.activeIndex]];
     const dirPt = activeSeg.fromNode.id === sw.nodeId
       ? activeSeg.getPointAt(35, 1)
       : activeSeg.getPointAt(35, -1);
 
-    // Подсветка активного направления стрелки
     ctx.strokeStyle = '#3fb950';
     ctx.lineWidth = 5;
     ctx.beginPath();
@@ -1229,7 +873,6 @@ function drawWorld() {
     ctx.lineTo(dirPt.x, dirPt.y);
     ctx.stroke();
 
-    // Маркер стрелки
     ctx.fillStyle = autoSwitchMode ? '#1f6feb' : '#d29922';
     ctx.beginPath();
     ctx.arc(sw.x, sw.y, 11, 0, Math.PI * 2);
@@ -1239,11 +882,10 @@ function drawWorld() {
     ctx.stroke();
   }
 
-  // 7. Поезда и вагоны
+  // Поезда
   for (const tr of trains) {
     const isSelected = camera.followTrainId === tr.id;
 
-    // Рисуем с конца состава к локомотиву
     for (let i = tr.carTransforms.length - 1; i >= 0; i--) {
       const car = tr.carTransforms[i];
       const isLoco = i === 0;
@@ -1258,32 +900,26 @@ function drawWorld() {
         ctx.strokeRect(-19, -11, 38, 22);
       }
 
-      // Тень вагона
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.fillRect(-15, -7, 34, 18);
 
-      // Кузов
       ctx.fillStyle = isLoco ? tr.color : '#d0d7de';
       ctx.beginPath();
       ctx.roundRect(-16, -8, 32, 16, isLoco ? [3, 6, 6, 3] : 3);
       ctx.fill();
 
-      // Крыша и детали
       ctx.fillStyle = isLoco ? 'rgba(0,0,0,0.28)' : tr.color;
       ctx.fillRect(-12, -3, 24, 6);
 
-      // Прожектор локомотива
       if (isLoco) {
         ctx.fillStyle = '#fff3bf';
         ctx.beginPath();
         ctx.arc(16, 0, 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
-
       ctx.restore();
     }
 
-    // Бирка с номером поезда над локомотивом
     const hp = tr.headPos;
     ctx.save();
     ctx.font = 'bold 12px Segoe UI, sans-serif';
@@ -1296,7 +932,6 @@ function drawWorld() {
     ctx.strokeStyle = tr.color;
     ctx.lineWidth = 1.5;
     ctx.stroke();
-
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1316,7 +951,6 @@ function drawMinimap() {
   miniCtx.fillStyle = '#131b17';
   miniCtx.fillRect(0, 0, mw, mh);
 
-  // Пути на миникарте
   miniCtx.strokeStyle = '#57606a';
   miniCtx.lineWidth = 2;
   for (const seg of segments) {
@@ -1327,7 +961,6 @@ function drawMinimap() {
     miniCtx.stroke();
   }
 
-  // Станции
   for (const st of stations) {
     miniCtx.fillStyle = st.color;
     miniCtx.beginPath();
@@ -1335,7 +968,6 @@ function drawMinimap() {
     miniCtx.fill();
   }
 
-  // Поезда
   for (const tr of trains) {
     miniCtx.fillStyle = '#fff';
     miniCtx.beginPath();
@@ -1347,26 +979,17 @@ function drawMinimap() {
     miniCtx.fill();
   }
 
-  // Рамка текущего обзора камеры
   const viewW = (canvas.width / camera.zoom) * sx;
   const viewH = (canvas.height / camera.zoom) * sy;
-  const viewX = camera.x * sx - viewW / 2;
-  const viewY = camera.y * sy - viewH / 2;
-
   miniCtx.strokeStyle = '#58a6ff';
   miniCtx.lineWidth = 1.5;
-  miniCtx.strokeRect(viewX, viewY, viewW, viewH);
+  miniCtx.strokeRect(camera.x * sx - viewW / 2, camera.y * sy - viewH / 2, viewW, viewH);
 }
 
-/**
- * ============================================================================
- * 7. ГЛАВНЫЙ ЦИКЛ СИМУЛЯЦИИ
- * ============================================================================
- */
+/* ===== Главный цикл ===== */
 let lastTimestamp = performance.now();
 let uiUpdateAccumulator = 0;
 
-// Начальный расчёт позиций вагонов
 trains.forEach(t => t.computeCarPositions());
 renderScheduleUI();
 
@@ -1374,28 +997,22 @@ function loop(now) {
   const realDt = Math.min(0.05, (now - lastTimestamp) / 1000);
   lastTimestamp = now;
 
-  // Перемещение камеры с клавиатуры (WASD / Стрелки)
   const panSpeed = 900 / camera.zoom;
   if (keysPressed['KeyW'] || keysPressed['ArrowUp'])    { camera.targetY -= panSpeed * realDt; camera.followTrainId = null; }
   if (keysPressed['KeyS'] || keysPressed['ArrowDown'])  { camera.targetY += panSpeed * realDt; camera.followTrainId = null; }
   if (keysPressed['KeyA'] || keysPressed['ArrowLeft'])  { camera.targetX -= panSpeed * realDt; camera.followTrainId = null; }
   if (keysPressed['KeyD'] || keysPressed['ArrowRight']) { camera.targetX += panSpeed * realDt; camera.followTrainId = null; }
 
-  // Шаг симуляции с учётом ускорения времени
   const simDt = realDt * simSpeed;
   if (simDt > 0) {
     simTimeSec += simDt;
-    // Дробим шаг при высоком ускорении времени (8x) для точного соблюдения остановок
     const subSteps = simSpeed > 2 ? 4 : 1;
     const subDt = simDt / subSteps;
     for (let s = 0; s < subSteps; s++) {
-      for (const tr of trains) {
-        tr.update(subDt, simTimeSec, trains);
-      }
+      for (const tr of trains) tr.update(subDt, simTimeSec, trains);
     }
   }
 
-  // Слежение камеры за выбранным поездом
   if (camera.followTrainId) {
     const followed = trains.find(t => t.id === camera.followTrainId);
     if (followed) {
@@ -1404,7 +1021,6 @@ function loop(now) {
     }
   }
 
-  // Плавная интерполяция камеры и зума
   camera.targetX = Math.max(0, Math.min(WORLD_W, camera.targetX));
   camera.targetY = Math.max(0, Math.min(WORLD_H, camera.targetY));
   camera.x += (camera.targetX - camera.x) * Math.min(1, realDt * 10);
