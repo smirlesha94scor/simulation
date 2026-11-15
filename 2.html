@@ -489,10 +489,9 @@
                     }
 
                     if (key === 'C') {
-                        // Конденсатор полностью блокирует постоянный ток (g = 0), 
-                        // но пропускает переменный сигнал (сигнал наводки), когда палец касается входа (isTouched)
-                        const gCap = isTouched ? 0.08 : 0.0;
-                        link(A, B, gCap); link(B, A, gCap);
+                        if (isTouched) {
+                            link(A, B, 0.05); link(B, A, 0.05);
+                        }
                     } else if (key === 'GB') {
                         srcs.push(B); sinks.push(A);
                     } else if (key === 'VD') {
