@@ -454,9 +454,10 @@
             
             const re = /\[([^\]]+)\]/g;
             const nid = (r, c, p) => getWireChar(r, c) === '#' ? `${r},${c},${p}` : `${r},${c}`;
+            const G_EL = 0.05;
             const L = [];
-            const link = (a, b, g, isDiode, isCapacitor) => L.push({ a, b, g, d: !!isDiode, c: !!isCapacitor });
-            const cut = new Set(), srcs = [], sinks = [], segs = [], plugs = [];
+            const link = (a, b, g, oneWay, ctl) => L.push({ a, b, g, d: !!oneWay, ctl });
+            const cut = new Set(), srcs = [], sinks = [], plugs = [], vts = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let m;
@@ -471,8 +472,9 @@
                         const top = nid(r - 1, col, 'v'), bot = nid(r + 1, col, 'v'), base = nid(r, s, 'h');
                         const flip = /\^$/.test(raw);
                         const c = flip ? bot : top, em = flip ? top : bot;
-                        link(c, em, 0.08, true);
-                        link(base, em, 0.05, true);
+                        vts.push({ b: base, c, e: em, p: key === 'VT2' ? -1 : 1 });
+                        if (key === 'VT2') { link(em, c, G_EL, true, { b: base, e: em, p: -1 }); link(em, base, G_EL, true); }
+                        else { link(c, em, G_EL, true, { b: base, e: em, p: 1 }); link(base, em, G_EL, true); }
                         continue;
                     }
 
@@ -487,93 +489,40 @@
                     }
 
                     if (key === 'C') {
-                        const capConductivity = isTouched ? 0.15 : 0.02;
-                        link(A, B, capConductivity, false, true);
-                    } else if (key === 'VD') {
-                        if (vert) link(B, A, 0.1, true); 
-                        else link(A, B, 0.1, true);
+                        // Конденсатор: при касании пропускает переменный сигнал лучше
+                        const gCap = isTouched ? 0.08 : 0.01;
+                        link(A, B, gCap); link(B, A, gCap);
                     } else if (key === 'GB') {
                         srcs.push(B); sinks.push(A);
-                    } else if (key === 'E') {
-                        plugs.push(B);
-                        link(A, B, 0.1);
+                    } else if (key === 'VD') {
+                        if (vert) link(B, A, G_EL, true); else link(A, B, G_EL, true);
                     } else {
-                        link(A, B, 0.1);
+                        link(A, B, G_EL); link(B, A, G_EL);
                     }
+                    if (key === 'E') plugs.push(B);
                 }
             }
-
-            for (let r = 0; r < wireLines.length; r++) {
-                for (let c = 0; c < wireLines[r].length; c++) {
-                    if (hLink(r, c) && !cut.has(`h${r},${c}`)) {
-                        const a = nid(r, c, 'h'), b = nid(r, c + 1, 'h');
-                        link(a, b, 1.0);
-                        segs.push([a, b, c, r, c + 1, r]);
-                    }
-                    if (vLink(r, c) && !cut.has(`v${r},${c}`)) {
-                        const a = nid(r, c, 'v'), b = nid(r + 1, c, 'v');
-                        link(a, b, 1.0);
-                        segs.push([a, b, c, r, c, r + 1]);
-                    }
-                }
-            }
-
-            // палец замыкает все разъёмы E между собой
-            if (isTouched && plugs.length > 1) {
-                for (let i = 1; i < plugs.length; i++) {
-                    link(plugs[0], plugs[i], 0.1);
-                }
-            }
-
-            let d = '';
-            const half = CELL_SIZE / 2;
-
-            segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                d += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
-            });
-
-            if (!d) return '';
-
-            return `
-                <path d="${d}" fill="none" stroke="#ff3b30" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.3 ${half - 0.3}">
-                    <animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/>
-                </path>
-                ${isTouched ? `
-                <path d="${d}" fill="none" stroke="#61afef" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}">
-                    <animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/>
-                </path>` : ''}
-            `;
-        }
 
             const segs = [];
             for (let r = 0; r < wireLines.length; r++) {
                 for (let c = 0; c < wireLines[r].length; c++) {
                     if (hLink(r, c) && !cut.has(`h${r},${c}`)) {
                         const a = nid(r, c, 'h'), b = nid(r, c + 1, 'h');
-                        link(a, b, 1);
+                        link(a, b, 1.0); link(b, a, 1.0);
                         segs.push([a, b, c, r, c + 1, r]);
                     }
                     if (vLink(r, c) && !cut.has(`v${r},${c}`)) {
                         const a = nid(r, c, 'v'), b = nid(r + 1, c, 'v');
-                        link(a, b, 1);
+                        link(a, b, 1.0); link(b, a, 1.0);
                         segs.push([a, b, c, r, c, r + 1]);
                     }
                 }
             }
 
-            elems.forEach(({ key, A, B, vert }) => {
-                if (key === 'C') return;
-                if (key === 'GB') { srcs.push(B); sinks.push(A); return; } // плюс: снизу / справа
-                if (key === 'VD') { if (vert) link(B, A, G_EL, true); else link(A, B, G_EL, true); return; }
-                link(A, B, G_EL);
-            });
-
-            // палец замыкает все разъёмы E между собой
             if (isTouched) for (let i = 1; i < plugs.length; i++) link(plugs[0], plugs[i], G_EL);
 
             if (!srcs.length || !sinks.length) return '';
 
-            // решаем потенциалы узлов методом релаксации
             const ids = new Map();
             const ix = (id) => { if (!ids.has(id)) ids.set(id, ids.size); return ids.get(id); };
             L.forEach(l => { l.a = ix(l.a); l.b = ix(l.b); if (l.ctl) { l.ctl.b = ix(l.ctl.b); l.ctl.e = ix(l.ctl.e); } });
@@ -583,14 +532,15 @@
             const N = ids.size;
             const nb = Array.from({ length: N }, () => []);
             L.forEach((l, i) => { nb[l.a].push(i); nb[l.b].push(i); });
-            const V = new Float64Array(N); // старт с нуля: транзисторы закрыты, пока на базе нет напряжения
+            const V = new Float64Array(N);
             fixed.forEach((v, n) => { V[n] = v; });
 
-            const VB = 0.03; // порог открытия перехода база–эмиттер (доля от напряжения батареи)
-            const isOpen = (l) => {
-                if (l.d && V[l.a] <= V[l.b]) return false;                   // односторонний переход закрыт
-                if (l.ctl && (V[l.ctl.b] - V[l.ctl.e]) * l.ctl.p < VB) return false; // нет тока базы
-                return true;
+            const VB = 0.03;
+            const G_LEAK = 0.0005;
+            const effG = (l) => {
+                if (l.d && V[l.a] <= V[l.b]) return 0;
+                if (l.ctl && (V[l.ctl.b] - V[l.ctl.e]) * l.ctl.p < VB) return G_LEAK;
+                return l.g;
             };
 
             for (let it = 0; it < 12000; it++) {
@@ -600,10 +550,11 @@
                     let sw = 0, sv = 0;
                     for (const li of nb[n]) {
                         const l = L[li];
-                        if (!isOpen(l)) continue;
+                        const g = effG(l);
+                        if (!g) continue;
                         const mNode = l.a === n ? l.b : l.a;
-                        sw += l.g;
-                        sv += l.g * V[mNode];
+                        sw += g;
+                        sv += g * V[mNode];
                     }
                     if (sw > 0) {
                         const nv = sv / sw;
@@ -614,9 +565,22 @@
                 if (maxd < 1e-8) break;
             }
 
-            const EPS = 3e-3;
+            const parent = Array.from({ length: N }, (_, i) => i);
+            const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+            segs.forEach(([a, b]) => { parent[find(ids.get(a))] = find(ids.get(b)); });
+            const masked = new Set();
+            vts.forEach(t => {
+                const bb = ids.get(t.b), cc = ids.get(t.c), ee = ids.get(t.e);
+                if ((V[bb] - V[ee]) * t.p < VB) {
+                    if (t.p === 1) { masked.add(find(cc)); masked.add(find(ee)); }
+                    else { masked.add(find(bb)); masked.add(find(cc)); }
+                }
+            });
+
+            const EPS = 2e-4;
             let d = '';
             segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                if (masked.has(find(ids.get(a)))) return;
                 const dv = V[ids.get(a)] - V[ids.get(b)];
                 if (Math.abs(dv) < EPS) return;
                 d += dv > 0
@@ -625,10 +589,9 @@
             });
             if (!d) return '';
 
-            // период точек = половина клетки, чтобы фаза совпадала на каждом участке
             const half = CELL_SIZE / 2;
-            const duration = isTouched ? '0.2s' : '0.7s';          // при замыкании ток бежит быстрее
-            const strokeColor = isTouched ? '#61afef' : '#ff3b30';  // и становится синим
+            const duration = isTouched ? '0.2s' : '0.7s';
+            const strokeColor = isTouched ? '#61afef' : '#ff3b30';
 
             return `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>`;
         }
