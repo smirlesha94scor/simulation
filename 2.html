@@ -580,7 +580,7 @@
             let dcPath = '';
             let acPath = '';
 
-            // 1. Красный постоянный ток питания (идет до эмиттера VT2, обрывается на конденсаторах)
+            // 1. Постоянный ток (красный) — течет по питанию, но упирается в конденсаторы
             segs.forEach(([a, b, c1, r1, c2, r2]) => {
                 if (masked.has(find(ids.get(a)))) return;
                 const dv = V[ids.get(a)] - V[ids.get(b)];
@@ -590,24 +590,30 @@
                     : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
             });
 
-            // 2. Синий переменный ток — строго по пути сигнала при касании (isTouched)
+            // 2. Переменный ток (синий) — только где конденсаторы, диод и сигнальная цепь
             if (isTouched) {
-                // Путь от входа E1 через резисторы R1, R2, конденсаторы C1, C2 к транзисторам и диоду
+                // Динамически находим самую нижнюю шину (минус) и самую правую (батарея)
+                let maxR = 0, maxC = 0;
+                segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                    maxR = Math.max(maxR, r1, r2);
+                    maxC = Math.max(maxC, c1, c2);
+                });
+
+                // Точно пускаем синий ток сквозь конденсаторы
                 caps.forEach(cap => {
                     acPath += `M${px(cap.c1)} ${py(cap.r)}L${px(cap.c2)} ${py(cap.r)}`;
                 });
                 
-                // Добавляем сегменты проводников, составляющие цепь сигнала
+                // Пускаем синий ток по сигнальным проводам (исключая крайние шины питания)
                 segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                    // Фильтруем только линию сигнала (например, ряды 7 и 10, где идут R1, R2, конденсаторы и диод)
-                    if (r1 === 7 || r1 === 10 || r2 === 7 || r2 === 10) {
+                    // Если провод не касается нижней шины (maxR) и батареи (maxC) — это сигнал!
+                    if (r1 < maxR && r2 < maxR && c1 < maxC && c2 < maxC) {
                         acPath += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
                     }
                 });
             }
 
             const half = CELL_SIZE / 2;
-            const duration = isTouched ? '0.2s' : '0.7s';
 
             return `
                 ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/></path>` : ''}
