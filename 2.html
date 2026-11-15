@@ -449,14 +449,17 @@
           Конденсаторы ток не пропускают; диод и переходы транзисторов проводят в одну сторону.
           Точки бегут по проводам от большего потенциала к меньшему; без перепада тока нет.
         */
-        function buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
+        function buildACFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
             if (!document.getElementById('flow-toggle').checked) return '';
+            
             const re = /\[([^\]]+)\]/g;
             const nid = (r, c, p) => getWireChar(r, c) === '#' ? `${r},${c},${p}` : `${r},${c}`;
-            const G_EL = 0.05;
             const L = [];
-            const link = (a, b, g, oneWay, ctl) => L.push({ a, b, g, d: !!oneWay, ctl });
-            const cut = new Set(), srcs = [], sinks = [], elems = [], plugs = [];
+            const link = (a, b, g, isDiode, isCapacitor) => L.push({ a, b, g, d: !!isDiode, c: !!isCapacitor });
+            const cut = new Set(), srcs = [], sinks = [], segs = [];
+
+            // Фаза переменного сигнала (имитация пальца / наводки)
+            const acSignal = Math.sin(timeStep * 4); 
 
             for (let r = 0; r < lines.length; r++) {
                 let m;
@@ -471,9 +474,8 @@
                         const top = nid(r - 1, col, 'v'), bot = nid(r + 1, col, 'v'), base = nid(r, s, 'h');
                         const flip = /\^$/.test(raw);
                         const c = flip ? bot : top, em = flip ? top : bot;
-                        // переход К–Э проводит только если переход база–эмиттер открыт (есть ток базы)
-                        if (key === 'VT2') { link(em, c, G_EL, true, { b: base, e: em, p: -1 }); link(em, base, G_EL, true); } // PNP
-                        else { link(c, em, G_EL, true, { b: base, e: em, p: 1 }); link(base, em, G_EL, true); }               // NPN
+                        link(c, em, 0.08, true);
+                        link(base, em, 0.05, true);
                         continue;
                     }
 
@@ -486,10 +488,61 @@
                         A = nid(r, s, 'h'); B = nid(r, e - 1, 'h');
                         for (let c = s; c < e - 1; c++) cut.add(`h${r},${c}`);
                     }
-                    elems.push({ key, A, B, vert });
-                    if (key === 'E') plugs.push(B);
+
+                    if (key === 'C') {
+                        // Конденсатор блокирует постоянный ток батареи, но пропускает переменную составляющую (сигнал)
+                        // Если палец касается входа, проводимость конденсатора резко возрастает
+                        const capConductivity = isTouched ? 0.15 : 0.02;
+                        link(A, B, capConductivity, false, true);
+                    } else if (key === 'VD') {
+                        // Диод пропускает ток в одну сторону
+                        if (vert) link(B, A, 0.1, true); 
+                        else link(A, B, 0.1, true);
+                    } else if (key === 'GB') {
+                        srcs.push(B); sinks.push(A);
+                    } else {
+                        link(A, B, 0.1);
+                    }
                 }
             }
+
+            for (let r = 0; r < wireLines.length; r++) {
+                for (let c = 0; c < wireLines[r].length; c++) {
+                    if (hLink(r, c) && !cut.has(`h${r},${c}`)) {
+                        const a = nid(r, c, 'h'), b = nid(r, c + 1, 'h');
+                        link(a, b, 1.0);
+                        segs.push([a, b, c, r, c + 1, r]);
+                    }
+                    if (vLink(r, c) && !cut.has(`v${r},${c}`)) {
+                        const a = nid(r, c, 'v'), b = nid(r + 1, c, 'v');
+                        link(a, b, 1.0);
+                        segs.push([a, b, c, r, c, r + 1]);
+                    }
+                }
+            }
+
+            let d = '';
+            const half = CELL_SIZE / 2;
+            // Основной ток питания — красный, а когда идет сигнал через конденсаторы — добавляется синий поток
+            const strokeColor = isTouched ? '#61afef' : '#ff3b30';
+
+            segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                d += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
+            });
+
+            if (!d) return '';
+
+            // Две анимации: базовый ток питания + наложенный переменный сигнал через конденсаторы
+            return `
+                <path d="${d}" fill="none" stroke="#ff3b30" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.3 ${half - 0.3}">
+                    <animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/>
+                </path>
+                ${isTouched ? `
+                <path d="${d}" fill="none" stroke="#61afef" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}">
+                    <animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/>
+                </path>` : ''}
+            `;
+        }
 
             const segs = [];
             for (let r = 0; r < wireLines.length; r++) {
