@@ -619,6 +619,7 @@
                 ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/></path>` : ''}
                 ${acPath ? `<path d="${acPath}" fill="none" stroke="#61afef" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}"><animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/></path>` : ''}
             `;
+        }
         // «Палец», замыкающий разъёмы E1 и E2
         function buildFinger(lines, px, py) {
             if (!isTouched) return '';
