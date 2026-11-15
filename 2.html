@@ -449,7 +449,7 @@
           Конденсаторы ток не пропускают; диод и переходы транзисторов проводят в одну сторону.
           Точки бегут по проводам от большего потенциала к меньшему; без перепада тока нет.
         */
-        function buildACFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
+        function buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
             if (!document.getElementById('flow-toggle').checked) return '';
             
             const re = /\[([^\]]+)\]/g;
