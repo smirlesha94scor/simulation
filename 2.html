@@ -569,18 +569,46 @@
 
             let template = customSVG[key] || '';
 
-            let compiled = template.replace(/\{x\}([\+\-]\d+)?/g, (_, offset) => x + (offset ? parseInt(offset) : 0))
-                                   .replace(/\{y\}([\+\-]\d+)?/g, (_, offset) => y + (offset ? parseInt(offset) : 0))
-                                   .replace(/\{name\}/g, () => esc(parts[0]))
-                                   .replace(/\{val\}/g, () => esc(val));
+            // Если это батарея GB, уберем старые встроенные тексты полярности из шаблона для точного контроля
+            let cleanTemplate = template;
+            if (key === 'GB') {
+                cleanTemplate = template.replace(/<text[^>]*>[\+\-]<\/text>/g, '');
+            }
+
+            let compiled = cleanTemplate.replace(/\{x\}([\+\-]\d+)?/g, (_, offset) => x + (offset ? parseInt(offset) : 0))
+                                       .replace(/\{y\}([\+\-]\d+)?/g, (_, offset) => y + (offset ? parseInt(offset) : 0))
+                                       .replace(/\{name\}/g, () => esc(parts[0]))
+                                       .replace(/\{val\}/g, () => esc(val));
 
             if (isVertical && !type.startsWith('VT')) {
-                const rot = type.startsWith('VD') ? -90 : 90; // диод стрелкой вверх
+                const rot = type.startsWith('VD') ? -90 : 90;
                 const body = compiled.replace(/<text[\s\S]*?<\/text>/g, '');
                 const st = 'font-size="11" font-family="Arial" fill="#000"';
                 let label = `<text x="${x + 20}" y="${y - 1}" ${st} font-weight="bold">${esc(parts[0])}</text>`;
                 if (val) label += `<text x="${x + 20}" y="${y + 12}" ${st}>${esc(val)}</text>`;
-                return `<g transform="rotate(${rot} ${x} ${y})">${body}</g>${label}`;
+                
+                // Если это батарея и она вертикальная — рисуем знаки полярности слева (сверху и снизу после поворота)
+                let polarityLabels = '';
+                if (key === 'GB') {
+                    const pst = 'font-size="12" font-weight="bold" font-family="Arial" fill="#000" text-anchor="middle"';
+                    // При повороте вертикально минус оказывается сверху, а плюс снизу (или наоборот)
+                    polarityLabels = `
+                        <text x="${x - 12}" y="${y - 18}" ${pst}>-</text>
+                        <text x="${x - 12}" y="${y + 24}" ${pst}>+</text>
+                    `;
+                }
+
+                return `<g transform="rotate(${rot} ${x} ${y})">${body}</g>${label}${polarityLabels}`;
+            }
+
+            if (key === 'GB') {
+                // Если батарея горизонтальная — знаки слева (-) и справа (+)
+                const pst = 'font-size="12" font-weight="bold" font-family="Arial" fill="#000" text-anchor="middle"';
+                const horizontalPolarity = `
+                    <text x="${x - 26}" y="${y - 16}" ${pst}>-</text>
+                    <text x="${x + 26}" y="${y - 16}" ${pst}>+</text>
+                `;
+                return `<g>${compiled}</g>${horizontalPolarity}`;
             }
 
             if (flip) {
