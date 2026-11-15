@@ -45,13 +45,13 @@
         .preview-pane { flex: 1; background: #141416; display: flex; flex-direction: column; height: 100%; min-width: 0; }
         .canvas-wrapper { flex: 1; overflow: auto; display: flex; padding: 20px; }
         #svg-output { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; margin: auto; flex-shrink: 0; }
-
     </style>
 </head>
 <body>
 
     <header>
         <h1>⚡ Генератор схем в реальном времени</h1>
+        <button id="touch-btn" style="background:#e06c75; color:#fff; border:none; padding:5px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:10px;">👆 Коснуться E1</button>
         <label style="font-size:12px; color:#abb2bf; margin-left:auto; margin-right:14px; cursor:pointer;"><input type="checkbox" id="flow-toggle" checked> Показать ток</label>
         <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">📋 Копировать SVG</button>
     </header>
@@ -69,12 +69,11 @@
 
                 <div class="svg-template-editor">
                     <div class="svg-template-controls">
-                        <span style="font-size: 10px; color: #abb2bf; font-weight: bold;">РЕДАКТОР SVG-КОДА ЭЛЕМЕНТА:</span>
+                        <span style="font-size: 10px; color:#abb2bf ; font-weight: bold;">РЕДАКТОР SVG-КОДА ЭЛЕМЕНТА:</span>
                         <select id="svg-type-select" onchange="loadSVGTemplateToEdit()">
                             <option value="VT1">VT1 (NPN Транзистор)</option>
                             <option value="VT2">VT2 (PNP Транзистор)</option>
                             <option value="R">R (Резистор)</option>
-                            <option value="R1">R1 (Резистор с косыми штрихами)</option>
                             <option value="C">C (Конденсатор)</option>
                             <option value="VD">VD (Диод)</option>
                             <option value="BF">BF (Динамик)</option>
@@ -112,6 +111,20 @@
                            |    |
 [E2]-----------------------+----+`;
 
+        // «Касание» входа E1: ток на 300 мс становится синим и бежит быстрее
+        let isTouched = false;
+        function touchE1() {
+            isTouched = true;
+            parseAndRender();
+            setTimeout(() => {
+                isTouched = false;
+                parseAndRender();
+            }, 300);
+        }
+        const touchBtn = document.getElementById('touch-btn');
+        touchBtn.addEventListener('mousedown', touchE1);
+        touchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); touchE1(); }, { passive: false });
+
         const compValues = {
             R1: '750k', R2: '470k',
             C1: '47н', C2: '6800',
@@ -145,7 +158,6 @@
 
             R: `<rect x="{x}-22" y="{y}-8" width="44" height="16" fill="#fff" stroke="#000" stroke-width="2.5"/>
 <text x="{x}" y="{y}+26" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial" fill="#000">{name} {val}</text>`,
-
 
             C: `<rect x="{x}-5" y="{y}-12" width="10" height="24" fill="#fff"/>
 <line x1="{x}-5" y1="{y}-12" x2="{x}-5" y2="{y}+12" stroke="#000" stroke-width="3"/>
@@ -396,8 +408,7 @@
                 }
             }
 
-            const flowSvg = buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py);
-            html += flowSvg;
+            html += buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py);
 
             for (let r = 0; r < lines.length; r++) {
                 let match;
@@ -434,6 +445,11 @@
                 .find(k => type.startsWith(k)) || 'DEFAULT';
         }
 
+        /*
+          Ток идёт от «+» батареи (внизу у вертикальной GB) по проводам к «−».
+          R, BF, E — проводят в обе стороны; C — постоянный ток не пропускает;
+          VD — от анода к катоду; NPN — от К к Э и от Б к Э; PNP — от Э к К и от Э к Б.
+        */
         function buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
             if (!document.getElementById('flow-toggle').checked) return '';
             const re = /\[([^\]]+)\]/g;
@@ -530,7 +546,13 @@
                     : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
             });
             if (!d) return '';
-            return `<path d="${d}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 11.9"><animate attributeName="stroke-dashoffset" from="0" to="-12" dur="0.7s" repeatCount="indefinite"/></path>`;
+
+            // период точек = половина клетки, чтобы фаза совпадала на каждом участке
+            const half = CELL_SIZE / 2;
+            const duration = isTouched ? '0.2s' : '0.7s';          // при касании ток бежит быстрее
+            const strokeColor = isTouched ? '#61afef' : '#ff3b30';  // и становится синим
+
+            return `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>`;
         }
 
         function renderComponent(rawName, x, y, isVertical) {
@@ -560,7 +582,7 @@
                 const st = 'font-size="11" font-family="Arial" fill="#000"';
                 let label = `<text x="${x + 20}" y="${y - 1}" ${st} font-weight="bold">${esc(parts[0])}</text>`;
                 if (val) label += `<text x="${x + 20}" y="${y + 12}" ${st}>${esc(val)}</text>`;
-                
+
                 let polarityLabels = '';
                 if (key === 'GB') {
                     const pst = 'font-size="12" font-weight="bold" font-family="Arial" fill="#000" text-anchor="middle"';
@@ -592,6 +614,7 @@
         }
 
         textarea.addEventListener('input', parseAndRender);
+        document.getElementById('flow-toggle').addEventListener('change', parseAndRender);
         loadSVGTemplateToEdit();
         parseAndRender();
     </script>
