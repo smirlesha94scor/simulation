@@ -188,7 +188,7 @@
         const svgTemplateInput = document.getElementById('svg-template-input');
 
         textarea.value = defaultText;
-        const CELL_SIZE = 24;
+        const CELL_SIZE = 16;
         const WIRE_W = 2.5;
         let lastCompSig = null;
 
@@ -548,8 +548,12 @@
             const val = compValues[fullName] || parts.slice(1).join(' ');
 
             let template = customSVG[key] || '';
+            let cleanTemplate = template;
+            if (key === 'GB') {
+                cleanTemplate = template.replace(/<text[^>]*>[\+\-]<\/text>/g, '');
+            }
 
-            let compiled = template.replace(/\{x\}([\+\-]\d+)?/g, (_, offset) => x + (offset ? parseInt(offset) : 0))
+            let compiled = cleanTemplate.replace(/\{x\}([\+\-]\d+)?/g, (_, offset) => x + (offset ? parseInt(offset) : 0))
                                        .replace(/\{y\}([\+\-]\d+)?/g, (_, offset) => y + (offset ? parseInt(offset) : 0))
                                        .replace(/\{name\}/g, () => esc(parts[0]))
                                        .replace(/\{val\}/g, () => esc(val));
@@ -560,7 +564,26 @@
                 const st = 'font-size="11" font-family="Arial" fill="#000"';
                 let label = `<text x="${x + 20}" y="${y - 1}" ${st} font-weight="bold">${esc(parts[0])}</text>`;
                 if (val) label += `<text x="${x + 20}" y="${y + 12}" ${st}>${esc(val)}</text>`;
-                return `<g transform="rotate(${rot} ${x} ${y})">${body}</g>${label}`;
+                
+                let polarityLabels = '';
+                if (key === 'GB') {
+                    const pst = 'font-size="12" font-weight="bold" font-family="Arial" fill="#000" text-anchor="middle"';
+                    polarityLabels = `
+                        <text x="${x - 20}" y="${y - 20}" ${pst}>-</text>
+                        <text x="${x - 20}" y="${y + 26}" ${pst}>+</text>
+                    `;
+                }
+
+                return `<g transform="rotate(${rot} ${x} ${y})">${body}</g>${label}${polarityLabels}`;
+            }
+
+            if (key === 'GB') {
+                const pst = 'font-size="12" font-weight="bold" font-family="Arial" fill="#000" text-anchor="middle"';
+                const horizontalPolarity = `
+                    <text x="${x - 20}" y="${y - 20}" ${pst}>-</text>
+                    <text x="${x - 20}" y="${y + 26}" ${pst}>+</text>
+                `;
+                return `<g>${compiled}</g>${horizontalPolarity}`;
             }
 
             if (flip) {
