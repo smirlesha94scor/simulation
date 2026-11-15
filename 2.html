@@ -378,7 +378,7 @@ class Train {
       const st = stationMap[step.stopStationId];
       const trainLen = this.carsCount * 38;               // длина от локомотива до хвоста
      const stopOffset = (step.stopOffset ?? trainLen / 2); // сдвиг точки остановки по ходу движения
-     const stopPos = (this.dir === 3 ? st.targetDist : (seg.length - st.targetDist)) + stopOffset;
+     const stopPos = (this.dir === 2 ? st.targetDist : (seg.length - st.targetDist)) + stopOffset;
       const distToStop = stopPos - this.distOnSeg;
 
       if (distToStop <= 3 && distToStop >= -25) {
