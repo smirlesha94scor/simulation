@@ -578,6 +578,9 @@
 
             const EPS = 2e-4;
             let dcPath = '';
+            let acPath = '';
+
+            // 1. Красный постоянный ток питания (идет до эмиттера VT2, обрывается на конденсаторах)
             segs.forEach(([a, b, c1, r1, c2, r2]) => {
                 if (masked.has(find(ids.get(a)))) return;
                 const dv = V[ids.get(a)] - V[ids.get(b)];
@@ -587,11 +590,19 @@
                     : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
             });
 
-            // Формируем путь синего переменного тока строго через конденсаторы C1, C2
-            let acPath = '';
+            // 2. Синий переменный ток — строго по пути сигнала при касании (isTouched)
             if (isTouched) {
+                // Путь от входа E1 через резисторы R1, R2, конденсаторы C1, C2 к транзисторам и диоду
                 caps.forEach(cap => {
                     acPath += `M${px(cap.c1)} ${py(cap.r)}L${px(cap.c2)} ${py(cap.r)}`;
+                });
+                
+                // Добавляем сегменты проводников, составляющие цепь сигнала
+                segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                    // Фильтруем только линию сигнала (например, ряды 7 и 10, где идут R1, R2, конденсаторы и диод)
+                    if (r1 === 7 || r1 === 10 || r2 === 7 || r2 === 10) {
+                        acPath += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
+                    }
                 });
             }
 
@@ -599,8 +610,8 @@
             const duration = isTouched ? '0.2s' : '0.7s';
 
             return `
-                ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>` : ''}
-                ${acPath ? `<path d="${acPath}" fill="none" stroke="#61afef" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}"><animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/></path>` : ''}
+                ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/></path>` : ''}
+                ${acPath ? `<path d="${acPath}" fill="none" stroke="#61afef" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}"><animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/></path>` : ''}
             `;
         }
         // «Палец», замыкающий разъёмы E1 и E2
