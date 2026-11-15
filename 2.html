@@ -489,12 +489,14 @@
                     }
 
                     if (key === 'C') {
-                        // Конденсатор: при касании пропускает переменный сигнал лучше
-                        const gCap = isTouched ? 0.08 : 0.01;
+                        // Конденсатор полностью блокирует постоянный ток (g = 0), 
+                        // но пропускает переменный сигнал (сигнал наводки), когда палец касается входа (isTouched)
+                        const gCap = isTouched ? 0.08 : 0.0;
                         link(A, B, gCap); link(B, A, gCap);
                     } else if (key === 'GB') {
                         srcs.push(B); sinks.push(A);
                     } else if (key === 'VD') {
+                        // Диод пропускает сигнал только в одну сторону
                         if (vert) link(B, A, G_EL, true); else link(A, B, G_EL, true);
                     } else {
                         link(A, B, G_EL); link(B, A, G_EL);
@@ -591,11 +593,11 @@
 
             const half = CELL_SIZE / 2;
             const duration = isTouched ? '0.2s' : '0.7s';
+            // Когда палец касается входа, поток сигнала через конденсаторы подсвечивается синим цветом переменного тока
             const strokeColor = isTouched ? '#61afef' : '#ff3b30';
 
             return `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>`;
         }
-
         // «Палец», замыкающий разъёмы E1 и E2
         function buildFinger(lines, px, py) {
             if (!isTouched) return '';
