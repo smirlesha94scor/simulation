@@ -456,10 +456,7 @@
             const nid = (r, c, p) => getWireChar(r, c) === '#' ? `${r},${c},${p}` : `${r},${c}`;
             const L = [];
             const link = (a, b, g, isDiode, isCapacitor) => L.push({ a, b, g, d: !!isDiode, c: !!isCapacitor });
-            const cut = new Set(), srcs = [], sinks = [], segs = [];
-
-            // Фаза переменного сигнала (имитация пальца / наводки)
-            const acSignal = Math.sin(timeStep * 4); 
+            const cut = new Set(), srcs = [], sinks = [], segs = [], plugs = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let m;
@@ -497,6 +494,9 @@
                         else link(A, B, 0.1, true);
                     } else if (key === 'GB') {
                         srcs.push(B); sinks.push(A);
+                    } else if (key === 'E') {
+                        plugs.push(B);
+                        link(A, B, 0.1);
                     } else {
                         link(A, B, 0.1);
                     }
@@ -515,6 +515,13 @@
                         link(a, b, 1.0);
                         segs.push([a, b, c, r, c, r + 1]);
                     }
+                }
+            }
+
+            // палец замыкает все разъёмы E между собой
+            if (isTouched && plugs.length > 1) {
+                for (let i = 1; i < plugs.length; i++) {
+                    link(plugs[0], plugs[i], 0.1);
                 }
             }
 
