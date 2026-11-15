@@ -592,10 +592,34 @@
 
             const half = CELL_SIZE / 2;
             const duration = isTouched ? '0.2s' : '0.7s';
-            // Когда палец касается входа, поток сигнала через конденсаторы подсвечивается синим цветом переменного тока
-            const strokeColor = isTouched ? '#61afef' : '#ff3b30';
 
-            return `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>`;
+            // 1. Красный постоянный ток питания (обрывается на конденсаторах, так как они не добавлены в граф при !isTouched)
+            let dcPath = '';
+            segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                if (masked.has(find(ids.get(a)))) return;
+                const dv = V[ids.get(a)] - V[ids.get(b)];
+                if (Math.abs(dv) < EPS) return;
+                dcPath += dv > 0 ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}` : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
+            });
+
+            // 2. Синий переменный ток — строго путь сигнала: от входа E1 через конденсаторы C1, C2, диод VD1 к транзисторам
+            let acPath = '';
+            if (isTouched) {
+                // Находим координаты для визуализации прохождения сигнала через конденсаторы и диод
+                acPath = `
+                    M${px(2)} ${py(7)}L${px(10)} ${py(7)} 
+                    M${px(10)} ${py(7)}L${px(12)} ${py(7)}
+                    M${px(12)} ${py(7)}L${px(16)} ${py(7)}
+                    M${px(16)} ${py(7)}L${px(20)} ${py(7)}
+                    M${px(16)} ${py(7)}L${px(16)} ${py(3)}
+                    M${px(16)} ${py(3)}L${px(20)} ${py(3)}
+                `;
+            }
+
+            return `
+                ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>` : ''}
+                ${acPath ? `<path d="${acPath}" fill="none" stroke="#61afef" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}"><animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/></path>` : ''}
+            `;
         }
         // «Палец», замыкающий разъёмы E1 и E2
         function buildFinger(lines, px, py) {
