@@ -51,7 +51,7 @@
 
     <header>
         <h1>⚡ Генератор схем в реальном времени</h1>
-        <button id="touch-btn" style="background:#e06c75; color:#fff; border:none; padding:5px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:10px;">👆 Коснуться E1</button>
+        <button id="touch-btn" style="background:#e06c75; color:#fff; border:none; padding:5px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:10px;">👆 Замкнуть E1–E2 (держать)</button>
         <label style="font-size:12px; color:#abb2bf; margin-left:auto; margin-right:14px; cursor:pointer;"><input type="checkbox" id="flow-toggle" checked> Показать ток</label>
         <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">📋 Копировать SVG</button>
     </header>
@@ -111,19 +111,16 @@
                            |    |
 [E2]-----------------------+----+`;
 
-        // «Касание» входа E1: ток на 300 мс становится синим и бежит быстрее
+        // Пока кнопка нажата — палец замыкает E1 и E2
         let isTouched = false;
-        function touchE1() {
-            isTouched = true;
-            parseAndRender();
-            setTimeout(() => {
-                isTouched = false;
-                parseAndRender();
-            }, 300);
+        function setTouch(v) {
+            if (isTouched !== v) { isTouched = v; parseAndRender(); }
         }
         const touchBtn = document.getElementById('touch-btn');
-        touchBtn.addEventListener('mousedown', touchE1);
-        touchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); touchE1(); }, { passive: false });
+        touchBtn.addEventListener('mousedown', () => setTouch(true));
+        ['mouseup', 'mouseleave'].forEach(ev => touchBtn.addEventListener(ev, () => setTouch(false)));
+        touchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setTouch(true); }, { passive: false });
+        ['touchend', 'touchcancel'].forEach(ev => touchBtn.addEventListener(ev, () => setTouch(false)));
 
         const compValues = {
             R1: '750k', R2: '470k',
@@ -435,6 +432,7 @@
                 }
             }
 
+            html += buildFinger(lines, px, py);
             renderLayer.innerHTML = html;
         }
 
@@ -446,22 +444,19 @@
         }
 
         /*
-          Ток идёт от «+» батареи (внизу у вертикальной GB) по проводам к «−».
-          R, BF, E — проводят в обе стороны; C — постоянный ток не пропускает;
-          VD — от анода к катоду; NPN — от К к Э и от Б к Э; PNP — от Э к К и от Э к Б.
+          Ток считается как в настоящей цепи постоянного тока: «+» батареи = 1, «−» = 0.
+          Провода — малое сопротивление, элементы (R, BF, E, переходы транзисторов) — большое.
+          Конденсаторы ток не пропускают; диод и переходы транзисторов проводят в одну сторону.
+          Точки бегут по проводам от большего потенциала к меньшему; без перепада тока нет.
         */
         function buildFlow(lines, verticalMap, getWireChar, hLink, vLink, wireLines, px, py) {
             if (!document.getElementById('flow-toggle').checked) return '';
             const re = /\[([^\]]+)\]/g;
             const nid = (r, c, p) => getWireChar(r, c) === '#' ? `${r},${c},${p}` : `${r},${c}`;
-            const adj = new Map(), radj = new Map();
-            const edge = (a, b) => {
-                if (!adj.has(a)) adj.set(a, []);
-                if (!radj.has(b)) radj.set(b, []);
-                adj.get(a).push(b);
-                radj.get(b).push(a);
-            };
-            const cut = new Set(), srcs = [], sinks = [], elems = [];
+            const G_EL = 0.05;
+            const L = [];
+            const link = (a, b, g, oneWay, ctl) => L.push({ a, b, g, d: !!oneWay, ctl });
+            const cut = new Set(), srcs = [], sinks = [], elems = [], plugs = [];
 
             for (let r = 0; r < lines.length; r++) {
                 let m;
@@ -476,8 +471,9 @@
                         const top = nid(r - 1, col, 'v'), bot = nid(r + 1, col, 'v'), base = nid(r, s, 'h');
                         const flip = /\^$/.test(raw);
                         const c = flip ? bot : top, em = flip ? top : bot;
-                        if (key === 'VT2') { edge(em, c); edge(em, base); }
-                        else { edge(c, em); edge(base, em); }
+                        // переход К–Э проводит только если переход база–эмиттер открыт (есть ток базы)
+                        if (key === 'VT2') { link(em, c, G_EL, true, { b: base, e: em, p: -1 }); link(em, base, G_EL, true); } // PNP
+                        else { link(c, em, G_EL, true, { b: base, e: em, p: 1 }); link(base, em, G_EL, true); }               // NPN
                         continue;
                     }
 
@@ -491,6 +487,7 @@
                         for (let c = s; c < e - 1; c++) cut.add(`h${r},${c}`);
                     }
                     elems.push({ key, A, B, vert });
+                    if (key === 'E') plugs.push(B);
                 }
             }
 
@@ -499,12 +496,12 @@
                 for (let c = 0; c < wireLines[r].length; c++) {
                     if (hLink(r, c) && !cut.has(`h${r},${c}`)) {
                         const a = nid(r, c, 'h'), b = nid(r, c + 1, 'h');
-                        edge(a, b); edge(b, a);
+                        link(a, b, 1);
                         segs.push([a, b, c, r, c + 1, r]);
                     }
                     if (vLink(r, c) && !cut.has(`v${r},${c}`)) {
                         const a = nid(r, c, 'v'), b = nid(r + 1, c, 'v');
-                        edge(a, b); edge(b, a);
+                        link(a, b, 1);
                         segs.push([a, b, c, r, c, r + 1]);
                     }
                 }
@@ -512,36 +509,63 @@
 
             elems.forEach(({ key, A, B, vert }) => {
                 if (key === 'C') return;
-                if (key === 'GB') { srcs.push(B); sinks.push(A); return; }
-                if (key === 'VD') { if (vert) edge(B, A); else edge(A, B); return; }
-                edge(A, B); edge(B, A);
+                if (key === 'GB') { srcs.push(B); sinks.push(A); return; } // плюс: снизу / справа
+                if (key === 'VD') { if (vert) link(B, A, G_EL, true); else link(A, B, G_EL, true); return; }
+                link(A, B, G_EL);
             });
 
-            const dts = new Map();
-            let q = [...sinks];
-            sinks.forEach(s => dts.set(s, 0));
-            while (q.length) {
-                const n = q.shift();
-                (radj.get(n) || []).forEach(p => {
-                    if (!dts.has(p)) { dts.set(p, dts.get(n) + 1); q.push(p); }
-                });
-            }
-            const live = new Set();
-            q = srcs.filter(s => dts.has(s));
-            q.forEach(s => live.add(s));
-            while (q.length) {
-                const n = q.shift();
-                (adj.get(n) || []).forEach(t => {
-                    if (!live.has(t) && dts.has(t) && dts.get(t) < dts.get(n)) { live.add(t); q.push(t); }
-                });
+            // палец замыкает все разъёмы E между собой
+            if (isTouched) for (let i = 1; i < plugs.length; i++) link(plugs[0], plugs[i], G_EL);
+
+            if (!srcs.length || !sinks.length) return '';
+
+            // решаем потенциалы узлов методом релаксации
+            const ids = new Map();
+            const ix = (id) => { if (!ids.has(id)) ids.set(id, ids.size); return ids.get(id); };
+            L.forEach(l => { l.a = ix(l.a); l.b = ix(l.b); if (l.ctl) { l.ctl.b = ix(l.ctl.b); l.ctl.e = ix(l.ctl.e); } });
+            const fixed = new Map();
+            srcs.forEach(n => fixed.set(ix(n), 1));
+            sinks.forEach(n => fixed.set(ix(n), 0));
+            const N = ids.size;
+            const nb = Array.from({ length: N }, () => []);
+            L.forEach((l, i) => { nb[l.a].push(i); nb[l.b].push(i); });
+            const V = new Float64Array(N); // старт с нуля: транзисторы закрыты, пока на базе нет напряжения
+            fixed.forEach((v, n) => { V[n] = v; });
+
+            const VB = 0.03; // порог открытия перехода база–эмиттер (доля от напряжения батареи)
+            const isOpen = (l) => {
+                if (l.d && V[l.a] <= V[l.b]) return false;                   // односторонний переход закрыт
+                if (l.ctl && (V[l.ctl.b] - V[l.ctl.e]) * l.ctl.p < VB) return false; // нет тока базы
+                return true;
+            };
+
+            for (let it = 0; it < 12000; it++) {
+                let maxd = 0;
+                for (let n = 0; n < N; n++) {
+                    if (fixed.has(n)) continue;
+                    let sw = 0, sv = 0;
+                    for (const li of nb[n]) {
+                        const l = L[li];
+                        if (!isOpen(l)) continue;
+                        const mNode = l.a === n ? l.b : l.a;
+                        sw += l.g;
+                        sv += l.g * V[mNode];
+                    }
+                    if (sw > 0) {
+                        const nv = sv / sw;
+                        maxd = Math.max(maxd, Math.abs(nv - V[n]));
+                        V[n] = nv;
+                    }
+                }
+                if (maxd < 1e-8) break;
             }
 
+            const EPS = 3e-3;
             let d = '';
             segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                if (!live.has(a) || !live.has(b)) return;
-                const da = dts.get(a), db = dts.get(b);
-                if (da === db) return;
-                d += da > db
+                const dv = V[ids.get(a)] - V[ids.get(b)];
+                if (Math.abs(dv) < EPS) return;
+                d += dv > 0
                     ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
                     : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
             });
@@ -549,10 +573,29 @@
 
             // период точек = половина клетки, чтобы фаза совпадала на каждом участке
             const half = CELL_SIZE / 2;
-            const duration = isTouched ? '0.2s' : '0.7s';          // при касании ток бежит быстрее
+            const duration = isTouched ? '0.2s' : '0.7s';          // при замыкании ток бежит быстрее
             const strokeColor = isTouched ? '#61afef' : '#ff3b30';  // и становится синим
 
             return `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="${duration}" repeatCount="indefinite"/></path>`;
+        }
+
+        // «Палец», замыкающий разъёмы E1 и E2
+        function buildFinger(lines, px, py) {
+            if (!isTouched) return '';
+            const re = /\[([^\]]+)\]/g;
+            const pts = [];
+            for (let r = 0; r < lines.length; r++) {
+                let m;
+                while ((m = re.exec(lines[r])) !== null) {
+                    const type = m[1].trim().split(' ')[0].toUpperCase();
+                    if (templateKey(type) !== 'E') continue;
+                    const s = m.index, e = s + m[0].length;
+                    pts.push({ x: (px(s) + px(e - 1)) / 2 - 17, y: py(r) });
+                }
+            }
+            if (pts.length < 2) return '';
+            const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join('');
+            return `<path d="${path}" fill="none" stroke="#f4a261" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`;
         }
 
         function renderComponent(rawName, x, y, isVertical) {
