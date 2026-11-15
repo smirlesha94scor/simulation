@@ -76,6 +76,18 @@
   }
   #minimapCanvas { display: block; border-radius: 6px; cursor: crosshair; }
 
+  .stop-panel {
+    position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 14px; width: 300px;
+    background: rgba(18, 24, 29, 0.88); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 10;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .stop-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #adbac7; }
+  .stop-row b { color: #58a6ff; font-variant-numeric: tabular-nums; }
+  .stop-panel input[type=range] { width: 100%; cursor: pointer; accent-color: #1f6feb; }
+  .stop-scale { display: flex; justify-content: space-between; font-size: 10px; color: #6e7681; }
+
   .hint-bar {
     position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%);
     background: rgba(18, 24, 29, 0.82); border: 1px solid rgba(255, 255, 255, 0.1);
@@ -119,6 +131,16 @@
 
 <div class="minimap-box">
   <canvas id="minimapCanvas" width="240" height="164"></canvas>
+</div>
+
+<div class="stop-panel">
+  <div class="stop-row">
+    <span>Точка остановки на платформе</span>
+    <b id="stopOffsetValue">0 px</b>
+  </div>
+  <input type="range" id="stopOffsetSlider" min="-150" max="250" step="5" value="0">
+  <div class="stop-scale"><span>← раньше</span><span>центр</span><span>дальше →</span></div>
+  <button class="btn" id="stopOffsetReset">Сбросить</button>
 </div>
 
 <div class="hint-bar">
@@ -376,9 +398,9 @@ class Train {
 
     if (step.stopStationId && !this.stationServed) {
       const st = stationMap[step.stopStationId];
-      const trainLen = this.carsCount * 25;               // длина от локомотива до хвоста
-     const stopOffset = (step.stopOffset ?? trainLen / 2); // сдвиг точки остановки по ходу движения
-     const stopPos = (this.dir === 2 ? st.targetDist : (seg.length - st.targetDist)) + stopOffset;
+      const baseStop = this.dir === 1 ? st.targetDist : (seg.length - st.targetDist);
+      // Сдвиг точки остановки по ходу движения: свой в шаге маршрута (stopOffset) или общий с ползунка
+      const stopPos = Math.max(10, Math.min(seg.length - 10, baseStop + (step.stopOffset ?? stopOffsetPx)));
       const distToStop = stopPos - this.distOnSeg;
 
       if (distToStop <= 3 && distToStop >= -25) {
@@ -641,6 +663,17 @@ window.addEventListener('mousemove', e => { if (miniDragging) moveCameraFromMini
 window.addEventListener('mouseup', () => { miniDragging = false; });
 
 /* ===== Интерфейс ===== */
+let stopOffsetPx = 0;
+const stopSlider = document.getElementById('stopOffsetSlider');
+const stopValueEl = document.getElementById('stopOffsetValue');
+function applyStopOffset(v) {
+  stopOffsetPx = v;
+  stopSlider.value = v;
+  stopValueEl.textContent = (v > 0 ? '+' : '') + v + ' px';
+}
+stopSlider.addEventListener('input', () => applyStopOffset(Number(stopSlider.value)));
+document.getElementById('stopOffsetReset').addEventListener('click', () => applyStopOffset(0));
+
 let simSpeed = 1;
 let simTimeSec = 8 * 3600;
 
