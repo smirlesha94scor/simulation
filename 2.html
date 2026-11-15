@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Реалистичный поезд 2D</title>
+    <title>Реалистичный поезд и рельсы 2D</title>
     <style>
         * {
             box-sizing: border-box;
@@ -12,7 +12,7 @@
 
         body {
             overflow: hidden;
-            background: #1a1a2e;
+            background: #0d1b2a;
             font-family: sans-serif;
             height: 100vh;
             display: flex;
@@ -26,147 +26,204 @@
             width: 100%;
             max-width: 1000px;
             height: 400px;
-            background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+            background: linear-gradient(to bottom, #4a90e2, #b8e1ff);
             overflow: hidden;
-            border-bottom: 5px solid #333;
+            border-bottom: 4px solid #111;
         }
 
-        /* Небо и облака (медленный параллакс) */
+        /* Пейзаж и параллакс */
         .clouds {
             position: absolute;
             top: 20px;
             width: 200%;
-            height: 100px;
-            background: repeating-linear-gradient(90deg, transparent, transparent 150px, rgba(255,255,255,0.4) 150px, rgba(255,255,255,0.4) 300px);
-            animation: moveClouds 20s linear infinite;
+            height: 80px;
+            background: repeating-linear-gradient(90deg, transparent, transparent 150px, rgba(255,255,255,0.5) 150px, rgba(255,255,255,0.5) 300px);
+            animation: moveClouds 25s linear infinite;
         }
 
-        /* Задний план (горы / холмы) */
         .hills {
             position: absolute;
-            bottom: 80px;
+            bottom: 90px;
             width: 200%;
-            height: 150px;
-            background: repeating-linear-gradient(90deg, #4a7c59, #6b9ac4 300px, #4a7c59 600px);
-            clip-path: polygon(0 100%, 0 40%, 15% 20%, 30% 60%, 45% 30%, 60% 70%, 75% 10%, 90% 50%, 100% 30%, 100% 100%);
-            animation: moveHills 10s linear infinite;
-            opacity: 0.7;
+            height: 140px;
+            background: #3b5323;
+            clip-path: polygon(0 100%, 0 30%, 12% 50%, 25% 20%, 40% 60%, 55% 25%, 70% 55%, 85% 15%, 100% 40%, 100% 100%);
+            animation: moveHills 12s linear infinite;
+            opacity: 0.8;
         }
 
-        /* Земля */
-        .ground {
+        /* --- ЖЕЛЕЗНОДОРОЖНОЕ ПОЛОТНО (НИЗ) --- */
+        
+        /* Насыпь (щебень / балластная призмы) */
+        .ballast {
             position: absolute;
             bottom: 0;
             width: 100%;
-            height: 80px;
-            background: #555;
-            border-top: 4px solid #222;
+            height: 50px;
+            background: linear-gradient(to bottom, #444, #222);
+            border-top: 3px solid #555;
         }
 
-        /* Рельсы и шпалы */
-        .tracks {
+        /* Шпалы и рельсы (двигаются для имитации движения) */
+        .track-system {
             position: absolute;
-            bottom: 70px;
+            bottom: 35px;
             width: 200%;
-            height: 15px;
-            background: #222;
-            background-image: repeating-linear-gradient(90deg, #111, #111 20px, #fff 20px, #fff 25px);
-            animation: moveTracks 1.5s linear infinite;
+            height: 35px;
+            animation: moveTracks 0.8s linear infinite;
         }
 
-        /* Поезд в сборе */
+        /* Шпалы (деревянные/бетонные бруски) */
+        .ties {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 12px;
+            background-image: repeating-linear-gradient(90deg, 
+                #1e1e1e, 
+                #1e1e1e 22px, 
+                #4e3629 22px, 
+                #4e3629 34px
+            );
+        }
+
+        /* Стальной рельс (профиль с головкой) */
+        .rail {
+            position: absolute;
+            bottom: 12px;
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(to bottom, #ccc, #777 50%, #333);
+            box-shadow: 0 2px 3px rgba(0,0,0,0.5);
+        }
+
+        /* Подкладка рельса */
+        .rail-base {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            height: 3px;
+            background: #111;
+        }
+
+
+        /* --- ПОЕЗД --- */
         .train {
             position: absolute;
-            bottom: 75px;
+            /* Выставляем поезд так, чтобы колеса стояли ровно на рельсах (.rail) */
+            bottom: 47px; 
             left: 150px;
             display: flex;
             align-items: flex-end;
-            /* Легкое покачивание поезда для реализма */
-            animation: shake 0.5s ease-in-out infinite alternate;
+            animation: shake 0.4s ease-in-out infinite alternate;
         }
 
-        /* Вагоны / Локомотив */
+        /* Локомотив и вагоны */
         .car {
             position: relative;
-            height: 120px;
-            background: #b22222;
-            border-radius: 10px 10px 0 0;
-            margin-right: 5px;
-            box-shadow: inset -10px 0 20px rgba(0,0,0,0.3);
+            height: 110px;
+            background: #8b0000;
+            border-radius: 12px 12px 0 0;
+            margin-right: 6px;
+            box-shadow: inset -10px 0 20px rgba(0,0,0,0.4), 0 5px 15px rgba(0,0,0,0.3);
         }
 
         .engine {
-            width: 220px;
-            background: #2c3e50;
-            border-radius: 20px 10px 0 0;
+            width: 210px;
+            background: #1c2833;
+            border-radius: 18px 12px 0 0;
         }
 
         .engine::before {
             content: '';
             position: absolute;
-            top: -30px;
+            top: -25px;
             left: 20px;
-            width: 60px;
-            height: 35px;
-            background: #34495e;
-            border-radius: 10px 10px 0 0;
+            width: 50px;
+            height: 30px;
+            background: #273746;
+            border-radius: 8px 8px 0 0;
         }
 
-        /* Окна поезда */
         .window {
             position: absolute;
-            top: 20px;
+            top: 18px;
             left: 20px;
-            width: 40px;
-            height: 40px;
-            background: #f1c40f;
-            border-radius: 5px;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 60px 0 0 #f1c40f, 120px 0 0 #f1c40f;
+            width: 35px;
+            height: 35px;
+            background: #f4d03f;
+            border-radius: 4px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 55px 0 0 #f4d03f, 110px 0 0 #f4d03f;
         }
 
         .passenger-car {
-            width: 180px;
+            width: 170px;
         }
 
         .passenger-car .window {
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 50px 0 0 #f1c40f, 100px 0 0 #f1c40f;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 45px 0 0 #f4d03f, 90px 0 0 #f4d03f;
         }
 
-        /* Колесные тележки и колеса */
+        /* Колесные тележки */
         .bogies {
             position: absolute;
-            bottom: -20px;
+            bottom: -15px; /* Точно опускаем на уровень рельсов */
             width: 100%;
             display: flex;
             justify-content: space-around;
-            padding: 0 15px;
+            padding: 0 12px;
         }
 
         .wheel-pair {
             display: flex;
-            gap: 30px; /* Расстояние между колесами тележки */
+            gap: 26px;
         }
 
+        /* Реалистичное колесо со спицами */
         .wheel {
-            width: 40px;
-            height: 40px;
+            position: relative;
+            width: 34px;
+            height: 34px;
             background: #111;
-            border: 4px dashed #7f8c8d; /* Штрихи имитируют спицы колеса */
+            border: 4px solid #a6acaf; /* Металлический обод */
             border-radius: 50%;
             animation: spin 0.6s linear infinite;
-            box-shadow: 0 0 0 3px #333;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.6);
         }
 
-        /* Дым из трубы */
+        /* Спицы внутри колеса */
+        .wheel::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: #a6acaf;
+            transform: translateY(-50%);
+        }
+
+        .wheel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: #a6acaf;
+            transform: translateX(-50%);
+        }
+
+        /* Дым */
         .smoke {
             position: absolute;
-            top: -45px;
-            left: 25px;
-            width: 15px;
-            height: 15px;
+            top: -40px;
+            left: 20px;
+            width: 12px;
+            height: 12px;
             background: rgba(255, 255, 255, 0.7);
             border-radius: 50%;
-            animation: riseSmoke 1.5s ease-out infinite;
+            animation: riseSmoke 1.2s ease-out infinite;
         }
 
         /* Анимации */
@@ -177,7 +234,7 @@
 
         @keyframes moveTracks {
             0% { transform: translateX(0); }
-            100% { transform: translateX(-50px); }
+            100% { transform: translateX(-34px); } /* Шаг должен совпадать с шириной шпал */
         }
 
         @keyframes moveHills {
@@ -192,18 +249,12 @@
 
         @keyframes shake {
             0% { transform: translateY(0); }
-            100% { transform: translateY(-2px); }
+            100% { transform: translateY(-1.5px); }
         }
 
         @keyframes riseSmoke {
-            0% {
-                transform: translate(0, 0) scale(1);
-                opacity: 0.8;
-            }
-            100% {
-                transform: translate(-30px, -50px) scale(2.5);
-                opacity: 0;
-            }
+            0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+            100% { transform: translate(-25px, -45px) scale(2.2); opacity: 0; }
         }
     </style>
 </head>
@@ -212,8 +263,17 @@
     <div class="scene">
         <div class="clouds"></div>
         <div class="hills"></div>
-        <div class="tracks"></div>
 
+        <!-- Конструкция рельсов -->
+        <div class="track-system">
+            <div class="ties"></div>
+            <div class="rail-base"></div>
+            <div class="rail"></div>
+        </div>
+
+        <div class="ballast"></div>
+
+        <!-- Поезд -->
         <div class="train">
             <!-- Локомотив -->
             <div class="car engine">
