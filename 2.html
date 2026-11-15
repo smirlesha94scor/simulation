@@ -52,6 +52,9 @@
     <header>
         <h1>⚡ Генератор схем в реальном времени</h1>
         <button id="touch-btn" style="background:#e06c75; color:#fff; border:none; padding:5px 10px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px; margin-left:10px;">👆 Замкнуть E1–E2 (держать)</button>
+        <label style="color: #fff; margin-left: 15px; font-size: 13px; font-family: Arial;">
+    <input type="checkbox" id="dc-toggle" checked style="margin-right: 5px;"> Постоянный ток (DC)
+</label>
         <label style="font-size:12px; color:#abb2bf; margin-left:auto; margin-right:14px; cursor:pointer;"><input type="checkbox" id="flow-toggle" checked> Показать ток</label>
         <button onclick="copySVG()" style="background:#61afef; color:#fff; border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">📋 Копировать SVG</button>
     </header>
@@ -579,28 +582,31 @@
             let dcPath = '';
             let acPath = '';
 
-            segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                if (masked.has(find(ids.get(a)))) return;
-                const dv = V[ids.get(a)] - V[ids.get(b)];
-                if (Math.abs(dv) < EPS) return;
-                dcPath += dv > 0
-                    ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
-                    : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
-            });
+            // Рисуем постоянный ток (красный) только если включен чекбокс dc-toggle
+            const showDc = document.getElementById('dc-toggle') ? document.getElementById('dc-toggle').checked : true;
+            if (showDc) {
+                segs.forEach(([a, b, c1, r1, c2, r2]) => {
+                    if (masked.has(find(ids.get(a)))) return;
+                    const dv = V[ids.get(a)] - V[ids.get(b)];
+                    if (Math.abs(dv) < EPS) return;
+                    dcPath += dv > 0
+                        ? `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`
+                        : `M${px(c2)} ${py(r2)}L${px(c1)} ${py(r1)}`;
+                });
+            }
 
+            // Переменный ток (синий) при касании
             if (isTouched) {
                 caps.forEach(cap => {
                     acPath += `M${px(cap.c1)} ${py(cap.r)}L${px(cap.c2)} ${py(cap.r)}`;
                 });
                 
-                // Находим номер самого нижнего ряда (земли/шины питания), чтобы его исключить
                 let maxR = 0;
                 segs.forEach(([_, __, ___, sr1, ____, sr2]) => {
                     maxR = Math.max(maxR, sr1, sr2);
                 });
 
                 segs.forEach(([a, b, c1, r1, c2, r2]) => {
-                    // Рисуем синий ток только на центральных сигнальных рядах, строго исключая самый нижний ряд (maxR)
                     if ((r1 === 7 || r1 === 10 || r2 === 7 || r2 === 10) && r1 < maxR && r2 < maxR) {
                         acPath += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
                     }
@@ -613,7 +619,6 @@
                 ${dcPath ? `<path d="${dcPath}" fill="none" stroke="#ff3b30" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 ${half - 0.1}"><animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/></path>` : ''}
                 ${acPath ? `<path d="${acPath}" fill="none" stroke="#61afef" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.2 ${half - 0.2}"><animate attributeName="stroke-dashoffset" from="0" to="${half}" dur="0.25s" repeatCount="indefinite"/></path>` : ''}
             `;
-        }
         // «Палец», замыкающий разъёмы E1 и E2
         function buildFinger(lines, px, py) {
             if (!isTouched) return '';
