@@ -490,12 +490,9 @@
                     }
 
                     if (key === 'C') {
-                        // Конденсатор блокирует постоянный ток батареи, но пропускает переменную составляющую (сигнал)
-                        // Если палец касается входа, проводимость конденсатора резко возрастает
                         const capConductivity = isTouched ? 0.15 : 0.02;
                         link(A, B, capConductivity, false, true);
                     } else if (key === 'VD') {
-                        // Диод пропускает ток в одну сторону
                         if (vert) link(B, A, 0.1, true); 
                         else link(A, B, 0.1, true);
                     } else if (key === 'GB') {
@@ -523,8 +520,6 @@
 
             let d = '';
             const half = CELL_SIZE / 2;
-            // Основной ток питания — красный, а когда идет сигнал через конденсаторы — добавляется синий поток
-            const strokeColor = isTouched ? '#61afef' : '#ff3b30';
 
             segs.forEach(([a, b, c1, r1, c2, r2]) => {
                 d += `M${px(c1)} ${py(r1)}L${px(c2)} ${py(r2)}`;
@@ -532,7 +527,6 @@
 
             if (!d) return '';
 
-            // Две анимации: базовый ток питания + наложенный переменный сигнал через конденсаторы
             return `
                 <path d="${d}" fill="none" stroke="#ff3b30" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.3 ${half - 0.3}">
                     <animate attributeName="stroke-dashoffset" from="0" to="-${half}" dur="0.7s" repeatCount="indefinite"/>
