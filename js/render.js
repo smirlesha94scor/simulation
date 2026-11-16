@@ -154,6 +154,7 @@ export function drawWorld() {
     ctx.stroke();
   }
 drawTracks(ctx);
+  drawEditorOverlay(ctx);
   // Поезда
   if (!editorEnabled) {
   for (const tr of trains) {
@@ -211,7 +212,7 @@ drawTracks(ctx);
     ctx.fillText(label, hp.x, hp.y - 24);
     ctx.restore();
   }
-drawEditorOverlay(ctx);
+
   ctx.restore();
 }
 }
