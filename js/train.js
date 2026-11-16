@@ -180,6 +180,7 @@ export class Train {
       d = prevStep.dir;
       pos = segmentMap[sId].length;
     }
+    if (!seg) return { x: 0, y: 0, angle: 0 };
     return segmentMap[sId].getPointAt(0, d);
   }
 }
