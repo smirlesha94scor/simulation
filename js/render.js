@@ -2,7 +2,7 @@
 import { segments, segmentMap, stations, switches, trees, buildings } from './topology.js';
 import { trains } from './train.js';
 import { drawTracks } from './topology.js';
-import { drawEditorOverlay } from './editor.js';
+import { drawEditorOverlay, editorEnabled } from './editor.js';
 export function drawWorld() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -155,6 +155,7 @@ export function drawWorld() {
   }
 drawTracks(ctx);
   // Поезда
+  if (!editorEnabled) {
   for (const tr of trains) {
     const isSelected = camera.followTrainId === tr.id;
     for (let i = tr.carTransforms.length - 1; i >= 0; i--) {
@@ -213,7 +214,7 @@ drawTracks(ctx);
 drawEditorOverlay(ctx);
   ctx.restore();
 }
-
+}
 export function drawMinimap() {
   const mw = miniCanvas.width;
   const mh = miniCanvas.height;
