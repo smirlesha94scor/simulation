@@ -24,7 +24,7 @@ function loop(now) {
   if (keysPressed['KeyS'] || keysPressed['ArrowDown'])  { camera.targetY += panSpeed * realDt; camera.followTrainId = null; }
   if (keysPressed['KeyA'] || keysPressed['ArrowLeft'])  { camera.targetX -= panSpeed * realDt; camera.followTrainId = null; }
   if (keysPressed['KeyD'] || keysPressed['ArrowRight']) { camera.targetX += panSpeed * realDt; camera.followTrainId = null; }
-
+  if (!editorEnabled) {
   const simDt = realDt * simSpeed;
   if (simDt > 0) {
     currentSimTime += simDt;
@@ -37,6 +37,7 @@ function loop(now) {
       }
     }
   }
+  
 
   if (camera.followTrainId) {
     const followed = trains.find(t => t.id === camera.followTrainId);
