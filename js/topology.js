@@ -1,5 +1,6 @@
 ﻿import { WORLD_W, WORLD_H } from './constants.js';
 import { TrackSegment } from './math.js';
+import { TRACK_DATA } from './mapData.js';
 export { autoSwitchMode, setAutoSwitchMode } from './constants.js';
 export const nodes = {
   N_WEST:    { id: 'N_WEST',    x: 420,  y: 1450 },
@@ -81,3 +82,67 @@ export const buildings = [
   { x: 2820, y: 2600, w: 160, h: 75, angle: -0.2, color: '#394956' },
   { x: 2380, y: 390,  w: 110, h: 55, angle: 0.15, color: '#4a463d' }
 ];
+export let editorSegments = TRACK_DATA.segments;
+export let editorStations = TRACK_DATA.stations;
+export let editorSwitches = TRACK_DATA.switches;
+
+export function getPointOnSegment(seg, t) {
+    if (seg.type === 'line') {
+        const x = seg.start.x + (seg.end.x - seg.start.x) * t;
+        const y = seg.start.y + (seg.end.y - seg.start.y) * t;
+        const angle = Math.atan2(seg.end.y - seg.start.y, seg.end.x - seg.start.x);
+        return { x, y, angle };
+    }
+
+    if (seg.type === 'curve') {
+        const invT = 1 - t;
+        const x = invT * invT * seg.start.x + 2 * invT * t * seg.control.x + t * t * seg.end.x;
+        const y = invT * invT * seg.start.y + 2 * invT * t * seg.control.y + t * t * seg.end.y;
+
+        const dx = 2 * invT * (seg.control.x - seg.start.x) + 2 * t * (seg.end.x - seg.control.x);
+        const dy = 2 * invT * (seg.control.y - seg.start.y) + 2 * t * (seg.end.y - seg.control.y);
+        const angle = Math.atan2(dy, dx);
+        return { x, y, angle };
+    }
+}
+
+export function getSegmentLength(seg) {
+    if (seg.type === 'line') {
+        return Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y);
+    }
+    let length = 0;
+    let prev = getPointOnSegment(seg, 0);
+    const steps = 20;
+    for (let i = 1; i <= steps; i++) {
+        const curr = getPointOnSegment(seg, i / steps);
+        length += Math.hypot(curr.x - prev.x, curr.y - prev.y);
+        prev = curr;
+    }
+    return length;
+}
+
+export function drawTracks(ctx) {
+    ctx.lineCap = 'round';
+    for (const seg of editorSegments) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 14;
+        traceSegmentPath(ctx, seg);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 4;
+        traceSegmentPath(ctx, seg);
+        ctx.stroke();
+    }
+}
+
+function traceSegmentPath(ctx, seg) {
+    ctx.moveTo(seg.start.x, seg.start.y);
+    if (seg.type === 'line') {
+        ctx.lineTo(seg.end.x, seg.end.y);
+    } else if (seg.type === 'curve') {
+        ctx.quadraticCurveTo(seg.control.x, seg.control.y, seg.end.x, seg.end.y);
+    }
+}
