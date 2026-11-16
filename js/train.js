@@ -1,5 +1,5 @@
 import { segments, segmentMap, stations, switches, autoSwitchMode } from './topology.js';
-import { stopOffset } from './constants.js';
+
 
 export class Train {
     constructor(config) {
@@ -93,7 +93,8 @@ export class Train {
 
         // Проверка приближения к целевой станции на текущем сегменте
         if (targetSt && (targetSt.segmentId === this.currentSeg.id || targetSt.segId === this.currentSeg.id)) {
-            const offset = typeof stopOffset === 'number' ? stopOffset : 0;
+            const slider = document.querySelector('input[type="range"]');
+            const offset = slider ? Number(slider.value) || 0 : 0;
             const stopPoint = Math.max(20, Math.min(this.currentSeg.length - 20, (targetSt.targetDist ?? this.currentSeg.length * 0.5) + offset * this.direction));
             const distToStop = (stopPoint - this.dist) * this.direction;
 
