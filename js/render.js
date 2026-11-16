@@ -1,7 +1,8 @@
 ﻿import { canvas, ctx, miniCanvas, miniCtx, camera, WORLD_W, WORLD_H, autoSwitchMode } from './constants.js';
 import { segments, segmentMap, stations, switches, trees, buildings } from './topology.js';
 import { trains } from './train.js';
-
+import { drawTracks } from './topology.js';
+import { drawEditorOverlay } from './editor.js';
 export function drawWorld() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -152,7 +153,7 @@ export function drawWorld() {
     ctx.lineWidth = 2;
     ctx.stroke();
   }
-
+drawTracks(ctx);
   // Поезда
   for (const tr of trains) {
     const isSelected = camera.followTrainId === tr.id;
@@ -209,7 +210,7 @@ export function drawWorld() {
     ctx.fillText(label, hp.x, hp.y - 24);
     ctx.restore();
   }
-
+drawEditorOverlay(ctx);
   ctx.restore();
 }
 
