@@ -4,7 +4,7 @@ import { renderScheduleUI, formatTime } from './ui.js';
 import { drawWorld, drawMinimap } from './render.js';
 import { drawTracks } from './topology.js';
 import './input.js';
-import { initEditor, drawEditorOverlay } from './editor.js';
+import { initEditor, editorEnabled } from './editor.js';
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 initEditor(canvas);
