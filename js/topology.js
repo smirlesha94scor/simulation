@@ -1,6 +1,6 @@
 ﻿import { WORLD_W, WORLD_H } from './topology.js';
 import { TrackSegment } from './math.js';
-
+export let autoSwitchMode = true;
 export const nodes = {
   N_WEST:    { id: 'N_WEST',    x: 420,  y: 1450 },
   N_CENTRAL: { id: 'N_CENTRAL', x: 1450, y: 1500 },
