@@ -1,224 +1,282 @@
-﻿import { segmentMap, stationMap, switches, autoSwitchMode } from './topology.js';
+import { segments, segmentMap, stations, switches, autoSwitchMode } from './topology.js';
+import { stopOffset } from './constants.js';
 
 export class Train {
-  constructor(cfg) {
-    this.id = cfg.id;
-    this.number = cfg.number;
-    this.name = cfg.name;
-    this.color = cfg.color;
-    this.carsCount = cfg.carsCount;
-    this.maxCruiseSpeed = cfg.maxCruiseSpeed;
-    this.route = cfg.route;
-    this.stepIndex = 0;
+    constructor(config) {
+        this.id = config.id;
+        this.number = config.number;
+        this.name = config.name || `Состав ${config.number}`;
+        this.color = config.color || '#58a6ff';
+        this.carCount = config.carCount || 4;
+        this.carSpacing = 36;
+        this.maxSpeed = config.maxSpeed || 120;
 
-    const firstStep = this.route[0];
-    this.segId = firstStep.segId;
-    this.dir = firstStep.dir;
-    this.distOnSeg = firstStep.startDist || 120;
-
-    this.speed = 0;
-    this.state = 'RUNNING';
-    this.dwellTimer = 0;
-    this.nextDepartureSec = firstStep.depTimeSec || 0;
-    this.headPos = { x: 0, y: 0, angle: 0 };
-    this.carTransforms = [];
-  }
-
-  get currentStep() {
-    return this.route[this.stepIndex];
-  }
-
-  get nextStationName() {
-    for (let i = 0; i < this.route.length; i++) {
-      const idx = (this.stepIndex + i) % this.route.length;
-      if (this.route[idx].stopStationId) {
-        return stationMap[this.route[idx].stopStationId].name;
-      }
-    }
-    return 'Депо';
-  }
-
-  update(dt, simTimeSec, allTrains, isAutoSwitch) {
-    if (!this.currentSeg || !segmentMap[this.currentSeg.id]) return;
-    const seg = segmentMap[this.segId];
-    const step = this.currentStep;
-
-    if (this.state === 'BOARDING') {
-      this.speed = 0;
-      this.dwellTimer -= dt;
-      if (this.dwellTimer <= 0 && simTimeSec >= this.nextDepartureSec) {
-        this.state = 'RUNNING';
-        this.stationServed = true;
-      } else {
-        this.computeCarPositions();
-        return;
-      }
-    }
-
-    let targetSpeed = Math.min(this.maxCruiseSpeed, seg.maxSpeed);
-
-    if (step.stopStationId && !this.stationServed) {
-      const st = stationMap[step.stopStationId];
-      const stopPos = this.dir === 1 ? st.targetDist : (seg.length - st.targetDist);
-      const distToStop = stopPos - this.distOnSeg;
-
-      if (distToStop <= 3 && distToStop >= -25) {
-        this.distOnSeg = stopPos;
+        this.currentSeg = segmentMap[config.segmentId] || segments[config.fallbackIndex ?? 0] || null;
+        this.direction = config.direction || 1;
+        this.dist = this.currentSeg ? Math.min(config.dist || 120, Math.max(10, this.currentSeg.length * 0.5)) : 0;
         this.speed = 0;
-        this.state = 'BOARDING';
-        this.dwellTimer = step.dwellSec || 8;
-        this.nextDepartureSec = Math.ceil((simTimeSec + this.dwellTimer) / 15) * 15;
+
+        this.headPos = { x: 0, y: 0, angle: 0 };
+        this.carTransforms = [];
+        this.pathHistory = []; // История пройденных сегментов для корректной отрисовки хвоста вагонов
+
+        // Расписание остановок: берём станции из mapData.js, если явный маршрут не задан
+        this.schedule = this.buildSchedule(config.schedule);
+        this.scheduleIndex = 0;
+        this.state = 'RUNNING'; // 'RUNNING' | 'STOPPED' | 'FINISHED'
+        this.dwellTimer = 0;
+        this.statusText = 'В пути';
+
         this.computeCarPositions();
-        return;
-      } else if (distToStop > 0 && distToStop < 260) {
-        targetSpeed = Math.min(targetSpeed, Math.max(18, distToStop * 0.55));
-      }
     }
 
-    let blockedByTrain = false;
-    const totalTrainLen = 46 + this.carsCount * 38;
-    for (const other of allTrains) {
-      if (other.id === this.id) continue;
-      if (other.segId === this.segId && other.dir === this.dir) {
-        const gap = other.distOnSeg - this.distOnSeg;
-        if (gap > 0 && gap < totalTrainLen + 140) {
-          blockedByTrain = true;
-          if (gap < totalTrainLen + 55) targetSpeed = 0;
-          else targetSpeed = Math.min(targetSpeed, other.speed * 0.8);
+    buildSchedule(customSchedule) {
+        if (Array.isArray(customSchedule) && customSchedule.length > 0) {
+            const valid = customSchedule.filter(item => stations.some(st => st.id === item.stationId));
+            if (valid.length > 0) return valid;
         }
-      }
+        // Автоматически формируем маршрут по всем станциям, созданным на карте
+        return stations.map((st, idx) => ({
+            stationId: st.id,
+            dwellTime: 18 + (idx % 2) * 7
+        }));
     }
 
-    const remDist = seg.length - this.distOnSeg;
-    const nextStepIdx = (this.stepIndex + 1) % this.route.length;
-    const nextStep = this.route[nextStepIdx];
+    getTargetStation() {
+        if (!Array.isArray(this.schedule) || this.schedule.length === 0) return null;
+        const entry = this.schedule[this.scheduleIndex % this.schedule.length];
+        return stations.find(st => st.id === entry.stationId) || null;
+    }
 
-    if (remDist < 220) {
-      const exitNodeId = this.dir === 1 ? seg.toNode.id : seg.fromNode.id;
-      const sw = switches.find(s => s.nodeId === exitNodeId);
-
-      if (sw && sw.branches.includes(nextStep.segId)) {
-        const activeBranch = sw.branches[sw.activeIndex];
-        if (activeBranch !== nextStep.segId) {
-          if (isAutoSwitch && remDist < 170) {
-            sw.activeIndex = sw.branches.indexOf(nextStep.segId);
-          } else {
-            targetSpeed = remDist < 42 ? 0 : Math.min(targetSpeed, remDist * 0.45);
-            if (remDist < 45) this.state = 'WAITING_SWITCH';
-          }
+    update(dt, simTime, allTrains, allowSwitchControl = true) {
+        if (!this.currentSeg || !segmentMap[this.currentSeg.id]) {
+            this.statusText = 'Нет пути';
+            return;
         }
-      }
 
-      const nextSeg = segmentMap[nextStep.segId];
-      for (const other of allTrains) {
-        if (other.id === this.id) continue;
-        if (other.segId === nextStep.segId) {
-          const otherDistFromEntry = other.dir === nextStep.dir ? other.distOnSeg : (nextSeg.length - other.distOnSeg);
-          if (otherDistFromEntry < 240) {
-            targetSpeed = remDist < 45 ? 0 : Math.min(targetSpeed, remDist * 0.45);
-            if (remDist < 48) this.state = 'WAITING_SIGNAL';
-          }
+        // Обновляем расписание, если пользователь добавил станции в редакторе
+        if (this.schedule.length === 0 && stations.length > 0) {
+            this.schedule = this.buildSchedule();
         }
-      }
+
+        const targetSt = this.getTargetStation();
+
+        // 1. Стоянка на платформе
+        if (this.state === 'STOPPED') {
+            this.speed = 0;
+            this.dwellTimer -= dt;
+            this.statusText = targetSt ? `Стоянка: ${targetSt.name} (${Math.max(0, Math.ceil(this.dwellTimer))}с)` : 'Стоянка';
+
+            if (this.dwellTimer <= 0) {
+                this.state = 'RUNNING';
+                this.scheduleIndex = (this.scheduleIndex + 1) % Math.max(1, this.schedule.length);
+                this.statusText = 'Отправление';
+            }
+            this.computeCarPositions();
+            return;
+        }
+
+        // 2. Расчёт целевой скорости и торможения перед станцией или другим поездом
+        let targetSpeed = Math.min(this.maxSpeed, this.currentSeg.maxSpeed || 120);
+
+        // Проверка дистанции до впереди идущего поезда на том же сегменте
+        for (const other of allTrains) {
+            if (other.id === this.id || !other.currentSeg) continue;
+            if (other.currentSeg.id === this.currentSeg.id && other.direction === this.direction) {
+                const gap = (other.dist - this.dist) * this.direction;
+                const trainLen = this.carCount * this.carSpacing + 90;
+                if (gap > 0 && gap < trainLen + 180) {
+                    targetSpeed = Math.min(targetSpeed, Math.max(0, (gap - trainLen) * 0.65));
+                }
+            }
+        }
+
+        // Проверка приближения к целевой станции на текущем сегменте
+        if (targetSt && (targetSt.segmentId === this.currentSeg.id || targetSt.segId === this.currentSeg.id)) {
+            const offset = typeof stopOffset === 'number' ? stopOffset : 0;
+            const stopPoint = Math.max(20, Math.min(this.currentSeg.length - 20, (targetSt.targetDist ?? this.currentSeg.length * 0.5) + offset * this.direction));
+            const distToStop = (stopPoint - this.dist) * this.direction;
+
+            if (distToStop >= 0 && distToStop < 260) {
+                targetSpeed = Math.min(targetSpeed, Math.max(12, distToStop * 0.55));
+                if (distToStop <= 6) {
+                    this.dist = stopPoint;
+                    this.speed = 0;
+                    this.state = 'STOPPED';
+                    const entry = this.schedule[this.scheduleIndex % this.schedule.length];
+                    this.dwellTimer = entry?.dwellTime || 20;
+                    this.statusText = `Прибыл: ${targetSt.name}`;
+                    this.computeCarPositions();
+                    return;
+                }
+            }
+        }
+
+        // Плавный разгон и торможение
+        const accel = targetSpeed > this.speed ? 45 : 75;
+        if (this.speed < targetSpeed) {
+            this.speed = Math.min(targetSpeed, this.speed + accel * dt);
+        } else {
+            this.speed = Math.max(targetSpeed, this.speed - accel * dt);
+        }
+
+        this.statusText = targetSt ? `К ст. ${targetSt.name}` : 'Следует по маршруту';
+
+        // 3. Перемещение вдоль сегмента и переход на следующий участок
+        let moveStep = this.speed * dt * this.direction;
+        this.dist += moveStep;
+
+        if (this.direction === 1 && this.dist >= this.currentSeg.length) {
+            const overflow = this.dist - this.currentSeg.length;
+            this.advanceToNextSegment(overflow, allowSwitchControl);
+        } else if (this.direction === -1 && this.dist <= 0) {
+            const overflow = -this.dist;
+            this.advanceToNextSegment(overflow, allowSwitchControl);
+        }
+
+        this.computeCarPositions();
     }
 
-    if (targetSpeed > 0 && !blockedByTrain) {
-      this.state = 'RUNNING';
-    } else if (blockedByTrain && targetSpeed === 0) {
-      this.state = 'WAITING_SIGNAL';
+    advanceToNextSegment(overflow, allowSwitchControl) {
+        const endNode = this.direction === 1 ? this.currentSeg.toNode : this.currentSeg.fromNode;
+        if (!endNode) {
+            this.direction *= -1;
+            this.dist = Math.max(0, Math.min(this.currentSeg.length, this.dist));
+            return;
+        }
+
+        // Проверяем наличие стрелки в этом узле
+        const sw = switches.find(s => s.nodeId === endNode.id || s.fromSeg === this.currentSeg.id);
+        let nextSeg = null;
+
+        if (sw && Array.isArray(sw.branches) && sw.branches.length > 0) {
+            if (autoSwitchMode && allowSwitchControl) {
+                const targetSt = this.getTargetStation();
+                if (targetSt) {
+                    const targetSegId = targetSt.segmentId || targetSt.segId;
+                    const directIdx = sw.branches.indexOf(targetSegId);
+                    if (directIdx !== -1) sw.activeIndex = directIdx;
+                }
+            }
+            const branchId = sw.branches[sw.activeIndex % sw.branches.length];
+            nextSeg = segmentMap[branchId] || null;
+        }
+
+        // Если стрелки нет — ищем любой состыкованный сегмент, кроме текущего
+        if (!nextSeg) {
+            const connected = segments.filter(s =>
+                s.id !== this.currentSeg.id &&
+                (s.fromNode?.id === endNode.id || s.toNode?.id === endNode.id)
+            );
+            nextSeg = connected[0] || null;
+        }
+
+        if (nextSeg) {
+            this.pathHistory.unshift({
+                seg: this.currentSeg,
+                direction: this.direction
+            });
+            if (this.pathHistory.length > 6) this.pathHistory.pop();
+
+            this.currentSeg = nextSeg;
+            if (nextSeg.fromNode?.id === endNode.id) {
+                this.direction = 1;
+                this.dist = Math.min(overflow, nextSeg.length);
+            } else {
+                this.direction = -1;
+                this.dist = Math.max(0, nextSeg.length - overflow);
+            }
+        } else {
+            // Тупик — разворачиваем состав в обратную сторону
+            this.direction *= -1;
+            this.dist = this.direction === 1
+                ? Math.min(overflow, this.currentSeg.length)
+                : Math.max(0, this.currentSeg.length - overflow);
+        }
     }
 
-    const accel = 48;
-    const brake = 75;
-    if (this.speed < targetSpeed) {
-      this.speed = Math.min(targetSpeed, this.speed + accel * dt);
-    } else if (this.speed > targetSpeed) {
-      this.speed = Math.max(targetSpeed, this.speed - brake * dt);
+    computeCarPositions() {
+        if (!this.currentSeg || typeof this.currentSeg.getPointAt !== 'function') {
+            this.headPos = { x: 0, y: 0, angle: 0 };
+            this.carTransforms = [];
+            return;
+        }
+
+        this.headPos = this.currentSeg.getPointAt(this.dist, this.direction);
+        this.carTransforms = [];
+
+        for (let i = 0; i < this.carCount; i++) {
+            const backOffset = i * this.carSpacing;
+            const pt = this.sampleBackwards(backOffset);
+            this.carTransforms.push(pt);
+        }
     }
 
-    this.distOnSeg += this.speed * dt;
+    sampleBackwards(backOffset) {
+        if (!this.currentSeg || typeof this.currentSeg.getPointAt !== 'function') {
+            return { x: 0, y: 0, angle: 0 };
+        }
 
-    if (this.distOnSeg >= seg.length) {
-      const overflow = this.distOnSeg - seg.length;
-      this.stepIndex = nextStepIdx;
-      this.segId = nextStep.segId;
-      this.dir = nextStep.dir;
-      this.distOnSeg = overflow;
-      this.stationServed = false;
+        let remaining = backOffset;
+        let seg = this.currentSeg;
+        let dir = this.direction;
+        let d = this.dist;
+        let histIdx = 0;
+
+        while (remaining > 0 && seg) {
+            const available = dir === 1 ? d : (seg.length - d);
+            if (remaining <= available) {
+                const targetD = dir === 1 ? (d - remaining) : (d + remaining);
+                return seg.getPointAt(Math.max(0, Math.min(seg.length, targetD)), dir);
+            }
+
+            remaining -= available;
+            const prevEntry = this.pathHistory[histIdx++];
+            if (prevEntry && prevEntry.seg && typeof prevEntry.seg.getPointAt === 'function') {
+                seg = prevEntry.seg;
+                dir = prevEntry.direction;
+                d = dir === 1 ? seg.length : 0;
+            } else {
+                // Если история короче длины состава, аккуратно проецируем хвост за начало сегмента
+                const edgePt = seg.getPointAt(dir === 1 ? 0 : seg.length, dir);
+                return {
+                    x: edgePt.x - Math.cos(edgePt.angle) * remaining,
+                    y: edgePt.y - Math.sin(edgePt.angle) * remaining,
+                    angle: edgePt.angle
+                };
+            }
+        }
+
+        return seg.getPointAt(Math.max(0, Math.min(seg.length, d)), dir);
     }
-
-    this.computeCarPositions();
-  }
-
-  computeCarPositions() {
-    this.carTransforms = [];
-    const totalUnits = 1 + this.carsCount;
-    const unitSpacing = 38;
-
-    for (let u = 0; u < totalUnits; u++) {
-      const offsetBack = u * unitSpacing;
-      const pt = this.sampleBackwards(offsetBack);
-      this.carTransforms.push(pt);
-    }
-    this.headPos = this.carTransforms[0];
-  }
-
-  sampleBackwards(backDist) {
-    let rem = backDist;
-    let idx = this.stepIndex;
-    let sId = this.segId;
-    let d = this.dir;
-    let pos = this.distOnSeg;
-
-    for (let guard = 0; guard < 6; guard++) {
-      if (pos >= rem) {
-        return segmentMap[sId].getPointAt(pos - rem, d);
-      }
-      rem -= pos;
-      idx = (idx - 1 + this.route.length) % this.route.length;
-      const prevStep = this.route[idx];
-      sId = prevStep.segId;
-      d = prevStep.dir;
-      pos = segmentMap[sId].length;
-    }
-    if (!seg) return { x: 0, y: 0, angle: 0 };
-    return segmentMap[sId].getPointAt(0, d);
-  }
 }
 
-export const trains = [
-  new Train({
-    id: 'T1', number: '№ 101 «Экспресс»', name: 'Северное кольцо', color: '#388bfd', carsCount: 4, maxCruiseSpeed: 135,
-    route: [
-      { segId: 'S1',  dir: 1, startDist: 450, stopStationId: 'ST_CENT', dwellSec: 7 },
-      { segId: 'S2',  dir: 1 }, { segId: 'S3',  dir: 1, stopStationId: 'ST_NORT', dwellSec: 7 },
-      { segId: 'S4',  dir: 1, stopStationId: 'ST_PASS', dwellSec: 7 }, { segId: 'S5',  dir: 1 },
-      { segId: 'S8',  dir: 1, stopStationId: 'ST_SOUT', dwellSec: 7 }, { segId: 'S9',  dir: 1 },
-      { segId: 'S10', dir: 1, stopStationId: 'ST_VALL', dwellSec: 6 }
+// Создаём составы только если на карте есть хотя бы один путь
+export const trains = segments.length > 0
+    ? [
+        new Train({
+            id: 'TR_101',
+            number: '101Э',
+            name: 'Экспресс-1',
+            color: '#58a6ff',
+            carCount: 4,
+            maxSpeed: 135,
+            fallbackIndex: 0,
+            dist: 140
+        }),
+        ...(segments.length > 1
+            ? [
+                new Train({
+                    id: 'TR_204',
+                    number: '204П',
+                    name: 'Пригородный',
+                    color: '#3fb950',
+                    carCount: 3,
+                    maxSpeed: 105,
+                    fallbackIndex: Math.floor(segments.length / 2),
+                    dist: 100
+                })
+            ]
+            : [])
     ]
-  }),
-  new Train({
-    id: 'T2', number: '№ 204 «Индустрия»', name: 'Заводской маршрут', color: '#f85149', carsCount: 5, maxCruiseSpeed: 115,
-    route: [
-      { segId: 'S7',  dir: 1, startDist: 200, stopStationId: 'ST_FACT', dwellSec: 8 },
-      { segId: 'S8',  dir: 1, stopStationId: 'ST_SOUT', dwellSec: 7 }, { segId: 'S9',  dir: 1 },
-      { segId: 'S10', dir: 1, stopStationId: 'ST_VALL', dwellSec: 6 }, { segId: 'S2',  dir: 1 }, { segId: 'S6',  dir: 1 }
-    ]
-  }),
-  new Train({
-    id: 'T3', number: '№ 312 «Горный»', name: 'Альпийский экспресс', color: '#d29922', carsCount: 3, maxCruiseSpeed: 125,
-    route: [
-      { segId: 'S4',  dir: 1, startDist: 300, stopStationId: 'ST_PASS', dwellSec: 8 }, { segId: 'S5',  dir: 1 },
-      { segId: 'S7',  dir: -1, stopStationId: 'ST_FACT', dwellSec: 7 }, { segId: 'S6',  dir: -1 },
-      { segId: 'S3',  dir: 1, stopStationId: 'ST_NORT', dwellSec: 7 }
-    ]
-  }),
-  new Train({
-    id: 'T4', number: '№ 408 «Пригород»', name: 'Южный челнок', color: '#3fb950', carsCount: 3, maxCruiseSpeed: 120,
-    route: [
-      { segId: 'S10', dir: 1, startDist: 400 }, { segId: 'S2',  dir: 1 }, { segId: 'S6',  dir: 1 },
-      { segId: 'S7',  dir: 1, stopStationId: 'ST_FACT', dwellSec: 6 }, { segId: 'S8',  dir: 1, stopStationId: 'ST_SOUT', dwellSec: 7 },
-      { segId: 'S9',  dir: 1 }
-    ]
-  })
-];
+    : [];
