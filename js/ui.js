@@ -86,12 +86,12 @@ export function renderScheduleUI() {
           <span class="train-badge ${badgeClass}">${statusText}</span>
         </div>
         <div class="train-route">
-          <span>След. ст.: <b>${tr.nextStationName}</b></span>
+          <span>След. ст.: <b>${tr.nextStationName || 'Без остановок'}</b></span>
           <span>${kmh} км/ч</span>
         </div>
         <div class="train-meta">
-          <span>Участок: ${segmentMap[tr.segId].name}</span>
-          <span>Отпр: ${formatTime(tr.nextDepartureSec)}</span>
+          <span>Участок: ${segmentMap[tr.segId]?.name || tr.currentSeg?.name || '—'}</span>
+          <span>Отпр: ${formatTime(tr.nextDepartureSec || 0)}</span>
         </div>
       </div>
     `;
