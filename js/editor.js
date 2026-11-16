@@ -4,7 +4,7 @@ import { camera } from './constants.js';
 export let editorEnabled = false;
 let tool = 'line'; // 'line' | 'curve' | 'move'
 let tempStart = null;
-let draggingPoint = null;
+let draggingPoints = []; // Массив всех совпавших точек в одном стыке
 const SNAP_RADIUS = 20;
 
 // Перевод экранных координат клика мыши в мировые координаты карты с учётом камеры
@@ -51,12 +51,14 @@ export function initEditor(canvas) {
         toggleBtn.style.background = editorEnabled ? '#f59e0b' : '#2563eb';
         toolsBox.style.display = editorEnabled ? 'flex' : 'none';
         tempStart = null;
+        draggingPoints = [];
     };
 
     panel.querySelectorAll('[data-tool]').forEach(btn => {
         btn.onclick = () => {
             tool = btn.dataset.tool;
             tempStart = null;
+            draggingPoints = [];
         };
     });
 
@@ -65,16 +67,18 @@ export function initEditor(canvas) {
             segments.pop();
         }
         tempStart = null;
+        draggingPoints = [];
     };
 
     panel.querySelector('#ed-export').onclick = () => showExportModal();
 
-    // Безопасная магнитная привязка (игнорирует сегменты без start/end)
-    function getSnappedPos(x, y) {
+    // Магнитная привязка к существующим узлам пути (исключая текущие перетаскиваемые точки)
+    function getSnappedPos(x, y, excludeList = []) {
         if (Array.isArray(segments)) {
             for (const seg of segments) {
                 if (!seg || !seg.start || !seg.end) continue;
                 for (const pt of [seg.start, seg.end]) {
+                    if (excludeList.includes(pt)) continue;
                     if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
                         if (Math.hypot(pt.x - x, pt.y - y) < SNAP_RADIUS) {
                             return { x: pt.x, y: pt.y };
@@ -86,19 +90,38 @@ export function initEditor(canvas) {
         return { x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 };
     }
 
+    // Используем capture: true, чтобы перехватить клик РАНЬШЕ обработчика камеры в input.js
     canvas.addEventListener('mousedown', (e) => {
         if (!editorEnabled || e.button !== 0) return;
+
+        // Останавливаем передачу клика в input.js — камера не будет двигаться!
+        e.stopImmediatePropagation();
+        e.preventDefault();
+
         const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
 
         if (tool === 'move') {
+            draggingPoints = [];
             if (!Array.isArray(segments)) return;
+
+            // 1. Сначала ищем стыки (start/end) — собираем ВСЕ точки, лежащие в одном узле
             for (const seg of segments) {
                 if (!seg || !seg.start || !seg.end) continue;
-                const pts = seg.type === 'curve' && seg.control ? [seg.start, seg.control, seg.end] : [seg.start, seg.end];
-                for (const pt of pts) {
+                for (const pt of [seg.start, seg.end]) {
                     if (pt && Math.hypot(pt.x - worldPos.x, pt.y - worldPos.y) < 18) {
-                        draggingPoint = pt;
-                        return;
+                        draggingPoints.push(pt);
+                    }
+                }
+            }
+
+            // 2. Если стык не найден, проверяем жёлтые контрольные точки изгиба (control)
+            if (draggingPoints.length === 0) {
+                for (const seg of segments) {
+                    if (seg && seg.type === 'curve' && seg.control) {
+                        if (Math.hypot(seg.control.x - worldPos.x, seg.control.y - worldPos.y) < 18) {
+                            draggingPoints.push(seg.control);
+                            break;
+                        }
                     }
                 }
             }
@@ -110,35 +133,49 @@ export function initEditor(canvas) {
             tempStart = pos;
         } else {
             const id = 'seg_' + (segments.length + 1);
+            // Создаём независимые объекты координат для start и end
+            const startCopy = { x: tempStart.x, y: tempStart.y };
+            const endCopy = { x: pos.x, y: pos.y };
+
             if (tool === 'line') {
-                segments.push({ id, type: 'line', start: tempStart, end: pos });
+                segments.push({ id, type: 'line', start: startCopy, end: endCopy });
             } else if (tool === 'curve') {
-                const midX = (tempStart.x + pos.x) / 2;
-                const midY = (tempStart.y + pos.y) / 2;
-                const dx = pos.x - tempStart.x;
-                const dy = pos.y - tempStart.y;
+                const midX = (startCopy.x + endCopy.x) / 2;
+                const midY = (startCopy.y + endCopy.y) / 2;
+                const dx = endCopy.x - startCopy.x;
+                const dy = endCopy.y - startCopy.y;
                 segments.push({
                     id,
                     type: 'curve',
-                    start: tempStart,
+                    start: startCopy,
                     control: { x: Math.round(midX - dy * 0.35), y: Math.round(midY + dx * 0.35) },
-                    end: pos
+                    end: endCopy
                 });
             }
-            tempStart = { x: pos.x, y: pos.y };
+            tempStart = { x: endCopy.x, y: endCopy.y };
         }
-    });
+    }, true);
 
     canvas.addEventListener('mousemove', (e) => {
-        if (!editorEnabled || !draggingPoint) return;
-        const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
-        draggingPoint.x = Math.round(worldPos.x / 10) * 10;
-        draggingPoint.y = Math.round(worldPos.y / 10) * 10;
-    });
+        if (!editorEnabled || draggingPoints.length === 0) return;
 
-    window.addEventListener('mouseup', () => {
-        draggingPoint = null;
-    });
+        e.stopImmediatePropagation();
+        const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
+        const snapped = getSnappedPos(worldPos.x, worldPos.y, draggingPoints);
+
+        // Двигаем все склеенные точки стыка одновременно
+        for (const pt of draggingPoints) {
+            pt.x = snapped.x;
+            pt.y = snapped.y;
+        }
+    }, true);
+
+    window.addEventListener('mouseup', (e) => {
+        if (draggingPoints.length > 0) {
+            e.stopImmediatePropagation();
+            draggingPoints = [];
+        }
+    }, true);
 }
 
 export function drawEditorOverlay(ctx) {
