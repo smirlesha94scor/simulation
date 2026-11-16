@@ -1,4 +1,4 @@
-﻿import { WORLD_W, WORLD_H } from './constants.js';
+﻿import { WORLD_W, WORLD_H } from './topology.js';
 import { TrackSegment } from './math.js';
 
 export const nodes = {
