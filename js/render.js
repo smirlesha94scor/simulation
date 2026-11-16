@@ -88,7 +88,7 @@ export function drawWorld() {
       ctx.strokeStyle = '#9aa5b1';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      seg.samples.forEach((p, idx) => {
+      seg.samples?.forEach((p, idx) => {
         const rx = p.x - Math.sin(p.angle) * railOffset;
         const ry = p.y + Math.cos(p.angle) * railOffset;
         idx === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry);
