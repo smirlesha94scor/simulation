@@ -61,19 +61,26 @@ export function drawWorld() {
   }
 
   // Пути
+  // Пути: Слой 1 — Балласт (насыпь) для всех сегментов сразу
+  ctx.strokeStyle = '#36393d';
+  ctx.lineWidth = 24;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (const seg of segments) {
-    ctx.strokeStyle = '#36393d';
-    ctx.lineWidth = 24;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    if (!seg.samples || seg.samples.length === 0) continue;
     ctx.beginPath();
-    seg.samples?.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    seg.samples.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
     ctx.stroke();
+  }
 
-    if (camera.zoom > 0.36) {
-      ctx.strokeStyle = '#231f1e';
-      ctx.lineWidth = 3;
-      for (let d = 0; d < seg.length; d += 12) {
+  // Пути: Слой 2 — Шпалы поверх всей насыпи
+  if (camera.zoom > 0.36) {
+    ctx.strokeStyle = '#231f1e';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'butt';
+    for (const seg of segments) {
+      if (!seg.samples || seg.samples.length === 0) continue;
+      for (let d = 6; d < seg.length - 4; d += 12) {
         const pt = seg.getPointAt(d, 1);
         const nx = -Math.sin(pt.angle) * 9;
         const ny = Math.cos(pt.angle) * 9;
@@ -83,12 +90,18 @@ export function drawWorld() {
         ctx.stroke();
       }
     }
+  }
 
+  // Пути: Слой 3 — Цельные металлические рельсы поверх шпал и стыков
+  ctx.strokeStyle = '#9aa5b1';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const seg of segments) {
+    if (!seg.samples || seg.samples.length === 0) continue;
     for (const railOffset of [-4.5, 4.5]) {
-      ctx.strokeStyle = '#9aa5b1';
-      ctx.lineWidth = 2;
       ctx.beginPath();
-      seg.samples?.forEach((p, idx) => {
+      seg.samples.forEach((p, idx) => {
         const rx = p.x - Math.sin(p.angle) * railOffset;
         const ry = p.y + Math.cos(p.angle) * railOffset;
         idx === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry);
