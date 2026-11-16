@@ -37,7 +37,7 @@ function loop(now) {
       }
     }
   }
-  
+} 
 
   if (camera.followTrainId) {
     const followed = trains.find(t => t.id === camera.followTrainId);
