@@ -1,6 +1,5 @@
 import { segments, segmentMap, stations, switches, autoSwitchMode } from './topology.js';
 
-
 export class Train {
     constructor(config) {
         this.id = config.id;
@@ -12,20 +11,21 @@ export class Train {
         this.maxSpeed = config.maxSpeed || 120;
 
         this.currentSeg = segmentMap[config.segmentId] || segments[config.fallbackIndex ?? 0] || null;
+        this.segId = this.currentSeg ? this.currentSeg.id : null;
         this.direction = config.direction || 1;
         this.dist = this.currentSeg ? Math.min(config.dist || 120, Math.max(10, this.currentSeg.length * 0.5)) : 0;
         this.speed = 0;
 
         this.headPos = { x: 0, y: 0, angle: 0 };
         this.carTransforms = [];
-        this.pathHistory = []; // История пройденных сегментов для корректной отрисовки хвоста вагонов
+        this.pathHistory = [];
 
-        // Расписание остановок: берём станции из mapData.js, если явный маршрут не задан
         this.schedule = this.buildSchedule(config.schedule);
         this.scheduleIndex = 0;
-        this.state = 'RUNNING'; // 'RUNNING' | 'STOPPED' | 'FINISHED'
+        this.state = 'RUNNING'; // 'RUNNING' | 'BOARDING'
         this.dwellTimer = 0;
-        this.statusText = 'В пути';
+        this.nextStationName = this.getTargetStation()?.name || 'Кольцевой маршрут';
+        this.nextDepartureSec = 8 * 3600 + 300;
 
         this.computeCarPositions();
     }
@@ -35,9 +35,10 @@ export class Train {
             const valid = customSchedule.filter(item => stations.some(st => st.id === item.stationId));
             if (valid.length > 0) return valid;
         }
-        // Автоматически формируем маршрут по всем станциям, созданным на карте
         return stations.map((st, idx) => ({
             stationId: st.id,
+            station: st,
+            name: st.name,
             dwellTime: 18 + (idx % 2) * 7
         }));
     }
@@ -50,36 +51,40 @@ export class Train {
 
     update(dt, simTime, allTrains, allowSwitchControl = true) {
         if (!this.currentSeg || !segmentMap[this.currentSeg.id]) {
-            this.statusText = 'Нет пути';
+            this.segId = null;
+            this.nextStationName = 'Нет пути';
             return;
         }
 
-        // Обновляем расписание, если пользователь добавил станции в редакторе
+        this.segId = this.currentSeg.id;
+
         if (this.schedule.length === 0 && stations.length > 0) {
             this.schedule = this.buildSchedule();
         }
 
         const targetSt = this.getTargetStation();
+        this.nextStationName = targetSt ? targetSt.name : 'Следует по линии';
 
-        // 1. Стоянка на платформе
-        if (this.state === 'STOPPED') {
+        // 1. Стоянка на платформе (статус BOARDING для ui.js)
+        if (this.state === 'BOARDING') {
             this.speed = 0;
             this.dwellTimer -= dt;
-            this.statusText = targetSt ? `Стоянка: ${targetSt.name} (${Math.max(0, Math.ceil(this.dwellTimer))}с)` : 'Стоянка';
+            this.nextDepartureSec = simTime + Math.max(0, this.dwellTimer);
 
             if (this.dwellTimer <= 0) {
                 this.state = 'RUNNING';
                 this.scheduleIndex = (this.scheduleIndex + 1) % Math.max(1, this.schedule.length);
-                this.statusText = 'Отправление';
+                const nextSt = this.getTargetStation();
+                this.nextStationName = nextSt ? nextSt.name : 'Следует по линии';
+                this.nextDepartureSec = simTime + 180;
             }
             this.computeCarPositions();
             return;
         }
 
-        // 2. Расчёт целевой скорости и торможения перед станцией или другим поездом
+        // 2. Расчёт скорости и торможения
         let targetSpeed = Math.min(this.maxSpeed, this.currentSeg.maxSpeed || 120);
 
-        // Проверка дистанции до впереди идущего поезда на том же сегменте
         for (const other of allTrains) {
             if (other.id === this.id || !other.currentSeg) continue;
             if (other.currentSeg.id === this.currentSeg.id && other.direction === this.direction) {
@@ -91,7 +96,6 @@ export class Train {
             }
         }
 
-        // Проверка приближения к целевой станции на текущем сегменте
         if (targetSt && (targetSt.segmentId === this.currentSeg.id || targetSt.segId === this.currentSeg.id)) {
             const slider = document.querySelector('input[type="range"]');
             const offset = slider ? Number(slider.value) || 0 : 0;
@@ -103,17 +107,16 @@ export class Train {
                 if (distToStop <= 6) {
                     this.dist = stopPoint;
                     this.speed = 0;
-                    this.state = 'STOPPED';
+                    this.state = 'BOARDING';
                     const entry = this.schedule[this.scheduleIndex % this.schedule.length];
                     this.dwellTimer = entry?.dwellTime || 20;
-                    this.statusText = `Прибыл: ${targetSt.name}`;
+                    this.nextDepartureSec = simTime + this.dwellTimer;
                     this.computeCarPositions();
                     return;
                 }
             }
         }
 
-        // Плавный разгон и торможение
         const accel = targetSpeed > this.speed ? 45 : 75;
         if (this.speed < targetSpeed) {
             this.speed = Math.min(targetSpeed, this.speed + accel * dt);
@@ -121,10 +124,12 @@ export class Train {
             this.speed = Math.max(targetSpeed, this.speed - accel * dt);
         }
 
-        this.statusText = targetSt ? `К ст. ${targetSt.name}` : 'Следует по маршруту';
+        if (this.speed > 5) {
+            this.nextDepartureSec = simTime + 120;
+        }
 
-        // 3. Перемещение вдоль сегмента и переход на следующий участок
-        let moveStep = this.speed * dt * this.direction;
+        // 3. Перемещение вдоль сегмента
+        const moveStep = this.speed * dt * this.direction;
         this.dist += moveStep;
 
         if (this.direction === 1 && this.dist >= this.currentSeg.length) {
@@ -146,7 +151,6 @@ export class Train {
             return;
         }
 
-        // Проверяем наличие стрелки в этом узле
         const sw = switches.find(s => s.nodeId === endNode.id || s.fromSeg === this.currentSeg.id);
         let nextSeg = null;
 
@@ -163,7 +167,6 @@ export class Train {
             nextSeg = segmentMap[branchId] || null;
         }
 
-        // Если стрелки нет — ищем любой состыкованный сегмент, кроме текущего
         if (!nextSeg) {
             const connected = segments.filter(s =>
                 s.id !== this.currentSeg.id &&
@@ -180,6 +183,7 @@ export class Train {
             if (this.pathHistory.length > 6) this.pathHistory.pop();
 
             this.currentSeg = nextSeg;
+            this.segId = nextSeg.id;
             if (nextSeg.fromNode?.id === endNode.id) {
                 this.direction = 1;
                 this.dist = Math.min(overflow, nextSeg.length);
@@ -188,7 +192,6 @@ export class Train {
                 this.dist = Math.max(0, nextSeg.length - overflow);
             }
         } else {
-            // Тупик — разворачиваем состав в обратную сторону
             this.direction *= -1;
             this.dist = this.direction === 1
                 ? Math.min(overflow, this.currentSeg.length)
@@ -238,7 +241,6 @@ export class Train {
                 dir = prevEntry.direction;
                 d = dir === 1 ? seg.length : 0;
             } else {
-                // Если история короче длины состава, аккуратно проецируем хвост за начало сегмента
                 const edgePt = seg.getPointAt(dir === 1 ? 0 : seg.length, dir);
                 return {
                     x: edgePt.x - Math.cos(edgePt.angle) * remaining,
@@ -252,7 +254,6 @@ export class Train {
     }
 }
 
-// Создаём составы только если на карте есть хотя бы один путь
 export const trains = segments.length > 0
     ? [
         new Train({
