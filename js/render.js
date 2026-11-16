@@ -212,9 +212,9 @@ drawTracks(ctx);
     ctx.fillText(label, hp.x, hp.y - 24);
     ctx.restore();
   }
-
+      }
   ctx.restore();
-}
+
 }
 export function drawMinimap() {
   const mw = miniCanvas.width;
