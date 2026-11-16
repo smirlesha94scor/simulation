@@ -55,8 +55,6 @@ function loop(now) {
 
   drawWorld();
   drawMinimap();
-import { initEditor, drawEditorOverlay } from './editor.js';
-import { drawTracks } from './topology.js';
 
 
 
