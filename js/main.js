@@ -2,7 +2,6 @@
 import { trains } from './train.js';
 import { renderScheduleUI, formatTime } from './ui.js';
 import { drawWorld, drawMinimap } from './render.js';
-import { initEditor, drawEditorOverlay } from './editor.js';
 import { drawTracks } from './topology.js';
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
