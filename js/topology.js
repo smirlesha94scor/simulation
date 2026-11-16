@@ -121,28 +121,38 @@ export function getSegmentLength(seg) {
     return length;
 }
 
+// Отрисовка всех путей из редактора и mapData.js
 export function drawTracks(ctx) {
+    if (!Array.isArray(segments)) return;
+    ctx.save();
     ctx.lineCap = 'round';
-    for (const seg of editorSegments) {
+
+    for (const seg of segments) {
+        if (!seg || !seg.start || !seg.end) continue;
+
+        // 1. Насыпь / шпалы (тёмно-серая подложка)
         ctx.beginPath();
         ctx.strokeStyle = '#334155';
         ctx.lineWidth = 14;
         traceSegmentPath(ctx, seg);
         ctx.stroke();
 
+        // 2. Металлические рельсы (светло-серая линия поверх)
         ctx.beginPath();
-        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeStyle = '#cbd5e1';
         ctx.lineWidth = 4;
         traceSegmentPath(ctx, seg);
         ctx.stroke();
     }
+
+    ctx.restore();
 }
 
 function traceSegmentPath(ctx, seg) {
     ctx.moveTo(seg.start.x, seg.start.y);
     if (seg.type === 'line') {
         ctx.lineTo(seg.end.x, seg.end.y);
-    } else if (seg.type === 'curve') {
+    } else if (seg.type === 'curve' && seg.control) {
         ctx.quadraticCurveTo(seg.control.x, seg.control.y, seg.end.x, seg.end.y);
     }
 }
