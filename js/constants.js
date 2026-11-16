@@ -26,7 +26,11 @@ export const camera = {
 export const keysPressed = {};
 export let simSpeed = 1;
 export let simTimeSec = 8 * 3600;
+export let autoSwitchMode = true;
 
+export function setAutoSwitchMode(value) {
+    autoSwitchMode = value;
+}
 
 export function setSimSpeed(val) { simSpeed = val; }
 export function setSimTime(val) { simTimeSec = val; }
