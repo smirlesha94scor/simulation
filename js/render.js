@@ -227,7 +227,7 @@ export function drawMinimap() {
   miniCtx.lineWidth = 2;
   for (const seg of segments) {
     miniCtx.beginPath();
-    seg.samples.forEach((p, i) => {
+    seg.samples?.forEach((p, i) => {
       i === 0 ? miniCtx.moveTo(p.x * sx, p.y * sy) : miniCtx.lineTo(p.x * sx, p.y * sy);
     });
     miniCtx.stroke();
