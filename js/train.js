@@ -1,4 +1,4 @@
-﻿import { segmentMap, stationMap, switches, autoSwitchMode } from './constants.js';
+﻿import { segmentMap, stationMap, switches, autoSwitchMode } from './topology.js';
 
 export class Train {
   constructor(cfg) {
