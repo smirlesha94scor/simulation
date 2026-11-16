@@ -62,7 +62,8 @@ export function initEditor(canvas) {
             <button data-tool="station" style="padding:6px 10px; cursor:pointer;">🚉 Платформа</button>
             <button data-tool="switch" style="padding:6px 10px; cursor:pointer;">🔀 Стрелка</button>
             <button data-tool="move" style="padding:6px 10px; cursor:pointer;">🎯 Двигать точки</button>
-            <button id="ed-undo" style="padding:6px 10px; cursor:pointer; background:#dc2626; color:#fff; border:none; border-radius:6px;">Отмена</button>
+            <button id="ed-undo" style="padding:6px 10px; cursor:pointer; background:#d97706; color:#fff; border:none; border-radius:6px;">Отмена</button>
+            <button id="ed-clear" style="padding:6px 10px; cursor:pointer; background:#dc2626; color:#fff; border:none; border-radius:6px;">🗑️ Очистить всё</button>
             <button id="ed-export" style="padding:6px 10px; cursor:pointer; background:#16a34a; color:#fff; border:none; border-radius:6px;">📋 Код трассы</button>
         </div>
     `;
@@ -90,7 +91,7 @@ export function initEditor(canvas) {
         toggleBtn.style.background = editorEnabled ? '#f59e0b' : '#2563eb';
         toolsBox.style.display = editorEnabled ? 'flex' : 'none';
         if (editorEnabled) {
-            if (camera) camera.followTrainId = null; // Отвязываем камеру от поезда
+            if (camera) camera.followTrainId = null;
             setActiveTool('pan');
         } else {
             tempStart = null;
@@ -112,6 +113,16 @@ export function initEditor(canvas) {
         } else if (Array.isArray(segments) && segments.length > 0) {
             segments.pop();
         }
+        tempStart = null;
+        draggingPoints = [];
+    };
+
+    // Удаление всех путей, платформ и стрелок с карты
+    panel.querySelector('#ed-clear').onclick = () => {
+        if (!confirm('Удалить все пути, платформы и стрелки с карты?')) return;
+        if (Array.isArray(segments)) segments.length = 0;
+        if (Array.isArray(stations)) stations.length = 0;
+        if (Array.isArray(switches)) switches.length = 0;
         tempStart = null;
         draggingPoints = [];
     };
@@ -142,7 +153,6 @@ export function initEditor(canvas) {
         e.stopImmediatePropagation();
         e.preventDefault();
 
-        // Инструмент: Рука (перемещение камеры левой кнопкой мыши)
         if (tool === 'pan') {
             isPanning = true;
             panLastX = e.clientX;
@@ -154,7 +164,6 @@ export function initEditor(canvas) {
 
         const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
 
-        // Инструмент: Платформа
         if (tool === 'station') {
             const hit = findClosestSegmentPoint(worldPos, 30);
             if (!hit) {
@@ -178,7 +187,6 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Инструмент: Стрелка
         if (tool === 'switch') {
             const snapped = getSnappedPos(worldPos.x, worldPos.y);
             const validSegs = Array.isArray(segments) ? segments.filter(s => s && s.start && s.end) : [];
@@ -208,7 +216,6 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Инструмент: Двигать точки
         if (tool === 'move') {
             draggingPoints = [];
             if (!Array.isArray(segments)) return;
@@ -235,7 +242,6 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Инструменты: Прямая и Поворот
         const pos = getSnappedPos(worldPos.x, worldPos.y);
         if (!tempStart) {
             tempStart = pos;
@@ -266,7 +272,6 @@ export function initEditor(canvas) {
     window.addEventListener('mousemove', (e) => {
         if (!editorEnabled) return;
 
-        // Перемещение камеры при активном инструменте "Рука"
         if (isPanning && camera) {
             e.stopImmediatePropagation();
             const zoom = camera.zoom || 1;
@@ -285,7 +290,6 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Перемещение точек пути
         if (draggingPoints.length > 0) {
             e.stopImmediatePropagation();
             const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
