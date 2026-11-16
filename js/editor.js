@@ -1,13 +1,12 @@
-import { segments, stations, switches } from './topology.js';
+import { segments, stations, switches, getPointOnSegment } from './topology.js';
 import { camera } from './constants.js';
 
 export let editorEnabled = false;
-let tool = 'line'; // 'line' | 'curve' | 'move'
+let tool = 'line'; // 'line' | 'curve' | 'move' | 'station' | 'switch'
 let tempStart = null;
-let draggingPoints = []; // Массив всех совпавших точек в одном стыке
+let draggingPoints = [];
 const SNAP_RADIUS = 20;
 
-// Перевод экранных координат клика мыши в мировые координаты карты с учётом камеры
 function screenToWorld(canvas, clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const screenX = clientX - rect.left;
@@ -22,21 +21,45 @@ function screenToWorld(canvas, clientX, clientY) {
     };
 }
 
+// Поиск ближайшего сегмента и параметра t (0..1) для размещения платформы
+function findClosestSegmentPoint(worldPos, maxDist = 25) {
+    let best = null;
+    let minDist = maxDist;
+
+    if (!Array.isArray(segments)) return null;
+    for (const seg of segments) {
+        if (!seg || !seg.start || !seg.end) continue;
+        for (let i = 0; i <= 40; i++) {
+            const t = i / 40;
+            const pt = getPointOnSegment(seg, t);
+            if (!pt) continue;
+            const d = Math.hypot(pt.x - worldPos.x, pt.y - worldPos.y);
+            if (d < minDist) {
+                minDist = d;
+                best = { seg, t: Number(t.toFixed(2)), x: pt.x, y: pt.y, angle: pt.angle };
+            }
+        }
+    }
+    return best;
+}
+
 export function initEditor(canvas) {
     const panel = document.createElement('div');
     panel.style.cssText = `
         position: fixed; bottom: 20px; left: 20px; z-index: 1000;
-        background: rgba(15, 23, 42, 0.92); color: #f8fafc;
-        padding: 12px 16px; border-radius: 10px; border: 1px solid #334155;
-        font-family: sans-serif; font-size: 13px; display: flex; gap: 8px; align-items: center;
+        background: rgba(15, 23, 42, 0.94); color: #f8fafc;
+        padding: 10px 14px; border-radius: 10px; border: 1px solid #334155;
+        font-family: sans-serif; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
     `;
     panel.innerHTML = `
-        <button id="ed-toggle" style="padding:6px 10px; cursor:pointer; background:#2563eb; color:#fff; border:none; border-radius:6px;">Редактор: ВЫКЛ</button>
-        <div id="ed-tools" style="display:none; gap:6px; align-items:center;">
+        <button id="ed-toggle" style="padding:6px 10px; cursor:pointer; background:#2563eb; color:#fff; border:none; border-radius:6px; font-weight:600;">Редактор: ВЫКЛ</button>
+        <div id="ed-tools" style="display:none; flex-wrap:wrap; gap:6px; align-items:center;">
             <button data-tool="line" style="padding:6px 10px; cursor:pointer;">📏 Прямая</button>
-            <button data-tool="curve" style="padding:6px 10px; cursor:pointer;">↪️ Плавный поворот</button>
-            <button data-tool="move" style="padding:6px 10px; cursor:pointer;">✋ Двигать точки</button>
-            <button id="ed-undo" style="padding:6px 10px; cursor:pointer; background:#dc2626; color:#fff; border:none; border-radius:6px;">Отменить</button>
+            <button data-tool="curve" style="padding:6px 10px; cursor:pointer;">↪️ Поворот</button>
+            <button data-tool="station" style="padding:6px 10px; cursor:pointer;">🚉 Платформа</button>
+            <button data-tool="switch" style="padding:6px 10px; cursor:pointer;">🔀 Стрелка</button>
+            <button data-tool="move" style="padding:6px 10px; cursor:pointer;">✋ Двигать</button>
+            <button id="ed-undo" style="padding:6px 10px; cursor:pointer; background:#dc2626; color:#fff; border:none; border-radius:6px;">Отмена</button>
             <button id="ed-export" style="padding:6px 10px; cursor:pointer; background:#16a34a; color:#fff; border:none; border-radius:6px;">📋 Код трассы</button>
         </div>
     `;
@@ -59,11 +82,17 @@ export function initEditor(canvas) {
             tool = btn.dataset.tool;
             tempStart = null;
             draggingPoints = [];
+            panel.querySelectorAll('[data-tool]').forEach(b => b.style.outline = 'none');
+            btn.style.outline = '2px solid #38bdf8';
         };
     });
 
     panel.querySelector('#ed-undo').onclick = () => {
-        if (Array.isArray(segments) && segments.length > 0) {
+        if (tool === 'station' && Array.isArray(stations) && stations.length > 0) {
+            stations.pop();
+        } else if (tool === 'switch' && Array.isArray(switches) && switches.length > 0) {
+            switches.pop();
+        } else if (Array.isArray(segments) && segments.length > 0) {
             segments.pop();
         }
         tempStart = null;
@@ -72,7 +101,6 @@ export function initEditor(canvas) {
 
     panel.querySelector('#ed-export').onclick = () => showExportModal();
 
-    // Магнитная привязка к существующим узлам пути (исключая текущие перетаскиваемые точки)
     function getSnappedPos(x, y, excludeList = []) {
         if (Array.isArray(segments)) {
             for (const seg of segments) {
@@ -90,21 +118,76 @@ export function initEditor(canvas) {
         return { x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 };
     }
 
-    // Используем capture: true, чтобы перехватить клик РАНЬШЕ обработчика камеры в input.js
     canvas.addEventListener('mousedown', (e) => {
         if (!editorEnabled || e.button !== 0) return;
 
-        // Останавливаем передачу клика в input.js — камера не будет двигаться!
         e.stopImmediatePropagation();
         e.preventDefault();
 
         const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
 
+        // Инструмент: Платформа (станция)
+        if (tool === 'station') {
+            const hit = findClosestSegmentPoint(worldPos, 30);
+            if (!hit) {
+                alert('Кликните прямо по рельсу, чтобы поставить платформу.');
+                return;
+            }
+            const defaultName = 'Станция ' + ((stations?.length || 0) + 1);
+            const name = prompt('Название станции / платформы:', defaultName);
+            if (!name) return;
+
+            if (Array.isArray(stations)) {
+                stations.push({
+                    id: 'st_' + (stations.length + 1),
+                    name: name.trim(),
+                    segId: hit.seg.id,
+                    t: hit.t,
+                    x: Math.round(hit.x),
+                    y: Math.round(hit.y)
+                });
+            }
+            return;
+        }
+
+        // Инструмент: Стрелка (в узле разветвления путей)
+        if (tool === 'switch') {
+            const snapped = getSnappedPos(worldPos.x, worldPos.y);
+            const validSegs = Array.isArray(segments) ? segments.filter(s => s && s.start && s.end) : [];
+
+            // Ищем сегмент, заканчивающийся в этом узле, и сегменты, начинающиеся из него
+            const incoming = validSegs.find(s => Math.hypot(s.end.x - snapped.x, s.end.y - snapped.y) < 5);
+            const outgoing = validSegs.filter(s => Math.hypot(s.start.x - snapped.x, s.start.y - snapped.y) < 5);
+
+            if (!incoming || outgoing.length < 2) {
+                alert('Для создания стрелки кликните по стыку, где к концу одного пути присоединены минимум 2 ветки.');
+                return;
+            }
+
+            if (Array.isArray(switches)) {
+                // Если стрелка в этом узле уже есть — переключаем активный путь, иначе создаём новую
+                const existing = switches.find(sw => sw.fromSeg === incoming.id);
+                if (existing) {
+                    existing.activeIndex = (existing.activeIndex + 1) % existing.branches.length;
+                } else {
+                    switches.push({
+                        id: 'sw_' + (switches.length + 1),
+                        fromSeg: incoming.id,
+                        branches: outgoing.map(s => s.id),
+                        activeIndex: 0,
+                        x: snapped.x,
+                        y: snapped.y
+                    });
+                }
+            }
+            return;
+        }
+
+        // Инструмент: Перемещение стыков и контрольных точек
         if (tool === 'move') {
             draggingPoints = [];
             if (!Array.isArray(segments)) return;
 
-            // 1. Сначала ищем стыки (start/end) — собираем ВСЕ точки, лежащие в одном узле
             for (const seg of segments) {
                 if (!seg || !seg.start || !seg.end) continue;
                 for (const pt of [seg.start, seg.end]) {
@@ -114,7 +197,6 @@ export function initEditor(canvas) {
                 }
             }
 
-            // 2. Если стык не найден, проверяем жёлтые контрольные точки изгиба (control)
             if (draggingPoints.length === 0) {
                 for (const seg of segments) {
                     if (seg && seg.type === 'curve' && seg.control) {
@@ -128,12 +210,12 @@ export function initEditor(canvas) {
             return;
         }
 
+        // Инструменты: Прямая и Плавный поворот
         const pos = getSnappedPos(worldPos.x, worldPos.y);
         if (!tempStart) {
             tempStart = pos;
         } else {
             const id = 'seg_' + (segments.length + 1);
-            // Создаём независимые объекты координат для start и end
             const startCopy = { x: tempStart.x, y: tempStart.y };
             const endCopy = { x: pos.x, y: pos.y };
 
@@ -163,7 +245,6 @@ export function initEditor(canvas) {
         const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
         const snapped = getSnappedPos(worldPos.x, worldPos.y, draggingPoints);
 
-        // Двигаем все склеенные точки стыка одновременно
         for (const pt of draggingPoints) {
             pt.x = snapped.x;
             pt.y = snapped.y;
@@ -179,6 +260,53 @@ export function initEditor(canvas) {
 }
 
 export function drawEditorOverlay(ctx) {
+    // 1. Отрисовка платформ (видны всегда, даже когда редактор выключен)
+    if (Array.isArray(stations) && Array.isArray(segments)) {
+        for (const st of stations) {
+            const seg = segments.find(s => s && s.id === st.segId);
+            if (!seg || !seg.start || !seg.end) continue;
+            const pt = getPointOnSegment(seg, st.t ?? 0.5);
+            if (!pt) continue;
+
+            ctx.save();
+            ctx.translate(pt.x, pt.y);
+            ctx.rotate(pt.angle);
+
+            // Прямоугольник платформы рядом с рельсом
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.fillRect(-45, -24, 90, 14);
+            ctx.strokeRect(-45, -24, 90, 14);
+
+            // Название станции
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(st.name || 'Станция', 0, -30);
+            ctx.restore();
+        }
+    }
+
+    // 2. Отрисовка стрелок (видны всегда)
+    if (Array.isArray(switches) && Array.isArray(segments)) {
+        for (const sw of switches) {
+            const fromSeg = segments.find(s => s && s.id === sw.fromSeg);
+            if (!fromSeg || !fromSeg.end) continue;
+
+            ctx.save();
+            ctx.fillStyle = '#10b981';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(fromSeg.end.x, fromSeg.end.y, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // 3. Отрисовка синих и жёлтых узлов (только при включённом редакторе)
     if (!editorEnabled) return;
 
     if (Array.isArray(segments)) {
@@ -219,7 +347,12 @@ export function drawEditorOverlay(ctx) {
 
 function showExportModal() {
     const cleanSegments = Array.isArray(segments) ? segments.filter(s => s && s.start && s.end) : [];
-    const code = `export const TRACK_DATA = ${JSON.stringify({ segments: cleanSegments, stations: stations || [], switches: switches || [] }, null, 4)};`;
+    const code = `export const TRACK_DATA = ${JSON.stringify({
+        segments: cleanSegments,
+        stations: stations || [],
+        switches: switches || []
+    }, null, 4)};`;
+
     const modal = document.createElement('div');
     modal.style.cssText = `
         position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000;
