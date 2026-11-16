@@ -1,92 +1,142 @@
-﻿import { WORLD_W, WORLD_H } from './constants.js';
+import { WORLD_W, WORLD_H } from './constants.js';
 import { TrackSegment } from './math.js';
 import { TRACK_DATA } from './mapData.js';
 export { autoSwitchMode, setAutoSwitchMode } from './constants.js';
-export const nodes = {
-  N_WEST:    { id: 'N_WEST',    x: 420,  y: 1450 },
-  N_CENTRAL: { id: 'N_CENTRAL', x: 1450, y: 1500 },
-  N_NORTH_J: { id: 'N_NORTH_J', x: 1850, y: 1120 },
-  N_NORTH:   { id: 'N_NORTH',   x: 2450, y: 520  },
-  N_PASS:    { id: 'N_PASS',    x: 3650, y: 780  },
-  N_EAST_J:  { id: 'N_EAST_J',  x: 3450, y: 1650 },
-  N_FACTORY: { id: 'N_FACTORY', x: 2650, y: 1620 },
-  N_SOUTH:   { id: 'N_SOUTH',   x: 2850, y: 2480 },
-  N_VALLEY:  { id: 'N_VALLEY',  x: 1150, y: 2380 }
-};
 
-export const segments = [
-  new TrackSegment('S1', 'Западный подход', nodes.N_WEST, nodes.N_CENTRAL, [nodes.N_WEST, { x: 750, y: 1320 }, { x: 1120, y: 1560 }, nodes.N_CENTRAL], 150),
-  new TrackSegment('S2', 'Центральная горловина', nodes.N_CENTRAL, nodes.N_NORTH_J, [nodes.N_CENTRAL, { x: 1660, y: 1440 }, nodes.N_NORTH_J], 120),
-  new TrackSegment('S3', 'Северный обход', nodes.N_NORTH_J, nodes.N_NORTH, [nodes.N_NORTH_J, { x: 1960, y: 780 }, { x: 2200, y: 550 }, nodes.N_NORTH], 145),
-  new TrackSegment('S4', 'Горный серпантин', nodes.N_NORTH, nodes.N_PASS, [nodes.N_NORTH, { x: 2850, y: 460 }, { x: 3280, y: 580 }, nodes.N_PASS], 115),
-  new TrackSegment('S5', 'Восточный спуск', nodes.N_PASS, nodes.N_EAST_J, [nodes.N_PASS, { x: 3860, y: 1150 }, { x: 3680, y: 1480 }, nodes.N_EAST_J], 130),
-  new TrackSegment('S6', 'Заводская ветка', nodes.N_NORTH_J, nodes.N_FACTORY, [nodes.N_NORTH_J, { x: 2150, y: 1220 }, { x: 2420, y: 1560 }, nodes.N_FACTORY], 135),
-  new TrackSegment('S7', 'Индустриальный перегон', nodes.N_FACTORY, nodes.N_EAST_J, [nodes.N_FACTORY, { x: 3050, y: 1680 }, nodes.N_EAST_J], 145),
-  new TrackSegment('S8', 'Портовая магистраль', nodes.N_EAST_J, nodes.N_SOUTH, [nodes.N_EAST_J, { x: 3320, y: 2120 }, { x: 3120, y: 2420 }, nodes.N_SOUTH], 140),
-  new TrackSegment('S9', 'Южный берег', nodes.N_SOUTH, nodes.N_VALLEY, [nodes.N_SOUTH, { x: 2350, y: 2620 }, { x: 1750, y: 2560 }, nodes.N_VALLEY], 155),
-  new TrackSegment('S10', 'Речной мост', nodes.N_VALLEY, nodes.N_CENTRAL, [nodes.N_VALLEY, { x: 960, y: 2050 }, { x: 1220, y: 1750 }, nodes.N_CENTRAL], 135)
-];
+// 1. Загружаем сегменты из mapData.js и приводим их к формату, понятному и симулятору, и редактору
+const rawSegments = Array.isArray(TRACK_DATA?.segments) ? TRACK_DATA.segments : [];
+const rawStations = Array.isArray(TRACK_DATA?.stations) ? TRACK_DATA.stations : [];
+const rawSwitches = Array.isArray(TRACK_DATA?.switches) ? TRACK_DATA.switches : [];
+
+export const nodes = {};
+
+// Генерируем промежуточные точки для кривой Безье, чтобы поезда плавно ехали по путям из редактора
+function buildPolylinePoints(seg) {
+    if (seg.type === 'line') {
+        return [{ x: seg.start.x, y: seg.start.y }, { x: seg.end.x, y: seg.end.y }];
+    }
+    const pts = [];
+    const steps = 24;
+    for (let i = 0; i <= steps; i++) {
+        const pt = getPointOnSegment(seg, i / steps);
+        if (pt) pts.push({ x: pt.x, y: pt.y });
+    }
+    return pts;
+}
+
+export const segments = rawSegments.map((seg, idx) => {
+    const id = seg.id || `seg_${idx + 1}`;
+    const fromId = `N_${seg.start.x}_${seg.start.y}`;
+    const toId = `N_${seg.end.x}_${seg.end.y}`;
+
+    if (!nodes[fromId]) nodes[fromId] = { id: fromId, x: seg.start.x, y: seg.start.y };
+    if (!nodes[toId]) nodes[toId] = { id: toId, x: seg.end.x, y: seg.end.y };
+
+    const pts = buildPolylinePoints(seg);
+    const ts = new TrackSegment(id, seg.name || `Участок ${idx + 1}`, nodes[fromId], nodes[toId], pts, seg.maxSpeed || 130);
+
+    // Сохраняем свойства редактора (type, start, control, end), чтобы редактор мог их двигать и экспортировать
+    ts.type = seg.type || 'line';
+    ts.start = { x: seg.start.x, y: seg.start.y };
+    ts.end = { x: seg.end.x, y: seg.end.y };
+    if (seg.control) {
+        ts.control = { x: seg.control.x, y: seg.control.y };
+    }
+    return ts;
+});
 
 export const segmentMap = Object.fromEntries(segments.map(s => [s.id, s]));
 
-export const switches = [
-  { id: 'SW1', nodeId: 'N_NORTH_J', x: nodes.N_NORTH_J.x, y: nodes.N_NORTH_J.y, branches: ['S3', 'S6'], activeIndex: 0 },
-  { id: 'SW2', nodeId: 'N_EAST_J', x: nodes.N_EAST_J.x, y: nodes.N_EAST_J.y, branches: ['S5', 'S7'], activeIndex: 1 },
-  { id: 'SW3', nodeId: 'N_CENTRAL', x: nodes.N_CENTRAL.x, y: nodes.N_CENTRAL.y, branches: ['S1', 'S10'], activeIndex: 0 }
-];
+// 2. Стрелки из mapData.js
+export const switches = rawSwitches.map((sw, idx) => {
+    const fromSeg = segmentMap[sw.fromSeg];
+    const x = sw.x ?? fromSeg?.end?.x ?? 0;
+    const y = sw.y ?? fromSeg?.end?.y ?? 0;
+    const nodeId = sw.nodeId || `N_${x}_${y}`;
+    return {
+        id: sw.id || `SW_${idx + 1}`,
+        nodeId,
+        fromSeg: sw.fromSeg,
+        x,
+        y,
+        branches: Array.isArray(sw.branches) ? [...sw.branches] : [],
+        activeIndex: sw.activeIndex ?? 0
+    };
+});
 
-export const stations = [
-  { id: 'ST_CENT', name: 'Центральный Вокзал', segmentId: 'S1', distRatio: 0.92, side: -1, color: '#58a6ff' },
-  { id: 'ST_NORT', name: 'Северный Узел', segmentId: 'S3', distRatio: 0.88, side: -1, color: '#3fb950' },
-  { id: 'ST_PASS', name: 'Горный Перевал', segmentId: 'S4', distRatio: 0.90, side: -1, color: '#d29922' },
-  { id: 'ST_FACT', name: 'Заводская', segmentId: 'S7', distRatio: 0.22, side: 1, color: '#f85149' },
-  { id: 'ST_SOUT', name: 'Южный Порт', segmentId: 'S8', distRatio: 0.92, side: 1, color: '#a371f7' },
-  { id: 'ST_VALL', name: 'Речная Долина', segmentId: 'S10', distRatio: 0.15, side: 1, color: '#39c5cf' }
-];
+// 3. Станции / платформы из mapData.js
+const STATION_COLORS = ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#a371f7', '#39c5cf'];
+
+export const stations = rawStations.map((st, idx) => {
+    const segId = st.segId || st.segmentId;
+    const ratio = st.t ?? st.distRatio ?? 0.5;
+    const seg = segmentMap[segId];
+
+    let x = st.x ?? 0;
+    let y = st.y ?? 0;
+    let angle = 0;
+    let targetDist = 0;
+
+    if (seg && seg.length > 0) {
+        const pt = seg.getPointAt(seg.length * ratio, 1);
+        x = pt.x;
+        y = pt.y;
+        angle = pt.angle;
+        targetDist = seg.length * ratio;
+    }
+
+    return {
+        id: st.id || `ST_${idx + 1}`,
+        name: st.name || `Станция ${idx + 1}`,
+        segId,
+        segmentId: segId,
+        t: ratio,
+        distRatio: ratio,
+        side: st.side ?? -1,
+        color: st.color || STATION_COLORS[idx % STATION_COLORS.length],
+        x,
+        y,
+        angle,
+        targetDist
+    };
+});
 
 export const stationMap = Object.fromEntries(stations.map(st => [st.id, st]));
 
-stations.forEach(st => {
-  const seg = segmentMap[st.segmentId];
-  const pt = seg.getPointAt(seg.length * st.distRatio, 1);
-  st.x = pt.x;
-  st.y = pt.y;
-  st.angle = pt.angle;
-  st.targetDist = seg.length * st.distRatio;
-});
-
+// 4. Деревья и здания (генерируются вокруг путей из mapData.js)
 export const trees = [];
 for (let i = 0; i < 420; i++) {
-  const tx = 120 + Math.random() * (WORLD_W - 240);
-  const ty = 120 + Math.random() * (WORLD_H - 240);
-  let nearTrack = false;
-  for (const seg of segments) {
-    for (let j = 0; j < seg.samples.length; j += 4) {
-      if (Math.hypot(tx - seg.samples[j].x, ty - seg.samples[j].y) < 95) {
-        nearTrack = true;
-        break;
-      }
+    const tx = 120 + Math.random() * (WORLD_W - 240);
+    const ty = 120 + Math.random() * (WORLD_H - 240);
+    let nearTrack = false;
+    for (const seg of segments) {
+        if (!Array.isArray(seg.samples)) continue;
+        for (let j = 0; j < seg.samples.length; j += 4) {
+            if (Math.hypot(tx - seg.samples[j].x, ty - seg.samples[j].y) < 95) {
+                nearTrack = true;
+                break;
+            }
+        }
+        if (nearTrack) break;
     }
-    if (nearTrack) break;
-  }
-  if (!nearTrack) {
-    trees.push({ x: tx, y: ty, r: 14 + Math.random() * 18, shade: Math.random() > 0.5 ? '#1f422b' : '#264e34' });
-  }
+    if (!nearTrack) {
+        trees.push({ x: tx, y: ty, r: 14 + Math.random() * 18, shade: Math.random() > 0.5 ? '#1f422b' : '#264e34' });
+    }
 }
 
 export const buildings = [
-  { x: 1320, y: 1310, w: 130, h: 70, angle: 0.1, color: '#3b434d' },
-  { x: 1180, y: 1370, w: 90,  h: 60, angle: -0.1, color: '#48525e' },
-  { x: 2560, y: 1740, w: 190, h: 95, angle: 0.05, color: '#4d3b38' },
-  { x: 2780, y: 1760, w: 120, h: 80, angle: 0.05, color: '#3f4752' },
-  { x: 2820, y: 2600, w: 160, h: 75, angle: -0.2, color: '#394956' },
-  { x: 2380, y: 390,  w: 110, h: 55, angle: 0.15, color: '#4a463d' }
+    { x: 1320, y: 1310, w: 130, h: 70, angle: 0.1, color: '#3b434d' },
+    { x: 1180, y: 1370, w: 90,  h: 60, angle: -0.1, color: '#48525e' },
+    { x: 2560, y: 1740, w: 190, h: 95, angle: 0.05, color: '#4d3b38' },
+    { x: 2780, y: 1760, w: 120, h: 80, angle: 0.05, color: '#3f4752' },
+    { x: 2820, y: 2600, w: 160, h: 75, angle: -0.2, color: '#394956' },
+    { x: 2380, y: 390,  w: 110, h: 55, angle: 0.15, color: '#4a463d' }
 ];
-export let editorSegments = TRACK_DATA.segments;
-export let editorStations = TRACK_DATA.stations;
-export let editorSwitches = TRACK_DATA.switches;
 
+// 5. Геометрия сегментов для редактора
 export function getPointOnSegment(seg, t) {
+    if (!seg || !seg.start || !seg.end) return null;
+
     if (seg.type === 'line') {
         const x = seg.start.x + (seg.end.x - seg.start.x) * t;
         const y = seg.start.y + (seg.end.y - seg.start.y) * t;
@@ -94,7 +144,7 @@ export function getPointOnSegment(seg, t) {
         return { x, y, angle };
     }
 
-    if (seg.type === 'curve') {
+    if (seg.type === 'curve' && seg.control) {
         const invT = 1 - t;
         const x = invT * invT * seg.start.x + 2 * invT * t * seg.control.x + t * t * seg.end.x;
         const y = invT * invT * seg.start.y + 2 * invT * t * seg.control.y + t * t * seg.end.y;
@@ -104,6 +154,8 @@ export function getPointOnSegment(seg, t) {
         const angle = Math.atan2(dy, dx);
         return { x, y, angle };
     }
+
+    return null;
 }
 
 export function getSegmentLength(seg) {
@@ -115,32 +167,33 @@ export function getSegmentLength(seg) {
     const steps = 20;
     for (let i = 1; i <= steps; i++) {
         const curr = getPointOnSegment(seg, i / steps);
-        length += Math.hypot(curr.x - prev.x, curr.y - prev.y);
+        if (curr && prev) {
+            length += Math.hypot(curr.x - prev.x, curr.y - prev.y);
+        }
         prev = curr;
     }
     return length;
 }
 
-// Отрисовка всех путей из редактора и mapData.js
+// Отрисовка путей, добавленных в реальном времени в редакторе (у которых ещё нет seg.samples)
 export function drawTracks(ctx) {
     if (!Array.isArray(segments)) return;
     ctx.save();
     ctx.lineCap = 'round';
 
     for (const seg of segments) {
-        if (!seg || !seg.start || !seg.end) continue;
+        // Если у сегмента уже есть seg.samples, его отрисовывает основной цикл в render.js со шпалами и рельсами
+        if (!seg || !seg.start || !seg.end || Array.isArray(seg.samples)) continue;
 
-        // 1. Насыпь / шпалы (тёмно-серая подложка)
         ctx.beginPath();
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 14;
+        ctx.strokeStyle = '#36393d';
+        ctx.lineWidth = 24;
         traceSegmentPath(ctx, seg);
         ctx.stroke();
 
-        // 2. Металлические рельсы (светло-серая линия поверх)
         ctx.beginPath();
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#9aa5b1';
+        ctx.lineWidth = 6;
         traceSegmentPath(ctx, seg);
         ctx.stroke();
     }
