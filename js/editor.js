@@ -2,9 +2,12 @@ import { segments, stations, switches, getPointOnSegment } from './topology.js';
 import { camera } from './constants.js';
 
 export let editorEnabled = false;
-let tool = 'line'; // 'line' | 'curve' | 'move' | 'station' | 'switch'
+let tool = 'pan'; // 'pan' | 'line' | 'curve' | 'move' | 'station' | 'switch'
 let tempStart = null;
 let draggingPoints = [];
+let isPanning = false;
+let panLastX = 0;
+let panLastY = 0;
 const SNAP_RADIUS = 20;
 
 function screenToWorld(canvas, clientX, clientY) {
@@ -21,8 +24,7 @@ function screenToWorld(canvas, clientX, clientY) {
     };
 }
 
-// Поиск ближайшего сегмента и параметра t (0..1) для размещения платформы
-function findClosestSegmentPoint(worldPos, maxDist = 25) {
+function findClosestSegmentPoint(worldPos, maxDist = 30) {
     let best = null;
     let minDist = maxDist;
 
@@ -54,11 +56,12 @@ export function initEditor(canvas) {
     panel.innerHTML = `
         <button id="ed-toggle" style="padding:6px 10px; cursor:pointer; background:#2563eb; color:#fff; border:none; border-radius:6px; font-weight:600;">Редактор: ВЫКЛ</button>
         <div id="ed-tools" style="display:none; flex-wrap:wrap; gap:6px; align-items:center;">
+            <button data-tool="pan" style="padding:6px 10px; cursor:pointer; outline:2px solid #38bdf8;">🖐 Рука</button>
             <button data-tool="line" style="padding:6px 10px; cursor:pointer;">📏 Прямая</button>
             <button data-tool="curve" style="padding:6px 10px; cursor:pointer;">↪️ Поворот</button>
             <button data-tool="station" style="padding:6px 10px; cursor:pointer;">🚉 Платформа</button>
             <button data-tool="switch" style="padding:6px 10px; cursor:pointer;">🔀 Стрелка</button>
-            <button data-tool="move" style="padding:6px 10px; cursor:pointer;">✋ Двигать</button>
+            <button data-tool="move" style="padding:6px 10px; cursor:pointer;">🎯 Двигать точки</button>
             <button id="ed-undo" style="padding:6px 10px; cursor:pointer; background:#dc2626; color:#fff; border:none; border-radius:6px;">Отмена</button>
             <button id="ed-export" style="padding:6px 10px; cursor:pointer; background:#16a34a; color:#fff; border:none; border-radius:6px;">📋 Код трассы</button>
         </div>
@@ -68,23 +71,36 @@ export function initEditor(canvas) {
     const toggleBtn = panel.querySelector('#ed-toggle');
     const toolsBox = panel.querySelector('#ed-tools');
 
+    function setActiveTool(newTool) {
+        tool = newTool;
+        tempStart = null;
+        draggingPoints = [];
+        isPanning = false;
+        panel.querySelectorAll('[data-tool]').forEach(b => {
+            b.style.outline = b.dataset.tool === tool ? '2px solid #38bdf8' : 'none';
+        });
+        if (editorEnabled) {
+            canvas.style.cursor = tool === 'pan' ? 'grab' : 'crosshair';
+        }
+    }
+
     toggleBtn.onclick = () => {
         editorEnabled = !editorEnabled;
         toggleBtn.textContent = editorEnabled ? 'Редактор: ВКЛ' : 'Редактор: ВЫКЛ';
         toggleBtn.style.background = editorEnabled ? '#f59e0b' : '#2563eb';
         toolsBox.style.display = editorEnabled ? 'flex' : 'none';
-        tempStart = null;
-        draggingPoints = [];
+        if (editorEnabled) {
+            setActiveTool('pan');
+        } else {
+            tempStart = null;
+            draggingPoints = [];
+            isPanning = false;
+            canvas.style.cursor = 'default';
+        }
     };
 
     panel.querySelectorAll('[data-tool]').forEach(btn => {
-        btn.onclick = () => {
-            tool = btn.dataset.tool;
-            tempStart = null;
-            draggingPoints = [];
-            panel.querySelectorAll('[data-tool]').forEach(b => b.style.outline = 'none');
-            btn.style.outline = '2px solid #38bdf8';
-        };
+        btn.onclick = () => setActiveTool(btn.dataset.tool);
     });
 
     panel.querySelector('#ed-undo').onclick = () => {
@@ -118,15 +134,26 @@ export function initEditor(canvas) {
         return { x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 };
     }
 
-    canvas.addEventListener('mousedown', (e) => {
+    window.addEventListener('mousedown', (e) => {
         if (!editorEnabled || e.button !== 0) return;
+        if (e.target.closest('button, input, textarea, select') || panel.contains(e.target)) return;
 
         e.stopImmediatePropagation();
         e.preventDefault();
 
+        // Инструмент: Рука (перемещение камеры левой кнопкой мыши)
+        if (tool === 'pan') {
+            isPanning = true;
+            panLastX = e.clientX;
+            panLastY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+            if (camera) camera.followTrainId = null;
+            return;
+        }
+
         const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
 
-        // Инструмент: Платформа (станция)
+        // Инструмент: Платформа
         if (tool === 'station') {
             const hit = findClosestSegmentPoint(worldPos, 30);
             if (!hit) {
@@ -150,12 +177,10 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Инструмент: Стрелка (в узле разветвления путей)
+        // Инструмент: Стрелка
         if (tool === 'switch') {
             const snapped = getSnappedPos(worldPos.x, worldPos.y);
             const validSegs = Array.isArray(segments) ? segments.filter(s => s && s.start && s.end) : [];
-
-            // Ищем сегмент, заканчивающийся в этом узле, и сегменты, начинающиеся из него
             const incoming = validSegs.find(s => Math.hypot(s.end.x - snapped.x, s.end.y - snapped.y) < 5);
             const outgoing = validSegs.filter(s => Math.hypot(s.start.x - snapped.x, s.start.y - snapped.y) < 5);
 
@@ -165,7 +190,6 @@ export function initEditor(canvas) {
             }
 
             if (Array.isArray(switches)) {
-                // Если стрелка в этом узле уже есть — переключаем активный путь, иначе создаём новую
                 const existing = switches.find(sw => sw.fromSeg === incoming.id);
                 if (existing) {
                     existing.activeIndex = (existing.activeIndex + 1) % existing.branches.length;
@@ -183,7 +207,7 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Инструмент: Перемещение стыков и контрольных точек
+        // Инструмент: Двигать точки
         if (tool === 'move') {
             draggingPoints = [];
             if (!Array.isArray(segments)) return;
@@ -210,7 +234,7 @@ export function initEditor(canvas) {
             return;
         }
 
-        // Инструменты: Прямая и Плавный поворот
+        // Инструменты: Прямая и Поворот
         const pos = getSnappedPos(worldPos.x, worldPos.y);
         if (!tempStart) {
             tempStart = pos;
@@ -238,20 +262,44 @@ export function initEditor(canvas) {
         }
     }, true);
 
-    canvas.addEventListener('mousemove', (e) => {
-        if (!editorEnabled || draggingPoints.length === 0) return;
+    window.addEventListener('mousemove', (e) => {
+        if (!editorEnabled) return;
 
-        e.stopImmediatePropagation();
-        const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
-        const snapped = getSnappedPos(worldPos.x, worldPos.y, draggingPoints);
+        // Перемещение камеры при активном инструменте "Рука"
+        if (isPanning && camera) {
+            e.stopImmediatePropagation();
+            const zoom = camera.zoom || 1;
+            const dx = (e.clientX - panLastX) / zoom;
+            const dy = (e.clientY - panLastY) / zoom;
+            panLastX = e.clientX;
+            panLastY = e.clientY;
 
-        for (const pt of draggingPoints) {
-            pt.x = snapped.x;
-            pt.y = snapped.y;
+            camera.x -= dx;
+            camera.y -= dy;
+            if (typeof camera.targetX === 'number') camera.targetX -= dx;
+            if (typeof camera.targetY === 'number') camera.targetY -= dy;
+            return;
+        }
+
+        // Перемещение точек пути
+        if (draggingPoints.length > 0) {
+            e.stopImmediatePropagation();
+            const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
+            const snapped = getSnappedPos(worldPos.x, worldPos.y, draggingPoints);
+
+            for (const pt of draggingPoints) {
+                pt.x = snapped.x;
+                pt.y = snapped.y;
+            }
         }
     }, true);
 
     window.addEventListener('mouseup', (e) => {
+        if (isPanning) {
+            e.stopImmediatePropagation();
+            isPanning = false;
+            canvas.style.cursor = tool === 'pan' ? 'grab' : 'crosshair';
+        }
         if (draggingPoints.length > 0) {
             e.stopImmediatePropagation();
             draggingPoints = [];
@@ -260,7 +308,6 @@ export function initEditor(canvas) {
 }
 
 export function drawEditorOverlay(ctx) {
-    // 1. Отрисовка платформ (видны всегда, даже когда редактор выключен)
     if (Array.isArray(stations) && Array.isArray(segments)) {
         for (const st of stations) {
             const seg = segments.find(s => s && s.id === st.segId);
@@ -272,14 +319,12 @@ export function drawEditorOverlay(ctx) {
             ctx.translate(pt.x, pt.y);
             ctx.rotate(pt.angle);
 
-            // Прямоугольник платформы рядом с рельсом
             ctx.fillStyle = '#1e293b';
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 2;
             ctx.fillRect(-45, -24, 90, 14);
             ctx.strokeRect(-45, -24, 90, 14);
 
-            // Название станции
             ctx.fillStyle = '#f8fafc';
             ctx.font = 'bold 12px sans-serif';
             ctx.textAlign = 'center';
@@ -288,7 +333,6 @@ export function drawEditorOverlay(ctx) {
         }
     }
 
-    // 2. Отрисовка стрелок (видны всегда)
     if (Array.isArray(switches) && Array.isArray(segments)) {
         for (const sw of switches) {
             const fromSeg = segments.find(s => s && s.id === sw.fromSeg);
@@ -306,7 +350,6 @@ export function drawEditorOverlay(ctx) {
         }
     }
 
-    // 3. Отрисовка синих и жёлтых узлов (только при включённом редакторе)
     if (!editorEnabled) return;
 
     if (Array.isArray(segments)) {
