@@ -39,6 +39,7 @@ export class Train {
   }
 
   update(dt, simTimeSec, allTrains, isAutoSwitch) {
+    if (!this.currentSeg || !segmentMap[this.currentSeg.id]) return;
     const seg = segmentMap[this.segId];
     const step = this.currentStep;
 
