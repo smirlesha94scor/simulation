@@ -1,4 +1,4 @@
-import { canvas, ctx, miniCanvas, miniCtx, camera, WORLD_W, WORLD_H, autoSwitchMode } from './constants.js';
+ï»¿import { canvas, ctx, miniCanvas, miniCtx, camera, WORLD_W, WORLD_H, autoSwitchMode } from './constants.js';
 import { segments, segmentMap, stations, switches, trees, buildings } from './topology.js';
 import { trains } from './train.js';
 
@@ -22,7 +22,7 @@ export function drawWorld() {
     ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(WORLD_W, gy); ctx.stroke();
   }
 
-  // Ðåêà
+  // Ð ÐµÐºÐ°
   ctx.save();
   ctx.strokeStyle = '#16354d';
   ctx.lineWidth = 115;
@@ -37,7 +37,7 @@ export function drawWorld() {
   ctx.stroke();
   ctx.restore();
 
-  // Çäàíèÿ è äåðåâüÿ
+  // Ð—Ð´Ð°Ð½Ð¸Ñ Ð¸ Ð´ÐµÑ€ÐµÐ²ÑŒÑ
   for (const b of buildings) {
     ctx.save();
     ctx.translate(b.x, b.y);
@@ -59,7 +59,7 @@ export function drawWorld() {
     ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2); ctx.fill();
   }
 
-  // Ïóòè
+  // ÐŸÑƒÑ‚Ð¸
   for (const seg of segments) {
     ctx.strokeStyle = '#36393d';
     ctx.lineWidth = 24;
@@ -96,7 +96,7 @@ export function drawWorld() {
     }
   }
 
-  // Ñòàíöèè
+  // Ð¡Ñ‚Ð°Ð½Ñ†Ð¸Ð¸
   for (const st of stations) {
     ctx.save();
     ctx.translate(st.x, st.y);
@@ -132,7 +132,7 @@ export function drawWorld() {
     ctx.restore();
   }
 
-  // Ñòðåëêè
+  // Ð¡Ñ‚Ñ€ÐµÐ»ÐºÐ¸
   for (const sw of switches) {
     const activeSeg = segmentMap[sw.branches[sw.activeIndex]];
     const dirPt = activeSeg.fromNode.id === sw.nodeId ? activeSeg.getPointAt(35, 1) : activeSeg.getPointAt(35, -1);
@@ -153,7 +153,7 @@ export function drawWorld() {
     ctx.stroke();
   }
 
-  // Ïîåçäà
+  // ÐŸÐ¾ÐµÐ·Ð´Ð°
   for (const tr of trains) {
     const isSelected = camera.followTrainId === tr.id;
     for (let i = tr.carTransforms.length - 1; i >= 0; i--) {

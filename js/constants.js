@@ -1,4 +1,4 @@
-export const WORLD_W = 4400;
+﻿export const WORLD_W = 4400;
 export const WORLD_H = 3000;
 
 export const canvas = document.getElementById('simCanvas');

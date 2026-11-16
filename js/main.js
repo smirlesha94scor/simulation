@@ -1,4 +1,4 @@
-import { canvas, camera, keysPressed, WORLD_W, WORLD_H, simSpeed, setSimTime, resizeCanvas } from './constants.js';
+﻿import { canvas, camera, keysPressed, WORLD_W, WORLD_H, simSpeed, setSimTime, resizeCanvas } from './constants.js';
 import { trains } from './train.js';
 import { renderScheduleUI, formatTime } from './ui.js';
 import { drawWorld, drawMinimap } from './render.js';

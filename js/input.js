@@ -1,4 +1,4 @@
-import { canvas, camera, keysPressed, WORLD_W, WORLD_H, miniCanvas } from './constants.js';
+﻿import { canvas, camera, keysPressed, WORLD_W, WORLD_H, miniCanvas } from './constants.js';
 import { switches } from './topology.js';
 import { trains } from './train.js';
 import { updateFollowUI } from './ui.js';

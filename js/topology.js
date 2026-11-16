@@ -1,4 +1,4 @@
-import { WORLD_W, WORLD_H } from './constants.js';
+ï»¿import { WORLD_W, WORLD_H } from './constants.js';
 import { TrackSegment } from './math.js';
 
 export const nodes = {
@@ -14,16 +14,16 @@ export const nodes = {
 };
 
 export const segments = [
-  new TrackSegment('S1', 'Çàïàäíûé ïîäõîä', nodes.N_WEST, nodes.N_CENTRAL, [nodes.N_WEST, { x: 750, y: 1320 }, { x: 1120, y: 1560 }, nodes.N_CENTRAL], 150),
-  new TrackSegment('S2', 'Öåíòğàëüíàÿ ãîğëîâèíà', nodes.N_CENTRAL, nodes.N_NORTH_J, [nodes.N_CENTRAL, { x: 1660, y: 1440 }, nodes.N_NORTH_J], 120),
-  new TrackSegment('S3', 'Ñåâåğíûé îáõîä', nodes.N_NORTH_J, nodes.N_NORTH, [nodes.N_NORTH_J, { x: 1960, y: 780 }, { x: 2200, y: 550 }, nodes.N_NORTH], 145),
-  new TrackSegment('S4', 'Ãîğíûé ñåğïàíòèí', nodes.N_NORTH, nodes.N_PASS, [nodes.N_NORTH, { x: 2850, y: 460 }, { x: 3280, y: 580 }, nodes.N_PASS], 115),
-  new TrackSegment('S5', 'Âîñòî÷íûé ñïóñê', nodes.N_PASS, nodes.N_EAST_J, [nodes.N_PASS, { x: 3860, y: 1150 }, { x: 3680, y: 1480 }, nodes.N_EAST_J], 130),
-  new TrackSegment('S6', 'Çàâîäñêàÿ âåòêà', nodes.N_NORTH_J, nodes.N_FACTORY, [nodes.N_NORTH_J, { x: 2150, y: 1220 }, { x: 2420, y: 1560 }, nodes.N_FACTORY], 135),
-  new TrackSegment('S7', 'Èíäóñòğèàëüíûé ïåğåãîí', nodes.N_FACTORY, nodes.N_EAST_J, [nodes.N_FACTORY, { x: 3050, y: 1680 }, nodes.N_EAST_J], 145),
-  new TrackSegment('S8', 'Ïîğòîâàÿ ìàãèñòğàëü', nodes.N_EAST_J, nodes.N_SOUTH, [nodes.N_EAST_J, { x: 3320, y: 2120 }, { x: 3120, y: 2420 }, nodes.N_SOUTH], 140),
-  new TrackSegment('S9', 'Şæíûé áåğåã', nodes.N_SOUTH, nodes.N_VALLEY, [nodes.N_SOUTH, { x: 2350, y: 2620 }, { x: 1750, y: 2560 }, nodes.N_VALLEY], 155),
-  new TrackSegment('S10', 'Ğå÷íîé ìîñò', nodes.N_VALLEY, nodes.N_CENTRAL, [nodes.N_VALLEY, { x: 960, y: 2050 }, { x: 1220, y: 1750 }, nodes.N_CENTRAL], 135)
+  new TrackSegment('S1', 'Ğ—Ğ°Ğ¿Ğ°Ğ´Ğ½Ñ‹Ğ¹ Ğ¿Ğ¾Ğ´Ñ…Ğ¾Ğ´', nodes.N_WEST, nodes.N_CENTRAL, [nodes.N_WEST, { x: 750, y: 1320 }, { x: 1120, y: 1560 }, nodes.N_CENTRAL], 150),
+  new TrackSegment('S2', 'Ğ¦ĞµĞ½Ñ‚Ñ€Ğ°Ğ»ÑŒĞ½Ğ°Ñ Ğ³Ğ¾Ñ€Ğ»Ğ¾Ğ²Ğ¸Ğ½Ğ°', nodes.N_CENTRAL, nodes.N_NORTH_J, [nodes.N_CENTRAL, { x: 1660, y: 1440 }, nodes.N_NORTH_J], 120),
+  new TrackSegment('S3', 'Ğ¡ĞµĞ²ĞµÑ€Ğ½Ñ‹Ğ¹ Ğ¾Ğ±Ñ…Ğ¾Ğ´', nodes.N_NORTH_J, nodes.N_NORTH, [nodes.N_NORTH_J, { x: 1960, y: 780 }, { x: 2200, y: 550 }, nodes.N_NORTH], 145),
+  new TrackSegment('S4', 'Ğ“Ğ¾Ñ€Ğ½Ñ‹Ğ¹ ÑĞµÑ€Ğ¿Ğ°Ğ½Ñ‚Ğ¸Ğ½', nodes.N_NORTH, nodes.N_PASS, [nodes.N_NORTH, { x: 2850, y: 460 }, { x: 3280, y: 580 }, nodes.N_PASS], 115),
+  new TrackSegment('S5', 'Ğ’Ğ¾ÑÑ‚Ğ¾Ñ‡Ğ½Ñ‹Ğ¹ ÑĞ¿ÑƒÑĞº', nodes.N_PASS, nodes.N_EAST_J, [nodes.N_PASS, { x: 3860, y: 1150 }, { x: 3680, y: 1480 }, nodes.N_EAST_J], 130),
+  new TrackSegment('S6', 'Ğ—Ğ°Ğ²Ğ¾Ğ´ÑĞºĞ°Ñ Ğ²ĞµÑ‚ĞºĞ°', nodes.N_NORTH_J, nodes.N_FACTORY, [nodes.N_NORTH_J, { x: 2150, y: 1220 }, { x: 2420, y: 1560 }, nodes.N_FACTORY], 135),
+  new TrackSegment('S7', 'Ğ˜Ğ½Ğ´ÑƒÑÑ‚Ñ€Ğ¸Ğ°Ğ»ÑŒĞ½Ñ‹Ğ¹ Ğ¿ĞµÑ€ĞµĞ³Ğ¾Ğ½', nodes.N_FACTORY, nodes.N_EAST_J, [nodes.N_FACTORY, { x: 3050, y: 1680 }, nodes.N_EAST_J], 145),
+  new TrackSegment('S8', 'ĞŸĞ¾Ñ€Ñ‚Ğ¾Ğ²Ğ°Ñ Ğ¼Ğ°Ğ³Ğ¸ÑÑ‚Ñ€Ğ°Ğ»ÑŒ', nodes.N_EAST_J, nodes.N_SOUTH, [nodes.N_EAST_J, { x: 3320, y: 2120 }, { x: 3120, y: 2420 }, nodes.N_SOUTH], 140),
+  new TrackSegment('S9', 'Ğ®Ğ¶Ğ½Ñ‹Ğ¹ Ğ±ĞµÑ€ĞµĞ³', nodes.N_SOUTH, nodes.N_VALLEY, [nodes.N_SOUTH, { x: 2350, y: 2620 }, { x: 1750, y: 2560 }, nodes.N_VALLEY], 155),
+  new TrackSegment('S10', 'Ğ ĞµÑ‡Ğ½Ğ¾Ğ¹ Ğ¼Ğ¾ÑÑ‚', nodes.N_VALLEY, nodes.N_CENTRAL, [nodes.N_VALLEY, { x: 960, y: 2050 }, { x: 1220, y: 1750 }, nodes.N_CENTRAL], 135)
 ];
 
 export const segmentMap = Object.fromEntries(segments.map(s => [s.id, s]));
@@ -35,12 +35,12 @@ export const switches = [
 ];
 
 export const stations = [
-  { id: 'ST_CENT', name: 'Öåíòğàëüíûé Âîêçàë', segmentId: 'S1', distRatio: 0.92, side: -1, color: '#58a6ff' },
-  { id: 'ST_NORT', name: 'Ñåâåğíûé Óçåë', segmentId: 'S3', distRatio: 0.88, side: -1, color: '#3fb950' },
-  { id: 'ST_PASS', name: 'Ãîğíûé Ïåğåâàë', segmentId: 'S4', distRatio: 0.90, side: -1, color: '#d29922' },
-  { id: 'ST_FACT', name: 'Çàâîäñêàÿ', segmentId: 'S7', distRatio: 0.22, side: 1, color: '#f85149' },
-  { id: 'ST_SOUT', name: 'Şæíûé Ïîğò', segmentId: 'S8', distRatio: 0.92, side: 1, color: '#a371f7' },
-  { id: 'ST_VALL', name: 'Ğå÷íàÿ Äîëèíà', segmentId: 'S10', distRatio: 0.15, side: 1, color: '#39c5cf' }
+  { id: 'ST_CENT', name: 'Ğ¦ĞµĞ½Ñ‚Ñ€Ğ°Ğ»ÑŒĞ½Ñ‹Ğ¹ Ğ’Ğ¾ĞºĞ·Ğ°Ğ»', segmentId: 'S1', distRatio: 0.92, side: -1, color: '#58a6ff' },
+  { id: 'ST_NORT', name: 'Ğ¡ĞµĞ²ĞµÑ€Ğ½Ñ‹Ğ¹ Ğ£Ğ·ĞµĞ»', segmentId: 'S3', distRatio: 0.88, side: -1, color: '#3fb950' },
+  { id: 'ST_PASS', name: 'Ğ“Ğ¾Ñ€Ğ½Ñ‹Ğ¹ ĞŸĞµÑ€ĞµĞ²Ğ°Ğ»', segmentId: 'S4', distRatio: 0.90, side: -1, color: '#d29922' },
+  { id: 'ST_FACT', name: 'Ğ—Ğ°Ğ²Ğ¾Ğ´ÑĞºĞ°Ñ', segmentId: 'S7', distRatio: 0.22, side: 1, color: '#f85149' },
+  { id: 'ST_SOUT', name: 'Ğ®Ğ¶Ğ½Ñ‹Ğ¹ ĞŸĞ¾Ñ€Ñ‚', segmentId: 'S8', distRatio: 0.92, side: 1, color: '#a371f7' },
+  { id: 'ST_VALL', name: 'Ğ ĞµÑ‡Ğ½Ğ°Ñ Ğ”Ğ¾Ğ»Ğ¸Ğ½Ğ°', segmentId: 'S10', distRatio: 0.15, side: 1, color: '#39c5cf' }
 ];
 
 export const stationMap = Object.fromEntries(stations.map(st => [st.id, st]));

@@ -1,4 +1,4 @@
-import { camera, simSpeed, setSimSpeed, autoSwitchMode, toggleAutoSwitch } from './constants.js';
+п»їimport { camera, simSpeed, setSimSpeed, autoSwitchMode, toggleAutoSwitch } from './constants.js';
 import { trains } from './train.js';
 import { segmentMap } from './topology.js';
 
@@ -13,7 +13,7 @@ document.querySelectorAll('.speed-controls .btn').forEach(btn => {
 const autoSwitchBtn = document.getElementById('toggleAutoSwitchBtn');
 autoSwitchBtn.addEventListener('click', () => {
   const active = toggleAutoSwitch();
-  autoSwitchBtn.textContent = active ? 'Стрелки: АВТО' : 'Стрелки: РУЧН.';
+  autoSwitchBtn.textContent = active ? 'РЎС‚СЂРµР»РєРё: РђР’РўРћ' : 'РЎС‚СЂРµР»РєРё: Р РЈР§Рќ.';
   autoSwitchBtn.style.borderColor = active ? 'rgba(255,255,255,0.12)' : '#d29922';
 });
 
@@ -40,9 +40,9 @@ followStatusEl.addEventListener('click', () => {
 export function updateFollowUI() {
   if (camera.followTrainId) {
     const tr = trains.find(t => t.id === camera.followTrainId);
-    followStatusEl.textContent = `Слежение: ${tr.number} (сброс)`;
+    followStatusEl.textContent = `РЎР»РµР¶РµРЅРёРµ: ${tr.number} (СЃР±СЂРѕСЃ)`;
   } else {
-    followStatusEl.textContent = 'Обзор: свободный';
+    followStatusEl.textContent = 'РћР±Р·РѕСЂ: СЃРІРѕР±РѕРґРЅС‹Р№';
   }
 }
 
@@ -64,16 +64,16 @@ const trainListEl = document.getElementById('trainList');
 export function renderScheduleUI() {
   trainListEl.innerHTML = trains.map(tr => {
     let badgeClass = '';
-    let statusText = 'В пути';
+    let statusText = 'Р’ РїСѓС‚Рё';
     if (tr.state === 'BOARDING') {
       badgeClass = 'boarding';
-      statusText = `Стоянка (${Math.ceil(tr.dwellTimer)}с)`;
+      statusText = `РЎС‚РѕСЏРЅРєР° (${Math.ceil(tr.dwellTimer)}СЃ)`;
     } else if (tr.state === 'WAITING_SIGNAL') {
       badgeClass = 'waiting';
-      statusText = 'Красный сигнал';
+      statusText = 'РљСЂР°СЃРЅС‹Р№ СЃРёРіРЅР°Р»';
     } else if (tr.state === 'WAITING_SWITCH') {
       badgeClass = 'waiting';
-      statusText = 'Стрелка закрыта';
+      statusText = 'РЎС‚СЂРµР»РєР° Р·Р°РєСЂС‹С‚Р°';
     }
 
     const kmh = Math.round(tr.speed * 0.85);
@@ -86,12 +86,12 @@ export function renderScheduleUI() {
           <span class="train-badge ${badgeClass}">${statusText}</span>
         </div>
         <div class="train-route">
-          <span>След. ст.: <b>${tr.nextStationName}</b></span>
-          <span>${kmh} км/ч</span>
+          <span>РЎР»РµРґ. СЃС‚.: <b>${tr.nextStationName}</b></span>
+          <span>${kmh} РєРј/С‡</span>
         </div>
         <div class="train-meta">
-          <span>Участок: ${segmentMap[tr.segId].name}</span>
-          <span>Отпр: ${formatTime(tr.nextDepartureSec)}</span>
+          <span>РЈС‡Р°СЃС‚РѕРє: ${segmentMap[tr.segId].name}</span>
+          <span>РћС‚РїСЂ: ${formatTime(tr.nextDepartureSec)}</span>
         </div>
       </div>
     `;

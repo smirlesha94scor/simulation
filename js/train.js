@@ -1,4 +1,4 @@
-import { segmentMap, stationMap, switches, autoSwitchMode } from './topology.js';
+п»їimport { segmentMap, stationMap, switches, autoSwitchMode } from './topology.js';
 
 export class Train {
   constructor(cfg) {
@@ -35,7 +35,7 @@ export class Train {
         return stationMap[this.route[idx].stopStationId].name;
       }
     }
-    return 'Депо';
+    return 'Р”РµРїРѕ';
   }
 
   update(dt, simTimeSec, allTrains, isAutoSwitch) {
@@ -186,7 +186,7 @@ export class Train {
 
 export const trains = [
   new Train({
-    id: 'T1', number: '№ 101 «Экспресс»', name: 'Северное кольцо', color: '#388bfd', carsCount: 4, maxCruiseSpeed: 135,
+    id: 'T1', number: 'в„– 101 В«Р­РєСЃРїСЂРµСЃСЃВ»', name: 'РЎРµРІРµСЂРЅРѕРµ РєРѕР»СЊС†Рѕ', color: '#388bfd', carsCount: 4, maxCruiseSpeed: 135,
     route: [
       { segId: 'S1',  dir: 1, startDist: 450, stopStationId: 'ST_CENT', dwellSec: 7 },
       { segId: 'S2',  dir: 1 }, { segId: 'S3',  dir: 1, stopStationId: 'ST_NORT', dwellSec: 7 },
@@ -196,7 +196,7 @@ export const trains = [
     ]
   }),
   new Train({
-    id: 'T2', number: '№ 204 «Индустрия»', name: 'Заводской маршрут', color: '#f85149', carsCount: 5, maxCruiseSpeed: 115,
+    id: 'T2', number: 'в„– 204 В«РРЅРґСѓСЃС‚СЂРёСЏВ»', name: 'Р—Р°РІРѕРґСЃРєРѕР№ РјР°СЂС€СЂСѓС‚', color: '#f85149', carsCount: 5, maxCruiseSpeed: 115,
     route: [
       { segId: 'S7',  dir: 1, startDist: 200, stopStationId: 'ST_FACT', dwellSec: 8 },
       { segId: 'S8',  dir: 1, stopStationId: 'ST_SOUT', dwellSec: 7 }, { segId: 'S9',  dir: 1 },
@@ -204,7 +204,7 @@ export const trains = [
     ]
   }),
   new Train({
-    id: 'T3', number: '№ 312 «Горный»', name: 'Альпийский экспресс', color: '#d29922', carsCount: 3, maxCruiseSpeed: 125,
+    id: 'T3', number: 'в„– 312 В«Р“РѕСЂРЅС‹Р№В»', name: 'РђР»СЊРїРёР№СЃРєРёР№ СЌРєСЃРїСЂРµСЃСЃ', color: '#d29922', carsCount: 3, maxCruiseSpeed: 125,
     route: [
       { segId: 'S4',  dir: 1, startDist: 300, stopStationId: 'ST_PASS', dwellSec: 8 }, { segId: 'S5',  dir: 1 },
       { segId: 'S7',  dir: -1, stopStationId: 'ST_FACT', dwellSec: 7 }, { segId: 'S6',  dir: -1 },
@@ -212,7 +212,7 @@ export const trains = [
     ]
   }),
   new Train({
-    id: 'T4', number: '№ 408 «Пригород»', name: 'Южный челнок', color: '#3fb950', carsCount: 3, maxCruiseSpeed: 120,
+    id: 'T4', number: 'в„– 408 В«РџСЂРёРіРѕСЂРѕРґВ»', name: 'Р®Р¶РЅС‹Р№ С‡РµР»РЅРѕРє', color: '#3fb950', carsCount: 3, maxCruiseSpeed: 120,
     route: [
       { segId: 'S10', dir: 1, startDist: 400 }, { segId: 'S2',  dir: 1 }, { segId: 'S6',  dir: 1 },
       { segId: 'S7',  dir: 1, stopStationId: 'ST_FACT', dwellSec: 6 }, { segId: 'S8',  dir: 1, stopStationId: 'ST_SOUT', dwellSec: 7 },
