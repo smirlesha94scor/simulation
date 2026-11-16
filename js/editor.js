@@ -1,5 +1,5 @@
 import { segments, stations, switches, getPointOnSegment } from './topology.js';
-import { camera } from './constants.js';
+import { camera, WORLD_W, WORLD_H } from './constants.js';
 
 export let editorEnabled = false;
 let tool = 'pan'; // 'pan' | 'line' | 'curve' | 'move' | 'station' | 'switch'
@@ -90,6 +90,7 @@ export function initEditor(canvas) {
         toggleBtn.style.background = editorEnabled ? '#f59e0b' : '#2563eb';
         toolsBox.style.display = editorEnabled ? 'flex' : 'none';
         if (editorEnabled) {
+            if (camera) camera.followTrainId = null; // Отвязываем камеру от поезда
             setActiveTool('pan');
         } else {
             tempStart = null;
@@ -274,10 +275,13 @@ export function initEditor(canvas) {
             panLastX = e.clientX;
             panLastY = e.clientY;
 
-            camera.x -= dx;
-            camera.y -= dy;
-            if (typeof camera.targetX === 'number') camera.targetX -= dx;
-            if (typeof camera.targetY === 'number') camera.targetY -= dy;
+            const nextX = Math.max(0, Math.min(WORLD_W || 5000, camera.x - dx));
+            const nextY = Math.max(0, Math.min(WORLD_H || 5000, camera.y - dy));
+
+            camera.x = nextX;
+            camera.y = nextY;
+            camera.targetX = nextX;
+            camera.targetY = nextY;
             return;
         }
 
