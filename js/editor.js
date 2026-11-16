@@ -1,13 +1,28 @@
 import { segments, stations, switches } from './topology.js';
+import { camera } from './constants.js';
 
 export let editorEnabled = false;
 let tool = 'line'; // 'line' | 'curve' | 'move'
 let tempStart = null;
 let draggingPoint = null;
-const SNAP_RADIUS = 20; // Радиус магнитной привязки к концам рельсов
+const SNAP_RADIUS = 20;
+
+// Перевод экранных координат клика мыши в мировые координаты карты с учётом камеры
+function screenToWorld(canvas, clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const screenX = clientX - rect.left;
+    const screenY = clientY - rect.top;
+    const zoom = camera?.zoom || 1;
+    const camX = camera?.x ?? canvas.width / 2;
+    const camY = camera?.y ?? canvas.height / 2;
+
+    return {
+        x: (screenX - canvas.width / 2) / zoom + camX,
+        y: (screenY - canvas.height / 2) / zoom + camY
+    };
+}
 
 export function initEditor(canvas) {
-    // Создаём панель редактора поверх симулятора
     const panel = document.createElement('div');
     panel.style.cssText = `
         position: fixed; bottom: 20px; left: 20px; z-index: 1000;
@@ -46,35 +61,42 @@ export function initEditor(canvas) {
     });
 
     panel.querySelector('#ed-undo').onclick = () => {
-        segments.pop();
+        if (Array.isArray(segments) && segments.length > 0) {
+            segments.pop();
+        }
+        tempStart = null;
     };
 
     panel.querySelector('#ed-export').onclick = () => showExportModal();
 
-    // Магнитная привязка к существующим узлам пути (чтобы стыки были без разрывов)
+    // Безопасная магнитная привязка (игнорирует сегменты без start/end)
     function getSnappedPos(x, y) {
-        for (const seg of segments) {
-            for (const pt of [seg.start, seg.end]) {
-                if (Math.hypot(pt.x - x, pt.y - y) < SNAP_RADIUS) {
-                    return { x: pt.x, y: pt.y };
+        if (Array.isArray(segments)) {
+            for (const seg of segments) {
+                if (!seg || !seg.start || !seg.end) continue;
+                for (const pt of [seg.start, seg.end]) {
+                    if (pt && typeof pt.x === 'number' && typeof pt.y === 'number') {
+                        if (Math.hypot(pt.x - x, pt.y - y) < SNAP_RADIUS) {
+                            return { x: pt.x, y: pt.y };
+                        }
+                    }
                 }
             }
         }
-        // Привязка к сетке 10px для ровных прямых линий
         return { x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10 };
     }
 
     canvas.addEventListener('mousedown', (e) => {
-        if (!editorEnabled) return;
-        const rect = canvas.getBoundingClientRect();
-        const rawX = e.clientX - rect.left;
-        const rawY = e.clientY - rect.top;
+        if (!editorEnabled || e.button !== 0) return;
+        const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
 
         if (tool === 'move') {
+            if (!Array.isArray(segments)) return;
             for (const seg of segments) {
-                const pts = seg.type === 'curve' ? [seg.start, seg.control, seg.end] : [seg.start, seg.end];
+                if (!seg || !seg.start || !seg.end) continue;
+                const pts = seg.type === 'curve' && seg.control ? [seg.start, seg.control, seg.end] : [seg.start, seg.end];
                 for (const pt of pts) {
-                    if (Math.hypot(pt.x - rawX, pt.y - rawY) < 15) {
+                    if (pt && Math.hypot(pt.x - worldPos.x, pt.y - worldPos.y) < 18) {
                         draggingPoint = pt;
                         return;
                     }
@@ -83,7 +105,7 @@ export function initEditor(canvas) {
             return;
         }
 
-        const pos = getSnappedPos(rawX, rawY);
+        const pos = getSnappedPos(worldPos.x, worldPos.y);
         if (!tempStart) {
             tempStart = pos;
         } else {
@@ -91,7 +113,6 @@ export function initEditor(canvas) {
             if (tool === 'line') {
                 segments.push({ id, type: 'line', start: tempStart, end: pos });
             } else if (tool === 'curve') {
-                // Автоматический расчёт контрольной точки для плавной дуги
                 const midX = (tempStart.x + pos.x) / 2;
                 const midY = (tempStart.y + pos.y) / 2;
                 const dx = pos.x - tempStart.x;
@@ -104,16 +125,15 @@ export function initEditor(canvas) {
                     end: pos
                 });
             }
-            // Автоматически продолжаем путь от конца нового сегмента
             tempStart = { x: pos.x, y: pos.y };
         }
     });
 
     canvas.addEventListener('mousemove', (e) => {
         if (!editorEnabled || !draggingPoint) return;
-        const rect = canvas.getBoundingClientRect();
-        draggingPoint.x = Math.round((e.clientX - rect.left) / 10) * 10;
-        draggingPoint.y = Math.round((e.clientY - rect.top) / 10) * 10;
+        const worldPos = screenToWorld(canvas, e.clientX, e.clientY);
+        draggingPoint.x = Math.round(worldPos.x / 10) * 10;
+        draggingPoint.y = Math.round(worldPos.y / 10) * 10;
     });
 
     window.addEventListener('mouseup', () => {
@@ -121,32 +141,34 @@ export function initEditor(canvas) {
     });
 }
 
-// Отрисовка узлов и контрольных точек поворота в режиме редактора
 export function drawEditorOverlay(ctx) {
     if (!editorEnabled) return;
 
-    for (const seg of segments) {
-        // Синие точки — стыки рельсов
-        ctx.fillStyle = '#38bdf8';
-        for (const pt of [seg.start, seg.end]) {
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        // Жёлтая точка — управление плавностью поворота
-        if (seg.type === 'curve') {
-            ctx.strokeStyle = 'rgba(250, 204, 21, 0.4)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(seg.start.x, seg.start.y);
-            ctx.lineTo(seg.control.x, seg.control.y);
-            ctx.lineTo(seg.end.x, seg.end.y);
-            ctx.stroke();
+    if (Array.isArray(segments)) {
+        for (const seg of segments) {
+            if (!seg || !seg.start || !seg.end) continue;
 
-            ctx.fillStyle = '#facc15';
-            ctx.beginPath();
-            ctx.arc(seg.control.x, seg.control.y, 6, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = '#38bdf8';
+            for (const pt of [seg.start, seg.end]) {
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (seg.type === 'curve' && seg.control) {
+                ctx.strokeStyle = 'rgba(250, 204, 21, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(seg.start.x, seg.start.y);
+                ctx.lineTo(seg.control.x, seg.control.y);
+                ctx.lineTo(seg.end.x, seg.end.y);
+                ctx.stroke();
+
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(seg.control.x, seg.control.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
     }
 
@@ -158,9 +180,9 @@ export function drawEditorOverlay(ctx) {
     }
 }
 
-// Окно с готовым кодом для вставки в mapData.js
 function showExportModal() {
-    const code = `export const TRACK_DATA = ${JSON.stringify({ segments, stations, switches }, null, 4)};`;
+    const cleanSegments = Array.isArray(segments) ? segments.filter(s => s && s.start && s.end) : [];
+    const code = `export const TRACK_DATA = ${JSON.stringify({ segments: cleanSegments, stations: stations || [], switches: switches || [] }, null, 4)};`;
     const modal = document.createElement('div');
     modal.style.cssText = `
         position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000;
