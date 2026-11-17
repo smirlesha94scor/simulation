@@ -1,1861 +1,334 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ЖД Вокзал: Магнат — Симулятор развития станции</title>
-    <!-- Подключение Tailwind CSS для современного адаптивного интерфейса -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Шрифт Inter и JetBrains Mono для табло -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            user-select: none;
-            overflow-x: hidden;
-        }
-        .font-mono-board {
-            font-family: 'JetBrains Mono', monospace;
-        }
-        /* Кастомный скроллбар */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1e293b;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
-        }
-        /* Анимация пульсации для активных событий */
-        @keyframes pulse-border {
-            0%, 100% { border-color: rgba(245, 158, 11, 0.8); box-shadow: 0 0 12px rgba(245, 158, 11, 0.3); }
-            50% { border-color: rgba(245, 158, 11, 0.2); box-shadow: 0 0 2px rgba(245, 158, 11, 0.1); }
-        }
-        .event-active {
-            animation: pulse-border 2s infinite;
-        }
-        /* Стили для кнопки ускорения посадки */
-        .btn-boost:active {
-            transform: scale(0.96);
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Реалістична залізнична стрілка на JS</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1e1e1e;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    canvas {
+      background: #2b2623; /* Колір баласту (щебеню) */
+      border: 2px solid #444;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    .controls {
+      margin-top: 15px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #d97706;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    button:hover { background: #b45309; }
+    .status { font-size: 18px; }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ СТАТИСТИКИ И УПРАВЛЕНИЯ -->
-    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-30 shadow-lg">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-            
-            <!-- Логотип и название уровня вокзала -->
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl shadow-inner">
-                    🚆
-                </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="font-bold text-base sm:text-lg tracking-tight text-white">ЖД Вокзал: Магнат</h1>
-                        <span id="station-level-badge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            Ур. 1
-                        </span>
-                    </div>
-                    <p id="station-title" class="text-xs text-slate-400">Деревянный полустанок «Тихий»</p>
-                </div>
-            </div>
-
-            <!-- Основные ресурсы -->
-            <div class="flex flex-wrap items-center gap-2 sm:gap-4">
-                <!-- Баланс -->
-                <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5 flex items-center gap-2.5 shadow-sm">
-                    <span class="text-emerald-400 text-lg">₽</span>
-                    <div>
-                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Бюджет</div>
-                        <div id="stat-money" class="font-bold text-sm sm:text-base text-emerald-400 font-mono-board">1 500 ₽</div>
-                    </div>
-                </div>
-
-                <!-- Пассивный доход -->
-                <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5 hidden sm:flex items-center gap-2.5">
-                    <span class="text-sky-400 text-lg">📈</span>
-                    <div>
-                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Сервис / сек</div>
-                        <div id="stat-passive" class="font-bold text-sm text-sky-400 font-mono-board">+0 ₽/с</div>
-                    </div>
-                </div>
-
-                <!-- Репутация / Комфорт -->
-                <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5 flex items-center gap-2.5">
-                    <span class="text-amber-400 text-lg">⭐</span>
-                    <div>
-                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Комфорт</div>
-                        <div id="stat-reputation" class="font-bold text-sm sm:text-base text-amber-400 font-mono-board">100%</div>
-                    </div>
-                </div>
-
-                <!-- Пассажиры на станции -->
-                <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5 flex items-center gap-2.5">
-                    <span class="text-indigo-400 text-lg">👥</span>
-                    <div>
-                        <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">На перроне</div>
-                        <div id="stat-passengers" class="font-bold text-sm sm:text-base text-indigo-300 font-mono-board">0 / 30</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Управление скоростью, звук и сброс -->
-            <div class="flex items-center gap-1.5">
-                <div class="bg-slate-800 p-1 rounded-xl border border-slate-700 flex items-center">
-                    <button onclick="setGameSpeed(1)" id="speed-1" class="speed-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-slate-950 transition">1x</button>
-                    <button onclick="setGameSpeed(2)" id="speed-2" class="speed-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">2x</button>
-                    <button onclick="setGameSpeed(3)" id="speed-3" class="speed-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">3x</button>
-                </div>
-                <button onclick="openResetModal()" title="Сбросить прогресс" class="p-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-rose-950/60 hover:border-rose-700/60 text-slate-400 hover:text-rose-400 transition">
-                    🗑️
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- БАННЕР АКТИВНОГО СОБЫТИЯ (скрыт по умолчанию) -->
-    <div id="event-banner" class="hidden bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-b border-amber-500/50 px-4 py-2 text-center transition-all">
-        <div class="max-w-7xl mx-auto flex items-center justify-center gap-3 text-xs sm:text-sm">
-            <span id="event-icon" class="text-lg">⚡</span>
-            <span id="event-text" class="font-medium text-amber-200">Событие: Час пик! Приток пассажиров увеличен в 2 раза!</span>
-            <span id="event-timer" class="font-mono-board bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 font-bold">30с</span>
-        </div>
-    </div>
-
-    <!-- ОСНОВНОЙ КОНТЕЙНЕР -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
-        <!-- ЛЕВАЯ/ВЕРХНЯЯ КОЛОНКА: ВИЗУАЛИЗАЦИЯ ВОКЗАЛА И РАСПИСАНИЕ (7 колонок на десктопе) -->
-        <div class="lg:col-span-7 flex flex-col gap-4">
-            
-            <!-- Окно Canvas визуализации -->
-            <div class="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl aspect-[16/10] sm:aspect-[16/9]">
-                <canvas id="stationCanvas"></canvas>
-                
-                <!-- Всплывающие уведомления о доходе поверх Canvas -->
-                <div id="floating-texts" class="pointer-events-none absolute inset-0 overflow-hidden"></div>
-
-                <!-- Верхний оверлей внутри Canvas: время суток и погода/статус -->
-                <div class="absolute top-3 left-3 flex items-center gap-2 bg-slate-950/75 backdrop-blur-md border border-slate-700/70 px-3 py-1.5 rounded-xl text-xs">
-                    <span id="clock-icon">☀️</span>
-                    <span id="game-clock" class="font-mono-board font-bold text-slate-200">08:00</span>
-                    <span class="text-slate-500">|</span>
-                    <span id="tracks-info" class="text-slate-300">Путей: 1/4</span>
-                </div>
-
-                <!-- Кнопка активного кликера: Ускорить посадку / Объявить посадку -->
-                <div class="absolute bottom-3 right-3 flex items-center gap-2">
-                    <button onclick="boostBoarding()" class="btn-boost bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-amber-500/25 flex items-center gap-2 transition cursor-pointer border border-amber-300/40">
-                        <span>📢</span>
-                        <span>Ускорить посадку</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- ЭЛЕКТРОННОЕ ТАБЛО РАСПИСАНИЯ ПОЕЗДОВ -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg flex-1 flex flex-col">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <h2 class="font-bold text-sm sm:text-base text-slate-100 uppercase tracking-wider">Табло прибытия и отправления</h2>
-                    </div>
-                    <span class="text-xs text-slate-400 font-mono-board">ОБНОВЛЕНИЕ В РЕАЛЬНОМ ВРЕМЕНИ</span>
-                </div>
-
-                <!-- Таблица путей -->
-                <div id="schedule-list" class="space-y-2.5">
-                    <!-- Генерируется через JS -->
-                </div>
-
-                <!-- Мини-статистика перевозчика внизу табло -->
-                <div class="mt-auto pt-4 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center">
-                    <div class="bg-slate-950/50 rounded-xl p-2 border border-slate-800/60">
-                        <div class="text-[11px] text-slate-400">Отправлено поездов</div>
-                        <div id="total-trains" class="font-mono-board font-bold text-sm text-slate-200">0</div>
-                    </div>
-                    <div class="bg-slate-950/50 rounded-xl p-2 border border-slate-800/60">
-                        <div class="text-[11px] text-slate-400">Перевезено людей</div>
-                        <div id="total-passengers" class="font-mono-board font-bold text-sm text-slate-200">0</div>
-                    </div>
-                    <div class="bg-slate-950/50 rounded-xl p-2 border border-slate-800/60">
-                        <div class="text-[11px] text-slate-400">Ср. цена билета</div>
-                        <div id="avg-ticket" class="font-mono-board font-bold text-sm text-emerald-400">50 ₽</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ПРАВАЯ/НИЖНЯЯ КОЛОНКА: ПАНЕЛЬ СТРОИТЕЛЬСТВА И УЛУЧШЕНИЙ (5 колонок на десктопе) -->
-        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col shadow-lg overflow-hidden h-[620px] lg:h-auto">
-            
-            <!-- Вкладки категорий -->
-            <div class="grid grid-cols-4 border-b border-slate-800 bg-slate-950/60 p-1.5 gap-1">
-                <button onclick="switchTab('station')" id="tab-station" class="tab-btn py-2 px-1 rounded-xl text-xs font-bold bg-slate-800 text-amber-400 border border-slate-700 transition flex flex-col items-center gap-1">
-                    <span>🏛️</span>
-                    <span>Вокзал</span>
-                </button>
-                <button onclick="switchTab('trains')" id="tab-trains" class="tab-btn py-2 px-1 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 transition flex flex-col items-center gap-1">
-                    <span>🚄</span>
-                    <span>Поезда</span>
-                </button>
-                <button onclick="switchTab('infra')" id="tab-infra" class="tab-btn py-2 px-1 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 transition flex flex-col items-center gap-1">
-                    <span>🏪</span>
-                    <span>Сервис</span>
-                </button>
-                <button onclick="switchTab('staff')" id="tab-staff" class="tab-btn py-2 px-1 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-200 transition flex flex-col items-center gap-1">
-                    <span>👷</span>
-                    <span>Персонал</span>
-                </button>
-            </div>
-
-            <!-- Контент активной вкладки -->
-            <div id="upgrades-container" class="p-4 overflow-y-auto space-y-3 flex-1">
-                <!-- Карточки улучшений рендерятся динамически -->
-            </div>
-        </div>
-    </main>
-
-    <!-- МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ СБРОСА (вместо confirm) -->
-    <div id="reset-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-            <h3 class="text-lg font-bold text-white mb-2">Сбросить прогресс игры?</h3>
-            <p class="text-sm text-slate-400 mb-6">Все построенные пути, поезда, улучшения и накопленный бюджет будут удалены безвозвратно.</p>
-            <div class="flex justify-end gap-3">
-                <button onclick="closeResetModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition">Отмена</button>
-                <button onclick="confirmReset()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition">Сбросить всё</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // =========================================================================
-        // 1. КОНФИГУРАЦИЯ И ДАННЫЕ ИГРЫ
-        // =========================================================================
-        const STATION_LEVELS = [
-            { level: 1, name: 'Деревянный полустанок «Тихий»', maxCap: 30, cost: 0, desc: 'Скромный деревянный навес и пара скамеек.' },
-            { level: 2, name: 'Кирпичная станция «Сосновка»', maxCap: 75, cost: 2500, desc: 'Уютное кирпичное здание с билетной кассой и часами.' },
-            { level: 3, name: 'Городской вокзал «Центральный»', maxCap: 160, cost: 9500, desc: 'Двухэтажный вокзал с колоннами и крытым перроном.' },
-            { level: 4, name: 'Узловой вокзал с часовой башней', maxCap: 350, cost: 32000, desc: 'Монументальное здание с высокой башней и панорамным остеклением.' },
-            { level: 5, name: 'Мега-хаб «Евразия Экспресс»', maxCap: 800, cost: 110000, desc: 'Футуристический стеклянный транспортный терминал мирового уровня.' }
-        ];
-
-        const TRAIN_TYPES = {
-            commuter: {
-                id: 'commuter',
-                name: 'Пригородная электричка',
-                code: 'ЭП2Д',
-                icon: '🚃',
-                color: '#10b981',
-                stripe: '#ecfdf5',
-                capacity: 24,
-                baseTicket: 45,
-                boardingTime: 10, // сек
-                unlockCost: 0,
-                upgradeCostBase: 600,
-                desc: 'Частые рейсы на короткие дистанции. Надёжная рабочая лошадка.'
-            },
-            passenger: {
-                id: 'passenger',
-                name: 'Скорый пассажирский',
-                code: '042Ч',
-                icon: '🚆',
-                color: '#ef4444',
-                stripe: '#fef2f2',
-                capacity: 50,
-                baseTicket: 95,
-                boardingTime: 40,
-                unlockCost: 1800,
-                upgradeCostBase: 1200,
-                desc: 'Поезда дальнего следования. Приносят солидную выручку с билетов.'
-            },
-            express: {
-                id: 'express',
-                name: 'Фирменный экспресс',
-                code: '705А',
-                icon: '🚄',
-                color: '#3b82f6',
-                stripe: '#eff6ff',
-                capacity: 120,
-                baseTicket: 200,
-                boardingTime: 20,
-                unlockCost: 6500,
-                upgradeCostBase: 4200,
-                desc: 'Повышенный комфорт и высокая стоимость проезда.'
-            },
-            freight: {
-                id: 'freight',
-                name: 'Грузовой состав',
-                code: 'ГР-88',
-                icon: '🚂',
-                color: '#f59e0b',
-                stripe: '#78350f',
-                capacity: 15, // условные контейнеры
-                baseTicket: 850, // высокая плата за транзит груза
-                boardingTime: 12,
-                unlockCost: 14000,
-                upgradeCostBase: 8500,
-                desc: 'Тяжелые составы с контейнерами. Оплачивают крупный транзитный сбор.'
-            },
-            sapsan: {
-                id: 'sapsan',
-                name: 'Высокоскоростной «Сапсан»',
-                code: 'ВСМ-1',
-                icon: '🚅',
-                color: '#e2e8f0',
-                stripe: '#dc2626',
-                capacity: 250,
-                baseTicket: 600,
-                boardingTime: 11,
-                unlockCost: 120000,
-                upgradeCostBase: 26000,
-                desc: 'Флагман железных дорог. Быстрая посадка и максимальный доход.'
-            }
-        };
-
-        const INFRA_ITEMS = [
-            {
-                id: 'kiosks',
-                name: 'Кассы самообслуживания',
-                icon: '🖥️',
-                baseCost: 450,
-                costMult: 3,
-                maxLevel: 10,
-                ticketBonus: 300,
-                repBonus: 2,
-                passiveIncome: 3,
-                desc: '+50 ₽ к цене билета, +2% к комфорту и +3 ₽/сек.'
-            },
-            {
-                id: 'waiting_hall',
-                name: 'Уютный зал ожидания',
-                icon: '🛋️',
-                baseCost: 900,
-                costMult: 4,
-                maxLevel: 20,
-                ticketBonus: 500,
-                repBonus: 5,
-                passiveIncome: 6,
-                desc: 'Мягкие кресла и Wi-Fi. +5% комфорта, +40 ₽ к билету.'
-            },
-            {
-                id: 'cafe',
-                name: 'Вокзальный буфет и кофейня',
-                icon: '☕',
-                baseCost: 1500,
-                costMult: 7,
-                maxLevel: 10,
-                ticketBonus: 200,
-                repBonus: 4,
-                passiveIncome: 18,
-                desc: 'Свежая выпечка и кофе в дорогу. +18 ₽/сек пассивного дохода.'
-            },
-            {
-                id: 'announcer',
-                name: 'Цифровые табло и диктор',
-                icon: '📢',
-                baseCost: 2400,
-                costMult: 2.4,
-                maxLevel: 15,
-                ticketBonus: 600,
-                repBonus: 6,
-                passiveIncome: 10,
-                desc: 'Четкая навигация для пассажиров. +6% комфорта и +20 ₽ к билету.'
-            },
-            {
-                id: 'mall',
-                name: 'Торговая галерея на вокзале',
-                icon: '🛍️',
-                baseCost: 6000,
-                costMult: 1.75,
-                maxLevel: 30,
-                ticketBonus: 30,
-                repBonus: 8,
-                passiveIncome: 55,
-                desc: 'Аренда бутиков и сувенирных лавок. Огромный пассивный доход (+55 ₽/с).'
-            }
-        ];
-
-        const STAFF_ITEMS = [
-            {
-                id: 'dispatcher',
-                name: 'Дежурный по станции',
-                icon: '👨‍✈️',
-                baseCost: 200,
-                costMult: 1.75,
-                maxLevel: 10,
-                desc: 'Ускоряет посадку и отправление всех поездов на 8% за уровень.'
-            },
-            {
-                id: 'cashier',
-                name: 'Старший билетный кассир',
-                icon: '👩‍💼',
-                baseCost: 550,
-                costMult: 1.95,
-                maxLevel: 20,
-                desc: 'Увеличивает приток пассажиров на перрон (+1.5 чел/сек за уровень).'
-            },
-            {
-                id: 'cleaner',
-                name: 'Служба чистоты и порядка',
-                icon: '🧹',
-                baseCost: 400,
-                costMult: 2.5,
-                maxLevel: 12,
-                desc: 'Поддерживает идеальную чистоту: +4% к рейтингу комфорта за уровень.'
-            }
-        ];
-
-        const RANDOM_EVENTS = [
-            {
-                id: 'rush_hour',
-                title: 'Час пик! Приток пассажиров на перрон увеличен в 2.5 раза!',
-                icon: '🔥',
-                duration: 25,
-                passengerMult: 2.5,
-                ticketMult: 1.0
-            },
-            {
-                id: 'tourists',
-                title: 'Туристический бум! Гости города охотно покупают дорогие билеты (+40% к выручке)!',
-                icon: '📸',
-                duration: 30,
-                passengerMult: 1.4,
-                ticketMult: 1.4
-            },
-            {
-                id: 'inspector',
-                title: 'Проверка ревизора: идеальный порядок на станции! Бонус +25% к стоимости билетов!',
-                icon: '📋',
-                duration: 25,
-                passengerMult: 1.0,
-                ticketMult: 1.25
-            }
-        ];
-
-        // =========================================================================
-        // 3. СОСТОЯНИЕ ИГРЫ (STATE)
-        // =========================================================================
-        const defaultState = {
-            money: 1500,
-            stationLevel: 1,
-            tracksCount: 1, // от 1 до 4 путей
-            waitingPassengers: 12,
-            totalTrainsSent: 0,
-            totalPassengersServed: 0,
-            gameTimeMinutes: 8 * 60, // старт в 08:00
-            unlockedTrains: {
-                commuter: 1, // уровень поезда (0 = не куплен)
-                passenger: 0,
-                express: 0,
-                freight: 0,
-                sapsan: 0
-            },
-            infraLevels: {
-                kiosks: 0,
-                waiting_hall: 0,
-                cafe: 0,
-                announcer: 0,
-                mall: 0
-            },
-            staffLevels: {
-                dispatcher: 0,
-                cashier: 0,
-                cleaner: 0
-            }
-        };
-
-        let state = JSON.parse(JSON.stringify(defaultState));
-        let gameSpeed = 1;
-        let currentTab = 'station';
-        let activeEvent = null;
-        let eventCooldown = 25; // секунд до первого возможного события
-
-        // Динамические объекты (не сохраняются в localStorage, пересоздаются при запуске)
-        let activeTracks = []; // Массив состояний каждого пути
-        let visualPassengers = []; // Человечки на перроне (вид сверху)
-        let parkedCars = []; // Автомобили на привокзальной площади (вид сверху)
-
-        // =========================================================================
-        // 3. СОХРАНЕНИЕ И ЗАГРУЗКА (localStorage)
-        // =========================================================================
-        const SAVE_KEY = 'station_tycoon_save_v1';
-
-        function saveGame() {
-            try {
-                localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-            } catch (e) {
-                console.warn('Ошибка сохранения в localStorage:', e);
-            }
-        }
-
-        function loadGame() {
-            try {
-                const raw = localStorage.getItem(SAVE_KEY);
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    state = {
-                        ...defaultState,
-                        ...parsed,
-                        unlockedTrains: { ...defaultState.unlockedTrains, ...(parsed.unlockedTrains || {}) },
-                        infraLevels: { ...defaultState.infraLevels, ...(parsed.infraLevels || {}) },
-                        staffLevels: { ...defaultState.staffLevels, ...(parsed.staffLevels || {}) }
-                    };
-                }
-            } catch (e) {
-                console.warn('Ошибка загрузки сохранения:', e);
-            }
-        }
-
-        function openResetModal() {
-            document.getElementById('reset-modal').classList.remove('hidden');
-        }
-
-        function closeResetModal() {
-            document.getElementById('reset-modal').classList.add('hidden');
-        }
-
-        function confirmReset() {
-            localStorage.removeItem(SAVE_KEY);
-            state = JSON.parse(JSON.stringify(defaultState));
-            activeEvent = null;
-            initTracks();
-            closeResetModal();
-            renderUpgrades();
-            updateUI();
-        }
-
-        // =========================================================================
-        // 5. ЭКОНОМИЧЕСКИЕ РАСЧЕТЫ
-        // =========================================================================
-        function getStationConfig() {
-            return STATION_LEVELS[state.stationLevel - 1] || STATION_LEVELS[0];
-        }
-
-        function getReputation() {
-            let rep = 100 + (state.stationLevel - 1) * 15;
-            INFRA_ITEMS.forEach(item => {
-                rep += (state.infraLevels[item.id] || 0) * item.repBonus;
-            });
-            rep += (state.staffLevels.cleaner || 0) * 4;
-            return rep;
-        }
-
-        function getPassiveIncomePerSec() {
-            let income = 0;
-            INFRA_ITEMS.forEach(item => {
-                income += (state.infraLevels[item.id] || 0) * item.passiveIncome;
-            });
-            return income;
-        }
-
-        function getTicketBonus() {
-            let bonus = 0;
-            INFRA_ITEMS.forEach(item => {
-                bonus += (state.infraLevels[item.id] || 0) * item.ticketBonus;
-            });
-            return bonus;
-        }
-
-        function getPassengerSpawnRate() {
-            // Базовый приток + бонус от уровня вокзала + кассиры + репутация
-            let base = 1.8 + (state.stationLevel - 1) * 1.4;
-            base += (state.staffLevels.cashier || 0) * 1.5;
-            const repMult = getReputation() / 100;
-            const eventMult = activeEvent ? activeEvent.passengerMult : 1;
-            return base * repMult * eventMult;
-        }
-
-        function getBoardingSpeedMultiplier() {
-            return 1 + (state.staffLevels.dispatcher || 0) * 0.08;
-        }
-
-        function calculateTrainRevenue(trainTypeKey, passengersBoarded) {
-            const cfg = TRAIN_TYPES[trainTypeKey];
-            const trainLvl = state.unlockedTrains[trainTypeKey] || 1;
-            const levelMult = 1 + (trainLvl - 1) * 0.25;
-            const repMult = getReputation() / 100;
-            const eventMult = activeEvent ? activeEvent.ticketMult : 1;
-
-            const pricePerPassenger = (cfg.baseTicket + getTicketBonus()) * levelMult * repMult * eventMult;
-            // Минимум 30% от вместимости оплачивается базовой дотацией маршрута
-            const effectivePassengers = Math.max(passengersBoarded, Math.ceil(cfg.capacity * 0.25));
-            return Math.round(effectivePassengers * pricePerPassenger);
-        }
-
-        // =========================================================================
-        // 6. ЛОГИКА ПОЕЗДОВ И ПУТЕЙ
-        // =========================================================================
-        function pickRandomUnlockedTrain() {
-            const available = Object.keys(state.unlockedTrains).filter(k => state.unlockedTrains[k] > 0);
-            if (available.length === 0) return 'commuter';
-            return available[Math.floor(Math.random() * available.length)];
-        }
-
-        function createTrackObject(trackIndex) {
-            return {
-                index: trackIndex,
-                state: 'waiting_spawn', // 'waiting_spawn' | 'arriving' | 'boarding' | 'departing'
-                timer: 1 + trackIndex * 2.5,
-                trainType: 'commuter',
-                x: -350, // позиция X на canvas
-                targetX: 0,
-                boarded: 0,
-                maxCapacity: 24,
-                boardingDuration: 10,
-                boardingProgress: 0,
-                direction: trackIndex % 2 === 0 ? 1 : -1 // Четные пути едут слева направо, нечетные справа налево
-            };
-        }
-
-        function initTracks() {
-            activeTracks = [];
-            for (let i = 0; i < state.tracksCount; i++) {
-                activeTracks.push(createTrackObject(i));
-            }
-        }
-
-        function updateTracksAndTrains(dt, canvasWidth) {
-            // Синхронизируем количество путей при покупке нового пути
-            while (activeTracks.length < state.tracksCount) {
-                activeTracks.push(createTrackObject(activeTracks.length));
-            }
-
-            const centerStationX = canvasWidth * 0.5;
-            const boardingMult = getBoardingSpeedMultiplier();
-
-            activeTracks.forEach(track => {
-                const cfg = TRAIN_TYPES[track.trainType];
-                const trainLvl = state.unlockedTrains[track.trainType] || 1;
-                const cap = Math.round(cfg.capacity * (1 + (trainLvl - 1) * 0.15));
-
-                if (track.state === 'waiting_spawn') {
-                    track.timer -= dt;
-                    if (track.timer <= 0) {
-                        track.trainType = pickRandomUnlockedTrain();
-                        const newCfg = TRAIN_TYPES[track.trainType];
-                        const newLvl = state.unlockedTrains[track.trainType] || 1;
-                        track.maxCapacity = Math.round(newCfg.capacity * (1 + (newLvl - 1) * 0.15));
-                        track.boardingDuration = newCfg.boardingTime;
-                        track.boardingProgress = 0;
-                        track.boarded = 0;
-                        track.state = 'arriving';
-                        // Начальная точка за пределами экрана
-                        track.x = track.direction === 1 ? -280 : canvasWidth + 280;
-                        track.targetX = centerStationX;
-                    }
-                } 
-                else if (track.state === 'arriving') {
-                    const dist = track.targetX - track.x;
-                    const speed = Math.max(60, Math.abs(dist) * 2.2);
-                    track.x += Math.sign(dist) * speed * dt;
-
-                    if (Math.abs(dist) < 4) {
-                        track.x = track.targetX;
-                        track.state = 'boarding';
-                    }
-                } 
-                else if (track.state === 'boarding') {
-                    track.boardingProgress += dt * boardingMult;
-
-                    // Плавная посадка пассажиров с перрона в поезд
-                    const desiredBoarded = Math.min(
-                        track.maxCapacity,
-                        Math.floor((track.boardingProgress / track.boardingDuration) * track.maxCapacity)
-                    );
-
-                    if (desiredBoarded > track.boarded && state.waitingPassengers >= 1) {
-                        const canTake = Math.min(desiredBoarded - track.boarded, Math.floor(state.waitingPassengers));
-                        if (canTake > 0) {
-                            track.boarded += canTake;
-                            state.waitingPassengers -= canTake;
-                            removeVisualPassengers(canTake);
-                        }
-                    }
-
-                    // Отправление поезда
-                    if (track.boardingProgress >= track.boardingDuration) {
-                        const revenue = calculateTrainRevenue(track.trainType, track.boarded);
-                        state.money += revenue;
-                        state.totalTrainsSent += 1;
-                        state.totalPassengersServed += track.boarded;
-
-                        spawnFloatingText(`+${formatNumber(revenue)} ₽`, track.x, getTrackY(track.index) - 18, '#34d399');
-
-                        track.state = 'departing';
-                    }
-                } 
-                else if (track.state === 'departing') {
-                    const exitX = track.direction === 1 ? canvasWidth + 320 : -320;
-                    const dist = exitX - track.x;
-                    // Разгон поезда
-                    const speed = 140 + (canvasWidth - Math.abs(dist)) * 0.8;
-                    track.x += track.direction * Math.max(150, speed) * dt;
-
-                    if ((track.direction === 1 && track.x > canvasWidth + 300) ||
-                        (track.direction === -1 && track.x < -300)) {
-                        track.state = 'waiting_spawn';
-                        track.timer = Math.max(1.5, 4.5 - state.stationLevel * 0.5);
-                    }
-                }
-            });
-        }
-
-        // Кнопка ручного ускорения посадки (кликер)
-        function boostBoarding() {
-            let boostedAny = false;
-
-            activeTracks.forEach(track => {
-                if (track.state === 'boarding') {
-                    track.boardingProgress += 1.6;
-                    boostedAny = true;
-                }
-            });
-
-            // Если поездов на посадке нет — привлекаем 1 дополнительного пассажира
-            const maxCap = getStationConfig().maxCap;
-            if (!boostedAny && state.waitingPassengers < maxCap) {
-                state.waitingPassengers = Math.min(maxCap, state.waitingPassengers + 1);
-                spawnFloatingText('+1 пассажир', canvas.parentElement.clientWidth * 0.5, canvas.parentElement.clientHeight * 0.36, '#93c5fd');
-            } else if (boostedAny) {
-                spawnFloatingText('Посадка ускорена! ⚡', canvas.parentElement.clientWidth * 0.5, canvas.parentElement.clientHeight * 0.44, '#fbbf24');
-            }
-        }
-
-        // =========================================================================
-        // 6. ВИЗУАЛИЗАЦИЯ СТРОГО СВЕРХУ (TOP-DOWN 2D CANVAS)
-        // =========================================================================
-        const canvas = document.getElementById('stationCanvas');
-        const ctx = canvas.getContext('2d');
-
-        function resizeCanvas() {
-            const rect = canvas.parentElement.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
-        window.addEventListener('resize', resizeCanvas);
-
-        // Инициализация декоративных авто/такси на привокзальной площади
-        function initParkedCars() {
-            parkedCars = [];
-            const carColors = ['#facc15', '#38bdf8', '#f87171', '#e2e8f0', '#a78bfa', '#34d399'];
-            for (let i = 0; i < 8; i++) {
-                parkedCars.push({
-                    slot: i,
-                    color: carColors[i % carColors.length],
-                    isTaxi: i % 3 === 0
-                });
-            }
-        }
-
-        // Координаты Y для каждого из 4 путей и платформ (вид сверху)
-        function getTrackY(trackIndex) {
-            const h = canvas.parentElement.getBoundingClientRect().height;
-            // Верхние 38% занимает привокзальная площадь, здание вокзала и главный перрон
-            // Нижние 62% — путевое развитие (путь 0, путь 1, островной перрон, путь 2, путь 3)
-            const offsets = [0.47, 0.58, 0.77, 0.88];
-            return h * offsets[trackIndex];
-        }
-
-        // Управление визуальными пассажирами (вид сверху: голова + плечи)
-        function syncVisualPassengers(width, height) {
-            const targetCount = Math.min(55, Math.floor(state.waitingPassengers));
-            const mainPlatformY = height * 0.38;
-            const islandPlatformY = height * 0.675;
-
-            while (visualPassengers.length < targetCount) {
-                const colors = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#38bdf8', '#fb923c'];
-                // Распределяем пассажиров между главным перроном и островной платформой (если построено > 2 путей)
-                const useIsland = state.tracksCount >= 3 && Math.random() < 0.4;
-                const baseY = useIsland ? islandPlatformY : mainPlatformY;
-
-                visualPassengers.push({
-                    x: width * 0.5 + (Math.random() - 0.5) * 40, // выходят из дверей вокзала по центру
-                    y: baseY - 12,
-                    targetX: width * 0.16 + Math.random() * (width * 0.68),
-                    targetY: baseY + (Math.random() - 0.5) * 18,
-                    onIsland: useIsland,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    angle: Math.random() * Math.PI * 2,
-                    waitTimer: Math.random() * 2
-                });
-            }
-            while (visualPassengers.length > targetCount) {
-                visualPassengers.pop();
-            }
-        }
-
-        function removeVisualPassengers(count) {
-            for (let i = 0; i < count; i++) {
-                if (visualPassengers.length > 0) visualPassengers.pop();
-            }
-        }
-
-        // Отрисовка земли, привокзальной площади и парковки (вид сверху)
-        function drawTopDownGroundAndSquare(w, h) {
-            // 1. Газон / природный ландшафт или городская плитка вокруг вокзала
-            ctx.fillStyle = state.stationLevel >= 3 ? '#1e293b' : '#14532d';
-            ctx.fillRect(0, 0, w, h);
-
-            // Текстура травы / деревьев по краям для ранних уровней
-            if (state.stationLevel < 4) {
-                const treeSpots = [
-                    [0.06, 0.08], [0.12, 0.16], [0.05, 0.25],
-                    [0.94, 0.09], [0.89, 0.18], [0.95, 0.26]
-                ];
-                treeSpots.forEach(([tx, ty]) => {
-                    const x = w * tx, y = h * ty;
-                    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-                    ctx.beginPath();
-                    ctx.arc(x + 3, y + 3, 13, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = '#15803d';
-                    ctx.beginPath();
-                    ctx.arc(x, y, 13, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = '#22c55e';
-                    ctx.beginPath();
-                    ctx.arc(x - 3, y - 3, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            }
-
-            // 2. Асфальтированная подъездная дорога в самом верху
-            const roadH = h * 0.11;
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, w, roadH);
-
-            // Разметка дороги
-            ctx.strokeStyle = 'rgba(248, 250, 252, 0.35)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([16, 14]);
-            ctx.beginPath();
-            ctx.moveTo(0, roadH * 0.5);
-            ctx.lineTo(w, roadH * 0.5);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // 3. Привокзальная площадь (тротуарная плитка перед входом в вокзал)
-            const squareTop = roadH;
-            const squareH = h * 0.22;
-            ctx.fillStyle = '#334155';
-            ctx.fillRect(w * 0.14, squareTop, w * 0.72, squareH);
-
-            // Сетка плитки на площади
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-            ctx.lineWidth = 1;
-            for (let gx = w * 0.14; gx <= w * 0.86; gx += 24) {
-                ctx.beginPath();
-                ctx.moveTo(gx, squareTop);
-                ctx.lineTo(gx, squareTop + squareH);
-                ctx.stroke();
-            }
-
-            // Парковочные места и такси слева/справа от главного входа (появляются с 2 уровня)
-            if (state.stationLevel >= 2) {
-                const visibleCars = Math.min(parkedCars.length, state.stationLevel * 2);
-                for (let i = 0; i < visibleCars; i++) {
-                    const car = parkedCars[i];
-                    const isLeft = i % 2 === 0;
-                    const idx = Math.floor(i / 2);
-                    const cx = isLeft
-                        ? w * 0.17 + idx * 24
-                        : w * 0.83 - idx * 24 - 16;
-                    const cy = squareTop + 8;
-
-                    // Разметка парковки
-                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-                    ctx.strokeRect(cx - 2, cy - 2, 20, 32);
-
-                    // Кузов авто (вид сверху)
-                    ctx.fillStyle = car.color;
-                    ctx.beginPath();
-                    ctx.roundRect(cx, cy, 16, 28, 4);
-                    ctx.fill();
-
-                    // Лобовое и заднее стекло
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(cx + 2, cy + 5, 12, 5);
-                    ctx.fillRect(cx + 2, cy + 20, 12, 4);
-
-                    // Шашечки такси
-                    if (car.isTaxi) {
-                        ctx.fillStyle = '#1e293b';
-                        ctx.fillRect(cx + 5, cy + 12, 6, 4);
-                    }
-                }
-            }
-        }
-
-        // Отрисовка крыши здания вокзала строго сверху (5 уровней эволюции!)
-        function drawTopDownStationBuilding(w, h) {
-            const centerX = w * 0.5;
-            const buildingTop = h * 0.14;
-            const lvl = state.stationLevel;
-
-            ctx.save();
-
-            if (lvl === 1) {
-                // УРОВЕНЬ 1: Деревянный полустанок (вид сверху на двускатную шиферную крышу)
-                const bw = 150, bh = 56;
-                const bx = centerX - bw / 2;
-
-                // Тень от здания
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-                ctx.fillRect(bx + 6, buildingTop + 6, bw, bh);
-
-                // Скаты крыши
-                ctx.fillStyle = '#78350f';
-                ctx.fillRect(bx, buildingTop, bw, bh / 2);
-                ctx.fillStyle = '#92400e';
-                ctx.fillRect(bx, buildingTop + bh / 2, bw, bh / 2);
-
-                // Конек крыши по центру
-                ctx.strokeStyle = '#fef3c7';
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.moveTo(bx, buildingTop + bh / 2);
-                ctx.lineTo(bx + bw, buildingTop + bh / 2);
-                ctx.stroke();
-
-                // Вывеска на крыше
-                ctx.fillStyle = '#0f172a';
-                ctx.fillRect(centerX - 42, buildingTop + bh / 2 - 8, 84, 16);
-                ctx.fillStyle = '#fbbf24';
-                ctx.font = 'bold 9px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('СТ. ТИХИЙ', centerX, buildingTop + bh / 2 + 3);
-            }
-            else if (lvl === 2) {
-                // УРОВЕНЬ 2: Кирпичная станция с вальмовой черепичной крышей и дымоходами
-                const bw = 230, bh = 68;
-                const bx = centerX - bw / 2;
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-                ctx.fillRect(bx + 7, buildingTop + 7, bw, bh);
-
-                // Черепичная крыша (вид сверху)
-                ctx.fillStyle = '#991b1b';
-                ctx.fillRect(bx, buildingTop, bw, bh);
-
-                // Внутренний контур скатов вальмовой крыши
-                ctx.strokeStyle = '#fca5a5';
-                ctx.lineWidth = 1.5;
-                ctx.strokeRect(bx + 14, buildingTop + 14, bw - 28, bh - 28);
-
-                // Диагональные ребра крыши
-                ctx.beginPath();
-                ctx.moveTo(bx, buildingTop); ctx.lineTo(bx + 14, buildingTop + 14);
-                ctx.moveTo(bx + bw, buildingTop); ctx.lineTo(bx + bw - 14, buildingTop + 14);
-                ctx.moveTo(bx, buildingTop + bh); ctx.lineTo(bx + 14, buildingTop + bh - 14);
-                ctx.moveTo(bx + bw, buildingTop + bh); ctx.lineTo(bx + bw - 14, buildingTop + bh - 14);
-                ctx.stroke();
-
-                // Слуховое окно с часами над входом
-                ctx.fillStyle = '#f8fafc';
-                ctx.beginPath();
-                ctx.arc(centerX, buildingTop + bh - 8, 10, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            else if (lvl === 3) {
-                // УРОВЕНЬ 3: Классический городской вокзал с центральной ротондой и крыльями
-                const bw = 330, bh = 74;
-                const bx = centerX - bw / 2;
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-                ctx.fillRect(bx + 8, buildingTop + 8, bw, bh);
-
-                // Крылья здания (медная зеленоватая или терракотовая крыша)
-                ctx.fillStyle = '#b45309';
-                ctx.fillRect(bx, buildingTop + 6, bw, bh - 12);
-
-                // Центральный объем с куполом
-                ctx.fillStyle = '#d97706';
-                ctx.fillRect(centerX - 55, buildingTop, 110, bh);
-
-                // Световой фонарь / купол по центру крыши
-                ctx.fillStyle = '#38bdf8';
-                ctx.beginPath();
-                ctx.arc(centerX, buildingTop + bh / 2, 24, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#fef3c7';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-            else if (lvl === 4) {
-                // УРОВЕНЬ 4: Монументальный узловой вокзал с квадратной часовой башней в центре
-                const bw = 420, bh = 80;
-                const bx = centerX - bw / 2;
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.fillRect(bx + 8, buildingTop + 8, bw, bh);
-
-                // Крыша основного корпуса
-                ctx.fillStyle = '#475569';
-                ctx.fillRect(bx, buildingTop + 8, bw, bh - 16);
-
-                // Стеклянные атриумы на крыльях
-                ctx.fillStyle = '#0284c7';
-                ctx.fillRect(bx + 25, buildingTop + 18, 120, bh - 36);
-                ctx.fillRect(bx + bw - 145, buildingTop + 18, 120, bh - 36);
-
-                // Высокая квадратная башня в центре (вид сверху с шатровой крышей)
-                const tw = 64;
-                ctx.fillStyle = '#cbd5e1';
-                ctx.fillRect(centerX - tw / 2, buildingTop - 4, tw, bh + 8);
-                ctx.fillStyle = '#f59e0b';
-                ctx.beginPath();
-                ctx.arc(centerX, buildingTop + bh / 2, 16, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            else {
-                // УРОВЕНЬ 5: Футуристический Мега-Хаб «Евразия» со стеклянным сводом над путями
-                const bw = 520, bh = 86;
-                const bx = centerX - bw / 2;
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-                ctx.beginPath();
-                ctx.roundRect(bx + 8, buildingTop + 8, bw, bh, 24);
-                ctx.fill();
-
-                // Стеклянный обтекаемый купол
-                const domeGrad = ctx.createLinearGradient(bx, buildingTop, bx + bw, buildingTop + bh);
-                domeGrad.addColorStop(0, '#0369a1');
-                domeGrad.addColorStop(0.5, '#38bdf8');
-                domeGrad.addColorStop(1, '#0369a1');
-
-                ctx.fillStyle = domeGrad;
-                ctx.beginPath();
-                ctx.roundRect(bx, buildingTop, bw, bh, 24);
-                ctx.fill();
-
-                // Несущие арки-ребра купола (вид сверху)
-                ctx.strokeStyle = 'rgba(248, 250, 252, 0.55)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                for (let rx = bx + 40; rx < bx + bw - 20; rx += 40) {
-                    ctx.beginPath();
-                    ctx.moveTo(rx, buildingTop + 4);
-                    ctx.lineTo(rx, buildingTop + bh - 4);
-                    ctx.stroke();
-                }
-
-                // Светящаяся надпись на крыше терминала
-                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-                ctx.beginPath();
-                ctx.roundRect(centerX - 85, buildingTop + bh / 2 - 11, 170, 22, 6);
-                ctx.fill();
-                ctx.fillStyle = '#fbbf24';
-                ctx.font = 'bold 10px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('ЕВРАЗИЯ МЕГА-ХАБ', centerX, buildingTop + bh / 2 + 3);
-            }
-
-            ctx.restore();
-        }
-
-        // Отрисовка перронов (главного и островного), навесов, разметки и пешеходных переходов
-        function drawTopDownPlatforms(w, h) {
-            // 1. Главный перрон №1 (между зданием вокзала и Путем 1)
-            const p1Top = h * 0.33;
-            const p1Height = h * 0.10;
-            drawSinglePlatform(w * 0.08, p1Top, w * 0.84, p1Height, true);
-
-            // 2. Островной перрон №2 (между Путем 2 и Путем 3 — активируется при постройке 3-го пути)
-            const p2Top = h * 0.63;
-            const p2Height = h * 0.09;
-            if (state.tracksCount >= 3) {
-                drawSinglePlatform(w * 0.12, p2Top, w * 0.76, p2Height, false);
-
-                // Настил пешеходного перехода через пути 1 и 2 к островному перрону
-                const bridgeX = w * 0.5 - 22;
-                ctx.fillStyle = '#64748b';
-                ctx.fillRect(bridgeX, p1Top + p1Height, 44, p2Top - (p1Top + p1Height));
-                ctx.strokeStyle = '#eab308';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(bridgeX, p1Top + p1Height, 44, p2Top - (p1Top + p1Height));
-            }
-        }
-
-        function drawSinglePlatform(x, y, width, height, isMain) {
-            // Бетонная плита платформы
-            ctx.fillStyle = '#475569';
-            ctx.beginPath();
-            ctx.roundRect(x, y, width, height, 4);
-            ctx.fill();
-
-            // Желтые тактильные полосы безопасности по краям перрона
-            ctx.fillStyle = '#eab308';
-            ctx.fillRect(x + 2, y + height - 3, width - 4, 2.5);
-            if (!isMain) {
-                ctx.fillRect(x + 2, y + 1, width - 4, 2.5);
-            }
-
-            // Скамейки на перроне (вид сверху)
-            ctx.fillStyle = '#92400e';
-            for (let bx = x + 45; bx < x + width - 55; bx += 85) {
-                ctx.fillRect(bx, y + height * 0.42, 22, 6);
-            }
-
-            // Навес над перроном (вид сверху — полупрозрачный или металлический козырек при уровне >= 2)
-            if (state.stationLevel >= 2) {
-                const canopyW = width * (0.45 + state.stationLevel * 0.1);
-                const canopyX = x + (width - canopyW) / 2;
-                ctx.fillStyle = state.stationLevel >= 4 ? 'rgba(56, 189, 248, 0.22)' : 'rgba(30, 41, 59, 0.45)';
-                ctx.fillRect(canopyX, y + 4, canopyW, height - 8);
-                ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(canopyX, y + 4, canopyW, height - 8);
-            }
-        }
-
-        // Отрисовка железнодорожных путей (вид сверху: балласт, шпалы, рельсы)
-        function drawTopDownTracks(w, h) {
-            for (let i = 0; i < 4; i++) {
-                const ty = getTrackY(i);
-                const isBuilt = i < state.tracksCount;
-
-                if (!isBuilt) {
-                    // Разметка под будущий путь
-                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
-                    ctx.lineWidth = 1.5;
-                    ctx.setLineDash([10, 10]);
-                    ctx.strokeRect(w * 0.04, ty - 9, w * 0.92, 18);
-                    ctx.setLineDash([]);
-
-                    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
-                    ctx.font = '600 10px Inter';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`РЕЗЕРВ ПОД ПУТЬ №${i + 1}`, w * 0.5, ty + 3);
-                    continue;
-                }
-
-                // Щебеночная призма (вид сверху)
-                ctx.fillStyle = '#0f172a';
-                ctx.fillRect(0, ty - 11, w, 22);
-
-                // Деревянные или железобетонные шпалы
-                ctx.fillStyle = state.stationLevel >= 3 ? '#64748b' : '#451a03';
-                for (let sx = 4; sx < w; sx += 11) {
-                    ctx.fillRect(sx, ty - 8, 4, 16);
-                }
-
-                // Два параллельных стальных рельса
-                ctx.fillStyle = '#cbd5e1';
-                ctx.fillRect(0, ty - 5, w, 2);
-                ctx.fillRect(0, ty + 3, w, 2);
-
-                // Номер пути у края
-                ctx.fillStyle = '#fbbf24';
-                ctx.font = 'bold 10px JetBrains Mono';
-                ctx.textAlign = 'left';
-                ctx.fillText(`П${i + 1}`, 8, ty + 3);
-            }
-        }
-
-        // Отрисовка поездов строго сверху (крыши локомотивов и вагонов)
-        function drawTopDownTrains() {
-            activeTracks.forEach(track => {
-                if (track.state === 'waiting_spawn') return;
-
-                const cfg = TRAIN_TYPES[track.trainType];
-                const ty = getTrackY(track.index);
-                const trainW = track.trainType === 'freight' ? 250 : 220;
-                const trainH = 18; // Ширина вагона в проекции сверху
-                const leftX = track.x - trainW / 2;
-                const topY = ty - trainH / 2;
-
-                ctx.save();
-
-                // Тень от состава на рельсах
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-                ctx.fillRect(leftX + 3, topY + 4, trainW, trainH);
-
-                const cars = 3;
-                const gap = 4;
-                const carW = (trainW - gap * (cars - 1)) / cars;
-
-                for (let c = 0; c < cars; c++) {
-                    const cx = leftX + c * (carW + gap);
-                    const isHead = (track.direction === 1 && c === cars - 1) || (track.direction === -1 && c === 0);
-
-                    // Сцепка между вагонами
-                    if (c < cars - 1) {
-                        ctx.fillStyle = '#1e293b';
-                        ctx.fillRect(cx + carW, ty - 2, gap, 4);
-                    }
-
-                    // Крыша вагона / локомотива
-                    ctx.fillStyle = cfg.color;
-                    ctx.beginPath();
-                    if (isHead && track.trainType === 'sapsan') {
-                        // Заостренный обтекаемый нос «Сапсана» сверху
-                        ctx.roundRect(cx, topY, carW, trainH, track.direction === 1 ? [3, 12, 12, 3] : [12, 3, 3, 12]);
-                    } else {
-                        ctx.roundRect(cx, topY, carW, trainH, 3);
-                    }
-                    ctx.fill();
-
-                    // Центральная продольная полоса на крыше
-                    ctx.fillStyle = cfg.stripe;
-                    ctx.fillRect(cx + 4, topY + 6, carW - 8, 6);
-
-                    // Детализация крыши (вид сверху)
-                    if (track.trainType === 'freight') {
-                        // Гофрированные крыши грузовых контейнеров
-                        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-                        ctx.lineWidth = 1;
-                        for (let rx = cx + 8; rx < cx + carW - 6; rx += 6) {
-                            ctx.beginPath();
-                            ctx.moveTo(rx, topY + 2);
-                            ctx.lineTo(rx, topY + trainH - 2);
-                            ctx.stroke();
-                        }
-                    } else {
-                        // Вентиляционные люки и блоки кондиционеров на крыше
-                        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
-                        ctx.fillRect(cx + 12, topY + 4, 12, 10);
-                        ctx.fillRect(cx + carW - 24, topY + 4, 12, 10);
-
-                        // Пантограф (токоприемник) у головного вагона
-                        if (isHead) {
-                            const pantoX = track.direction === 1 ? cx + 18 : cx + carW - 26;
-                            ctx.strokeStyle = '#f8fafc';
-                            ctx.lineWidth = 1.5;
-                            ctx.strokeRect(pantoX, topY + 3, 8, trainH - 6);
-                        }
-                    }
-
-                    // Конус света от прожектора локомотива
-                    if (isHead) {
-                        const lightX = track.direction === 1 ? cx + carW : cx;
-                        const beamGrad = ctx.createLinearGradient(
-                            lightX, ty,
-                            lightX + track.direction * 75, ty
-                        );
-                        beamGrad.addColorStop(0, 'rgba(254, 240, 138, 0.7)');
-                        beamGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
-                        ctx.fillStyle = beamGrad;
-                        ctx.beginPath();
-                        ctx.moveTo(lightX, ty - 5);
-                        ctx.lineTo(lightX + track.direction * 75, ty - 18);
-                        ctx.lineTo(lightX + track.direction * 75, ty + 18);
-                        ctx.lineTo(lightX, ty + 5);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-
-                // Индикатор прогресса посадки над крышей поезда
-                if (track.state === 'boarding') {
-                    const barW = 94;
-                    const barH = 7;
-                    const pct = Math.min(1, track.boardingProgress / track.boardingDuration);
-
-                    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-                    ctx.beginPath();
-                    ctx.roundRect(track.x - barW / 2, topY - 12, barW, barH, 3);
-                    ctx.fill();
-
-                    ctx.fillStyle = '#10b981';
-                    ctx.beginPath();
-                    ctx.roundRect(track.x - barW / 2 + 1, topY - 11, (barW - 2) * pct, barH - 2, 2);
-                    ctx.fill();
-                }
-
-                ctx.restore();
-            });
-        }
-
-        // Отрисовка пассажиров (вид сверху: плечи + голова) и их движение к поездам
-        function drawTopDownPassengers(w, h, dt) {
-            syncVisualPassengers(w, h);
-
-            // Ищем стоящие на посадке поезда, чтобы пассажиры подходили ближе к краю перрона
-            const boardingTracks = activeTracks.filter(t => t.state === 'boarding');
-
-            visualPassengers.forEach((p, idx) => {
-                // Если есть поезд на посадке, часть пассажиров подходит к краю перрона рядом с ним
-                if (boardingTracks.length > 0 && idx % 2 === 0) {
-                    const targetTrain = boardingTracks[idx % boardingTracks.length];
-                    const desiredX = targetTrain.x + ((idx % 7) - 3) * 26;
-                    const desiredY = targetTrain.index >= 2 && state.tracksCount >= 3
-                        ? h * 0.675
-                        : h * 0.41;
-
-                    p.x += (desiredX - p.x) * Math.min(1, dt * 1.8);
-                    p.y += (desiredY - p.y) * Math.min(1, dt * 1.8);
-                } else {
-                    // Плавное перемещение к своей точке ожидания на перроне
-                    const dx = p.targetX - p.x;
-                    const dy = p.targetY - p.y;
-                    const dist = Math.hypot(dx, dy);
-                    if (dist > 2) {
-                        p.x += (dx / dist) * 26 * dt;
-                        p.y += (dy / dist) * 26 * dt;
-                    } else {
-                        p.waitTimer -= dt;
-                        if (p.waitTimer <= 0) {
-                            p.waitTimer = 2 + Math.random() * 4;
-                            const baseY = p.onIsland ? h * 0.675 : h * 0.38;
-                            p.targetX = w * 0.16 + Math.random() * (w * 0.68);
-                            p.targetY = baseY + (Math.random() - 0.5) * 16;
-                        }
-                    }
-                }
-
-                // Отрисовка человека сверху: овал плеч + круг головы
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.ellipse(p.x, p.y, 4.5, 3, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = '#fde68a';
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 2.3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
-
-        // Ночное освещение и мягкий фильтр времени суток (вид сверху)
-        function drawTopDownLightingOverlay(w, h) {
-            const hour = (state.gameTimeMinutes / 60) % 24;
-            let overlayAlpha = 0;
-
-            if (hour >= 20 || hour < 5) {
-                overlayAlpha = 0.42; // Ночь
-            } else if (hour >= 18 && hour < 20) {
-                overlayAlpha = ((hour - 18) / 2) * 0.42; // Сумерки
-            } else if (hour >= 5 && hour < 7) {
-                overlayAlpha = ((7 - hour) / 2) * 0.42; // Рассвет
-            }
-
-            if (overlayAlpha > 0.02) {
-                ctx.fillStyle = `rgba(2, 6, 23, ${overlayAlpha})`;
-                ctx.fillRect(0, 0, w, h);
-
-                // Теплые круги света от перронных фонарей ночью
-                const lanternPositions = [0.18, 0.34, 0.5, 0.66, 0.82];
-                lanternPositions.forEach(lxRatio => {
-                    const lx = w * lxRatio;
-                    const ly = h * 0.38;
-                    const grad = ctx.createRadialGradient(lx, ly, 2, lx, ly, 36);
-                    grad.addColorStop(0, `rgba(254, 240, 138, ${overlayAlpha * 0.85})`);
-                    grad.addColorStop(1, 'rgba(254, 240, 138, 0)');
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(lx, ly, 36, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            }
-        }
-
-        // Всплывающий текст поверх Canvas (+₽)
-        function spawnFloatingText(text, x, y, color = '#34d399') {
-            const container = document.getElementById('floating-texts');
-            if (!container) return;
-
-            const el = document.createElement('div');
-            el.textContent = text;
-            el.style.position = 'absolute';
-            el.style.left = `${Math.max(40, Math.min(x, container.clientWidth - 80))}px`;
-            el.style.top = `${Math.max(20, y)}px`;
-            el.style.color = color;
-            el.style.fontWeight = '800';
-            el.style.fontSize = '13px';
-            el.style.textShadow = '0 2px 4px rgba(0,0,0,0.9)';
-            el.style.transition = 'all 1.1s ease-out';
-            el.style.opacity = '1';
-            el.style.transform = 'translateY(0)';
-
-            container.appendChild(el);
-
-            requestAnimationFrame(() => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(-35px)';
-            });
-
-            setTimeout(() => {
-                if (el.parentNode) el.parentNode.removeChild(el);
-            }, 1150);
-        }
-
-        // =========================================================================
-        // 8. ИНТЕРФЕЙС МАГАЗИНА И УЛУЧШЕНИЙ
-        // =========================================================================
-        function switchTab(tabName) {
-            currentTab = tabName;
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('bg-slate-800', 'text-amber-400', 'border', 'border-slate-700');
-                btn.classList.add('text-slate-400');
-            });
-            const activeBtn = document.getElementById(`tab-${tabName}`);
-            activeBtn.classList.add('bg-slate-800', 'text-amber-400', 'border', 'border-slate-700');
-            activeBtn.classList.remove('text-slate-400');
-
-            renderUpgrades();
-        }
-
-        function formatNumber(num) {
-            return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-        }
-
-        function getTrackBuildCost() {
-            const costs = [0, 1200, 5500, 22000];
-            return costs[state.tracksCount] || 999999;
-        }
-
-        function renderUpgrades() {
-            const container = document.getElementById('upgrades-container');
-            container.innerHTML = '';
-
-            if (currentTab === 'station') {
-                // 1. Улучшение здания вокзала
-                const nextStation = STATION_LEVELS[state.stationLevel];
-                const currentStation = getStationConfig();
-
-                const stationCard = document.createElement('div');
-                stationCard.className = 'bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col gap-2.5';
-                stationCard.innerHTML = `
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="flex items-center gap-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-xl">🏛️</div>
-                            <div>
-                                <div class="font-bold text-sm text-white">Здание вокзала (Ур. ${state.stationLevel}/5)</div>
-                                <div class="text-xs text-amber-400 font-medium">${currentStation.name}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="text-xs text-slate-400">${nextStation ? `Следующий этап: <b>${nextStation.name}</b> — вместимость перрона вырастет до <b>${nextStation.maxCap} чел.</b> и откроется новая архитектура.` : 'Достигнут максимальный архитектурный уровень вокзала!'}</p>
-                    ${nextStation ? `
-                        <button onclick="buyStationUpgrade()" data-cost="${nextStation.cost}" class="buy-btn w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-between transition ${state.money >= nextStation.cost ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">
-                            <span>Реконструкция вокзала</span>
-                            <span class="font-mono-board">${formatNumber(nextStation.cost)} ₽</span>
-                        </button>
-                    ` : `<div class="text-center py-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 rounded-lg border border-amber-500/20">МАКСИМАЛЬНЫЙ УРОВЕНЬ</div>`}
-                `;
-                container.appendChild(stationCard);
-
-                // 2. Строительство дополнительных путей
-                const trackCost = getTrackBuildCost();
-                const canBuildTrack = state.tracksCount < 4;
-                const trackCard = document.createElement('div');
-                trackCard.className = 'bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col gap-2.5';
-                trackCard.innerHTML = `
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-xl">🛤️</div>
-                        <div>
-                            <div class="font-bold text-sm text-white">Железнодорожные пути (${state.tracksCount}/4)</div>
-                            <div class="text-xs text-sky-400">Одновременный прием составов</div>
-                        </div>
-                    </div>
-                    <p class="text-xs text-slate-400">Постройка нового пути позволяет принимать и отправлять больше поездов параллельно, многократно увеличивая оборот.</p>
-                    ${canBuildTrack ? `
-                        <button onclick="buyNewTrack()" data-cost="${trackCost}" class="buy-btn w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-between transition ${state.money >= trackCost ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">
-                            <span>Проложить Путь №${state.tracksCount + 1}</span>
-                            <span class="font-mono-board">${formatNumber(trackCost)} ₽</span>
-                        </button>
-                    ` : `<div class="text-center py-1.5 text-xs font-bold text-sky-400 bg-sky-500/10 rounded-lg border border-sky-500/20">ВСЕ 4 ПУТИ ПОСТРОЕНЫ</div>`}
-                `;
-                container.appendChild(trackCard);
-            }
-
-            else if (currentTab === 'trains') {
-                Object.values(TRAIN_TYPES).forEach(train => {
-                    const lvl = state.unlockedTrains[train.id] || 0;
-                    const isUnlocked = lvl > 0;
-                    const cost = isUnlocked
-                        ? Math.round(train.upgradeCostBase * Math.pow(1.6, lvl - 1))
-                        : train.unlockCost;
-                    const currentCap = Math.round(train.capacity * (1 + Math.max(0, lvl - 1) * 0.15));
-
-                    const card = document.createElement('div');
-                    card.className = 'bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col gap-2';
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">${train.icon}</div>
-                                <div>
-                                    <div class="font-bold text-sm text-white">${train.name}</div>
-                                    <div class="text-xs text-slate-400">
-                                        ${isUnlocked ? `<span class="text-emerald-400 font-semibold">Ур. ${lvl}</span> • Вместимость: ${currentCap} пасс.` : 'Маршрут не открыт'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="text-xs text-slate-400">${train.desc}</p>
-                        <button onclick="buyOrUpgradeTrain('${train.id}')" data-cost="${cost}" class="buy-btn w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-between transition ${state.money >= cost ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">
-                            <span>${isUnlocked ? 'Модернизировать состав (+15% мест, +25% цена)' : 'Открыть маршрут'}</span>
-                            <span class="font-mono-board">${formatNumber(cost)} ₽</span>
-                        </button>
-                    `;
-                    container.appendChild(card);
-                });
-            }
-
-            else if (currentTab === 'infra') {
-                INFRA_ITEMS.forEach(item => {
-                    const lvl = state.infraLevels[item.id] || 0;
-                    const isMax = lvl >= item.maxLevel;
-                    const cost = Math.round(item.baseCost * Math.pow(item.costMult, lvl));
-
-                    const card = document.createElement('div');
-                    card.className = 'bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col gap-2';
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">${item.icon}</div>
-                                <div>
-                                    <div class="font-bold text-sm text-white">${item.name}</div>
-                                    <div class="text-xs text-amber-400 font-medium">Уровень ${lvl} / ${item.maxLevel}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="text-xs text-slate-400">${item.desc}</p>
-                        ${!isMax ? `
-                            <button onclick="buyInfra('${item.id}')" data-cost="${cost}" class="buy-btn w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-between transition ${state.money >= cost ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">
-                                <span>Построить / Улучшить</span>
-                                <span class="font-mono-board">${formatNumber(cost)} ₽</span>
-                            </button>
-                        ` : `<div class="text-center py-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg">МАКСИМУМ</div>`}
-                    `;
-                    container.appendChild(card);
-                });
-            }
-
-            else if (currentTab === 'staff') {
-                STAFF_ITEMS.forEach(staff => {
-                    const lvl = state.staffLevels[staff.id] || 0;
-                    const isMax = lvl >= staff.maxLevel;
-                    const cost = Math.round(staff.baseCost * Math.pow(staff.costMult, lvl));
-
-                    const card = document.createElement('div');
-                    card.className = 'bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col gap-2';
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">${staff.icon}</div>
-                                <div>
-                                    <div class="font-bold text-sm text-white">${staff.name}</div>
-                                    <div class="text-xs text-indigo-400 font-medium">Штат: ${lvl} / ${staff.maxLevel}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="text-xs text-slate-400">${staff.desc}</p>
-                        ${!isMax ? `
-                            <button onclick="buyStaff('${staff.id}')" data-cost="${cost}" class="buy-btn w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-between transition ${state.money >= cost ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">
-                                <span>Нанять / Повысить квалификацию</span>
-                                <span class="font-mono-board">${formatNumber(cost)} ₽</span>
-                            </button>
-                        ` : `<div class="text-center py-1 text-xs font-bold text-indigo-400 bg-indigo-500/10 rounded-lg">ШТАТ УКОМПЛЕКТОВАН</div>`}
-                    `;
-                    container.appendChild(card);
-                });
-            }
-        }
-
-        // Обновление доступности кнопок без полного перерисовывания DOM
-        function refreshBuyButtonsState() {
-            document.querySelectorAll('.buy-btn').forEach(btn => {
-                const cost = Number(btn.getAttribute('data-cost'));
-                if (state.money >= cost) {
-                    btn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
-                    btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'text-white', 'cursor-pointer');
-                } else {
-                    btn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
-                    btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'text-white', 'cursor-pointer');
-                }
-            });
-        }
-
-        // Действия покупок
-        function buyStationUpgrade() {
-            const nextStation = STATION_LEVELS[state.stationLevel];
-            if (!nextStation || state.money < nextStation.cost) return;
-            state.money -= nextStation.cost;
-            state.stationLevel += 1;
-            saveGame();
-            renderUpgrades();
-            updateUI();
-        }
-
-        function buyNewTrack() {
-            if (state.tracksCount >= 4) return;
-            const cost = getTrackBuildCost();
-            if (state.money < cost) return;
-            state.money -= cost;
-            state.tracksCount += 1;
-            saveGame();
-            renderUpgrades();
-            updateUI();
-        }
-
-        function buyOrUpgradeTrain(trainId) {
-            const train = TRAIN_TYPES[trainId];
-            const lvl = state.unlockedTrains[trainId] || 0;
-            const cost = lvl > 0
-                ? Math.round(train.upgradeCostBase * Math.pow(1.6, lvl - 1))
-                : train.unlockCost;
-            if (state.money < cost) return;
-            state.money -= cost;
-            state.unlockedTrains[trainId] = lvl + 1;
-            saveGame();
-            renderUpgrades();
-            updateUI();
-        }
-
-        function buyInfra(infraId) {
-            const item = INFRA_ITEMS.find(i => i.id === infraId);
-            const lvl = state.infraLevels[infraId] || 0;
-            if (!item || lvl >= item.maxLevel) return;
-            const cost = Math.round(item.baseCost * Math.pow(item.costMult, lvl));
-            if (state.money < cost) return;
-            state.money -= cost;
-            state.infraLevels[infraId] = lvl + 1;
-            saveGame();
-            renderUpgrades();
-            updateUI();
-        }
-
-        function buyStaff(staffId) {
-            const item = STAFF_ITEMS.find(s => s.id === staffId);
-            const lvl = state.staffLevels[staffId] || 0;
-            if (!item || lvl >= item.maxLevel) return;
-            const cost = Math.round(item.baseCost * Math.pow(item.costMult, lvl));
-            if (state.money < cost) return;
-            state.money -= cost;
-            state.staffLevels[staffId] = lvl + 1;
-            saveGame();
-            renderUpgrades();
-            updateUI();
-        }
-
-        // =========================================================================
-        // 8. ОБНОВЛЕНИЕ ТАБЛО РАСПИСАНИЯ И СТАТИСТИКИ
-        // =========================================================================
-        function updateScheduleBoard() {
-            const list = document.getElementById('schedule-list');
-            let html = '';
-
-            for (let i = 0; i < 4; i++) {
-                if (i >= state.tracksCount) {
-                    html += `
-                        <div class="bg-slate-950/40 border border-dashed border-slate-800 rounded-xl px-3 py-2.5 flex items-center justify-between text-xs text-slate-500">
-                            <div class="flex items-center gap-2.5">
-                                <span class="font-mono-board font-bold px-2 py-0.5 rounded bg-slate-900 text-slate-600">ПУТЬ ${i + 1}</span>
-                                <span>Путь не проложен</span>
-                            </div>
-                            <button onclick="switchTab('station')" class="text-amber-500/80 hover:text-amber-400 font-semibold underline cursor-pointer">Построить →</button>
-                        </div>
-                    `;
-                    continue;
-                }
-
-                const track = activeTracks[i];
-                const cfg = TRAIN_TYPES[track.trainType];
-                let statusBadge = '';
-                let progressPct = 0;
-                let barColor = 'bg-slate-700';
-
-                if (track.state === 'waiting_spawn') {
-                    statusBadge = `<span class="text-slate-400">Ожидание (${Math.ceil(track.timer)}с)</span>`;
-                } else if (track.state === 'arriving') {
-                    statusBadge = `<span class="text-amber-400 font-semibold">Прибывает...</span>`;
-                    progressPct = 35;
-                    barColor = 'bg-amber-500';
-                } else if (track.state === 'boarding') {
-                    statusBadge = `<span class="text-emerald-400 font-semibold">Посадка: ${track.boarded}/${track.maxCapacity}</span>`;
-                    progressPct = Math.min(100, Math.round((track.boardingProgress / track.boardingDuration) * 100));
-                    barColor = 'bg-emerald-500';
-                } else if (track.state === 'departing') {
-                    statusBadge = `<span class="text-sky-400 font-semibold">Отправляется</span>`;
-                    progressPct = 100;
-                    barColor = 'bg-sky-500';
-                }
-
-                html += `
-                    <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl px-3 py-2 flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between text-xs">
-                            <div class="flex items-center gap-2">
-                                <span class="font-mono-board font-bold px-2 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">ПУТЬ ${i + 1}</span>
-                                <span class="font-mono-board text-slate-400">[${cfg.code}]</span>
-                                <span class="font-semibold text-slate-200">${cfg.name}</span>
-                            </div>
-                            <div class="font-mono-board text-[11px]">${statusBadge}</div>
-                        </div>
-                        <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                            <div class="${barColor} h-full transition-all duration-150" style="width: ${progressPct}%"></div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            list.innerHTML = html;
-        }
-
-        function updateUI() {
-            const stationCfg = getStationConfig();
-            document.getElementById('station-level-badge').textContent = `Ур. ${state.stationLevel}`;
-            document.getElementById('station-title').textContent = stationCfg.name;
-
-            document.getElementById('stat-money').textContent = `${formatNumber(state.money)} ₽`;
-            document.getElementById('stat-passive').textContent = `+${formatNumber(getPassiveIncomePerSec())} ₽/с`;
-            document.getElementById('stat-reputation').textContent = `${getReputation()}%`;
-            document.getElementById('stat-passengers').textContent = `${Math.floor(state.waitingPassengers)} / ${stationCfg.maxCap}`;
-            document.getElementById('tracks-info').textContent = `Путей: ${state.tracksCount}/4`;
-
-            // Часы игрового времени
-            const totalMins = Math.floor(state.gameTimeMinutes) % (24 * 60);
-            const hh = String(Math.floor(totalMins / 60)).padStart(2, '0');
-            const mm = String(totalMins % 60).padStart(2, '0');
-            document.getElementById('game-clock').textContent = `${hh}:${mm}`;
-            const hourNum = Math.floor(totalMins / 60);
-            document.getElementById('clock-icon').textContent = (hourNum >= 6 && hourNum < 20) ? '☀️' : '🌙';
-
-            // Нижняя сводка
-            document.getElementById('total-trains').textContent = formatNumber(state.totalTrainsSent);
-            document.getElementById('total-passengers').textContent = formatNumber(state.totalPassengersServed);
-            const avgTicket = Math.round((45 + getTicketBonus()) * (getReputation() / 100));
-            document.getElementById('avg-ticket').textContent = `${formatNumber(avgTicket)} ₽`;
-
-            // Обновление баннера событий
-            const eventBanner = document.getElementById('event-banner');
-            if (activeEvent) {
-                eventBanner.classList.remove('hidden');
-                eventBanner.classList.add('event-active');
-                document.getElementById('event-icon').textContent = activeEvent.icon;
-                document.getElementById('event-text').textContent = activeEvent.title;
-                document.getElementById('event-timer').textContent = `${Math.ceil(activeEvent.remaining)}с`;
-            } else {
-                eventBanner.classList.add('hidden');
-                eventBanner.classList.remove('event-active');
-            }
-
-            refreshBuyButtonsState();
-            updateScheduleBoard();
-        }
-
-        // =========================================================================
-        // 9. УПРАВЛЕНИЕ СКОРОСТЬЮ ИГРЫ
-        // =========================================================================
-        function setGameSpeed(speed) {
-            gameSpeed = speed;
-            document.querySelectorAll('.speed-btn').forEach(btn => {
-                btn.classList.remove('bg-amber-500', 'text-slate-950');
-                btn.classList.add('text-slate-300');
-            });
-            const active = document.getElementById(`speed-${speed}`);
-            active.classList.add('bg-amber-500', 'text-slate-950');
-            active.classList.remove('text-slate-300');
-        }
-
-        // =========================================================================
-        // 10. ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ
-        // =========================================================================
-        let lastTimestamp = 0;
-        let uiSyncTimer = 0;
-        let autoSaveTimer = 0;
-
-        function gameLoop(timestamp) {
-            if (!lastTimestamp) lastTimestamp = timestamp;
-            const rawDt = Math.min(0.1, (timestamp - lastTimestamp) / 1000);
-            lastTimestamp = timestamp;
-
-            const dt = rawDt * gameSpeed;
-
-            // 1. Течение игрового времени (1 реальная сек = 4 игровые минуты)
-            state.gameTimeMinutes += dt * 4;
-
-            // 2. Пассивный доход от инфраструктуры
-            const passive = getPassiveIncomePerSec();
-            if (passive > 0) {
-                state.money += passive * dt;
-            }
-
-            // 3. Приток пассажиров на вокзал
-            const maxCap = getStationConfig().maxCap;
-            if (state.waitingPassengers < maxCap) {
-                state.waitingPassengers = Math.min(maxCap, state.waitingPassengers + getPassengerSpawnRate() * dt);
-            }
-
-            // 4. Случайные события
-            if (activeEvent) {
-                activeEvent.remaining -= dt;
-                if (activeEvent.remaining <= 0) {
-                    activeEvent = null;
-                    eventCooldown = 35 + Math.random() * 25;
-                }
-            } else {
-                eventCooldown -= dt;
-                if (eventCooldown <= 0) {
-                    const tpl = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
-                    activeEvent = { ...tpl, remaining: tpl.duration };
-                }
-            }
-
-            // 5. Обновление движения поездов
-            const rect = canvas.parentElement.getBoundingClientRect();
-            updateTracksAndTrains(dt, rect.width);
-
-            // 6. Отрисовка сцены строго сверху (Top-Down) на Canvas
-            ctx.clearRect(0, 0, rect.width, rect.height);
-            drawTopDownGroundAndSquare(rect.width, rect.height);
-            drawTopDownPlatforms(rect.width, rect.height);
-            drawTopDownTracks(rect.width, rect.height);
-            drawTopDownTrains();
-            drawTopDownPassengers(rect.width, rect.height, dt);
-            drawTopDownStationBuilding(rect.width, rect.height);
-            drawTopDownLightingOverlay(rect.width, rect.height);
-
-            // 7. Обновление DOM-интерфейса (5 раз в секунду для плавности и производительности)
-            uiSyncTimer += rawDt;
-            if (uiSyncTimer >= 0.2) {
-                uiSyncTimer = 0;
-                updateUI();
-            }
-
-            // 8. Автосохранение каждые 10 секунд
-            autoSaveTimer += rawDt;
-            if (autoSaveTimer >= 10) {
-                autoSaveTimer = 0;
-                saveGame();
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // =========================================================================
-        // 12. ЗАПУСК ПРИЛОЖЕНИЯ
-        // =========================================================================
-        // 11. ЗАПУСК ПРИЛОЖЕНИЯ
-        // =========================================================================
-        window.onload = function () {
-            loadGame();
-            resizeCanvas();
-            initParkedCars();
-            initTracks();
-            renderUpgrades();
-            updateUI();
-            requestAnimationFrame(gameLoop);
-        };
-    </script>
-</body>
-</html>
+<body>
+
+  <canvas id="railCanvas" width="900" height="400"></canvas>
+  
+  <div class="controls">
+    <button id="toggleBtn">Перевести стрілку (Пробіл)</button>
+    <div class="status">Напрямок: <strong id="dirText">Прямо (Головна колія)</strong></div>
+  </div>
+
+<script>
+const canvas = document.getElementById('railCanvas');
+const ctx = canvas.getContext('2d');
+const toggleBtn = document.getElementById('toggleBtn');
+const dirText = document.getElementById('dirText');
+
+// Налаштування колії
+const GAUGE = 36; // Ширина колії в пікселях
+const HALF_GAUGE = GAUGE / 2;
+const Y_MAIN = 260; // Y-координата головної колії
+
+// Стан стрілки
+let isDiverging = false; // false = прямо, true = на бокову колію
+let switchProgress = 0;  // 0.0 (прямо) -> 1.0 (відхилення) для плавної анімації
+
+// Параметри поїзда
+let train = {
+  t: 0, // Прогрес руху (від 0 до 1)
+  speed: 0.003,
+  length: 140
+};
+
+// --- МАТЕМАТИКА КРИВИХ (Крива Безьє для відгалуження) ---
+// Точки відгалуження центральної осі
+const P0 = { x: 250, y: Y_MAIN };          // Початок вістряків
+const P1 = { x: 450, y: Y_MAIN };          // Контрольна точка 1 (плавний вихід)
+const P2 = { x: 520, y: Y_MAIN - 110 };    // Контрольна точка 2
+const P3 = { x: 850, y: Y_MAIN - 110 };    // Кінець бокової колії
+
+// Отримання координати (x, y) на кривій Безьє для t [0..1]
+function getBezierPoint(t, p0, p1, p2, p3) {
+  const u = 1 - t;
+  const tt = t * t;
+  const uu = u * u;
+  const uuu = uu * u;
+  const ttt = tt * t;
+
+  return {
+    x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
+    y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
+  };
+}
+
+// Отримання кута дотичної (нахилу) в точці t
+function getBezierAngle(t, p0, p1, p2, p3) {
+  const u = 1 - t;
+  const dx = 3 * u * u * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * t * t * (p3.x - p2.x);
+  const dy = 3 * u * u * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * t * t * (p3.y - p2.y);
+  return Math.atan2(dy, dx);
+}
+
+// Отримання точки рейки зі зміщенням (offset = +HALF_GAUGE або -HALF_GAUGE)
+function getOffsetPoint(t, offset) {
+  const pt = getBezierPoint(t, P0, P1, P2, P3);
+  const angle = getBezierAngle(t, P0, P1, P2, P3);
+  return {
+    x: pt.x - Math.sin(angle) * offset,
+    y: pt.y + Math.cos(angle) * offset
+  };
+}
+
+// --- ВІЗУАЛІЗАЦІЯ ---
+
+function drawSleepers() {
+  ctx.fillStyle = '#3e352f'; // Колір дерев'яних/бетонних шпал
+  
+  // 1. Шпали головної колії (до стрілки та після)
+  for (let x = 20; x < 880; x += 18) {
+    // Подовжені перевідні бруси в зоні стрілки
+    if (x >= 240 && x <= 560) {
+      let extraHeight = (x - 240) * 0.35;
+      ctx.fillRect(x - 4, Y_MAIN - HALF_GAUGE - 10 - extraHeight, 8, GAUGE + 20 + extraHeight);
+    } else {
+      ctx.fillRect(x - 4, Y_MAIN - HALF_GAUGE - 10, 8, GAUGE + 20);
+    }
+  }
+
+  // 2. Шпали бокової колії (після розділення)
+  for (let t = 0.45; t <= 1.0; t += 0.03) {
+    const pt = getBezierPoint(t, P0, P1, P2, P3);
+    const angle = getBezierAngle(t, P0, P1, P2, P3);
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(angle);
+    ctx.fillRect(-4, -HALF_GAUGE - 10, 8, GAUGE + 20);
+    ctx.restore();
+  }
+}
+
+function drawRailPath(drawFunc, width = 4, color = '#9ca3af') {
+  ctx.beginPath();
+  drawFunc();
+  ctx.lineWidth = width;
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Блік на головці рейки для об'єму
+  ctx.beginPath();
+  drawFunc();
+  ctx.lineWidth = width * 0.4;
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.stroke();
+}
+
+function drawTrack() {
+  // 1. РАМНІ РЕЙКИ (нерухомі зовнішні рейки)
+  // Нижня рамна рейка (пряма)
+  drawRailPath(() => {
+    ctx.moveTo(0, Y_MAIN + HALF_GAUGE);
+    ctx.lineTo(900, Y_MAIN + HALF_GAUGE);
+  });
+
+  // Верхня рамна рейка (йде прямо до P0, а далі повертає на бокову колію)
+  drawRailPath(() => {
+    ctx.moveTo(0, Y_MAIN - HALF_GAUGE);
+    ctx.lineTo(P0.x, Y_MAIN - HALF_GAUGE);
+    for (let t = 0; t <= 1; t += 0.02) {
+      const pt = getOffsetPoint(t, -HALF_GAUGE);
+      ctx.lineTo(pt.x, pt.y);
+    }
+  });
+
+  // 2. ВНУТРІШНІ РЕЙКИ (після хрестовини)
+  // Верхня рейка головної колії (починається після вістряків)
+  drawRailPath(() => {
+    ctx.moveTo(P0.x + 110, Y_MAIN - HALF_GAUGE);
+    ctx.lineTo(900, Y_MAIN - HALF_GAUGE);
+  });
+
+  // Нижня рейка бокової колії (починається після вістряків)
+  drawRailPath(() => {
+    for (let t = 0.18; t <= 1; t += 0.02) {
+      const pt = getOffsetPoint(t, +HALF_GAUGE);
+      if (t === 0.18) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
+    }
+  });
+
+  // 3. КОНТРРЕЙКИ (важливий елемент реалізму біля хрестовини)
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#6b7280';
+  // Нижня контррейка (біля головної рейки)
+  ctx.beginPath();
+  ctx.moveTo(455, Y_MAIN + HALF_GAUGE - 5);
+  ctx.lineTo(525, Y_MAIN + HALF_GAUGE - 5);
+  ctx.stroke();
+
+  // 4. РУХОМІ ВІСТРЯКИ (Гостряки стрілки)
+  const switchLen = 110; // Довжина рухомої частини
+  const throwDist = 10;  // На скільки пікселів відходить вістряк від рамної рейки
+
+  // Верхній вістряк (притискається до верхньої рамної рейки, коли їдемо ПРЯМО)
+  const topBladeGap = switchProgress * throwDist;
+  drawRailPath(() => {
+    ctx.moveTo(P0.x + switchLen, Y_MAIN - HALF_GAUGE); // Корінь вістряка
+    ctx.lineTo(P0.x, Y_MAIN - HALF_GAUGE + topBladeGap); // Вістря
+  }, 3.5, '#f59e0b'); // Підсвітимо трохи золотистим для наочності
+
+  // Нижній вістряк (притискається до нижньої рамної рейки, коли їдемо НА БОКОВУ)
+  const botBladeGap = (1 - switchProgress) * throwDist;
+  const bladeRoot = getOffsetPoint(0.18, +HALF_GAUGE);
+  drawRailPath(() => {
+    ctx.moveTo(bladeRoot.x, bladeRoot.y); // Корінь вістряка
+    ctx.lineTo(P0.x, Y_MAIN + HALF_GAUGE - botBladeGap); // Вістря
+  }, 3.5, '#f59e0b');
+
+  // Стрілочна тяга (з'єднує обидва вістряки)
+  ctx.beginPath();
+  ctx.moveTo(P0.x + 15, Y_MAIN - HALF_GAUGE + topBladeGap);
+  ctx.lineTo(P0.x + 15, Y_MAIN + HALF_GAUGE - botBladeGap);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#ef4444';
+  ctx.stroke();
+}
+
+// --- ФІЗИКА ТА ВІЗУАЛІЗАЦІЯ ПОЇЗДА ---
+
+// Отримання позиції та кута вагону на колії в залежності від пройденої дистанції S
+function getTrackTransformAtDistance(dist) {
+  if (dist < P0.x) {
+    // До стрілки (прямо)
+    return { x: dist, y: Y_MAIN, angle: 0 };
+  } 
+  
+  if (!isDiverging) {
+    // По головній колії (прямо)
+    return { x: dist, y: Y_MAIN, angle: 0 };
+  } else {
+    // По боковій колії (рух по кривій Безьє)
+    const curveDist = dist - P0.x;
+    const totalCurveLen = 620; // Приблизна довжина кривої в пікселях
+    let t = curveDist / totalCurveLen;
+    if (t > 1) t = 1;
+    
+    const pt = getBezierPoint(t, P0, P1, P2, P3);
+    const angle = getBezierAngle(t, P0, P1, P2, P3);
+    return { x: pt.x, y: pt.y, angle: angle };
+  }
+}
+
+function drawTrain() {
+  // Поїзд має два візки (передній та задній) для реалістичного входу в поворот!
+  const frontDist = train.t * 1050;
+  const rearDist = frontDist - 90; // Відстань між візками
+
+  if (rearDist > 920) {
+    train.t = 0; // Перезапуск поїзда
+    return;
+  }
+
+  const frontBogie = getTrackTransformAtDistance(frontDist);
+  const rearBogie = getTrackTransformAtDistance(rearDist);
+
+  // Центр кузова вагону — між візками
+  const centerX = (frontBogie.x + rearBogie.x) / 2;
+  const centerY = (frontBogie.y + rearBogie.y) / 2;
+  // Кут кузова визначається лінією між візками
+  const bodyAngle = Math.atan2(frontBogie.y - rearBogie.y, frontBogie.x - rearBogie.x);
+
+  // Малюємо колісні пари (візки)
+  [frontBogie, rearBogie].forEach(bogie => {
+    ctx.save();
+    ctx.translate(bogie.x, bogie.y);
+    ctx.rotate(bogie.angle);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-12, -HALF_GAUGE - 2, 24, GAUGE + 4);
+    ctx.restore();
+  });
+
+  // Малюємо кузов локомотива
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(bodyAngle);
+
+  // Тінь
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(-65, -20, 130, 44);
+
+  // Корпус
+  ctx.fillStyle = '#2563eb';
+  ctx.strokeStyle = '#1d4ed8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-65, -22, 130, 44, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Кабіна та деталі даху
+  ctx.fillStyle = '#1e40af';
+  ctx.fillRect(35, -18, 22, 36); // Лобове скло
+  ctx.fillStyle = '#93c5fd';
+  ctx.fillRect(48, -16, 6, 32);  // Скло
+
+  // Прожектор
+  ctx.fillStyle = '#fef08a';
+  ctx.beginPath();
+  ctx.arc(65, 0, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// --- ГОЛОВНИЙ ЦИКЛ ---
+
+function toggleSwitch() {
+  // Забороняємо переведення стрілки, якщо поїзд зараз на ній (захист від сходу з рейок!)
+  const frontDist = train.t * 1050;
+  const rearDist = frontDist - 90;
+  if (frontDist > P0.x - 20 && rearDist < P0.x + 250) {
+    alert("Небезпечно! Поїзд на стрілці!");
+    return;
+  }
+
+  isDiverging = !isDiverging;
+  dirText.textContent = isDiverging ? "На бокову колію (Відхилення)" : "Прямо (Головна колія)";
+  dirText.style.color = isDiverging ? "#f59e0b" : "#4ade80";
+}
+
+toggleBtn.addEventListener('click', toggleSwitch);
+canvas.addEventListener('click', toggleSwitch);
+window.addEventListener('keydown', (e) => {
