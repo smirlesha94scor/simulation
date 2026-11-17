@@ -1,334 +1,293 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8">
-  <title>Реалістична залізнична стрілка на JS</title>
-  <style>
-    body {
-      margin: 0;
-      background: #1e1e1e;
-      color: #fff;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    canvas {
-      background: #2b2623; /* Колір баласту (щебеню) */
-      border: 2px solid #444;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      cursor: pointer;
-    }
-    .controls {
-      margin-top: 15px;
-      display: flex;
-      gap: 15px;
-      align-items: center;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      background: #d97706;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-weight: bold;
-    }
-    button:hover { background: #b45309; }
-    .status { font-size: 18px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Реалістична залізнична стрілка на JS</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            background-color: #2b2b2b;
+            border: 2px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+        button:hover { background: #005999; }
+    </style>
 </head>
 <body>
 
-  <canvas id="railCanvas" width="900" height="400"></canvas>
-  
-  <div class="controls">
-    <button id="toggleBtn">Перевести стрілку (Пробіл)</button>
-    <div class="status">Напрямок: <strong id="dirText">Прямо (Головна колія)</strong></div>
-  </div>
+    <h2>Симуляція залізничного стрілочного переводу</h2>
+    <canvas id="railwayCanvas" width="900" height="400"></canvas>
+    <div class="controls">
+        <button id="toggleSwitch">Перевести стрілку (Пробіл)</button>
+        <button id="spawnTrain">Запустити потяг</button>
+    </div>
 
 <script>
-const canvas = document.getElementById('railCanvas');
+const canvas = document.getElementById('railwayCanvas');
 const ctx = canvas.getContext('2d');
-const toggleBtn = document.getElementById('toggleBtn');
-const dirText = document.getElementById('dirText');
 
 // Налаштування колії
-const GAUGE = 36; // Ширина колії в пікселях
-const HALF_GAUGE = GAUGE / 2;
-const Y_MAIN = 260; // Y-координата головної колії
+const GAUGE = 28; // Ширина колії (відстань між рейками)
+const SLEEPERS_SPACING = 18; // Відстань між шпалами
 
-// Стан стрілки
-let isDiverging = false; // false = прямо, true = на бокову колію
-let switchProgress = 0;  // 0.0 (прямо) -> 1.0 (відхилення) для плавної анімації
+// Стан стрілки: 0 - прямо (основна колія), 1 - на відгалуження
+let switchTargetState = 0; 
+let switchCurrentState = 0; // Для плавної анімації (від 0.0 до 1.0)
 
-// Параметри поїзда
-let train = {
-  t: 0, // Прогрес руху (від 0 до 1)
-  speed: 0.003,
-  length: 140
-};
+// Масив потягів (візків)
+let trains = [];
 
-// --- МАТЕМАТИКА КРИВИХ (Крива Безьє для відгалуження) ---
-// Точки відгалуження центральної осі
-const P0 = { x: 250, y: Y_MAIN };          // Початок вістряків
-const P1 = { x: 450, y: Y_MAIN };          // Контрольна точка 1 (плавний вихід)
-const P2 = { x: 520, y: Y_MAIN - 110 };    // Контрольна точка 2
-const P3 = { x: 850, y: Y_MAIN - 110 };    // Кінець бокової колії
-
-// Отримання координати (x, y) на кривій Безьє для t [0..1]
-function getBezierPoint(t, p0, p1, p2, p3) {
-  const u = 1 - t;
-  const tt = t * t;
-  const uu = u * u;
-  const uuu = uu * u;
-  const ttt = tt * t;
-
-  return {
-    x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
-    y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
-  };
+// Математичні функції для кривих Безьє
+function getQuadraticBezierPoint(t, p0, p1, p2) {
+    const x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x;
+    const y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y;
+    return { x, y };
 }
 
-// Отримання кута дотичної (нахилу) в точці t
-function getBezierAngle(t, p0, p1, p2, p3) {
-  const u = 1 - t;
-  const dx = 3 * u * u * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * t * t * (p3.x - p2.x);
-  const dy = 3 * u * u * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * t * t * (p3.y - p2.y);
-  return Math.atan2(dy, dx);
+function getQuadraticBezierAngle(t, p0, p1, p2) {
+    const dx = 2 * (1 - t) * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
+    const dy = 2 * (1 - t) * (p1.y - p0.y) + 2 * t * (p2.y - p1.y);
+    return Math.atan2(dy, dx);
 }
 
-// Отримання точки рейки зі зміщенням (offset = +HALF_GAUGE або -HALF_GAUGE)
-function getOffsetPoint(t, offset) {
-  const pt = getBezierPoint(t, P0, P1, P2, P3);
-  const angle = getBezierAngle(t, P0, P1, P2, P3);
-  return {
-    x: pt.x - Math.sin(angle) * offset,
-    y: pt.y + Math.cos(angle) * offset
-  };
-}
+// Геометрія шляхів (осьові лінії)
+const mainTrack = { p0: { x: 50, y: 250 }, p1: { x: 450, y: 250 }, p2: { x: 850, y: 250 } };
+const branchTrack = { p0: { x: 250, y: 250 }, p1: { x: 500, y: 250 }, p2: { x: 850, y: 100 } };
 
-// --- ВІЗУАЛІЗАЦІЯ ---
+// Функція малювання шпал вздовж кривої
+function drawSleepers(track, startT = 0, endT = 1, count = 40) {
+    ctx.fillStyle = '#4a3b32'; // Колір дерев'яних шпал
+    for (let i = 0; i <= count; i++) {
+        const t = startT + (endT - startT) * (i / count);
+        const pt = getQuadraticBezierPoint(t, track.p0, track.p1, track.p2);
+        const angle = getQuadraticBezierAngle(t, track.p0, track.p1, track.p2);
 
-function drawSleepers() {
-  ctx.fillStyle = '#3e352f'; // Колір дерев'яних/бетонних шпал
-  
-  // 1. Шпали головної колії (до стрілки та після)
-  for (let x = 20; x < 880; x += 18) {
-    // Подовжені перевідні бруси в зоні стрілки
-    if (x >= 240 && x <= 560) {
-      let extraHeight = (x - 240) * 0.35;
-      ctx.fillRect(x - 4, Y_MAIN - HALF_GAUGE - 10 - extraHeight, 8, GAUGE + 20 + extraHeight);
-    } else {
-      ctx.fillRect(x - 4, Y_MAIN - HALF_GAUGE - 10, 8, GAUGE + 20);
+        ctx.save();
+        ctx.translate(pt.x, pt.y);
+        ctx.rotate(angle);
+        ctx.fillRect(-4, -GAUGE * 0.85, 8, GAUGE * 1.7);
+        ctx.restore();
     }
-  }
-
-  // 2. Шпали бокової колії (після розділення)
-  for (let t = 0.45; t <= 1.0; t += 0.03) {
-    const pt = getBezierPoint(t, P0, P1, P2, P3);
-    const angle = getBezierAngle(t, P0, P1, P2, P3);
-    ctx.save();
-    ctx.translate(pt.x, pt.y);
-    ctx.rotate(angle);
-    ctx.fillRect(-4, -HALF_GAUGE - 10, 8, GAUGE + 20);
-    ctx.restore();
-  }
 }
 
-function drawRailPath(drawFunc, width = 4, color = '#9ca3af') {
-  ctx.beginPath();
-  drawFunc();
-  ctx.lineWidth = width;
-  ctx.strokeStyle = color;
-  ctx.lineCap = 'round';
-  ctx.stroke();
+// Функція малювання двох паралельних рейок вздовж кривої
+function drawRails(track, startT = 0, endT = 1, steps = 50) {
+    ctx.strokeStyle = '#a0a5aa'; // Сталевий колір рейок
+    ctx.lineWidth = 3;
 
-  // Блік на головці рейки для об'єму
-  ctx.beginPath();
-  drawFunc();
-  ctx.lineWidth = width * 0.4;
-  ctx.strokeStyle = '#e5e7eb';
-  ctx.stroke();
+    [-GAUGE / 2, GAUGE / 2].forEach(offset => {
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+            const t = startT + (endT - startT) * (i / steps);
+            const pt = getQuadraticBezierPoint(t, track.p0, track.p1, track.p2);
+            const angle = getQuadraticBezierAngle(t, track.p0, track.p1, track.p2);
+
+            const rx = pt.x - Math.sin(angle) * offset;
+            const ry = pt.y + Math.cos(angle) * offset;
+
+            if (i === 0) ctx.moveTo(rx, ry);
+            else ctx.lineTo(rx, ry);
+        }
+        ctx.stroke();
+    });
 }
 
-function drawTrack() {
-  // 1. РАМНІ РЕЙКИ (нерухомі зовнішні рейки)
-  // Нижня рамна рейка (пряма)
-  drawRailPath(() => {
-    ctx.moveTo(0, Y_MAIN + HALF_GAUGE);
-    ctx.lineTo(900, Y_MAIN + HALF_GAUGE);
-  });
+// Малювання рухомих вістряків (найважливіша частина реалізму)
+function drawSwitchBlades() {
+    // Початок вістряків (x = 250) та їхня довжина (до x = 350)
+    const startX = 250;
+    const endX = 350;
+    const baseY = 250;
 
-  // Верхня рамна рейка (йде прямо до P0, а далі повертає на бокову колію)
-  drawRailPath(() => {
-    ctx.moveTo(0, Y_MAIN - HALF_GAUGE);
-    ctx.lineTo(P0.x, Y_MAIN - HALF_GAUGE);
-    for (let t = 0; t <= 1; t += 0.02) {
-      const pt = getOffsetPoint(t, -HALF_GAUGE);
-      ctx.lineTo(pt.x, pt.y);
+    // Зміщення кінчиків вістряків залежно від стану стрілки
+    // Коли 0 (прямо): верхній вістряк відведений від рамної рейки, нижній притиснутий
+    // Коли 1 (бокова): верхній вістряк притиснутий, нижній відведений
+    const throwGap = 6; // Зазор між вістряком і рамною рейкою
+
+    // Верхня рейка (y = baseY - GAUGE/2)
+    const topRailY = baseY - GAUGE / 2;
+    const topBladeTipY = topRailY + (1 - switchCurrentState) * throwGap;
+
+    // Нижня рейка (y = baseY + GAUGE/2)
+    const bottomRailY = baseY + GAUGE / 2;
+    const bottomBladeTipY = bottomRailY - switchCurrentState * throwGap;
+
+    // Малюємо тягу (з'єднує обидва вістряки)
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(startX + 15, topBladeTipY);
+    ctx.lineTo(startX + 15, bottomBladeTipY);
+    ctx.stroke();
+
+    // Малюємо самі вістряки (загострені рейки)
+    ctx.strokeStyle = '#ff9800'; // Підсвічуємо рухомі елементи для наочності
+    ctx.lineWidth = 3;
+
+    // Верхній вістряк (кріпиться в кінці на бокову колію)
+    const branchPt = getQuadraticBezierPoint(0.18, branchTrack.p0, branchTrack.p1, branchTrack.p2);
+    ctx.beginPath();
+    ctx.moveTo(startX, topBladeTipY);
+    ctx.lineTo(endX, branchPt.y - GAUGE / 2);
+    ctx.stroke();
+
+    // Нижній вістряк (кріпиться в кінці на пряму колію)
+    ctx.beginPath();
+    ctx.moveTo(startX, bottomBladeTipY);
+    ctx.lineTo(endX, bottomRailY);
+    ctx.stroke();
+
+    // Світлофорний індикатор біля стрілки
+    ctx.fillStyle = switchTargetState === 0 ? '#4caf50' : '#ffeb3b';
+    ctx.beginPath();
+    ctx.arc(startX, baseY + 45, 7, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// Клас для потяга
+class Train {
+    constructor() {
+        this.x = 50;
+        this.y = 250;
+        this.speed = 3;
+        this.route = null; // Визначається в момент проїзду стрілки
+        this.branchT = 0;
+        this.angle = 0;
     }
-  });
 
-  // 2. ВНУТРІШНІ РЕЙКИ (після хрестовини)
-  // Верхня рейка головної колії (починається після вістряків)
-  drawRailPath(() => {
-    ctx.moveTo(P0.x + 110, Y_MAIN - HALF_GAUGE);
-    ctx.lineTo(900, Y_MAIN - HALF_GAUGE);
-  });
+    update() {
+        // Якщо потяг ще не доїхав до стрілки (x < 250)
+        if (this.x < 250) {
+            this.x += this.speed;
+            this.angle = 0;
+        } else {
+            // Фіксуємо маршрут у момент наїзду на вістряки
+            if (this.route === null) {
+                this.route = switchTargetState; 
+            }
 
-  // Нижня рейка бокової колії (починається після вістряків)
-  drawRailPath(() => {
-    for (let t = 0.18; t <= 1; t += 0.02) {
-      const pt = getOffsetPoint(t, +HALF_GAUGE);
-      if (t === 0.18) ctx.moveTo(pt.x, pt.y);
-      else ctx.lineTo(pt.x, pt.y);
+            if (this.route === 0) {
+                // Рух прямо
+                this.x += this.speed;
+                this.angle = 0;
+            } else {
+                // Рух по кривій Безьє (відгалуження)
+                this.branchT += 0.0052; // Підібрана швидкість для плавності
+                const pt = getQuadraticBezierPoint(this.branchT, branchTrack.p0, branchTrack.p1, branchTrack.p2);
+                this.angle = getQuadraticBezierAngle(this.branchT, branchTrack.p0, branchTrack.p1, branchTrack.p2);
+                this.x = pt.x;
+                this.y = pt.y;
+            }
+        }
     }
-  });
 
-  // 3. КОНТРРЕЙКИ (важливий елемент реалізму біля хрестовини)
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = '#6b7280';
-  // Нижня контррейка (біля головної рейки)
-  ctx.beginPath();
-  ctx.moveTo(455, Y_MAIN + HALF_GAUGE - 5);
-  ctx.lineTo(525, Y_MAIN + HALF_GAUGE - 5);
-  ctx.stroke();
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
 
-  // 4. РУХОМІ ВІСТРЯКИ (Гостряки стрілки)
-  const switchLen = 110; // Довжина рухомої частини
-  const throwDist = 10;  // На скільки пікселів відходить вістряк від рамної рейки
+        // Тінь вагона
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(-38, -14, 80, 32);
 
-  // Верхній вістряк (притискається до верхньої рамної рейки, коли їдемо ПРЯМО)
-  const topBladeGap = switchProgress * throwDist;
-  drawRailPath(() => {
-    ctx.moveTo(P0.x + switchLen, Y_MAIN - HALF_GAUGE); // Корінь вістряка
-    ctx.lineTo(P0.x, Y_MAIN - HALF_GAUGE + topBladeGap); // Вістря
-  }, 3.5, '#f59e0b'); // Підсвітимо трохи золотистим для наочності
+        // Корпус локомотива
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(-40, -16, 80, 32);
 
-  // Нижній вістряк (притискається до нижньої рамної рейки, коли їдемо НА БОКОВУ)
-  const botBladeGap = (1 - switchProgress) * throwDist;
-  const bladeRoot = getOffsetPoint(0.18, +HALF_GAUGE);
-  drawRailPath(() => {
-    ctx.moveTo(bladeRoot.x, bladeRoot.y); // Корінь вістряка
-    ctx.lineTo(P0.x, Y_MAIN + HALF_GAUGE - botBladeGap); // Вістря
-  }, 3.5, '#f59e0b');
+        // Кабіна та деталі
+        ctx.fillStyle = '#ffcdd2';
+        ctx.fillRect(20, -12, 12, 24);
+        ctx.fillStyle = '#212121';
+        ctx.fillRect(-30, -10, 40, 20);
 
-  // Стрілочна тяга (з'єднує обидва вістряки)
-  ctx.beginPath();
-  ctx.moveTo(P0.x + 15, Y_MAIN - HALF_GAUGE + topBladeGap);
-  ctx.lineTo(P0.x + 15, Y_MAIN + HALF_GAUGE - botBladeGap);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = '#ef4444';
-  ctx.stroke();
+        ctx.restore();
+    }
 }
 
-// --- ФІЗИКА ТА ВІЗУАЛІЗАЦІЯ ПОЇЗДА ---
+// Головний цикл рендерингу
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// Отримання позиції та кута вагону на колії в залежності від пройденої дистанції S
-function getTrackTransformAtDistance(dist) {
-  if (dist < P0.x) {
-    // До стрілки (прямо)
-    return { x: dist, y: Y_MAIN, angle: 0 };
-  } 
-  
-  if (!isDiverging) {
-    // По головній колії (прямо)
-    return { x: dist, y: Y_MAIN, angle: 0 };
-  } else {
-    // По боковій колії (рух по кривій Безьє)
-    const curveDist = dist - P0.x;
-    const totalCurveLen = 620; // Приблизна довжина кривої в пікселях
-    let t = curveDist / totalCurveLen;
-    if (t > 1) t = 1;
-    
-    const pt = getBezierPoint(t, P0, P1, P2, P3);
-    const angle = getBezierAngle(t, P0, P1, P2, P3);
-    return { x: pt.x, y: pt.y, angle: angle };
-  }
+    // Плавна анімація переведення стрілки
+    switchCurrentState += (switchTargetState - switchCurrentState) * 0.15;
+
+    // 1. Малюємо шпали
+    drawSleepers(mainTrack, 0, 1, 45);
+    drawSleepers(branchTrack, 0.15, 1, 35); // Починаємо трохи далі, щоб не накладалися
+
+    // 2. Малюємо основні рамні рейки
+    drawRails(mainTrack, 0, 1);
+    drawRails(branchTrack, 0.16, 1);
+
+    // 3. Малюємо рухомі вістряки поверх
+    drawSwitchBlades();
+
+    // 4. Оновлюємо та малюємо потяги
+    trains.forEach((train, index) => {
+        train.update();
+        train.draw();
+        // Видаляємо потяг, якщо виїхав за межі екрана
+        if (train.x > canvas.width + 50 || train.y < -50) {
+            trains.splice(index, 1);
+        }
+    });
+
+    requestAnimationFrame(animate);
 }
 
-function drawTrain() {
-  // Поїзд має два візки (передній та задній) для реалістичного входу в поворот!
-  const frontDist = train.t * 1050;
-  const rearDist = frontDist - 90; // Відстань між візками
-
-  if (rearDist > 920) {
-    train.t = 0; // Перезапуск поїзда
-    return;
-  }
-
-  const frontBogie = getTrackTransformAtDistance(frontDist);
-  const rearBogie = getTrackTransformAtDistance(rearDist);
-
-  // Центр кузова вагону — між візками
-  const centerX = (frontBogie.x + rearBogie.x) / 2;
-  const centerY = (frontBogie.y + rearBogie.y) / 2;
-  // Кут кузова визначається лінією між візками
-  const bodyAngle = Math.atan2(frontBogie.y - rearBogie.y, frontBogie.x - rearBogie.x);
-
-  // Малюємо колісні пари (візки)
-  [frontBogie, rearBogie].forEach(bogie => {
-    ctx.save();
-    ctx.translate(bogie.x, bogie.y);
-    ctx.rotate(bogie.angle);
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-12, -HALF_GAUGE - 2, 24, GAUGE + 4);
-    ctx.restore();
-  });
-
-  // Малюємо кузов локомотива
-  ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate(bodyAngle);
-
-  // Тінь
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillRect(-65, -20, 130, 44);
-
-  // Корпус
-  ctx.fillStyle = '#2563eb';
-  ctx.strokeStyle = '#1d4ed8';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(-65, -22, 130, 44, 6);
-  ctx.fill();
-  ctx.stroke();
-
-  // Кабіна та деталі даху
-  ctx.fillStyle = '#1e40af';
-  ctx.fillRect(35, -18, 22, 36); // Лобове скло
-  ctx.fillStyle = '#93c5fd';
-  ctx.fillRect(48, -16, 6, 32);  // Скло
-
-  // Прожектор
-  ctx.fillStyle = '#fef08a';
-  ctx.beginPath();
-  ctx.arc(65, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
-// --- ГОЛОВНИЙ ЦИКЛ ---
-
+// Керування
 function toggleSwitch() {
-  // Забороняємо переведення стрілки, якщо поїзд зараз на ній (захист від сходу з рейок!)
-  const frontDist = train.t * 1050;
-  const rearDist = frontDist - 90;
-  if (frontDist > P0.x - 20 && rearDist < P0.x + 250) {
-    alert("Небезпечно! Поїзд на стрілці!");
-    return;
-  }
-
-  isDiverging = !isDiverging;
-  dirText.textContent = isDiverging ? "На бокову колію (Відхилення)" : "Прямо (Головна колія)";
-  dirText.style.color = isDiverging ? "#f59e0b" : "#4ade80";
+    // Забороняємо переводити стрілку, якщо на ній зараз знаходиться потяг (захист від сходу з рейок)
+    const trainOnSwitch = trains.some(t => t.x > 220 && t.x < 380);
+    if (!trainOnSwitch) {
+        switchTargetState = switchTargetState === 0 ? 1 : 0;
+    } else {
+        console.warn("Стрілка зайнята потягом! Переведення заблоковано.");
+    }
 }
 
-toggleBtn.addEventListener('click', toggleSwitch);
+document.getElementById('toggleSwitch').addEventListener('click', toggleSwitch);
 canvas.addEventListener('click', toggleSwitch);
 window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        toggleSwitch();
+    }
+});
+
+document.getElementById('spawnTrain').addEventListener('click', () => {
+    trains.push(new Train());
+});
+
+// Запуск симуляції та першого потяга
+trains.push(new Train());
+animate();
+</script>
+</body>
+</html>
