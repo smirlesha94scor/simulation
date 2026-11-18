@@ -255,11 +255,11 @@
         </div>
         <div class="row">
           <span>Длина остряков (px):</span>
-          <input type="number" id="sb-blade-len" min="12" max="150" step="1" />
+          <input type="number" id="sb-blade-len" min="12" max="250" step="1" />
         </div>
         <div class="row">
           <span>Плавный переход (px):</span>
-          <input type="number" id="sb-smooth-len" min="10" max="150" step="1" />
+          <input type="number" id="sb-smooth-len" min="10" max="250" step="1" />
         </div>
 
         <div class="pos-group">
@@ -289,8 +289,7 @@
     </div>
 
     <div id="hint">
-      <b>Сборка с нуля:</b> 1) Проложите 3 пути, сходящихся в одном узле. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу.
-      3) Левый внешний рельс основного пути плавно соединяется с левым путем Пути 1, правый — с правым Пути 2, а остряки соединены с внутренними нитками: левый остряк от Пути 2, правый остряк от Пути 1.
+      <b>Сборка с нуля:</b> 1) Проложите 3 пути с пересечением в узле (входной путь и 2 пересекающихся отводящих пути). 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу.
     </div>
   </div>
 
@@ -458,8 +457,8 @@
       }
 
       const incidentEdges = state.edges.filter(e => e.from === stemNodeId || e.to === stemNodeId);
-      if (incidentEdges.length !== 3) {
-        alert('Для сборки стрелки в узле должны сходиться ровно 3 пути (1 входной и 2 расходящихся). Сейчас путей: ' + incidentEdges.length);
+      if (incidentEdges.length < 3) {
+        alert('Для сборки стрелки в узле должны сходиться как минимум 3 пути. Сейчас путей: ' + incidentEdges.length);
         return;
       }
 
@@ -469,15 +468,16 @@
         return { edge, other, ang };
       });
 
+      // Определяем входной ствол и две ветви с поддержкой пересекающихся путей
       let bestEntryIdx = 0;
       let bestScore = -Infinity;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < dirs.length; i++) {
         const a0 = dirs[i].ang;
-        const a1 = dirs[(i + 1) % 3].ang;
-        const a2 = dirs[(i + 2) % 3].ang;
-        const diff1 = Math.abs(Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0)));
-        const diff2 = Math.abs(Math.atan2(Math.sin(a2 - a0), Math.cos(a2 - a0)));
-        const score = diff1 + diff2;
+        let score = 0;
+        for (let j = 0; j < dirs.length; j++) {
+          if (i === j) continue;
+          score += Math.abs(Math.atan2(Math.sin(dirs[j].ang - a0), Math.cos(dirs[j].ang - a0)));
+        }
         if (score > bestScore) {
           bestScore = score;
           bestEntryIdx = i;
@@ -485,15 +485,17 @@
       }
 
       const entryItem = dirs[bestEntryIdx];
-      const bA = dirs[(bestEntryIdx + 1) % 3];
-      const bB = dirs[(bestEntryIdx + 2) % 3];
+      const remaining = dirs.filter((_, idx) => idx !== bestEntryIdx);
+      
+      // Сортируем оставшиеся отводящие пути по углу относительно ствола
+      remaining.sort((a, b) => {
+        const fA = Math.atan2(Math.sin(a.ang - (entryItem.ang + Math.PI)), Math.cos(a.ang - (entryItem.ang + Math.PI)));
+        const fB = Math.atan2(Math.sin(b.ang - (entryItem.ang + Math.PI)), Math.cos(b.ang - (entryItem.ang + Math.PI)));
+        return fA - fB;
+      });
 
-      const forwardAng = entryItem.ang + Math.PI;
-      const relA = Math.atan2(Math.sin(bA.ang - forwardAng), Math.cos(bA.ang - forwardAng));
-      const relB = Math.atan2(Math.sin(bB.ang - forwardAng), Math.cos(bB.ang - forwardAng));
-
-      const branch1 = relA <= relB ? bA.edge : bB.edge;
-      const branch2 = relA <= relB ? bB.edge : bA.edge;
+      const branch1 = remaining[0].edge;
+      const branch2 = remaining[remaining.length - 1].edge;
 
       const sw = {
         id: genId(),
@@ -502,8 +504,8 @@
         branch1EdgeId: branch1.id,
         branch2EdgeId: branch2.id,
         activeBranch: 0,
-        bladeLength: 48,
-        smoothLength: 42,
+        bladeLength: 90,     // Увеличенная длина остряков по умолчанию
+        smoothLength: 90,    // Увеличенный плавный переход по умолчанию
         pos1Blade1Angle: 0,
         pos1Blade2Angle: 8,
         pos2Blade1Angle: 8,
@@ -688,7 +690,7 @@
         return;
       }
 
-      const trim = Math.min(len * 0.45, swOwner.smoothLength * 0.5);
+      const trim = Math.min(len * 0.48, swOwner.smoothLength * 0.5);
 
       if (role === 'entry') {
         drawTrackBallastAndSleepers(x1, y1, x2 - ux * trim, y2 - uy * trim, isSelected);
@@ -711,9 +713,8 @@
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
-        const innerStart = Math.min(len * 0.85, Math.max(trim, swOwner.bladeLength));
+        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength));
 
-        // Ветвь 1: левый рельс — внешний (плавное соединение), правый — внутренний (где остряк 2)
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * trim, ly1 + uy * trim);
           ctx.lineTo(lx2, ly2);
@@ -728,16 +729,15 @@
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
-        const innerStart = Math.min(len * 0.85, Math.max(trim, swOwner.bladeLength));
+        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength));
 
-        // Ветвь 2: правый рельс — внешний (плавное соединение), левый — внутренний (где остряк 1)
         strokeSteelRail(() => {
           ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
           ctx.lineTo(rx2, ry2);
         }, isSelected);
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
-          ctx.lineTo(lx2, ly2);
+          ctx.lineTo(lx2, ry2);
         }, isSelected);
       }
     }
@@ -773,12 +773,11 @@
       const nx2 = -uy2;
       const ny2 = ux2;
 
-      const trimIn = Math.min(dIn * 0.45, sw.smoothLength * 0.5);
-      const trim1 = Math.min(d1 * 0.45, sw.smoothLength * 0.5);
-      const trim2 = Math.min(d2 * 0.45, sw.smoothLength * 0.5);
+      const trimIn = Math.min(dIn * 0.48, sw.smoothLength * 0.5);
+      const trim1 = Math.min(d1 * 0.48, sw.smoothLength * 0.5);
+      const trim2 = Math.min(d2 * 0.48, sw.smoothLength * 0.5);
 
       // 1. ВНЕШНИЕ РЕЛЬСЫ (плавное соединение):
-      // Левый основного пути (+nx) плавно соединяется с левым пути 1 (+nx1)
       const inLeftX = (stem.x - uxIn * trimIn) + nxIn * halfG;
       const inLeftY = (stem.y - uyIn * trimIn) + nyIn * halfG;
       const b1OuterX = (stem.x + ux1 * trim1) + nx1 * halfG;
@@ -790,7 +789,6 @@
         ctx.quadraticCurveTo(cornerLeft.x, cornerLeft.y, b1OuterX, b1OuterY);
       }, sw.id === state.selectedSwitchId);
 
-      // Правый основного пути (-nx) плавно соединяется с правым пути 2 (-nx2)
       const inRightX = (stem.x - uxIn * trimIn) - nxIn * halfG;
       const inRightY = (stem.y - uyIn * trimIn) - nyIn * halfG;
       const b2OuterX = (stem.x + ux2 * trim2) - nx2 * halfG;
@@ -802,22 +800,20 @@
         ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b2OuterX, b2OuterY);
       }, sw.id === state.selectedSwitchId);
 
-      // 2. ОСТРЯКИ С СОВЕРШЕННО ПРАВИЛЬНЫМ ПОДКЛЮЧЕНИЕМ:
-      // Остряк 1 (левый/верхний) шарнирно соединен с внутренним рельсом Пути 2 (-nx2)
-      // Остряк 2 (правый/нижний) шарнирно соединен с внутренним рельсом Пути 1 (+nx1)
-      const bLen1 = Math.min(d1 * 0.85, Math.max(trim1 + 4, sw.bladeLength));
-      const bLen2 = Math.min(d2 * 0.85, Math.max(trim2 + 4, sw.bladeLength));
+      // 2. ДЛИННЫЕ И ПРОВЕРЕННЫЕ ОСТРЯКИ С ПРАВИЛЬНЫМ ПОДКЛЮЧЕНИЕМ:
+      const bLen1 = Math.min(d1 * 0.9, Math.max(trim1 + 6, sw.bladeLength));
+      const bLen2 = Math.min(d2 * 0.9, Math.max(trim2 + 6, sw.bladeLength));
 
-      const root1x = stem.x + ux1 * bLen1 - nx1 * halfG; // Корень 1-го остряка на внутренней нитке Пути 1
+      const root1x = stem.x + ux1 * bLen1 - nx1 * halfG;
       const root1y = stem.y + uy1 * bLen1 - ny1 * halfG;
 
-      const root2x = stem.x + ux2 * bLen2 + nx2 * halfG; // Корень 2-го остряка на внутренней нитке Пути 2
+      const root2x = stem.x + ux2 * bLen2 + nx2 * halfG;
       const root2y = stem.y + uy2 * bLen2 + ny2 * halfG;
 
-      const seat1x = stem.x + ux1 * 4 + nx1 * (halfG - 1.5); // Прижатие к левому внешнему рельсу Пути 1
+      const seat1x = stem.x + ux1 * 4 + nx1 * (halfG - 1.5);
       const seat1y = stem.y + uy1 * 4 + ny1 * (halfG - 1.5);
 
-      const seat2x = stem.x + ux2 * 4 - nx2 * (halfG - 1.5); // Прижатие к правому внешнему рельсу Пути 2
+      const seat2x = stem.x + ux2 * 4 - nx2 * (halfG - 1.5);
       const seat2y = stem.y + uy2 * 4 - ny2 * (halfG - 1.5);
 
       const baseAng1 = Math.atan2(seat1y - root1y, seat1x - root1x);
@@ -1356,11 +1352,11 @@
 
     document.getElementById('sb-blade-len').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.bladeLength = Math.max(12, parseFloat(e.target.value) || 48);
+      if (sw) sw.bladeLength = Math.max(12, parseFloat(e.target.value) || 90);
     });
     document.getElementById('sb-smooth-len').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.smoothLength = Math.max(10, parseFloat(e.target.value) || 42);
+      if (sw) sw.smoothLength = Math.max(10, parseFloat(e.target.value) || 90);
     });
 
     document.getElementById('sb-p1-b1').addEventListener('input', (e) => {
