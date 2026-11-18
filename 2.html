@@ -265,35 +265,22 @@
           <span>Смещение корня остряков (px):</span>
           <input type="number" id="sb-blade-offset" min="0" max="100" step="1" />
         </div>
-
-        <div class="pos-group">
-          <div class="pos-title">Положение 1 (на Путь 1) — углы остряков (°)</div>
-          <div class="row">
-            <span>Угол 1-го (верх/лев) остряка:</span>
-            <input type="number" id="sb-p1-b1" min="-45" max="45" step="0.5" />
-          </div>
-          <div class="row">
-            <span>Угол 2-го (низ/прав) остряка:</span>
-            <input type="number" id="sb-p1-b2" min="-45" max="45" step="0.5" />
-          </div>
+        <div class="row">
+          <span>Зазор отвода остряков (px):</span>
+          <input type="number" id="sb-blade-gap" min="2" max="16" step="0.5" />
         </div>
 
         <div class="pos-group">
-          <div class="pos-title">Положение 2 (на Путь 2) — углы остряков (°)</div>
-          <div class="row">
-            <span>Угол 1-го (верх/лев) остряка:</span>
-            <input type="number" id="sb-p2-b1" min="-45" max="45" step="0.5" />
-          </div>
-          <div class="row">
-            <span>Угол 2-го (низ/прав) остряка:</span>
-            <input type="number" id="sb-p2-b2" min="-45" max="45" step="0.5" />
+          <div class="pos-title">Параллельный ход остряков</div>
+          <div class="row" style="color:#94a3b8; font-size:11px;">
+            <span>Оба остряка связаны тягой и всегда параллельны друг другу.</span>
           </div>
         </div>
       </div>
     </div>
 
     <div id="hint">
-      <b>Сборка с нуля:</b> 1) Проложите 3 пересекающихся пути. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу. Шпалы теперь рисуются цельными под всей стрелкой без разрывов.
+      <b>Сборка с нуля:</b> 1) Проложите 3 пути. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу. Все рельсы отрисовываются поверх балласта и полностью видны, а остряки всегда движутся строго параллельно.
     </div>
   </div>
 
@@ -506,13 +493,10 @@
         branch1EdgeId: branch1.id,
         branch2EdgeId: branch2.id,
         activeBranch: 0,
-        bladeLength: 90,
-        smoothLength: 90,
-        bladeOffset: 15, // Смещение корня остряков внутрь ветвей для бесшовности шпал
-        pos1Blade1Angle: 0,
-        pos1Blade2Angle: 8,
-        pos2Blade1Angle: 8,
-        pos2Blade2Angle: 0
+        bladeLength: 55,
+        smoothLength: 55,
+        bladeOffset: 8,
+        bladeGap: 6
       };
 
       state.switches.push(sw);
@@ -576,12 +560,8 @@
           document.getElementById('sb-ang2').value = ((Math.atan2(n2.y - stem.y, n2.x - stem.x) * 180) / Math.PI).toFixed(1);
           document.getElementById('sb-blade-len').value = sw.bladeLength;
           document.getElementById('sb-smooth-len').value = sw.smoothLength;
-          document.getElementById('sb-blade-offset').value = sw.bladeOffset ?? 15;
-
-          document.getElementById('sb-p1-b1').value = sw.pos1Blade1Angle;
-          document.getElementById('sb-p1-b2').value = sw.pos1Blade2Angle;
-          document.getElementById('sb-p2-b1').value = sw.pos2Blade1Angle;
-          document.getElementById('sb-p2-b2').value = sw.pos2Blade2Angle;
+          document.getElementById('sb-blade-offset').value = sw.bladeOffset ?? 8;
+          document.getElementById('sb-blade-gap').value = sw.bladeGap ?? 6;
         } else {
           switchBlock.classList.remove('visible');
         }
@@ -616,9 +596,14 @@
       return { x: p1x + d1x * t, y: p1y + d1y * t };
     }
 
-    function drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected = false) {
-      const dx = x2 - x1;
-      const dy = y2 - y1;
+    // ПРОХОД 1: Отрисовка только балласта и шпал, чтобы они никогда не перекрывали стальные рельсы
+    function drawEdgeBallastOnly(edge) {
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      if (!a || !b) return;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
       const len = Math.hypot(dx, dy);
       if (len < 1) return;
 
@@ -627,13 +612,14 @@
       const nx = -uy;
       const ny = ux;
       const halfG = state.gauge / 2;
+      const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
 
       ctx.strokeStyle = isSelected ? '#334155' : '#1e293b';
       ctx.lineWidth = state.gauge + 16;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
       ctx.stroke();
 
       ctx.strokeStyle = '#475569';
@@ -641,15 +627,16 @@
       ctx.lineCap = 'butt';
       ctx.beginPath();
       for (let d = 6; d < len - 4; d += 12) {
-        const sx = x1 + ux * d;
-        const sy = y1 + uy * d;
+        const sx = a.x + ux * d;
+        const sy = a.y + uy * d;
         ctx.moveTo(sx + nx * (halfG + 5), sy + ny * (halfG + 5));
         ctx.lineTo(sx - nx * (halfG + 5), sy - ny * (halfG + 5));
       }
       ctx.stroke();
     }
 
-    function drawRailEdge(edge) {
+    // ПРОХОД 2: Отрисовка всех стальных рельсов поверх балласта (все рельсы полностью видны)
+    function drawEdgeRailsOnly(edge) {
       const a = getNode(edge.from);
       const b = getNode(edge.to);
       if (!a || !b) return;
@@ -684,7 +671,6 @@
       const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
 
       if (!swOwner) {
-        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
@@ -695,11 +681,9 @@
       }
 
       const trim = Math.min(len * 0.48, swOwner.smoothLength * 0.5);
-      const offset = swOwner.bladeOffset ?? 15;
+      const offset = swOwner.bladeOffset ?? 8;
 
       if (role === 'entry') {
-        // Сплошной балласт без разрывов до самого узла стрелки
-        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
@@ -714,33 +698,35 @@
           ctx.lineTo(rx2 - ux * trim, ry2 - uy * trim);
         }, isSelected);
       } else if (role === 'branch1') {
-        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
         const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
 
+        // Внешний левый рельс ветви 1
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * trim, ly1 + uy * trim);
           ctx.lineTo(lx2, ly2);
         }, isSelected);
+        // Внутренний правый рельс ветви 1 (от корня остряка до конца)
         strokeSteelRail(() => {
           ctx.moveTo(rx1 + ux * innerStart, ry1 + uy * innerStart);
           ctx.lineTo(rx2, ry2);
         }, isSelected);
       } else if (role === 'branch2') {
-        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
         const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
 
+        // Внешний правый рельс ветви 2
         strokeSteelRail(() => {
           ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
           ctx.lineTo(rx2, ry2);
         }, isSelected);
+        // Внутренний левый рельс ветви 2 (от корня остряка до конца)
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
           ctx.lineTo(lx2, ly2);
@@ -782,9 +768,10 @@
       const trimIn = Math.min(dIn * 0.48, sw.smoothLength * 0.5);
       const trim1 = Math.min(d1 * 0.48, sw.smoothLength * 0.5);
       const trim2 = Math.min(d2 * 0.48, sw.smoothLength * 0.5);
-      const offset = sw.bladeOffset ?? 15;
+      const offset = sw.bladeOffset ?? 8;
+      const gap = sw.bladeGap ?? 6;
 
-      // 1. ВНЕШНИЕ РЕЛЬСЫ (плавное соединение):
+      // 1. ВНЕШНИЕ РАМНЫЕ РЕЛЬСЫ (плавное соединение):
       const inLeftX = (stem.x - uxIn * trimIn) + nxIn * halfG;
       const inLeftY = (stem.y - uyIn * trimIn) + nyIn * halfG;
       const b1OuterX = (stem.x + ux1 * trim1) + nx1 * halfG;
@@ -807,41 +794,64 @@
         ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b2OuterX, b2OuterY);
       }, sw.id === state.selectedSwitchId);
 
-      // 2. ОСТРЯКИ СО СМЕЩЕННЫМ НАЧАЛОМ (параметр bladeOffset):
+      // 2. СТРОГО ПАРАЛЛЕЛЬНЫЕ ОСТРЯКИ (связанные переводной тягой):
       const bLen1 = Math.min(d1 * 0.9, Math.max(trim1 + 6, sw.bladeLength + offset));
       const bLen2 = Math.min(d2 * 0.9, Math.max(trim2 + 6, sw.bladeLength + offset));
 
+      // Корни остряков (шарниры на внутренних нитках)
       const root1x = stem.x + ux1 * bLen1 - nx1 * halfG;
       const root1y = stem.y + uy1 * bLen1 - ny1 * halfG;
 
       const root2x = stem.x + ux2 * bLen2 + nx2 * halfG;
       const root2y = stem.y + uy2 * bLen2 + ny2 * halfG;
 
-      // Начало остряков сдвинуто от узла на заданное расстояние (offset)
-      const seat1x = stem.x + ux1 * offset + nx1 * (halfG - 1.5);
-      const seat1y = stem.y + uy1 * offset + ny1 * (halfG - 1.5);
+      // Единое опорное направление остряков (средняя биссектриса между корнями и кончиками),
+      // чтобы оба остряка имели одинаковый угол и всегда были параллельны друг другу
+      const baseTip1x = stem.x + ux1 * offset + nx1 * (halfG - 1.5);
+      const baseTip1y = stem.y + uy1 * offset + ny1 * (halfG - 1.5);
 
-      const seat2x = stem.x + ux2 * offset - nx2 * (halfG - 1.5);
-      const seat2y = stem.y + uy2 * offset - ny2 * (halfG - 1.5);
+      const baseTip2x = stem.x + ux2 * offset - nx2 * (halfG - 1.5);
+      const baseTip2y = stem.y + uy2 * offset - ny2 * (halfG - 1.5);
 
-      const baseAng1 = Math.atan2(seat1y - root1y, seat1x - root1x);
-      const baseAng2 = Math.atan2(seat2y - root2y, seat2x - root2x);
+      const len1 = Math.hypot(baseTip1x - root1x, baseTip1y - root1y);
+      const len2 = Math.hypot(baseTip2x - root2x, baseTip2y - root2y);
 
-      const len1 = Math.hypot(seat1x - root1x, seat1y - root1y);
-      const len2 = Math.hypot(seat2x - root2x, seat2y - root2y);
+      // Направление остряка в Положении 1 (параллельно направлению на Путь 1) и в Положении 2 (на Путь 2)
+      const dir1Ang = Math.atan2(baseTip1y - root1y, baseTip1x - root1x);
+      const dir2Ang = Math.atan2(baseTip2y - root2y, baseTip2x - root2x);
 
-      const deg1 = sw.activeBranch === 0 ? sw.pos1Blade1Angle : sw.pos2Blade1Angle;
-      const deg2 = sw.activeBranch === 0 ? sw.pos1Blade2Angle : sw.pos2Blade2Angle;
+      // Вычисляем угол так, чтобы прижатый остряк плотно прилегал к рамному рельсу,
+      // а второй остряк стоял строго параллельно ему на расстоянии (колея - зазор)
+      const activeAng = sw.activeBranch === 0 ? dir1Ang : dir2Ang;
 
-      const curAng1 = baseAng1 - (deg1 * Math.PI) / 180;
-      const curAng2 = baseAng2 + (deg2 * Math.PI) / 180;
+      // Нормаль перпендикулярно остряку
+      const perpX = -Math.sin(activeAng);
+      const perpY = Math.cos(activeAng);
 
-      const tip1x = root1x + Math.cos(curAng1) * len1;
-      const tip1y = root1y + Math.sin(curAng1) * len1;
+      // В Положении 1 (на Путь 1): остряк 2 (нижний/правый) прижат к правому рамному рельсу (путь открыт на Путь 1),
+      // а остряк 1 (верхний/левый) отведен параллельно на зазор gap.
+      // В Положении 2 (на Путь 2): остряк 1 прижат к левому рамному рельсу, а остряк 2 отведен параллельно.
+      let tip1x, tip1y, tip2x, tip2y;
 
-      const tip2x = root2x + Math.cos(curAng2) * len2;
-      const tip2y = root2y + Math.sin(curAng2) * len2;
+      if (sw.activeBranch === 0) {
+        // Остряк 1 отведен от верхнего/левого рамного рельса на gap, параллелен остряку 2
+        tip1x = root1x + Math.cos(activeAng) * len1 - perpX * gap;
+        tip1y = root1y + Math.sin(activeAng) * len1 - perpY * gap;
 
+        // Остряк 2 прижат к нижнему/правому рамному рельсу
+        tip2x = root2x + Math.cos(activeAng) * len2;
+        tip2y = root2y + Math.sin(activeAng) * len2;
+      } else {
+        // Остряк 1 прижат к верхнему/левому рамному рельсу
+        tip1x = root1x + Math.cos(activeAng) * len1;
+        tip1y = root1y + Math.sin(activeAng) * len1;
+
+        // Остряк 2 отведен от нижнего/правого рамного рельса на gap, параллелен остряку 1
+        tip2x = root2x + Math.cos(activeAng) * len2 + perpX * gap;
+        tip2y = root2y + Math.sin(activeAng) * len2 + perpY * gap;
+      }
+
+      // Переводная тяга между остряками
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
@@ -849,6 +859,7 @@
       ctx.lineTo(tip2x, tip2y);
       ctx.stroke();
 
+      // Приводная коробка и тяга
       const boxX = Math.round(stem.x + ux2 * 6 - nx2 * (halfG + 18));
       const boxY = Math.round(stem.y + uy2 * 6 - ny2 * (halfG + 18));
       sw._boxX = boxX;
@@ -867,6 +878,7 @@
       ctx.fillRect(boxX - 6, boxY - 6, 12, 12);
       ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
 
+      // Стальные остряки
       strokeSteelRail(() => {
         ctx.moveTo(root1x, root1y);
         ctx.lineTo(tip1x, tip1y);
@@ -1011,10 +1023,17 @@
         ctx.stroke();
       }
 
+      // 1. Сначала рисуем балласт и шпалы всех путей
       for (const edge of state.edges) {
-        drawRailEdge(edge);
+        drawEdgeBallastOnly(edge);
       }
 
+      // 2. Затем рисуем ВСЕ стальные рельсы поверх балласта, чтобы ни один рельс не перекрывался
+      for (const edge of state.edges) {
+        drawEdgeRailsOnly(edge);
+      }
+
+      // 3. Рисуем стрелочные переводы и параллельные остряки поверх всего
       for (const sw of state.switches) {
         drawSwitchGeometryAndBlades(sw);
       }
@@ -1360,32 +1379,19 @@
 
     document.getElementById('sb-blade-len').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.bladeLength = Math.max(12, parseFloat(e.target.value) || 90);
+      if (sw) sw.bladeLength = Math.max(12, parseFloat(e.target.value) || 55);
     });
     document.getElementById('sb-smooth-len').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.smoothLength = Math.max(10, parseFloat(e.target.value) || 90);
+      if (sw) sw.smoothLength = Math.max(10, parseFloat(e.target.value) || 55);
     });
     document.getElementById('sb-blade-offset').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.bladeOffset = Math.max(0, parseFloat(e.target.value) || 15);
+      if (sw) sw.bladeOffset = Math.max(0, parseFloat(e.target.value) || 8);
     });
-
-    document.getElementById('sb-p1-b1').addEventListener('input', (e) => {
+    document.getElementById('sb-blade-gap').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.pos1Blade1Angle = parseFloat(e.target.value) || 0;
-    });
-    document.getElementById('sb-p1-b2').addEventListener('input', (e) => {
-      const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.pos1Blade2Angle = parseFloat(e.target.value) || 0;
-    });
-    document.getElementById('sb-p2-b1').addEventListener('input', (e) => {
-      const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.pos2Blade1Angle = parseFloat(e.target.value) || 0;
-    });
-    document.getElementById('sb-p2-b2').addEventListener('input', (e) => {
-      const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.pos2Blade2Angle = parseFloat(e.target.value) || 0;
+      if (sw) sw.bladeGap = Math.max(2, parseFloat(e.target.value) || 6);
     });
 
     document.getElementById('btn-reverse').addEventListener('click', () => {
