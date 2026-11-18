@@ -238,6 +238,10 @@
 
       <div id="switch-block" class="sub-block">
         <div class="row">
+        <span>Порядок ветвей:</span>
+        <button id="sb-swap-branches">⇄ Поменять ветви местами</button>
+      </div>
+        <div class="row">
           <b>Стрелка #<span id="sb-id">0</span></b>
           <button id="sb-toggle" style="background:#2563eb; font-weight:600;">Положение 1</button>
         </div>
@@ -1330,7 +1334,14 @@
       sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
       syncInspector();
     });
-
+    document.getElementById('sb-swap-branches').addEventListener('click', () => {
+     const sw = getSwitch(state.selectedSwitchId);
+     if (!sw) return;
+     const temp = sw.branch1EdgeId;
+     sw.branch1EdgeId = sw.branch2EdgeId;
+     sw.branch2EdgeId = temp;
+     syncInspector();
+});
     function updateSwitchBranchAngle(branchIndex, degVal) {
       const sw = getSwitch(state.selectedSwitchId);
       if (!sw) return;
