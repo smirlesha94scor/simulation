@@ -1,293 +1,1214 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Реалістична залізнична стрілка на JS</title>
-    <style>
-        body {
-            background-color: #1e1e1e;
-            color: #fff;
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0;
-            padding: 20px;
-        }
-        canvas {
-            background-color: #2b2b2b;
-            border: 2px solid #444;
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            cursor: pointer;
-        }
-        .controls {
-            margin-top: 15px;
-            display: flex;
-            gap: 15px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background: #007acc;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            transition: background 0.2s;
-        }
-        button:hover { background: #005999; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Редактор стрелочных переводов и путей</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      z-index: 10;
+    }
+    .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-right: 10px;
+      border-right: 1px solid #334155;
+    }
+    .group:last-child {
+      border-right: none;
+    }
+    button {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: #475569;
+    }
+    button.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    button.danger {
+      background: #7f1d1d;
+      border-color: #991b1b;
+    }
+    button.danger:hover {
+      background: #991b1b;
+    }
+    label {
+      font-size: 12px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    input[type="number"] {
+      width: 64px;
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 13px;
+    }
+    input[type="checkbox"] {
+      accent-color: #2563eb;
+    }
+    #canvas-wrap {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+    #hint {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #cbd5e1;
+      pointer-events: none;
+      line-height: 1.45;
+    }
+    #switch-panel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 12px;
+      width: 270px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    }
+    #switch-panel h3 {
+      font-size: 14px;
+      color: #f8fafc;
+      margin-bottom: 2px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
 </head>
 <body>
 
-    <h2>Симуляція залізничного стрілочного переводу</h2>
-    <canvas id="railwayCanvas" width="900" height="400"></canvas>
-    <div class="controls">
-        <button id="toggleSwitch">Перевести стрілку (Пробіл)</button>
-        <button id="spawnTrain">Запустити потяг</button>
+  <div id="toolbar">
+    <div class="group">
+      <button id="tool-track" class="active" title="Проложить рельсовый путь любой длины">🛤 Путь</button>
+      <button id="tool-switch" title="Поставить стрелочный перевод на узел или линию">🔀 Стрелка</button>
+      <button id="tool-select" title="Выделить узел, стрелку или путь">👆 Выбор / Стрелки</button>
+      <button id="tool-train" title="Поставить поезд на путь">🚆 Поезд</button>
+      <button id="tool-delete" class="danger" title="Удалить элемент">🗑 Удалить</button>
     </div>
 
-<script>
-const canvas = document.getElementById('railwayCanvas');
-const ctx = canvas.getContext('2d');
+    <div class="group">
+      <label>Колея (px):
+        <input type="number" id="gauge-input" value="18" min="10" max="40" step="1" />
+      </label>
+      <label>Угол ветки 1 (°):
+        <input type="number" id="angle1-input" value="0" min="-75" max="75" step="1" />
+      </label>
+      <label>Угол ветки 2 (°):
+        <input type="number" id="angle2-input" value="-22" min="-75" max="75" step="1" />
+      </label>
+      <label>Длина ветки:
+        <input type="number" id="branch-len-input" value="150" min="60" max="500" step="10" />
+      </label>
+    </div>
 
-// Налаштування колії
-const GAUGE = 28; // Ширина колії (відстань між рейками)
-const SLEEPERS_SPACING = 18; // Відстань між шпалами
+    <div class="group">
+      <label><input type="checkbox" id="snap-grid" checked /> Сетка 20px</label>
+      <button id="btn-reverse" title="Сменить направление поезда">⇄ Реверс</button>
+      <button id="btn-stop" title="Остановить / запустить поезд">⏯ Пауза</button>
+      <button id="btn-clear" class="danger">Очистить всё</button>
+    </div>
+  </div>
 
-// Стан стрілки: 0 - прямо (основна колія), 1 - на відгалуження
-let switchTargetState = 0; 
-let switchCurrentState = 0; // Для плавної анімації (від 0.0 до 1.0)
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
 
-// Масив потягів (візків)
-let trains = [];
+    <div id="switch-panel">
+      <h3>Настройка выбранной стрелки</h3>
+      <div class="row">
+        <span>Активное положение:</span>
+        <button id="sp-toggle">Положение 1</button>
+      </div>
+      <div class="row">
+        <span>Угол положения 1 (°):</span>
+        <input type="number" id="sp-angle1" min="-85" max="85" step="1" />
+      </div>
+      <div class="row">
+        <span>Угол положения 2 (°):</span>
+        <input type="number" id="sp-angle2" min="-85" max="85" step="1" />
+      </div>
+      <div class="row">
+        <span>Базовый поворот (°):</span>
+        <input type="number" id="sp-base-angle" min="-180" max="180" step="5" />
+      </div>
+      <div class="row">
+        <span>Длина переводной кривой:</span>
+        <input type="number" id="sp-len" min="60" max="500" step="10" />
+      </div>
+    </div>
 
-// Математичні функції для кривих Безьє
-function getQuadraticBezierPoint(t, p0, p1, p2) {
-    const x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x;
-    const y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y;
-    return { x, y };
-}
+    <div id="hint">
+      <b>Управление:</b> ЛКМ — поставить/соединить узел или переключить стрелку • ПКМ или Esc — отмена тянущегося пути • Колёсико — масштаб • Средняя кнопка (или Пробел + ЛКМ) — сдвиг камеры
+    </div>
+  </div>
 
-function getQuadraticBezierAngle(t, p0, p1, p2) {
-    const dx = 2 * (1 - t) * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
-    const dy = 2 * (1 - t) * (p1.y - p0.y) + 2 * t * (p2.y - p1.y);
-    return Math.atan2(dy, dx);
-}
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-// Геометрія шляхів (осьові лінії)
-const mainTrack = { p0: { x: 50, y: 250 }, p1: { x: 450, y: 250 }, p2: { x: 850, y: 250 } };
-const branchTrack = { p0: { x: 250, y: 250 }, p1: { x: 500, y: 250 }, p2: { x: 850, y: 100 } };
+    // Состояние редактора и симуляции
+    const state = {
+      tool: 'track', // 'track' | 'switch' | 'select' | 'train' | 'delete'
+      gauge: 18,     // Одинаковое расстояние между рельсами (ширина колеи)
+      snapGrid: true,
+      gridSize: 20,
 
-// Функція малювання шпал вздовж кривої
-function drawSleepers(track, startT = 0, endT = 1, count = 40) {
-    ctx.fillStyle = '#4a3b32'; // Колір дерев'яних шпал
-    for (let i = 0; i <= count; i++) {
-        const t = startT + (endT - startT) * (i / count);
-        const pt = getQuadraticBezierPoint(t, track.p0, track.p1, track.p2);
-        const angle = getQuadraticBezierAngle(t, track.p0, track.p1, track.p2);
+      nodes: [],     // { id, x, y }
+      edges: [],     // { id, from, to, switchId, branchIndex }
+      switches: [],  // { id, entryNodeId, stemNodeId, tipNode1, tipNode2, baseAngle, angle1, angle2, length, activeBranch: 0 | 1 }
 
-        ctx.save();
-        ctx.translate(pt.x, pt.y);
-        ctx.rotate(angle);
-        ctx.fillRect(-4, -GAUGE * 0.85, 8, GAUGE * 1.7);
-        ctx.restore();
+      selectedSwitchId: null,
+      selectedNodeId: null,
+      draggingNodeId: null,
+
+      // Рисование нового пути
+      draftStartNodeId: null,
+      mouseWorld: { x: 0, y: 0 },
+      hoverNodeId: null,
+      hoverEdgeId: null,
+      hoverSwitchId: null,
+
+      // Камера
+      camX: 0,
+      camY: 0,
+      zoom: 1,
+      isPanning: false,
+      panStart: { x: 0, y: 0 },
+      spacePressed: false,
+
+      // Поезд
+      train: null, // { edgeId, dist, dir: 1 | -1, speed: 110, paused: false }
+      nextId: 1
+    };
+
+    function genId() {
+      return state.nextId++;
     }
-}
 
-// Функція малювання двох паралельних рейок вздовж кривої
-function drawRails(track, startT = 0, endT = 1, steps = 50) {
-    ctx.strokeStyle = '#a0a5aa'; // Сталевий колір рейок
-    ctx.lineWidth = 3;
+    function resize() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
 
-    [-GAUGE / 2, GAUGE / 2].forEach(offset => {
+    // Преобразование координат
+    function screenToWorld(sx, sy) {
+      return {
+        x: (sx - state.camX) / state.zoom,
+        y: (sy - state.camY) / state.zoom
+      };
+    }
+
+    function snapPoint(x, y) {
+      // Сначала привязка к существующему узлу
+      const snapRadius = 14 / state.zoom;
+      for (const n of state.nodes) {
+        if (Math.hypot(n.x - x, n.y - y) <= snapRadius) {
+          return { x: n.x, y: n.y, nodeId: n.id };
+        }
+      }
+      if (state.snapGrid) {
+        return {
+          x: Math.round(x / state.gridSize) * state.gridSize,
+          y: Math.round(y / state.gridSize) * state.gridSize,
+          nodeId: null
+        };
+      }
+      return { x, y, nodeId: null };
+    }
+
+    function getNode(id) {
+      return state.nodes.find(n => n.id === id);
+    }
+
+    function getEdge(id) {
+      return state.edges.find(e => e.id === id);
+    }
+
+    function getSwitch(id) {
+      return state.switches.find(s => s.id === id);
+    }
+
+    function getOrCreateNode(x, y) {
+      for (const n of state.nodes) {
+        if (Math.hypot(n.x - x, n.y - y) < 2) return n;
+      }
+      const node = { id: genId(), x, y };
+      state.nodes.push(node);
+      return node;
+    }
+
+    function addEdge(fromId, toId, switchId = null, branchIndex = null) {
+      if (fromId === toId) return null;
+      const exists = state.edges.find(
+        e => (e.from === fromId && e.to === toId) || (e.from === toId && e.to === fromId)
+      );
+      if (exists) return exists;
+      const edge = {
+        id: genId(),
+        from: fromId,
+        to: toId,
+        switchId,
+        branchIndex
+      };
+      state.edges.push(edge);
+      return edge;
+    }
+
+    // Расчёт координат концов ветвей стрелки по заданным углам поворота
+    function updateSwitchGeometry(sw) {
+      const stem = getNode(sw.stemNodeId);
+      const tip1 = getNode(sw.tipNode1);
+      const tip2 = getNode(sw.tipNode2);
+      if (!stem || !tip1 || !tip2) return;
+
+      const rad1 = ((sw.baseAngle + sw.angle1) * Math.PI) / 180;
+      const rad2 = ((sw.baseAngle + sw.angle2) * Math.PI) / 180;
+
+      tip1.x = stem.x + Math.cos(rad1) * sw.length;
+      tip1.y = stem.y + Math.sin(rad1) * sw.length;
+
+      tip2.x = stem.x + Math.cos(rad2) * sw.length;
+      tip2.y = stem.y + Math.sin(rad2) * sw.length;
+
+      // Обновляем входной узел (ствол стрелки) по базовому углу
+      if (sw.entryNodeId) {
+        const entry = getNode(sw.entryNodeId);
+        if (entry) {
+          const entryRad = ((sw.baseAngle + 180) * Math.PI) / 180;
+          entry.x = stem.x + Math.cos(entryRad) * 50;
+          entry.y = stem.y + Math.sin(entryRad) * 50;
+        }
+      }
+    }
+
+    // Создание стрелочного перевода с заданными углами обоих положений
+    function createTurnout(x, y, baseAngleDeg = 0) {
+      const angle1 = parseFloat(document.getElementById('angle1-input').value) || 0;
+      const angle2 = parseFloat(document.getElementById('angle2-input').value) || -22;
+      const length = parseFloat(document.getElementById('branch-len-input').value) || 150;
+
+      const stemNode = getOrCreateNode(x, y);
+      const entryRad = ((baseAngleDeg + 180) * Math.PI) / 180;
+      const entryNode = getOrCreateNode(
+        x + Math.cos(entryRad) * 50,
+        y + Math.sin(entryRad) * 50
+      );
+
+      const tip1 = { id: genId(), x: 0, y: 0 };
+      const tip2 = { id: genId(), x: 0, y: 0 };
+      state.nodes.push(tip1, tip2);
+
+      const sw = {
+        id: genId(),
+        entryNodeId: entryNode.id,
+        stemNodeId: stemNode.id,
+        tipNode1: tip1.id,
+        tipNode2: tip2.id,
+        baseAngle: baseAngleDeg,
+        angle1,
+        angle2,
+        length,
+        activeBranch: 0 // 0 -> положение 1, 1 -> положение 2
+      };
+
+      updateSwitchGeometry(sw);
+      state.switches.push(sw);
+
+      // Входной участок + две ветви стрелки
+      addEdge(entryNode.id, stemNode.id, null, null);
+      addEdge(stemNode.id, tip1.id, sw.id, 0);
+      addEdge(stemNode.id, tip2.id, sw.id, 1);
+
+      selectSwitch(sw.id);
+      return sw;
+    }
+
+    // Преобразовать существующий узел (стык пути) в стрелку
+    function attachTurnoutToNode(nodeId) {
+      const node = getNode(nodeId);
+      if (!node) return;
+      // Проверяем, нет ли уже стрелки на этом узле
+      const existing = state.switches.find(s => s.stemNodeId === nodeId);
+      if (existing) {
+        existing.activeBranch = existing.activeBranch === 0 ? 1 : 0;
+        selectSwitch(existing.id);
+        return;
+      }
+
+      // Определяем базовый угол по подходящему ребру
+      const incEdge = state.edges.find(e => e.from === nodeId || e.to === nodeId);
+      let baseAngle = 0;
+      if (incEdge) {
+        const otherId = incEdge.from === nodeId ? incEdge.to : incEdge.from;
+        const other = getNode(otherId);
+        if (other) {
+          baseAngle = (Math.atan2(node.y - other.y, node.x - other.x) * 180) / Math.PI;
+        }
+      }
+
+      const angle1 = parseFloat(document.getElementById('angle1-input').value) || 0;
+      const angle2 = parseFloat(document.getElementById('angle2-input').value) || -22;
+      const length = parseFloat(document.getElementById('branch-len-input').value) || 150;
+
+      const tip1 = { id: genId(), x: 0, y: 0 };
+      const tip2 = { id: genId(), x: 0, y: 0 };
+      state.nodes.push(tip1, tip2);
+
+      const sw = {
+        id: genId(),
+        entryNodeId: null,
+        stemNodeId: node.id,
+        tipNode1: tip1.id,
+        tipNode2: tip2.id,
+        baseAngle,
+        angle1,
+        angle2,
+        length,
+        activeBranch: 0
+      };
+
+      updateSwitchGeometry(sw);
+      state.switches.push(sw);
+
+      addEdge(node.id, tip1.id, sw.id, 0);
+      addEdge(node.id, tip2.id, sw.id, 1);
+      selectSwitch(sw.id);
+    }
+
+    function selectSwitch(swId) {
+      state.selectedSwitchId = swId;
+      const panel = document.getElementById('switch-panel');
+      const sw = getSwitch(swId);
+      if (!sw) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'flex';
+      document.getElementById('sp-toggle').textContent =
+        sw.activeBranch === 0 ? 'Положение 1 (активно)' : 'Положение 2 (активно)';
+      document.getElementById('sp-angle1').value = sw.angle1;
+      document.getElementById('sp-angle2').value = sw.angle2;
+      document.getElementById('sp-base-angle').value = Math.round(sw.baseAngle);
+      document.getElementById('sp-len').value = sw.length;
+    }
+
+    // Удаление элементов
+    function deleteAtPoint(wx, wy) {
+      // Проверка стрелки
+      for (let i = state.switches.length - 1; i >= 0; i--) {
+        const sw = state.switches[i];
+        const stem = getNode(sw.stemNodeId);
+        if (stem && Math.hypot(stem.x - wx, stem.y - wy) < 18) {
+          state.edges = state.edges.filter(e => e.switchId !== sw.id);
+          state.switches.splice(i, 1);
+          if (state.selectedSwitchId === sw.id) selectSwitch(null);
+          cleanupOrphanNodes();
+          return;
+        }
+      }
+      // Проверка ребра
+      const edge = findNearestEdge(wx, wy, 14);
+      if (edge) {
+        state.edges = state.edges.filter(e => e.id !== edge.id);
+        if (state.train && state.train.edgeId === edge.id) state.train = null;
+        cleanupOrphanNodes();
+      }
+    }
+
+    function cleanupOrphanNodes() {
+      const used = new Set();
+      state.edges.forEach(e => {
+        used.add(e.from);
+        used.add(e.to);
+      });
+      state.nodes = state.nodes.filter(n => used.has(n.id));
+    }
+
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+      let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    function findNearestEdge(wx, wy, maxDist = 15) {
+      let best = null;
+      let bestD = maxDist;
+      for (const e of state.edges) {
+        const a = getNode(e.from);
+        const b = getNode(e.to);
+        if (!a || !b) continue;
+        const d = distToSegment(wx, wy, a.x, a.y, b.x, b.y);
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+        }
+      }
+      return best;
+    }
+
+    // Отрисовка рельсового пути с постоянной шириной колеи (state.gauge)
+    function drawTrackSegment(x1, y1, x2, y2, options = {}) {
+      const {
+        isSwitchBranch = false,
+        switchSide = 0, // 0 = верхняя/левая ветвь, 1 = нижняя/правая ветвь
+        isActiveBranch = true,
+        highlight = false
+      } = options;
+
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) return;
+
+      const ux = dx / len;
+      const uy = dy / len;
+      // Перпендикуляр (нормаль) влево от вектора пути
+      const nx = -uy;
+      const ny = ux;
+      const halfG = state.gauge / 2;
+
+      // 1. Балласт (щебень)
+      if (!isSwitchBranch) {
+        ctx.strokeStyle = highlight ? '#334155' : '#1e293b';
+        ctx.lineWidth = state.gauge + 16;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        for (let i = 0; i <= steps; i++) {
-            const t = startT + (endT - startT) * (i / steps);
-            const pt = getQuadraticBezierPoint(t, track.p0, track.p1, track.p2);
-            const angle = getQuadraticBezierAngle(t, track.p0, track.p1, track.p2);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
 
-            const rx = pt.x - Math.sin(angle) * offset;
-            const ry = pt.y + Math.cos(angle) * offset;
+      // 2. Шпалы (перпендикулярно оси пути с постоянным шагом)
+      const sleeperStep = 12;
+      const sleeperHalfLen = halfG + 5;
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      for (let d = 6; d < len - 4; d += sleeperStep) {
+        const sx = x1 + ux * d;
+        const sy = y1 + uy * d;
+        ctx.moveTo(sx + nx * sleeperHalfLen, sy + ny * sleeperHalfLen);
+        ctx.lineTo(sx - nx * sleeperHalfLen, sy - ny * sleeperHalfLen);
+      }
+      ctx.stroke();
 
-            if (i === 0) ctx.moveTo(rx, ry);
-            else ctx.lineTo(rx, ry);
+      // 3. Рельсы (всегда строго на расстоянии state.gauge друг от друга)
+      const drawRailLine = (ax, ay, bx, by, isBlade = false) => {
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = isBlade ? 3.2 : 3.6;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+
+        ctx.strokeStyle = highlight
+          ? '#60a5fa'
+          : isBlade
+          ? isActiveBranch
+            ? '#f8fafc'
+            : '#94a3b8'
+          : '#e2e8f0';
+        ctx.lineWidth = isBlade ? 1.6 : 1.8;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      };
+
+      // Координаты левой и правой рельсовых ниток
+      const lx1 = x1 + nx * halfG;
+      const ly1 = y1 + ny * halfG;
+      const lx2 = x2 + nx * halfG;
+      const ly2 = y2 + ny * halfG;
+
+      const rx1 = x1 - nx * halfG;
+      const ry1 = y1 - ny * halfG;
+      const rx2 = x2 - nx * halfG;
+      const ry2 = y2 - ny * halfG;
+
+      if (!isSwitchBranch) {
+        // Обычный путь — оба рельса цельные от начала до конца
+        drawRailLine(lx1, ly1, lx2, ly2);
+        drawRailLine(rx1, ry1, rx2, ry2);
+      } else {
+        // Ветвь стрелочного перевода:
+        // Внешний рамный рельс — цельный, внутренний рельс начинается после зоны остряка
+        const rootOffset = Math.min(len * 0.28, 42);
+        if (switchSide === 0) {
+          // Левая ветвь: левый рельс — цельный рамный, правый — внутренний от корня остряка
+          drawRailLine(lx1, ly1, lx2, ly2);
+          drawRailLine(
+            rx1 + ux * rootOffset,
+            ry1 + uy * rootOffset,
+            rx2,
+            ry2
+          );
+        } else {
+          // Правая ветвь: правый рельс — цельный рамный, левый — внутренний от корня остряка
+          drawRailLine(rx1, ry1, rx2, ry2);
+          drawRailLine(
+            lx1 + ux * rootOffset,
+            ly1 + uy * rootOffset,
+            lx2,
+            ly2
+          );
+        }
+      }
+    }
+
+    // Отрисовка связанных внутренних остряков («лепестков») стрелки
+    function drawSwitchBlades(sw) {
+      const stem = getNode(sw.stemNodeId);
+      const tip1 = getNode(sw.tipNode1);
+      const tip2 = getNode(sw.tipNode2);
+      if (!stem || !tip1 || !tip2) return;
+
+      // Определяем, какая ветвь левее (меньший угол), а какая правее (больший угол)
+      const a1 = sw.angle1;
+      const a2 = sw.angle2;
+      const leftIsBranch0 = a1 <= a2;
+
+      const leftTip = leftIsBranch0 ? tip1 : tip2;
+      const rightTip = leftIsBranch0 ? tip2 : tip1;
+      const leftActive = leftIsBranch0 ? sw.activeBranch === 0 : sw.activeBranch === 1;
+      const rightActive = !leftActive;
+
+      const halfG = state.gauge / 2;
+      const bladeLen = Math.min(sw.length * 0.28, 42);
+      const throwGap = Math.max(4.5, state.gauge * 0.28); // Зазор отведённого остряка
+
+      // Векторы обеих ветвей
+      const dL = Math.hypot(leftTip.x - stem.x, leftTip.y - stem.y) || 1;
+      const uxL = (leftTip.x - stem.x) / dL;
+      const uyL = (leftTip.y - stem.y) / dL;
+      const nxL = -uyL;
+      const nyL = uxL;
+
+      const dR = Math.hypot(rightTip.x - stem.x, rightTip.y - stem.y) || 1;
+      const uxR = (rightTip.x - stem.x) / dR;
+      const uyR = (rightTip.y - stem.y) / dR;
+      const nxR = -uyR;
+      const nyR = uxR;
+
+      // Корни остряков (на внутренних нитках)
+      const rootLx = stem.x + uxL * bladeLen - nxL * halfG;
+      const rootLy = stem.y + uyL * bladeLen - nyL * halfG;
+
+      const rootRx = stem.x + uxR * bladeLen + nxR * halfG;
+      const rootRy = stem.y + uyR * bladeLen + nyR * halfG;
+
+      // Кончики остряков (острия):
+      // Прижатый остряк касается своего рамного рельса, отведённый смещён внутрь на throwGap
+      const tipOffsetL = leftActive ? 1.5 : throwGap;
+      const tipLx = stem.x + uxL * 4 + nxL * (halfG - tipOffsetL);
+      const tipLy = stem.y + uyL * 4 + nyL * (halfG - tipOffsetL);
+
+      const tipOffsetR = rightActive ? 1.5 : throwGap;
+      const tipRx = stem.x + uxR * 4 - nxR * (halfG - tipOffsetR);
+      const tipRy = stem.y + uyR * 4 - nyR * (halfG - tipOffsetR);
+
+      // 1. Межостряковая переводная тяга (жёстко связывает оба остряка)
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(tipLx, tipLy);
+      ctx.lineTo(tipRx, tipRy);
+      ctx.stroke();
+
+      // Поводок к переводному механизму сбоку
+      const boxOffset = halfG + 14;
+      const boxX = stem.x + uxR * 6 - nxR * boxOffset;
+      const boxY = stem.y + uyR * 6 - nyR * boxOffset;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tipRx, tipRy);
+      ctx.lineTo(boxX, boxY);
+      ctx.stroke();
+
+      // Корпус привода стрелки
+      ctx.fillStyle = sw.id === state.selectedSwitchId ? '#2563eb' : '#334155';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(boxX - 5, boxY - 5, 10, 10);
+      ctx.strokeRect(boxX - 5, boxY - 5, 10, 10);
+
+      // 2. Отрисовка обоих стальных остряков
+      const drawBlade = (x1, y1, x2, y2) => {
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      };
+
+      drawBlade(rootLx, rootLy, tipLx, tipLy);
+      drawBlade(rootRx, rootRy, tipRx, tipRy);
+    }
+
+    // Движение поезда по графу путей и стрелок
+    function updateTrain(dt) {
+      if (!state.train || state.train.paused) return;
+      let edge = getEdge(state.train.edgeId);
+      if (!edge) {
+        state.train = null;
+        return;
+      }
+
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+
+      state.train.dist += state.train.speed * state.train.dir * dt;
+
+      // Переход на следующий участок пути
+      while (state.train && (state.train.dist > len || state.train.dist < 0)) {
+        const forward = state.train.dist > len;
+        const overflow = forward ? state.train.dist - len : -state.train.dist;
+        const arrivalNodeId = forward ? edge.to : edge.from;
+
+        // Ищем доступные выходящие рёбра из узла arrivalNodeId
+        const candidates = state.edges.filter(
+          e => e.id !== edge.id && (e.from === arrivalNodeId || e.to === arrivalNodeId)
+        );
+
+        if (candidates.length === 0) {
+          // Тупик — автоматический реверс
+          state.train.dir *= -1;
+          state.train.dist = Math.max(0, Math.min(len, state.train.dist));
+          break;
+        }
+
+        // Проверяем, является ли узел стволом стрелки (движение пошёрстно или противошёрстно)
+        const swAtNode = state.switches.find(s => s.stemNodeId === arrivalNodeId);
+        let nextEdge = null;
+
+        if (swAtNode) {
+          // Если поезд заходит со ствола на ветви — выбираем активную ветвь стрелки
+          const branchEdges = candidates.filter(e => e.switchId === swAtNode.id);
+          if (branchEdges.length > 0 && edge.switchId !== swAtNode.id) {
+            nextEdge =
+              branchEdges.find(e => e.branchIndex === swAtNode.activeBranch) ||
+              branchEdges[0];
+          } else {
+            // Поезд выходит с одной из ветвей на ствол стрелки
+            nextEdge =
+              candidates.find(e => e.switchId !== swAtNode.id) || candidates[0];
+          }
+        } else {
+          nextEdge = candidates[0];
+        }
+
+        edge = nextEdge;
+        state.train.edgeId = edge.id;
+        const na = getNode(edge.from);
+        const nb = getNode(edge.to);
+        const nextLen = Math.hypot(nb.x - na.x, nb.y - na.y) || 1;
+
+        if (edge.from === arrivalNodeId) {
+          state.train.dir = 1;
+          state.train.dist = overflow;
+        } else {
+          state.train.dir = -1;
+          state.train.dist = nextLen - overflow;
+        }
+      }
+    }
+
+    function drawTrain() {
+      if (!state.train) return;
+      const edge = getEdge(state.train.edgeId);
+      if (!edge) return;
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const t = Math.max(0, Math.min(1, state.train.dist / len));
+
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const angle = Math.atan2(b.y - a.y, b.x - a.x) + (state.train.dir < 0 ? Math.PI : 0);
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      const bodyW = 46;
+      const bodyH = state.gauge + 6;
+
+      // Тень
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(-bodyW / 2 + 2, -bodyH / 2 + 3, bodyW, bodyH);
+
+      // Кузов локомотива
+      ctx.fillStyle = '#dc2626';
+      ctx.strokeStyle = '#fca5a5';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Крыша и кабина
+      ctx.fillStyle = '#991b1b';
+      ctx.fillRect(-bodyW / 2 + 6, -bodyH / 2 + 3, bodyW - 14, bodyH - 6);
+
+      // Прожектор спереди
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(bodyW / 2 - 2, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // Главный цикл рендеринга
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      updateTrain(dt);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(state.camX, state.camY);
+      ctx.scale(state.zoom, state.zoom);
+
+      // Сетка
+      if (state.snapGrid) {
+        const startX = Math.floor(-state.camX / state.zoom / state.gridSize) * state.gridSize;
+        const startY = Math.floor(-state.camY / state.zoom / state.gridSize) * state.gridSize;
+        const endX = startX + canvas.width / state.zoom + state.gridSize * 2;
+        const endY = startY + canvas.height / state.zoom + state.gridSize * 2;
+
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)';
+        ctx.lineWidth = 1 / state.zoom;
+        ctx.beginPath();
+        for (let gx = startX; gx < endX; gx += state.gridSize) {
+          ctx.moveTo(gx, startY);
+          ctx.lineTo(gx, endY);
+        }
+        for (let gy = startY; gy < endY; gy += state.gridSize) {
+          ctx.moveTo(startX, gy);
+          ctx.lineTo(endX, gy);
         }
         ctx.stroke();
-    });
-}
+      }
 
-// Малювання рухомих вістряків (найважливіша частина реалізму)
-function drawSwitchBlades() {
-    // Початок вістряків (x = 250) та їхня довжина (до x = 350)
-    const startX = 250;
-    const endX = 350;
-    const baseY = 250;
+      // 1. Отрисовка обычных путей
+      for (const e of state.edges) {
+        if (e.switchId !== null) continue;
+        const a = getNode(e.from);
+        const b = getNode(e.to);
+        if (!a || !b) continue;
+        drawTrackSegment(a.x, a.y, b.x, b.y, {
+          highlight: e.id === state.hoverEdgeId
+        });
+      }
 
-    // Зміщення кінчиків вістряків залежно від стану стрілки
-    // Коли 0 (прямо): верхній вістряк відведений від рамної рейки, нижній притиснутий
-    // Коли 1 (бокова): верхній вістряк притиснутий, нижній відведений
-    const throwGap = 6; // Зазор між вістряком і рамною рейкою
+      // 2. Отрисовка ветвей стрелочных переводов
+      for (const sw of state.switches) {
+        const stem = getNode(sw.stemNodeId);
+        const tip1 = getNode(sw.tipNode1);
+        const tip2 = getNode(sw.tipNode2);
+        if (!stem || !tip1 || !tip2) continue;
 
-    // Верхня рейка (y = baseY - GAUGE/2)
-    const topRailY = baseY - GAUGE / 2;
-    const topBladeTipY = topRailY + (1 - switchCurrentState) * throwGap;
+        const leftIsBranch0 = sw.angle1 <= sw.angle2;
+        drawTrackSegment(stem.x, stem.y, tip1.x, tip1.y, {
+          isSwitchBranch: true,
+          switchSide: leftIsBranch0 ? 0 : 1,
+          isActiveBranch: sw.activeBranch === 0,
+          highlight: sw.id === state.selectedSwitchId
+        });
+        drawTrackSegment(stem.x, stem.y, tip2.x, tip2.y, {
+          isSwitchBranch: true,
+          switchSide: leftIsBranch0 ? 1 : 0,
+          isActiveBranch: sw.activeBranch === 1,
+          highlight: sw.id === state.selectedSwitchId
+        });
 
-    // Нижня рейка (y = baseY + GAUGE/2)
-    const bottomRailY = baseY + GAUGE / 2;
-    const bottomBladeTipY = bottomRailY - switchCurrentState * throwGap;
+        // Связанные остряки
+        drawSwitchBlades(sw);
+      }
 
-    // Малюємо тягу (з'єднує обидва вістряки)
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(startX + 15, topBladeTipY);
-    ctx.lineTo(startX + 15, bottomBladeTipY);
-    ctx.stroke();
+      // 3. Предпросмотр тянущегося пути
+      if (state.tool === 'track' && state.draftStartNodeId !== null) {
+        const startNode = getNode(state.draftStartNodeId);
+        if (startNode) {
+          const snapped = snapPoint(state.mouseWorld.x, state.mouseWorld.y);
+          ctx.save();
+          ctx.globalAlpha = 0.65;
+          drawTrackSegment(startNode.x, startNode.y, snapped.x, snapped.y, {
+            highlight: true
+          });
+          ctx.restore();
+        }
+      }
 
-    // Малюємо самі вістряки (загострені рейки)
-    ctx.strokeStyle = '#ff9800'; // Підсвічуємо рухомі елементи для наочності
-    ctx.lineWidth = 3;
+      // 4. Узлы стыков
+      for (const n of state.nodes) {
+        const isSwitchStem = state.switches.some(s => s.stemNodeId === n.id);
+        const isHover = n.id === state.hoverNodeId;
+        ctx.fillStyle = isSwitchStem
+          ? '#f59e0b'
+          : isHover
+          ? '#38bdf8'
+          : '#64748b';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, isSwitchStem ? 5 : 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-    // Верхній вістряк (кріпиться в кінці на бокову колію)
-    const branchPt = getQuadraticBezierPoint(0.18, branchTrack.p0, branchTrack.p1, branchTrack.p2);
-    ctx.beginPath();
-    ctx.moveTo(startX, topBladeTipY);
-    ctx.lineTo(endX, branchPt.y - GAUGE / 2);
-    ctx.stroke();
+      // 5. Поезд
+      drawTrain();
 
-    // Нижній вістряк (кріпиться в кінці на пряму колію)
-    ctx.beginPath();
-    ctx.moveTo(startX, bottomBladeTipY);
-    ctx.lineTo(endX, bottomRailY);
-    ctx.stroke();
-
-    // Світлофорний індикатор біля стрілки
-    ctx.fillStyle = switchTargetState === 0 ? '#4caf50' : '#ffeb3b';
-    ctx.beginPath();
-    ctx.arc(startX, baseY + 45, 7, 0, Math.PI * 2);
-    ctx.fill();
-}
-
-// Клас для потяга
-class Train {
-    constructor() {
-        this.x = 50;
-        this.y = 250;
-        this.speed = 3;
-        this.route = null; // Визначається в момент проїзду стрілки
-        this.branchT = 0;
-        this.angle = 0;
+      ctx.restore();
+      requestAnimationFrame(loop);
     }
+    requestAnimationFrame(loop);
 
-    update() {
-        // Якщо потяг ще не доїхав до стрілки (x < 250)
-        if (this.x < 250) {
-            this.x += this.speed;
-            this.angle = 0;
+    // События мыши и клавиатуры
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
+      if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
+        state.isPanning = true;
+        state.panStart = { x: sx - state.camX, y: sy - state.camY };
+        return;
+      }
+
+      if (e.button === 2) {
+        state.draftStartNodeId = null;
+        return;
+      }
+
+      if (e.button !== 0) return;
+
+      const world = screenToWorld(sx, sy);
+      const snapped = snapPoint(world.x, world.y);
+
+      if (state.tool === 'track') {
+        if (state.draftStartNodeId === null) {
+          const node = snapped.nodeId
+            ? getNode(snapped.nodeId)
+            : getOrCreateNode(snapped.x, snapped.y);
+          state.draftStartNodeId = node.id;
         } else {
-            // Фіксуємо маршрут у момент наїзду на вістряки
-            if (this.route === null) {
-                this.route = switchTargetState; 
-            }
-
-            if (this.route === 0) {
-                // Рух прямо
-                this.x += this.speed;
-                this.angle = 0;
-            } else {
-                // Рух по кривій Безьє (відгалуження)
-                this.branchT += 0.0052; // Підібрана швидкість для плавності
-                const pt = getQuadraticBezierPoint(this.branchT, branchTrack.p0, branchTrack.p1, branchTrack.p2);
-                this.angle = getQuadraticBezierAngle(this.branchT, branchTrack.p0, branchTrack.p1, branchTrack.p2);
-                this.x = pt.x;
-                this.y = pt.y;
-            }
+          const endNode = snapped.nodeId
+            ? getNode(snapped.nodeId)
+            : getOrCreateNode(snapped.x, snapped.y);
+          addEdge(state.draftStartNodeId, endNode.id);
+          // Продолжаем цепочку путей от нового конца
+          state.draftStartNodeId = endNode.id;
         }
-    }
-
-    draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-
-        // Тінь вагона
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(-38, -14, 80, 32);
-
-        // Корпус локомотива
-        ctx.fillStyle = '#d32f2f';
-        ctx.fillRect(-40, -16, 80, 32);
-
-        // Кабіна та деталі
-        ctx.fillStyle = '#ffcdd2';
-        ctx.fillRect(20, -12, 12, 24);
-        ctx.fillStyle = '#212121';
-        ctx.fillRect(-30, -10, 40, 20);
-
-        ctx.restore();
-    }
-}
-
-// Головний цикл рендерингу
-function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Плавна анімація переведення стрілки
-    switchCurrentState += (switchTargetState - switchCurrentState) * 0.15;
-
-    // 1. Малюємо шпали
-    drawSleepers(mainTrack, 0, 1, 45);
-    drawSleepers(branchTrack, 0.15, 1, 35); // Починаємо трохи далі, щоб не накладалися
-
-    // 2. Малюємо основні рамні рейки
-    drawRails(mainTrack, 0, 1);
-    drawRails(branchTrack, 0.16, 1);
-
-    // 3. Малюємо рухомі вістряки поверх
-    drawSwitchBlades();
-
-    // 4. Оновлюємо та малюємо потяги
-    trains.forEach((train, index) => {
-        train.update();
-        train.draw();
-        // Видаляємо потяг, якщо виїхав за межі екрана
-        if (train.x > canvas.width + 50 || train.y < -50) {
-            trains.splice(index, 1);
+      } else if (state.tool === 'switch') {
+        if (snapped.nodeId) {
+          attachTurnoutToNode(snapped.nodeId);
+        } else {
+          createTurnout(snapped.x, snapped.y, 0);
         }
+      } else if (state.tool === 'select') {
+        // Проверяем клик по стрелке (переключение или выбор)
+        for (const sw of state.switches) {
+          const stem = getNode(sw.stemNodeId);
+          if (stem && Math.hypot(stem.x - world.x, stem.y - world.y) < 22) {
+            sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
+            selectSwitch(sw.id);
+            return;
+          }
+        }
+        // Перетаскивание обычного узла
+        if (snapped.nodeId) {
+          const isBranchTip = state.switches.some(
+            s => s.tipNode1 === snapped.nodeId || s.tipNode2 === snapped.nodeId
+          );
+          if (!isBranchTip) {
+            state.draggingNodeId = snapped.nodeId;
+          }
+        } else {
+          selectSwitch(null);
+        }
+      } else if (state.tool === 'train') {
+        const edge = findNearestEdge(world.x, world.y, 20);
+        if (edge) {
+          const a = getNode(edge.from);
+          const b = getNode(edge.to);
+          const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          state.train = {
+            edgeId: edge.id,
+            dist: len * 0.5,
+            dir: 1,
+            speed: 120,
+            paused: false
+          };
+        }
+      } else if (state.tool === 'delete') {
+        deleteAtPoint(world.x, world.y);
+      }
     });
 
-    requestAnimationFrame(animate);
-}
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
 
-// Керування
-function toggleSwitch() {
-    // Забороняємо переводити стрілку, якщо на ній зараз знаходиться потяг (захист від сходу з рейок)
-    const trainOnSwitch = trains.some(t => t.x > 220 && t.x < 380);
-    if (!trainOnSwitch) {
-        switchTargetState = switchTargetState === 0 ? 1 : 0;
-    } else {
-        console.warn("Стрілка зайнята потягом! Переведення заблоковано.");
+      if (state.isPanning) {
+        state.camX = sx - state.panStart.x;
+        state.camY = sy - state.panStart.y;
+        return;
+      }
+
+      const world = screenToWorld(sx, sy);
+      state.mouseWorld = world;
+
+      if (state.draggingNodeId !== null) {
+        const node = getNode(state.draggingNodeId);
+        if (node) {
+          const snapped = state.snapGrid
+            ? {
+                x: Math.round(world.x / state.gridSize) * state.gridSize,
+                y: Math.round(world.y / state.gridSize) * state.gridSize
+              }
+            : world;
+          node.x = snapped.x;
+          node.y = snapped.y;
+
+          // Если перетаскивается узел-ствол стрелки, обновляем ветви
+          const sw = state.switches.find(s => s.stemNodeId === node.id);
+          if (sw) updateSwitchGeometry(sw);
+        }
+        return;
+      }
+
+      // Подсветка при наведении
+      state.hoverNodeId = null;
+      for (const n of state.nodes) {
+        if (Math.hypot(n.x - world.x, n.y - world.y) < 12) {
+          state.hoverNodeId = n.id;
+          break;
+        }
+      }
+      const nearEdge = findNearestEdge(world.x, world.y, 12);
+      state.hoverEdgeId = nearEdge ? nearEdge.id : null;
+    });
+
+    window.addEventListener('mouseup', () => {
+      state.isPanning = false;
+      state.draggingNodeId = null;
+    });
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const before = screenToWorld(sx, sy);
+
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      state.zoom = Math.max(0.3, Math.min(3.0, state.zoom * factor));
+
+      state.camX = sx - before.x * state.zoom;
+      state.camY = sy - before.y * state.zoom;
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') state.spacePressed = true;
+      if (e.key === 'Escape') state.draftStartNodeId = null;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') state.spacePressed = false;
+    });
+
+    // Кнопки панели инструментов
+    const toolButtons = {
+      track: document.getElementById('tool-track'),
+      switch: document.getElementById('tool-switch'),
+      select: document.getElementById('tool-select'),
+      train: document.getElementById('tool-train'),
+      delete: document.getElementById('tool-delete')
+    };
+
+    function setTool(name) {
+      state.tool = name;
+      state.draftStartNodeId = null;
+      Object.entries(toolButtons).forEach(([k, btn]) => {
+        btn.classList.toggle('active', k === name);
+      });
     }
-}
 
-document.getElementById('toggleSwitch').addEventListener('click', toggleSwitch);
-canvas.addEventListener('click', toggleSwitch);
-window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        e.preventDefault();
-        toggleSwitch();
+    Object.entries(toolButtons).forEach(([k, btn]) => {
+      btn.addEventListener('click', () => setTool(k));
+    });
+
+    document.getElementById('gauge-input').addEventListener('input', (e) => {
+      state.gauge = Math.max(8, Math.min(50, parseFloat(e.target.value) || 18));
+    });
+
+    document.getElementById('snap-grid').addEventListener('change', (e) => {
+      state.snapGrid = e.target.checked;
+    });
+
+    document.getElementById('btn-reverse').addEventListener('click', () => {
+      if (state.train) state.train.dir *= -1;
+    });
+
+    document.getElementById('btn-stop').addEventListener('click', () => {
+      if (state.train) state.train.paused = !state.train.paused;
+    });
+
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      state.nodes = [];
+      state.edges = [];
+      state.switches = [];
+      state.train = null;
+      state.draftStartNodeId = null;
+      selectSwitch(null);
+    });
+
+    // События панели редактирования выбранной стрелки
+    document.getElementById('sp-toggle').addEventListener('click', () => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
+      selectSwitch(sw.id);
+    });
+
+    document.getElementById('sp-angle1').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.angle1 = parseFloat(e.target.value) || 0;
+      updateSwitchGeometry(sw);
+    });
+
+    document.getElementById('sp-angle2').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.angle2 = parseFloat(e.target.value) || 0;
+      updateSwitchGeometry(sw);
+    });
+
+    document.getElementById('sp-base-angle').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.baseAngle = parseFloat(e.target.value) || 0;
+      updateSwitchGeometry(sw);
+    });
+
+    document.getElementById('sp-len').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.length = Math.max(40, parseFloat(e.target.value) || 150);
+      updateSwitchGeometry(sw);
+    });
+
+    // Стартовый пример разъезда из двух стрелок на экране
+    function initDemo() {
+      const nLeft = getOrCreateNode(140, 320);
+      const swIn = createTurnout(260, 320, 0);
+      addEdge(nLeft.id, swIn.entryNodeId);
+
+      // Задаём углы входной стрелки: 0° (прямо) и -25° (на верхний путь)
+      swIn.angle1 = 0;
+      swIn.angle2 = -25;
+      swIn.length = 160;
+      updateSwitchGeometry(swIn);
+
+      // Продолжаем оба пути вдоль станции
+      const tip1 = getNode(swIn.tipNode1);
+      const tip2 = getNode(swIn.tipNode2);
+      const mid1 = getOrCreateNode(tip1.x + 220, tip1.y);
+      const mid2 = getOrCreateNode(tip2.x + 220, tip2.y);
+      addEdge(tip1.id, mid1.id);
+      addEdge(tip2.id, mid2.id);
+
+      selectSwitch(swIn.id);
     }
-});
 
-document.getElementById('spawnTrain').addEventListener('click', () => {
-    trains.push(new Train());
-});
-
-// Запуск симуляції та першого потяга
-trains.push(new Train());
-animate();
-</script>
+    initDemo();
+  </script>
 </body>
 </html>
