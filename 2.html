@@ -261,6 +261,10 @@
           <span>Плавный переход (px):</span>
           <input type="number" id="sb-smooth-len" min="10" max="250" step="1" />
         </div>
+        <div class="row">
+          <span>Смещение корня остряков (px):</span>
+          <input type="number" id="sb-blade-offset" min="0" max="100" step="1" />
+        </div>
 
         <div class="pos-group">
           <div class="pos-title">Положение 1 (на Путь 1) — углы остряков (°)</div>
@@ -289,7 +293,7 @@
     </div>
 
     <div id="hint">
-      <b>Сборка с нуля:</b> 1) Проложите 3 пути с пересечением в узле (входной путь и 2 пересекающихся отводящих пути). 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу.
+      <b>Сборка с нуля:</b> 1) Проложите 3 пересекающихся пути. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу. Шпалы теперь рисуются цельными под всей стрелкой без разрывов.
     </div>
   </div>
 
@@ -468,7 +472,6 @@
         return { edge, other, ang };
       });
 
-      // Определяем входной ствол и две ветви с поддержкой пересекающихся путей
       let bestEntryIdx = 0;
       let bestScore = -Infinity;
       for (let i = 0; i < dirs.length; i++) {
@@ -487,7 +490,6 @@
       const entryItem = dirs[bestEntryIdx];
       const remaining = dirs.filter((_, idx) => idx !== bestEntryIdx);
       
-      // Сортируем оставшиеся отводящие пути по углу относительно ствола
       remaining.sort((a, b) => {
         const fA = Math.atan2(Math.sin(a.ang - (entryItem.ang + Math.PI)), Math.cos(a.ang - (entryItem.ang + Math.PI)));
         const fB = Math.atan2(Math.sin(b.ang - (entryItem.ang + Math.PI)), Math.cos(b.ang - (entryItem.ang + Math.PI)));
@@ -504,8 +506,9 @@
         branch1EdgeId: branch1.id,
         branch2EdgeId: branch2.id,
         activeBranch: 0,
-        bladeLength: 90,     // Увеличенная длина остряков по умолчанию
-        smoothLength: 90,    // Увеличенный плавный переход по умолчанию
+        bladeLength: 90,
+        smoothLength: 90,
+        bladeOffset: 15, // Смещение корня остряков внутрь ветвей для бесшовности шпал
         pos1Blade1Angle: 0,
         pos1Blade2Angle: 8,
         pos2Blade1Angle: 8,
@@ -573,6 +576,7 @@
           document.getElementById('sb-ang2').value = ((Math.atan2(n2.y - stem.y, n2.x - stem.x) * 180) / Math.PI).toFixed(1);
           document.getElementById('sb-blade-len').value = sw.bladeLength;
           document.getElementById('sb-smooth-len').value = sw.smoothLength;
+          document.getElementById('sb-blade-offset').value = sw.bladeOffset ?? 15;
 
           document.getElementById('sb-p1-b1').value = sw.pos1Blade1Angle;
           document.getElementById('sb-p1-b2').value = sw.pos1Blade2Angle;
@@ -691,9 +695,11 @@
       }
 
       const trim = Math.min(len * 0.48, swOwner.smoothLength * 0.5);
+      const offset = swOwner.bladeOffset ?? 15;
 
       if (role === 'entry') {
-        drawTrackBallastAndSleepers(x1, y1, x2 - ux * trim, y2 - uy * trim, isSelected);
+        // Сплошной балласт без разрывов до самого узла стрелки
+        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
@@ -708,12 +714,12 @@
           ctx.lineTo(rx2 - ux * trim, ry2 - uy * trim);
         }, isSelected);
       } else if (role === 'branch1') {
-        drawTrackBallastAndSleepers(x1 + ux * trim, y1 + uy * trim, x2, y2, isSelected);
+        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
-        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength));
+        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
 
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * trim, ly1 + uy * trim);
@@ -724,12 +730,12 @@
           ctx.lineTo(rx2, ry2);
         }, isSelected);
       } else if (role === 'branch2') {
-        drawTrackBallastAndSleepers(x1 + ux * trim, y1 + uy * trim, x2, y2, isSelected);
+        drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected);
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
         const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
         const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
-        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength));
+        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
 
         strokeSteelRail(() => {
           ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
@@ -737,7 +743,7 @@
         }, isSelected);
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
-          ctx.lineTo(lx2, ry2);
+          ctx.lineTo(lx2, ly2);
         }, isSelected);
       }
     }
@@ -776,6 +782,7 @@
       const trimIn = Math.min(dIn * 0.48, sw.smoothLength * 0.5);
       const trim1 = Math.min(d1 * 0.48, sw.smoothLength * 0.5);
       const trim2 = Math.min(d2 * 0.48, sw.smoothLength * 0.5);
+      const offset = sw.bladeOffset ?? 15;
 
       // 1. ВНЕШНИЕ РЕЛЬСЫ (плавное соединение):
       const inLeftX = (stem.x - uxIn * trimIn) + nxIn * halfG;
@@ -800,9 +807,9 @@
         ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b2OuterX, b2OuterY);
       }, sw.id === state.selectedSwitchId);
 
-      // 2. ДЛИННЫЕ И ПРОВЕРЕННЫЕ ОСТРЯКИ С ПРАВИЛЬНЫМ ПОДКЛЮЧЕНИЕМ:
-      const bLen1 = Math.min(d1 * 0.9, Math.max(trim1 + 6, sw.bladeLength));
-      const bLen2 = Math.min(d2 * 0.9, Math.max(trim2 + 6, sw.bladeLength));
+      // 2. ОСТРЯКИ СО СМЕЩЕННЫМ НАЧАЛОМ (параметр bladeOffset):
+      const bLen1 = Math.min(d1 * 0.9, Math.max(trim1 + 6, sw.bladeLength + offset));
+      const bLen2 = Math.min(d2 * 0.9, Math.max(trim2 + 6, sw.bladeLength + offset));
 
       const root1x = stem.x + ux1 * bLen1 - nx1 * halfG;
       const root1y = stem.y + uy1 * bLen1 - ny1 * halfG;
@@ -810,11 +817,12 @@
       const root2x = stem.x + ux2 * bLen2 + nx2 * halfG;
       const root2y = stem.y + uy2 * bLen2 + ny2 * halfG;
 
-      const seat1x = stem.x + ux1 * 4 + nx1 * (halfG - 1.5);
-      const seat1y = stem.y + uy1 * 4 + ny1 * (halfG - 1.5);
+      // Начало остряков сдвинуто от узла на заданное расстояние (offset)
+      const seat1x = stem.x + ux1 * offset + nx1 * (halfG - 1.5);
+      const seat1y = stem.y + uy1 * offset + ny1 * (halfG - 1.5);
 
-      const seat2x = stem.x + ux2 * 4 - nx2 * (halfG - 1.5);
-      const seat2y = stem.y + uy2 * 4 - ny2 * (halfG - 1.5);
+      const seat2x = stem.x + ux2 * offset - nx2 * (halfG - 1.5);
+      const seat2y = stem.y + uy2 * offset - ny2 * (halfG - 1.5);
 
       const baseAng1 = Math.atan2(seat1y - root1y, seat1x - root1x);
       const baseAng2 = Math.atan2(seat2y - root2y, seat2x - root2x);
@@ -1357,6 +1365,10 @@
     document.getElementById('sb-smooth-len').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
       if (sw) sw.smoothLength = Math.max(10, parseFloat(e.target.value) || 90);
+    });
+    document.getElementById('sb-blade-offset').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.bladeOffset = Math.max(0, parseFloat(e.target.value) || 15);
     });
 
     document.getElementById('sb-p1-b1').addEventListener('input', (e) => {
