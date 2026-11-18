@@ -238,12 +238,12 @@
 
       <div id="switch-block" class="sub-block">
         <div class="row">
-        <span>Порядок ветвей:</span>
-        <button id="sb-swap-branches">⇄ Поменять ветви местами</button>
-      </div>
-        <div class="row">
           <b>Стрелка #<span id="sb-id">0</span></b>
           <button id="sb-toggle" style="background:#2563eb; font-weight:600;">Положение 1</button>
+        </div>
+        <div class="row">
+          <span>Порядок ветвей:</span>
+          <button id="sb-swap-branches" style="background:#334155; font-size:11px; padding:3px 6px;">⇄ Инвертировать ветви</button>
         </div>
         <div class="row">
           <span>Угол ветви 1 (°):</span>
@@ -289,8 +289,8 @@
     </div>
 
     <div id="hint">
-      <b>Сборка с нуля:</b> 1) Выберите <b>«═ Новый путь»</b> и проложите входной путь и 2 расходящихся пути от его конца (ПКМ — завершить линию).
-      2) В зоне стрелки убрана сплошная подложка, внешние рельсы соединены плавно, а подвижные остряки шарнирно соединены с внутренними нитками путей.
+      <b>Сборка с нуля:</b> 1) Проложите 3 пути, сходящихся в одном узле. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу.
+      3) Левый внешний рельс основного пути плавно соединяется с левым путем Пути 1, правый — с правым Пути 2, а остряки соединены с внутренними нитками: левый остряк от Пути 2, правый остряк от Пути 1.
     </div>
   </div>
 
@@ -299,7 +299,7 @@
     const ctx = canvas.getContext('2d');
 
     const state = {
-      tool: 'track', // 'track' | 'move' | 'build-switch' | 'train' | 'delete'
+      tool: 'track',
       gauge: 18,
       snapGrid: false,
       gridSize: 20,
@@ -610,7 +610,6 @@
       return { x: p1x + d1x * t, y: p1y + d1y * t };
     }
 
-    // Отрисовка балласта и шпал ТОЛЬКО для обычных путей (вне зоны стрелок)
     function drawTrackBallastAndSleepers(x1, y1, x2, y2, isSelected = false) {
       const dx = x2 - x1;
       const dy = y2 - y1;
@@ -623,7 +622,6 @@
       const ny = ux;
       const halfG = state.gauge / 2;
 
-      // 1. Балласт
       ctx.strokeStyle = isSelected ? '#334155' : '#1e293b';
       ctx.lineWidth = state.gauge + 16;
       ctx.lineCap = 'round';
@@ -632,7 +630,6 @@
       ctx.lineTo(x2, y2);
       ctx.stroke();
 
-      // 2. Шпалы
       ctx.strokeStyle = '#475569';
       ctx.lineWidth = 3;
       ctx.lineCap = 'butt';
@@ -691,7 +688,6 @@
         return;
       }
 
-      // Для участков стрелки рисуем балласт и шпалы только на неизменяемых удаленных частях, убирая подложку в зоне разветвления
       const trim = Math.min(len * 0.45, swOwner.smoothLength * 0.5);
 
       if (role === 'entry') {
@@ -717,11 +713,11 @@
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
         const innerStart = Math.min(len * 0.85, Math.max(trim, swOwner.bladeLength));
 
+        // Ветвь 1: левый рельс — внешний (плавное соединение), правый — внутренний (где остряк 2)
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * trim, ly1 + uy * trim);
           ctx.lineTo(lx2, ly2);
         }, isSelected);
-        // Внутренний рельс начинается от шарнира корня остряка
         strokeSteelRail(() => {
           ctx.moveTo(rx1 + ux * innerStart, ry1 + uy * innerStart);
           ctx.lineTo(rx2, ry2);
@@ -734,11 +730,11 @@
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
         const innerStart = Math.min(len * 0.85, Math.max(trim, swOwner.bladeLength));
 
+        // Ветвь 2: правый рельс — внешний (плавное соединение), левый — внутренний (где остряк 1)
         strokeSteelRail(() => {
           ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
           ctx.lineTo(rx2, ry2);
         }, isSelected);
-        // Внутренний рельс начинается от шарнира корня остряка
         strokeSteelRail(() => {
           ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
           ctx.lineTo(lx2, ly2);
@@ -781,7 +777,8 @@
       const trim1 = Math.min(d1 * 0.45, sw.smoothLength * 0.5);
       const trim2 = Math.min(d2 * 0.45, sw.smoothLength * 0.5);
 
-      // 1. ВНЕШНИЕ РЕЛЬСЫ соединяются плавно (левый с левым, правый с правым)
+      // 1. ВНЕШНИЕ РЕЛЬСЫ (плавное соединение):
+      // Левый основного пути (+nx) плавно соединяется с левым пути 1 (+nx1)
       const inLeftX = (stem.x - uxIn * trimIn) + nxIn * halfG;
       const inLeftY = (stem.y - uyIn * trimIn) + nyIn * halfG;
       const b1OuterX = (stem.x + ux1 * trim1) + nx1 * halfG;
@@ -793,6 +790,7 @@
         ctx.quadraticCurveTo(cornerLeft.x, cornerLeft.y, b1OuterX, b1OuterY);
       }, sw.id === state.selectedSwitchId);
 
+      // Правый основного пути (-nx) плавно соединяется с правым пути 2 (-nx2)
       const inRightX = (stem.x - uxIn * trimIn) - nxIn * halfG;
       const inRightY = (stem.y - uyIn * trimIn) - nyIn * halfG;
       const b2OuterX = (stem.x + ux2 * trim2) - nx2 * halfG;
@@ -804,24 +802,22 @@
         ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b2OuterX, b2OuterY);
       }, sw.id === state.selectedSwitchId);
 
-      // 2. ОСТРЯКИ СОЕДИНЯЮТСЯ К ВНУТРЕННИМ РЕЛЬСАМ:
-      // Корни остряков жестко привязаны к концам внутренних рельсов ветвей
+      // 2. ОСТРЯКИ С СОВЕРШЕННО ПРАВИЛЬНЫМ ПОДКЛЮЧЕНИЕМ:
+      // Остряк 1 (левый/верхний) шарнирно соединен с внутренним рельсом Пути 2 (-nx2)
+      // Остряк 2 (правый/нижний) шарнирно соединен с внутренним рельсом Пути 1 (+nx1)
       const bLen1 = Math.min(d1 * 0.85, Math.max(trim1 + 4, sw.bladeLength));
       const bLen2 = Math.min(d2 * 0.85, Math.max(trim2 + 4, sw.bladeLength));
 
-      // Корень 1-го остряка стыкуется с внутренним рельсом ветви 1 (правая нитка ветви 1)
-      const root1x = stem.x + ux1 * bLen1 + nx1 * halfG;
-      const root1y = stem.y + uy1 * bLen1 + ny1 * halfG;
+      const root1x = stem.x + ux1 * bLen1 - nx1 * halfG; // Корень 1-го остряка на внутренней нитке Пути 1
+      const root1y = stem.y + uy1 * bLen1 - ny1 * halfG;
 
-      // Корень 2-го остряка стыкуется с внутренним рельсом ветви 2 (левая нитка ветви 2)
-      const root2x = stem.x + ux2 * bLen2 - nx2 * halfG;
-      const root2y = stem.y + uy2 * bLen2 - ny2 * halfG;
+      const root2x = stem.x + ux2 * bLen2 + nx2 * halfG; // Корень 2-го остряка на внутренней нитке Пути 2
+      const root2y = stem.y + uy2 * bLen2 + ny2 * halfG;
 
-      // Точки прилегания острия к внешним рамным рельсам в закрытом положении
-      const seat1x = stem.x + ux1 * 4 + nx1 * (halfG - 1.5);
+      const seat1x = stem.x + ux1 * 4 + nx1 * (halfG - 1.5); // Прижатие к левому внешнему рельсу Пути 1
       const seat1y = stem.y + uy1 * 4 + ny1 * (halfG - 1.5);
 
-      const seat2x = stem.x + ux2 * 4 - nx2 * (halfG - 1.5);
+      const seat2x = stem.x + ux2 * 4 - nx2 * (halfG - 1.5); // Прижатие к правому внешнему рельсу Пути 2
       const seat2y = stem.y + uy2 * 4 - ny2 * (halfG - 1.5);
 
       const baseAng1 = Math.atan2(seat1y - root1y, seat1x - root1x);
@@ -842,7 +838,6 @@
       const tip2x = root2x + Math.cos(curAng2) * len2;
       const tip2y = root2y + Math.sin(curAng2) * len2;
 
-      // Переводная тяга и привод
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
@@ -868,7 +863,6 @@
       ctx.fillRect(boxX - 6, boxY - 6, 12, 12);
       ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
 
-      // Отрисовка остряков, соединенных с внутренними нитками
       strokeSteelRail(() => {
         ctx.moveTo(root1x, root1y);
         ctx.lineTo(tip1x, tip1y);
@@ -1334,14 +1328,16 @@
       sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
       syncInspector();
     });
+
     document.getElementById('sb-swap-branches').addEventListener('click', () => {
-     const sw = getSwitch(state.selectedSwitchId);
-     if (!sw) return;
-     const temp = sw.branch1EdgeId;
-     sw.branch1EdgeId = sw.branch2EdgeId;
-     sw.branch2EdgeId = temp;
-     syncInspector();
-});
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      const temp = sw.branch1EdgeId;
+      sw.branch1EdgeId = sw.branch2EdgeId;
+      sw.branch2EdgeId = temp;
+      syncInspector();
+    });
+
     function updateSwitchBranchAngle(branchIndex, degVal) {
       const sw = getSwitch(state.selectedSwitchId);
       if (!sw) return;
