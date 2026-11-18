@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Конструктор стрелочных переводов и путей</title>
+  <title>Сборка стрелочного перевода с нуля (точность 1 px)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -28,7 +28,7 @@
       padding: 8px 12px;
       background: #1e293b;
       border-bottom: 1px solid #334155;
-      z-index: 10;
+      z-index: 20;
     }
     .group {
       display: flex;
@@ -74,7 +74,7 @@
       gap: 4px;
     }
     input[type="number"] {
-      width: 60px;
+      width: 68px;
       background: #0f172a;
       color: #f8fafc;
       border: 1px solid #475569;
@@ -97,37 +97,54 @@
       height: 100%;
       cursor: crosshair;
     }
-    #switch-panel {
+    #inspector {
       position: absolute;
       top: 12px;
       right: 12px;
-      background: rgba(30, 41, 59, 0.95);
+      background: rgba(30, 41, 59, 0.96);
       border: 1px solid #475569;
       border-radius: 8px;
       padding: 12px;
-      width: 280px;
+      width: 295px;
       display: flex;
       flex-direction: column;
       gap: 8px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
       z-index: 20;
     }
-    #switch-panel h3 {
+    #inspector h3 {
       font-size: 14px;
       color: #f8fafc;
-      margin-bottom: 2px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 5px;
     }
     .row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      font-size: 12px;
+    }
+    .sub-block {
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      padding-top: 4px;
+      border-top: 1px solid #334155;
+    }
+    .sub-block.visible {
+      display: flex;
+    }
+    #coords-readout {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #38bdf8;
     }
     #hint {
       position: absolute;
       bottom: 12px;
       left: 12px;
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(15, 23, 42, 0.9);
       border: 1px solid #334155;
       border-radius: 6px;
       padding: 8px 12px;
@@ -135,6 +152,7 @@
       color: #cbd5e1;
       pointer-events: none;
       line-height: 1.45;
+      max-width: 720px;
     }
   </style>
 </head>
@@ -142,60 +160,101 @@
 
   <div id="toolbar">
     <div class="group">
-      <button id="tool-switch" class="active" title="Поставить стрелку">🔀 Стрелка</button>
-      <button id="tool-track" title="Продолжить путь">🛤 Путь</button>
-      <button id="tool-train" title="Поставить поезд">🚆 Поезд</button>
-      <button id="tool-delete" class="danger" title="Удалить">🗑 Удалить</button>
+      <button id="tool-track" class="active" title="Проложить отдельный рельсовый путь с нуля">═ Новый путь</button>
+      <button id="tool-move" title="Свободное перемещение узлов и путей с точностью 1 px">✥ Двигать (1 px)</button>
+      <button id="tool-build-switch" title="Объединить 3 сходящихся в узле пути в стрелку">⑂ Собрать стрелку из путей</button>
+      <button id="tool-train" title="Поставить состав на путь">🚆 Поезд на путь</button>
+      <button id="tool-delete" class="danger" title="Удалить узел, путь или стрелку">🗑 Удалить</button>
     </div>
 
     <div class="group">
-      <label>Колея: <input type="number" id="gauge-input" value="18" min="10" max="40" /></label>
-      <label>Угол 1 (°): <input type="number" id="angle1-input" value="0" min="-60" max="60" /></label>
-      <label>Угол 2 (°): <input type="number" id="angle2-input" value="-22" min="-60" max="60" /></label>
-      <label>Длина: <input type="number" id="len-input" value="180" min="80" max="400" step="10" /></label>
+      <label>Колея (px):
+        <input type="number" id="gauge-input" value="18" min="8" max="44" step="1" />
+      </label>
+      <label><input type="checkbox" id="snap-grid" /> Сетка 20 px</label>
     </div>
 
     <div class="group">
-      <label><input type="checkbox" id="snap-grid" checked /> Сетка</label>
       <button id="btn-reverse">⇄ Реверс</button>
       <button id="btn-pause">⏯ Пауза</button>
-      <button id="btn-clear" class="danger">Сброс</button>
+      <button id="btn-clear" class="danger">Очистить всё</button>
     </div>
   </div>
 
   <div id="canvas-wrap">
     <canvas id="canvas"></canvas>
 
-    <div id="switch-panel">
-      <h3>Параметры стрелки</h3>
+    <div id="inspector">
+      <h3>Инспектор (точность 1 px)</h3>
       <div class="row">
-        <span>Маршрут:</span>
-        <button id="sp-toggle" style="background:#2563eb; font-weight:600;">Путь 1</button>
+        <span>Курсор:</span>
+        <span id="coords-readout">X: 0 px, Y: 0 px</span>
       </div>
-      <div class="row">
-        <span>Угол Пути 1 (°):</span>
-        <input type="number" id="sp-ang1" value="0" step="1" />
+
+      <!-- Блок выбранного узла / точки -->
+      <div id="node-block" class="sub-block">
+        <div class="row">
+          <b>Выбранный узел #<span id="nb-id">0</span></b>
+          <span style="color:#94a3b8;">(Стрелки ←↑→↓ = 1px)</span>
+        </div>
+        <div class="row">
+          <span>Координата X (px):</span>
+          <input type="number" id="nb-x" step="1" />
+        </div>
+        <div class="row">
+          <span>Координата Y (px):</span>
+          <input type="number" id="nb-y" step="1" />
+        </div>
       </div>
-      <div class="row">
-        <span>Угол Пути 2 (°):</span>
-        <input type="number" id="sp-ang2" value="-22" step="1" />
+
+      <!-- Блок выбранного отрезка пути -->
+      <div id="edge-block" class="sub-block">
+        <div class="row">
+          <b>Отрезок пути #<span id="eb-id">0</span></b>
+        </div>
+        <div class="row">
+          <span>Длина (px):</span>
+          <input type="number" id="eb-len" min="1" step="1" />
+        </div>
+        <div class="row">
+          <span>Угол наклона (°):</span>
+          <input type="number" id="eb-ang" step="0.5" />
+        </div>
       </div>
-      <div class="row">
-        <span>Остряк пож. 1 (отвод):</span>
-        <input type="number" id="sp-blade1" value="2.5" min="0" max="8" step="0.5" />
-      </div>
-      <div class="row">
-        <span>Остряк пож. 2 (отвод):</span>
-        <input type="number" id="sp-blade2" value="6.0" min="0" max="8" step="0.5" />
-      </div>
-      <div class="row">
-        <span>Длина стрелки:</span>
-        <input type="number" id="sp-length" value="180" step="10" />
+
+      <!-- Блок собранной стрелки -->
+      <div id="switch-block" class="sub-block">
+        <div class="row">
+          <b>Стрелочный перевод #<span id="sb-id">0</span></b>
+          <button id="sb-toggle" style="background:#2563eb; font-weight:600;">Положение 1</button>
+        </div>
+        <div class="row">
+          <span>Угол ветви 1 (°):</span>
+          <input type="number" id="sb-ang1" step="0.5" />
+        </div>
+        <div class="row">
+          <span>Угол ветви 2 (°):</span>
+          <input type="number" id="sb-ang2" step="0.5" />
+        </div>
+        <div class="row">
+          <span>Длина остряков (px):</span>
+          <input type="number" id="sb-blade-len" min="12" max="140" step="1" />
+        </div>
+        <div class="row">
+          <span>Угол остряков пож. 1 (°):</span>
+          <input type="number" id="sb-blade-ang1" min="0" max="35" step="0.5" />
+        </div>
+        <div class="row">
+          <span>Угол остряков пож. 2 (°):</span>
+          <input type="number" id="sb-blade-ang2" min="0" max="35" step="0.5" />
+        </div>
       </div>
     </div>
 
     <div id="hint">
-      <b>Управление:</b> Клик — поставить стрелку/путь • Клик по приводу — переключить маршрут • Колёсико — масштаб • Пробел + ЛКМ — сдвиг
+      <b>Сборка с нуля:</b> 1) Выберите <b>«═ Новый путь»</b> и проложите входной путь и 2 расходящихся пути от его конца (ПКМ — завершить линию).
+      2) В режиме <b>«✥ Двигать (1 px)»</b> свободно двигайте любую точку или путь мышью и стрелками клавиатуры на 1 px.
+      3) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу стыка трёх путей — появятся цельные внешние рельсы и связанные остряки.
     </div>
   </div>
 
@@ -204,19 +263,28 @@
     const ctx = canvas.getContext('2d');
 
     const state = {
-      tool: 'switch', // 'switch' | 'track' | 'train' | 'delete'
+      tool: 'track', // 'track' | 'move' | 'build-switch' | 'train' | 'delete'
       gauge: 18,
-      snapGrid: true,
+      snapGrid: false,
       gridSize: 20,
 
-      nodes: [],
-      edges: [],
-      switches: [],
+      nodes: [],    // { id, x, y }
+      edges: [],    // { id, from, to }
+      switches: [], // { id, stemNodeId, entryEdgeId, branch1EdgeId, branch2EdgeId, activeBranch: 0|1, bladeLength, bladeAngle1, bladeAngle2 }
 
+      selectedNodeId: null,
+      selectedEdgeId: null,
       selectedSwitchId: null,
-      draftStartNodeId: null,
 
+      draggingNodeId: null,
+      draggingEdgeId: null,
+      dragLastWorld: { x: 0, y: 0 },
+
+      draftStartNodeId: null,
       mouseWorld: { x: 0, y: 0 },
+      hoverNodeId: null,
+      hoverEdgeId: null,
+
       camX: 0,
       camY: 0,
       zoom: 1,
@@ -228,7 +296,9 @@
       nextId: 1
     };
 
-    function genId() { return state.nextId++; }
+    function genId() {
+      return state.nextId++;
+    }
 
     function resize() {
       canvas.width = canvas.parentElement.clientWidth;
@@ -239,15 +309,18 @@
 
     function screenToWorld(sx, sy) {
       return {
-        x: (sx - state.camX) / state.zoom,
-        y: (sy - state.camY) / state.zoom
+        x: Math.round((sx - state.camX) / state.zoom),
+        y: Math.round((sy - state.camY) / state.zoom)
       };
     }
 
-    function snapPoint(x, y) {
-      const r = 16 / state.zoom;
+    function snapPoint(x, y, excludeNodeId = null) {
+      const snapRadius = 12 / state.zoom;
       for (const n of state.nodes) {
-        if (Math.hypot(n.x - x, n.y - y) <= r) return { x: n.x, y: n.y, nodeId: n.id };
+        if (n.id === excludeNodeId) continue;
+        if (Math.hypot(n.x - x, n.y - y) <= snapRadius) {
+          return { x: n.x, y: n.y, nodeId: n.id };
+        }
       }
       if (state.snapGrid) {
         return {
@@ -256,113 +329,251 @@
           nodeId: null
         };
       }
-      return { x, y, nodeId: null };
+      return { x: Math.round(x), y: Math.round(y), nodeId: null };
     }
 
-    function getNode(id) { return state.nodes.find(n => n.id === id); }
-    function getEdge(id) { return state.edges.find(e => e.id === id); }
-    function getSwitch(id) { return state.switches.find(s => s.id === id); }
+    function getNode(id) {
+      return state.nodes.find(n => n.id === id);
+    }
+
+    function getEdge(id) {
+      return state.edges.find(e => e.id === id);
+    }
+
+    function getSwitch(id) {
+      return state.switches.find(s => s.id === id);
+    }
 
     function getOrCreateNode(x, y) {
+      const rx = Math.round(x);
+      const ry = Math.round(y);
       for (const n of state.nodes) {
-        if (Math.hypot(n.x - x, n.y - y) < 3) return n;
+        if (Math.hypot(n.x - rx, n.y - ry) <= 3) return n;
       }
-      const node = { id: genId(), x, y };
+      const node = { id: genId(), x: rx, y: ry };
       state.nodes.push(node);
       return node;
     }
 
-    function addEdge(fromId, toId, switchId = null, branchIndex = null) {
+    function addEdge(fromId, toId) {
       if (fromId === toId) return null;
-      const exists = state.edges.find(
+      const existing = state.edges.find(
         e => (e.from === fromId && e.to === toId) || (e.from === toId && e.to === fromId)
       );
-      if (exists) return exists;
-      const edge = { id: genId(), from: fromId, to: toId, switchId, branchIndex };
+      if (existing) return existing;
+      const edge = { id: genId(), from: fromId, to: toId };
       state.edges.push(edge);
       return edge;
     }
 
-    function updateSwitchGeometry(sw) {
-      const stem = getNode(sw.stemNodeId);
-      const entry = getNode(sw.entryNodeId);
-      const tip1 = getNode(sw.tipNode1);
-      const tip2 = getNode(sw.tipNode2);
-      if (!stem || !tip1 || !tip2) return;
-
-      if (entry) {
-        entry.x = stem.x - 60;
-        entry.y = stem.y;
-      }
-
-      const rad1 = (sw.angle1 * Math.PI) / 180;
-      const rad2 = (sw.angle2 * Math.PI) / 180;
-
-      tip1.x = stem.x + Math.cos(rad1) * sw.length;
-      tip1.y = stem.y + Math.sin(rad1) * sw.length;
-
-      tip2.x = stem.x + Math.cos(rad2) * sw.length;
-      tip2.y = stem.y + Math.sin(rad2) * sw.length;
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+      let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
     }
 
-    function createTurnout(x, y) {
-      const ang1 = parseFloat(document.getElementById('angle1-input').value) || 0;
-      const ang2 = parseFloat(document.getElementById('angle2-input').value) || -22;
-      const length = parseFloat(document.getElementById('len-input').value) || 180;
+    function findNearestEdge(wx, wy, maxDist = 14) {
+      let best = null;
+      let bestD = maxDist;
+      for (const e of state.edges) {
+        const a = getNode(e.from);
+        const b = getNode(e.to);
+        if (!a || !b) continue;
+        const d = distToSegment(wx, wy, a.x, a.y, b.x, b.y);
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+        }
+      }
+      return best;
+    }
 
-      const stemNode = getOrCreateNode(x, y);
-      const entryNode = getOrCreateNode(x - 60, y);
+    function findNearestNode(wx, wy, maxDist = 14) {
+      let best = null;
+      let bestD = maxDist;
+      for (const n of state.nodes) {
+        const d = Math.hypot(n.x - wx, n.y - wy);
+        if (d < bestD) {
+          bestD = d;
+          best = n;
+        }
+      }
+      return best;
+    }
 
-      const tip1 = { id: genId(), x: 0, y: 0 };
-      const tip2 = { id: genId(), x: 0, y: 0 };
-      state.nodes.push(tip1, tip2);
+    // Получить другой конец ребра от узла nodeId
+    function getOtherNode(edge, nodeId) {
+      if (!edge) return null;
+      return edge.from === nodeId ? getNode(edge.to) : getNode(edge.from);
+    }
+
+    // Сборка стрелочного перевода из 3 путей, сходящихся в узле stemNodeId
+    function buildSwitchAtNode(stemNodeId) {
+      const stem = getNode(stemNodeId);
+      if (!stem) return;
+
+      const existing = state.switches.find(s => s.stemNodeId === stemNodeId);
+      if (existing) {
+        existing.activeBranch = existing.activeBranch === 0 ? 1 : 0;
+        selectItem({ switchId: existing.id, nodeId: stemNodeId });
+        return;
+      }
+
+      const incidentEdges = state.edges.filter(e => e.from === stemNodeId || e.to === stemNodeId);
+      if (incidentEdges.length !== 3) {
+        alert('Для сборки стрелки в узле должны сходиться ровно 3 пути (1 входной и 2 расходящихся). Сейчас путей: ' + incidentEdges.length);
+        return;
+      }
+
+      // Вычисляем углы всех 3 ребер, исходящих из узла
+      const dirs = incidentEdges.map(edge => {
+        const other = getOtherNode(edge, stemNodeId);
+        const ang = Math.atan2(other.y - stem.y, other.x - stem.x);
+        return { edge, other, ang };
+      });
+
+      // Находим ребро, которое наиболее противоположно двум остальным (входной ствол)
+      let bestEntryIdx = 0;
+      let bestScore = -Infinity;
+      for (let i = 0; i < 3; i++) {
+        const a0 = dirs[i].ang;
+        const a1 = dirs[(i + 1) % 3].ang;
+        const a2 = dirs[(i + 2) % 3].ang;
+        const diff1 = Math.abs(Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0)));
+        const diff2 = Math.abs(Math.atan2(Math.sin(a2 - a0), Math.cos(a2 - a0)));
+        const score = diff1 + diff2;
+        if (score > bestScore) {
+          bestScore = score;
+          bestEntryIdx = i;
+        }
+      }
+
+      const entryItem = dirs[bestEntryIdx];
+      const bA = dirs[(bestEntryIdx + 1) % 3];
+      const bB = dirs[(bestEntryIdx + 2) % 3];
+
+      // Определяем левую и правую ветви относительно направления движения со ствола
+      const forwardAng = entryItem.ang + Math.PI;
+      const relA = Math.atan2(Math.sin(bA.ang - forwardAng), Math.cos(bA.ang - forwardAng));
+      const relB = Math.atan2(Math.sin(bB.ang - forwardAng), Math.cos(bB.ang - forwardAng));
+
+      const branch1 = relA <= relB ? bA.edge : bB.edge;
+      const branch2 = relA <= relB ? bB.edge : bA.edge;
 
       const sw = {
         id: genId(),
-        entryNodeId: entryNode.id,
-        stemNodeId: stemNode.id,
-        tipNode1: tip1.id,
-        tipNode2: tip2.id,
-        angle1: ang1,
-        angle2: ang2,
-        length: length,
-        bladeOffset1: 2.5,
-        bladeOffset2: 6.0,
-        activeBranch: 0 // 0 -> Путь 1, 1 -> Путь 2
+        stemNodeId: stemNodeId,
+        entryEdgeId: entryItem.edge.id,
+        branch1EdgeId: branch1.id,
+        branch2EdgeId: branch2.id,
+        activeBranch: 0,
+        bladeLength: 46,
+        bladeAngle1: 7.5,
+        bladeAngle2: 7.5
       };
 
-      updateSwitchGeometry(sw);
       state.switches.push(sw);
-
-      addEdge(entryNode.id, stemNode.id);
-      addEdge(stemNode.id, tip1.id, sw.id, 0);
-      addEdge(stemNode.id, tip2.id, sw.id, 1);
-
-      selectSwitch(sw.id);
-      return sw;
+      selectItem({ switchId: sw.id, nodeId: stemNodeId });
     }
 
-    function selectSwitch(swId) {
-      state.selectedSwitchId = swId;
-      const panel = document.getElementById('switch-panel');
-      const sw = getSwitch(swId);
-      if (!sw) {
-        panel.style.display = 'none';
-        return;
+    function selectItem({ nodeId = null, edgeId = null, switchId = null } = {}) {
+      state.selectedNodeId = nodeId;
+      state.selectedEdgeId = edgeId;
+      state.selectedSwitchId = switchId;
+      syncInspector();
+    }
+
+    function syncInspector() {
+      const nodeBlock = document.getElementById('node-block');
+      const edgeBlock = document.getElementById('edge-block');
+      const switchBlock = document.getElementById('switch-block');
+
+      const node = getNode(state.selectedNodeId);
+      if (node) {
+        nodeBlock.classList.add('visible');
+        document.getElementById('nb-id').textContent = node.id;
+        document.getElementById('nb-x').value = node.x;
+        document.getElementById('nb-y').value = node.y;
+      } else {
+        nodeBlock.classList.remove('visible');
       }
-      panel.style.display = 'flex';
-      document.getElementById('sp-toggle').textContent = sw.activeBranch === 0 ? 'Путь 1 (Активен)' : 'Путь 2 (Активен)';
-      document.getElementById('sp-toggle').style.background = sw.activeBranch === 0 ? '#2563eb' : '#059669';
-      document.getElementById('sp-ang1').value = sw.angle1;
-      document.getElementById('sp-ang2').value = sw.angle2;
-      document.getElementById('sp-blade1').value = sw.bladeOffset1;
-      document.getElementById('sp-blade2').value = sw.bladeOffset2;
-      document.getElementById('sp-length').value = sw.length;
+
+      const edge = getEdge(state.selectedEdgeId);
+      if (edge) {
+        const a = getNode(edge.from);
+        const b = getNode(edge.to);
+        if (a && b) {
+          edgeBlock.classList.add('visible');
+          document.getElementById('eb-id').textContent = edge.id;
+          document.getElementById('eb-len').value = Math.round(Math.hypot(b.x - a.x, b.y - a.y));
+          document.getElementById('eb-ang').value = ((Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI).toFixed(1);
+        } else {
+          edgeBlock.classList.remove('visible');
+        }
+      } else {
+        edgeBlock.classList.remove('visible');
+      }
+
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) {
+        const stem = getNode(sw.stemNodeId);
+        const e1 = getEdge(sw.branch1EdgeId);
+        const e2 = getEdge(sw.branch2EdgeId);
+        const n1 = getOtherNode(e1, sw.stemNodeId);
+        const n2 = getOtherNode(e2, sw.stemNodeId);
+
+        if (stem && n1 && n2) {
+          switchBlock.classList.add('visible');
+          document.getElementById('sb-id').textContent = sw.id;
+          const tgl = document.getElementById('sb-toggle');
+          tgl.textContent = sw.activeBranch === 0 ? 'Положение 1 (активно)' : 'Положение 2 (активно)';
+          tgl.style.background = sw.activeBranch === 0 ? '#2563eb' : '#059669';
+
+          document.getElementById('sb-ang1').value = ((Math.atan2(n1.y - stem.y, n1.x - stem.x) * 180) / Math.PI).toFixed(1);
+          document.getElementById('sb-ang2').value = ((Math.atan2(n2.y - stem.y, n2.x - stem.x) * 180) / Math.PI).toFixed(1);
+          document.getElementById('sb-blade-len').value = sw.bladeLength;
+          document.getElementById('sb-blade-ang1').value = sw.bladeAngle1;
+          document.getElementById('sb-blade-ang2').value = sw.bladeAngle2;
+        } else {
+          switchBlock.classList.remove('visible');
+        }
+      } else {
+        switchBlock.classList.remove('visible');
+      }
     }
 
-    // Отрисовка пути с постоянной шириной колеи
-    function drawTrackSegment(x1, y1, x2, y2, options = {}) {
-      const { isSwitchBranch = false, switchSide = 0, isActive = true } = options;
+    // Отрисовка обычного или стрелочного рельсового отрезка с постоянной шириной колеи
+    function drawRailEdge(edge) {
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      if (!a || !b) return;
+
+      // Проверяем, является ли этот отрезок ветвью какой-либо стрелки
+      let swAsBranch = null;
+      let branchSide = 0; // 0 = левая ветвь, 1 = правая ветвь
+      for (const sw of state.switches) {
+        if (sw.branch1EdgeId === edge.id) {
+          swAsBranch = sw;
+          branchSide = 0;
+          break;
+        }
+        if (sw.branch2EdgeId === edge.id) {
+          swAsBranch = sw;
+          branchSide = 1;
+          break;
+        }
+      }
+
+      // Ориентируем вектор от ствола стрелки, если это ветвь
+      let x1 = a.x, y1 = a.y, x2 = b.x, y2 = b.y;
+      if (swAsBranch && edge.to === swAsBranch.stemNodeId) {
+        x1 = b.x; y1 = b.y; x2 = a.x; y2 = a.y;
+      }
+
       const dx = x2 - x1;
       const dy = y2 - y1;
       const len = Math.hypot(dx, dy);
@@ -373,21 +584,21 @@
       const nx = -uy;
       const ny = ux;
       const halfG = state.gauge / 2;
+      const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
 
-      // Балласт
-      if (!isSwitchBranch) {
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = state.gauge + 16;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-      }
+      // 1. Балласт
+      ctx.strokeStyle = isSelected ? '#334155' : '#1e293b';
+      ctx.lineWidth = state.gauge + 16;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
 
-      // Шпалы
+      // 2. Шпалы с постоянной шириной и шагом
       ctx.strokeStyle = '#475569';
       ctx.lineWidth = 3;
+      ctx.lineCap = 'butt';
       ctx.beginPath();
       for (let d = 6; d < len - 4; d += 12) {
         const sx = x1 + ux * d;
@@ -397,19 +608,21 @@
       }
       ctx.stroke();
 
-      const drawRail = (ax, ay, bx, by) => {
+      // 3. Рельсовые нитки (всегда строго параллельны на расстоянии state.gauge)
+      const drawSingleRail = (rx1, ry1, rx2, ry2) => {
+        ctx.lineCap = 'round';
         ctx.strokeStyle = '#334155';
         ctx.lineWidth = 3.6;
         ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
+        ctx.moveTo(rx1, ry1);
+        ctx.lineTo(rx2, ry2);
         ctx.stroke();
 
-        ctx.strokeStyle = '#e2e8f0';
+        ctx.strokeStyle = isSelected ? '#60a5fa' : '#e2e8f0';
         ctx.lineWidth = 1.8;
         ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(bx, by);
+        ctx.moveTo(rx1, ry1);
+        ctx.lineTo(rx2, ry2);
         ctx.stroke();
       };
 
@@ -418,89 +631,141 @@
       const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
       const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
 
-      if (!isSwitchBranch) {
-        drawRail(lx1, ly1, lx2, ly2);
-        drawRail(rx1, ry1, rx2, ry2);
+      if (!swAsBranch) {
+        drawSingleRail(lx1, ly1, lx2, ly2);
+        drawSingleRail(rx1, ry1, rx2, ry2);
       } else {
-        // Внешний рамный рельс цельный, внутренний начинается после остряка
-        const rootOff = Math.min(len * 0.32, 50);
-        if (switchSide === 0) {
-          drawRail(lx1, ly1, lx2, ly2);
-          drawRail(rx1 + ux * rootOff, ry1 + uy * rootOff, rx2, ry2);
+        // Внешний рамный рельс идёт непрерывно от начала до конца,
+        // а внутренний рельс начинается от корня подвижного остряка
+        const rootOffset = Math.min(len * 0.85, swAsBranch.bladeLength);
+        if (branchSide === 0) {
+          drawSingleRail(lx1, ly1, lx2, ly2);
+          drawSingleRail(rx1 + ux * rootOffset, ry1 + uy * rootOffset, rx2, ry2);
         } else {
-          drawRail(rx1, ry1, rx2, ry2);
-          drawRail(lx1 + ux * rootOff, ly1 + uy * rootOff, lx2, ly2);
+          drawSingleRail(rx1, ry1, rx2, ry2);
+          drawSingleRail(lx1 + ux * rootOffset, ly1 + uy * rootOffset, lx2, ly2);
         }
       }
     }
 
-    // Отрисовка связанных остряков
+    // Отрисовка связанных внутренних остряков («лепестков») с заданным углом и положением
     function drawSwitchBlades(sw) {
       const stem = getNode(sw.stemNodeId);
-      const tip1 = getNode(sw.tipNode1);
-      const tip2 = getNode(sw.tipNode2);
-      if (!stem || !tip1 || !tip2) return;
+      const e1 = getEdge(sw.branch1EdgeId);
+      const e2 = getEdge(sw.branch2EdgeId);
+      const n1 = getOtherNode(e1, sw.stemNodeId);
+      const n2 = getOtherNode(e2, sw.stemNodeId);
+      if (!stem || !n1 || !n2) return;
 
       const halfG = state.gauge / 2;
-      const bladeLen = Math.min(sw.length * 0.32, 50);
 
-      const dL = Math.hypot(tip1.x - stem.x, tip1.y - stem.y) || 1;
-      const ux1 = (tip1.x - stem.x) / dL, uy1 = (tip1.y - stem.y) / dL;
+      const d1 = Math.hypot(n1.x - stem.x, n1.y - stem.y) || 1;
+      const ux1 = (n1.x - stem.x) / d1, uy1 = (n1.y - stem.y) / d1;
       const nx1 = -uy1, ny1 = ux1;
 
-      const dR = Math.hypot(tip2.x - stem.x, tip2.y - stem.y) || 1;
-      const ux2 = (tip2.x - stem.x) / dR, uy2 = (tip2.y - stem.y) / dR;
+      const d2 = Math.hypot(n2.x - stem.x, n2.y - stem.y) || 1;
+      const ux2 = (n2.x - stem.x) / d2, uy2 = (n2.y - stem.y) / d2;
       const nx2 = -uy2, ny2 = ux2;
 
-      // Корни остряков (шарниры)
-      const root1x = stem.x + ux1 * bladeLen - nx1 * halfG;
-      const root1y = stem.y + uy1 * bladeLen - ny1 * halfG;
-      const root2x = stem.x + ux2 * bladeLen + nx2 * halfG;
-      const root2y = stem.y + uy2 * bladeLen + ny2 * halfG;
+      const bLen1 = Math.min(d1 * 0.85, sw.bladeLength);
+      const bLen2 = Math.min(d2 * 0.85, sw.bladeLength);
 
-      // Острия лепестков (с учетом выбранного положения activeBranch)
-      const off1 = sw.activeBranch === 0 ? 1.2 : sw.bladeOffset1;
-      const off2 = sw.activeBranch === 1 ? 1.2 : sw.bladeOffset2;
+      // Корни остряков (на внутренних рельсовых нитках)
+      const root1x = stem.x + ux1 * bLen1 - nx1 * halfG;
+      const root1y = stem.y + uy1 * bLen1 - ny1 * halfG;
 
-      const tip1x = stem.x + ux1 * 6 + nx1 * (halfG - off1);
-      const tip1y = stem.y + uy1 * 6 + ny1 * (halfG - off1);
-      const tip2x = stem.x + ux2 * 6 - nx2 * (halfG - off2);
-      const tip2y = stem.y + uy2 * 6 - ny2 * (halfG - off2);
+      const root2x = stem.x + ux2 * bLen2 + nx2 * halfG;
+      const root2y = stem.y + uy2 * bLen2 + ny2 * halfG;
 
-      // Переводная тяга
+      // Положение и угол остряков:
+      // Когда activeBranch === 0 (Положение 1): левый остряк прижат к левому рамному рельсу,
+      // а правый остряк отведён на заданный угол bladeAngle1.
+      // Когда activeBranch === 1 (Положение 2): правый остряк прижат к правому рамному рельсу,
+      // а левый остряк отведён на заданный угол bladeAngle2.
+      let tip1x, tip1y, tip2x, tip2y;
+
+      if (sw.activeBranch === 0) {
+        // Левый остряк прижат к внешнему левому рамному рельсу
+        tip1x = stem.x + ux1 * 4 + nx1 * (halfG - 1.4);
+        tip1y = stem.y + uy1 * 4 + ny1 * (halfG - 1.4);
+
+        // Правый остряк повёрнут от корня внутрь колеи на угол bladeAngle1
+        const baseAng2 = Math.atan2(root2y - (stem.y + uy2 * 4 - ny2 * (halfG - 1.4)), root2x - (stem.x + ux2 * 4 - nx2 * (halfG - 1.4)));
+        const openAng2 = baseAng2 - (sw.bladeAngle1 * Math.PI) / 180;
+        tip2x = root2x - Math.cos(openAng2) * (bLen2 - 4);
+        tip2y = root2y - Math.sin(openAng2) * (bLen2 - 4);
+      } else {
+        // Правый остряк прижат к внешнему правому рамному рельсу
+        tip2x = stem.x + ux2 * 4 - nx2 * (halfG - 1.4);
+        tip2y = stem.y + uy2 * 4 - ny2 * (halfG - 1.4);
+
+        // Левый остряк повёрнут от корня внутрь колеи на угол bladeAngle2
+        const baseAng1 = Math.atan2(root1y - (stem.y + uy1 * 4 + nx1 * (halfG - 1.4)), root1x - (stem.x + ux1 * 4 + nx1 * (halfG - 1.4)));
+        const openAng1 = baseAng1 + (sw.bladeAngle2 * Math.PI) / 180;
+        tip1x = root1x - Math.cos(openAng1) * (bLen1 - 4);
+        tip1y = root1y - Math.sin(openAng1) * (bLen1 - 4);
+      }
+
+      // Жёсткая межостряковая переводная тяга
       ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.moveTo(tip1x, tip1y);
       ctx.lineTo(tip2x, tip2y);
       ctx.stroke();
 
-      // Привод сбоку
-      const boxX = stem.x + ux2 * 8 - nx2 * (halfG + 16);
-      const boxY = stem.y + uy2 * 8 - ny2 * (halfG + 16);
+      // Боковой привод переводного механизма (для клика переключения)
+      const boxX = Math.round(stem.x + ux2 * 6 - nx2 * (halfG + 16));
+      const boxY = Math.round(stem.y + uy2 * 6 - ny2 * (halfG + 16));
+      sw._boxX = boxX;
+      sw._boxY = boxY;
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tip2x, tip2y);
+      ctx.lineTo(boxX, boxY);
+      ctx.stroke();
+
       ctx.fillStyle = sw.id === state.selectedSwitchId ? '#2563eb' : '#334155';
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 1.4;
       ctx.fillRect(boxX - 6, boxY - 6, 12, 12);
       ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
 
+      // Стальные остряки
       const drawBlade = (ax, ay, bx, by) => {
-        ctx.strokeStyle = '#334155'; ctx.lineWidth = 3.2;
-        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
-        ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.6;
-        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
       };
 
       drawBlade(root1x, root1y, tip1x, tip1y);
       drawBlade(root2x, root2y, tip2x, tip2y);
     }
 
+    // Движение поезда
     function updateTrain(dt) {
       if (!state.train || state.train.paused) return;
       let edge = getEdge(state.train.edgeId);
-      if (!edge) { state.train = null; return; }
+      if (!edge) {
+        state.train = null;
+        return;
+      }
 
-      const a = getNode(edge.from), b = getNode(edge.to);
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
       const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
       state.train.dist += state.train.speed * state.train.dir * dt;
 
@@ -523,11 +788,11 @@
         let nextEdge = null;
 
         if (swAtNode) {
-          const branchEdges = candidates.filter(e => e.switchId === swAtNode.id);
-          if (branchEdges.length > 0 && edge.switchId !== swAtNode.id) {
-            nextEdge = branchEdges.find(e => e.branchIndex === swAtNode.activeBranch) || branchEdges[0];
+          if (edge.id === swAtNode.entryEdgeId) {
+            const targetId = swAtNode.activeBranch === 0 ? swAtNode.branch1EdgeId : swAtNode.branch2EdgeId;
+            nextEdge = candidates.find(e => e.id === targetId) || candidates[0];
           } else {
-            nextEdge = candidates.find(e => e.switchId !== swAtNode.id) || candidates[0];
+            nextEdge = candidates.find(e => e.id === swAtNode.entryEdgeId) || candidates[0];
           }
         } else {
           nextEdge = candidates[0];
@@ -535,7 +800,8 @@
 
         edge = nextEdge;
         state.train.edgeId = edge.id;
-        const na = getNode(edge.from), nb = getNode(edge.to);
+        const na = getNode(edge.from);
+        const nb = getNode(edge.to);
         const nextLen = Math.hypot(nb.x - na.x, nb.y - na.y) || 1;
 
         if (edge.from === arrivalNodeId) {
@@ -552,7 +818,8 @@
       if (!state.train) return;
       const edge = getEdge(state.train.edgeId);
       if (!edge) return;
-      const a = getNode(edge.from), b = getNode(edge.to);
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
       const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
       const t = Math.max(0, Math.min(1, state.train.dist / len));
 
@@ -564,8 +831,9 @@
       ctx.translate(x, y);
       ctx.rotate(angle);
 
-      const bodyW = 44, bodyH = state.gauge + 6;
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      const bodyW = 46;
+      const bodyH = state.gauge + 6;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(-bodyW / 2 + 2, -bodyH / 2 + 3, bodyW, bodyH);
 
       ctx.fillStyle = '#dc2626';
@@ -601,7 +869,7 @@
       ctx.translate(state.camX, state.camY);
       ctx.scale(state.zoom, state.zoom);
 
-      // Сетка
+      // Сетка (если включена)
       if (state.snapGrid) {
         const startX = Math.floor(-state.camX / state.zoom / state.gridSize) * state.gridSize;
         const startY = Math.floor(-state.camY / state.zoom / state.gridSize) * state.gridSize;
@@ -612,57 +880,70 @@
         ctx.lineWidth = 1 / state.zoom;
         ctx.beginPath();
         for (let gx = startX; gx < endX; gx += state.gridSize) {
-          ctx.moveTo(gx, startY); ctx.lineTo(gx, endY);
+          ctx.moveTo(gx, startY);
+          ctx.lineTo(gx, endY);
         }
         for (let gy = startY; gy < endY; gy += state.gridSize) {
-          ctx.moveTo(startX, gy); ctx.lineTo(endX, gy);
+          ctx.moveTo(startX, gy);
+          ctx.lineTo(endX, gy);
         }
         ctx.stroke();
       }
 
-      // Обычные пути
-      for (const e of state.edges) {
-        if (e.switchId !== null) continue;
-        const a = getNode(e.from), b = getNode(e.to);
-        if (!a || !b) continue;
-        drawTrackSegment(a.x, a.y, b.x, b.y);
+      // 1. Отрисовка всех путей
+      for (const edge of state.edges) {
+        drawRailEdge(edge);
       }
 
-      // Стрелочные ветви
+      // 2. Отрисовка остряков собранных стрелок
       for (const sw of state.switches) {
-        const stem = getNode(sw.stemNodeId);
-        const tip1 = getNode(sw.tipNode1);
-        const tip2 = getNode(sw.tipNode2);
-        if (!stem || !tip1 || !tip2) continue;
-
-        drawTrackSegment(stem.x, stem.y, tip1.x, tip1.y, {
-          isSwitchBranch: true, switchSide: 0, isActive: sw.activeBranch === 0
-        });
-        drawTrackSegment(stem.x, stem.y, tip2.x, tip2.y, {
-          isSwitchBranch: true, switchSide: 1, isActive: sw.activeBranch === 1
-        });
-
         drawSwitchBlades(sw);
       }
 
-      // Предпросмотр пути
+      // 3. Предпросмотр нового пути при прокладке с нуля
       if (state.tool === 'track' && state.draftStartNodeId !== null) {
         const startNode = getNode(state.draftStartNodeId);
         if (startNode) {
           const snapped = snapPoint(state.mouseWorld.x, state.mouseWorld.y);
           ctx.save();
           ctx.globalAlpha = 0.65;
-          drawTrackSegment(startNode.x, startNode.y, snapped.x, snapped.y);
+          drawRailEdge({ id: -1, from: startNode.id, to: -1 });
+          // Временная отрисовка линии предпросмотра
+          const dx = snapped.x - startNode.x;
+          const dy = snapped.y - startNode.y;
+          const len = Math.hypot(dx, dy);
+          if (len > 1) {
+            const nx = -dy / len;
+            const ny = dx / len;
+            const halfG = state.gauge / 2;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(startNode.x + nx * halfG, startNode.y + ny * halfG);
+            ctx.lineTo(snapped.x + nx * halfG, snapped.y + ny * halfG);
+            ctx.moveTo(startNode.x - nx * halfG, startNode.y - ny * halfG);
+            ctx.lineTo(snapped.x - nx * halfG, snapped.y - ny * halfG);
+            ctx.stroke();
+          }
           ctx.restore();
         }
       }
 
-      // Узлы
+      // 4. Узлы стыков
       for (const n of state.nodes) {
         const isSwitchStem = state.switches.some(s => s.stemNodeId === n.id);
-        ctx.fillStyle = isSwitchStem ? '#f59e0b' : '#64748b';
+        const isSelected = n.id === state.selectedNodeId;
+        const isHover = n.id === state.hoverNodeId;
+
+        ctx.fillStyle = isSelected
+          ? '#38bdf8'
+          : isSwitchStem
+          ? '#f59e0b'
+          : isHover
+          ? '#60a5fa'
+          : '#94a3b8';
         ctx.beginPath();
-        ctx.arc(n.x, n.y, isSwitchStem ? 5 : 4, 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, isSelected || isSwitchStem ? 5.5 : 4.2, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -672,94 +953,228 @@
     }
     requestAnimationFrame(loop);
 
-    // События
+    // События мыши
     canvas.addEventListener('mousedown', (e) => {
       const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
 
       if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
         state.isPanning = true;
         state.panStart = { x: sx - state.camX, y: sy - state.camY };
         return;
       }
-      if (e.button === 2) { state.draftStartNodeId = null; return; }
+
+      if (e.button === 2) {
+        state.draftStartNodeId = null;
+        return;
+      }
+
       if (e.button !== 0) return;
 
       const world = screenToWorld(sx, sy);
+
+      // Клик по приводу любой стрелки переключает её положение в любом режиме
+      for (const sw of state.switches) {
+        if (sw._boxX !== undefined && Math.hypot(sw._boxX - world.x, sw._boxY - world.y) <= 12) {
+          sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
+          selectItem({ switchId: sw.id, nodeId: sw.stemNodeId });
+          return;
+        }
+      }
+
       const snapped = snapPoint(world.x, world.y);
 
-      if (state.tool === 'switch') {
-        createTurnout(snapped.x, snapped.y);
-      } else if (state.tool === 'track') {
+      if (state.tool === 'track') {
         if (state.draftStartNodeId === null) {
           const node = snapped.nodeId ? getNode(snapped.nodeId) : getOrCreateNode(snapped.x, snapped.y);
           state.draftStartNodeId = node.id;
+          selectItem({ nodeId: node.id });
         } else {
           const endNode = snapped.nodeId ? getNode(snapped.nodeId) : getOrCreateNode(snapped.x, snapped.y);
-          addEdge(state.draftStartNodeId, endNode.id);
+          const edge = addEdge(state.draftStartNodeId, endNode.id);
           state.draftStartNodeId = endNode.id;
+          selectItem({ nodeId: endNode.id, edgeId: edge ? edge.id : null });
+        }
+      } else if (state.tool === 'move') {
+        const hitNode = findNearestNode(world.x, world.y, 12 / state.zoom);
+        if (hitNode) {
+          state.draggingNodeId = hitNode.id;
+          const sw = state.switches.find(s => s.stemNodeId === hitNode.id);
+          selectItem({ nodeId: hitNode.id, switchId: sw ? sw.id : null });
+          return;
+        }
+        const hitEdge = findNearestEdge(world.x, world.y, 12 / state.zoom);
+        if (hitEdge) {
+          state.draggingEdgeId = hitEdge.id;
+          state.dragLastWorld = { x: world.x, y: world.y };
+          const sw = state.switches.find(
+            s => s.entryEdgeId === hitEdge.id || s.branch1EdgeId === hitEdge.id || s.branch2EdgeId === hitEdge.id
+          );
+          selectItem({ edgeId: hitEdge.id, switchId: sw ? sw.id : null });
+          return;
+        }
+        selectItem();
+      } else if (state.tool === 'build-switch') {
+        const hitNode = findNearestNode(world.x, world.y, 16 / state.zoom);
+        if (hitNode) {
+          buildSwitchAtNode(hitNode.id);
         }
       } else if (state.tool === 'train') {
-        // Ищем ребро для поезда
-        let bestEdge = null, minDist = 20;
-        for (const e of state.edges) {
-          const a = getNode(e.from), b = getNode(e.to);
-          if (!a || !b) continue;
-          // Упрощенная проверка близости
-          const d = Math.hypot((a.x+b.x)/2 - world.x, (a.y+b.y)/2 - world.y);
-          if (d < minDist) { minDist = d; bestEdge = e; }
-        }
-        if (bestEdge) {
-          const a = getNode(bestEdge.from), b = getNode(bestEdge.to);
+        const hitEdge = findNearestEdge(world.x, world.y, 18 / state.zoom);
+        if (hitEdge) {
+          const a = getNode(hitEdge.from);
+          const b = getNode(hitEdge.to);
           const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-          state.train = { edgeId: bestEdge.id, dist: len * 0.5, dir: 1, speed: 120, paused: false };
+          state.train = { edgeId: hitEdge.id, dist: len * 0.5, dir: 1, speed: 120, paused: false };
         }
       } else if (state.tool === 'delete') {
-        for (let i = state.switches.length - 1; i >= 0; i--) {
-          const sw = state.switches[i];
-          const stem = getNode(sw.stemNodeId);
-          if (stem && Math.hypot(stem.x - world.x, stem.y - world.y) < 20) {
-            state.edges = state.edges.filter(e => e.switchId !== sw.id);
-            state.switches.splice(i, 1);
-            selectSwitch(null);
-            return;
-          }
+        const hitNode = findNearestNode(world.x, world.y, 12 / state.zoom);
+        if (hitNode) {
+          state.switches = state.switches.filter(s => s.stemNodeId !== hitNode.id);
+          state.edges = state.edges.filter(e => e.from !== hitNode.id && e.to !== hitNode.id);
+          state.nodes = state.nodes.filter(n => n.id !== hitNode.id);
+          selectItem();
+          return;
+        }
+        const hitEdge = findNearestEdge(world.x, world.y, 12 / state.zoom);
+        if (hitEdge) {
+          state.switches = state.switches.filter(
+            s => s.entryEdgeId !== hitEdge.id && s.branch1EdgeId !== hitEdge.id && s.branch2EdgeId !== hitEdge.id
+          );
+          state.edges = state.edges.filter(e => e.id !== hitEdge.id);
+          if (state.train && state.train.edgeId === hitEdge.id) state.train = null;
+          selectItem();
         }
       }
     });
 
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
       if (state.isPanning) {
         state.camX = sx - state.panStart.x;
         state.camY = sy - state.panStart.y;
         return;
       }
-      state.mouseWorld = screenToWorld(sx, sy);
+
+      const world = screenToWorld(sx, sy);
+      state.mouseWorld = world;
+      document.getElementById('coords-readout').textContent = `X: ${world.x} px, Y: ${world.y} px`;
+
+      // Перетаскивание отдельного узла по 1 px
+      if (state.draggingNodeId !== null) {
+        const node = getNode(state.draggingNodeId);
+        if (node) {
+          const snapped = snapPoint(world.x, world.y, node.id);
+          node.x = snapped.x;
+          node.y = snapped.y;
+          syncInspector();
+        }
+        return;
+      }
+
+      // Перетаскивание целого отрезка пути по 1 px
+      if (state.draggingEdgeId !== null) {
+        const edge = getEdge(state.draggingEdgeId);
+        if (edge) {
+          const dx = world.x - state.dragLastWorld.x;
+          const dy = world.y - state.dragLastWorld.y;
+          if (dx !== 0 || dy !== 0) {
+            const a = getNode(edge.from);
+            const b = getNode(edge.to);
+            if (a && b) {
+              a.x += dx;
+              a.y += dy;
+              b.x += dx;
+              b.y += dy;
+            }
+            state.dragLastWorld = { x: world.x, y: world.y };
+            syncInspector();
+          }
+        }
+        return;
+      }
+
+      const hn = findNearestNode(world.x, world.y, 12 / state.zoom);
+      state.hoverNodeId = hn ? hn.id : null;
+      const he = findNearestEdge(world.x, world.y, 12 / state.zoom);
+      state.hoverEdgeId = he ? he.id : null;
     });
 
-    window.addEventListener('mouseup', () => { state.isPanning = false; });
+    window.addEventListener('mouseup', () => {
+      state.isPanning = false;
+      state.draggingNodeId = null;
+      state.draggingEdgeId = null;
+    });
+
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
-      const before = screenToWorld(sx, sy);
-      const factor = e.deltaY < 0 ? 1.12 : 0.89;
-      state.zoom = Math.max(0.3, Math.min(3.0, state.zoom * factor));
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const before = {
+        x: (sx - state.camX) / state.zoom,
+        y: (sy - state.camY) / state.zoom
+      };
+      const factor = e.deltaY < 0 ? 1.15 : 0.87;
+      state.zoom = Math.max(0.25, Math.min(4.0, state.zoom * factor));
       state.camX = sx - before.x * state.zoom;
       state.camY = sy - before.y * state.zoom;
     }, { passive: false });
 
-    window.addEventListener('keydown', e => { if (e.code === 'Space') state.spacePressed = true; });
-    window.addEventListener('keyup', e => { if (e.code === 'Space') state.spacePressed = false; });
+    // Попиксельный сдвиг выделенного узла или пути клавишами стрелок (1 px, с Shift = 10 px)
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') state.spacePressed = true;
+      if (e.key === 'Escape') state.draftStartNodeId = null;
 
-    // Инструменты
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+      const step = e.shiftKey ? 10 : 1;
+      let dx = 0, dy = 0;
+      if (e.key === 'ArrowLeft') dx = -step;
+      else if (e.key === 'ArrowRight') dx = step;
+      else if (e.key === 'ArrowUp') dy = -step;
+      else if (e.key === 'ArrowDown') dy = step;
+
+      if (dx !== 0 || dy !== 0) {
+        if (state.selectedNodeId !== null) {
+          const n = getNode(state.selectedNodeId);
+          if (n) {
+            n.x += dx;
+            n.y += dy;
+            syncInspector();
+            e.preventDefault();
+          }
+        } else if (state.selectedEdgeId !== null) {
+          const edge = getEdge(state.selectedEdgeId);
+          if (edge) {
+            const a = getNode(edge.from);
+            const b = getNode(edge.to);
+            if (a && b) {
+              a.x += dx; a.y += dy;
+              b.x += dx; b.y += dy;
+              syncInspector();
+              e.preventDefault();
+            }
+          }
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') state.spacePressed = false;
+    });
+
+    // Кнопки инструментов
     const toolButtons = {
-      switch: document.getElementById('tool-switch'),
       track: document.getElementById('tool-track'),
+      move: document.getElementById('tool-move'),
+      'build-switch': document.getElementById('tool-build-switch'),
       train: document.getElementById('tool-train'),
       delete: document.getElementById('tool-delete')
     };
@@ -771,59 +1186,90 @@
     }
     Object.entries(toolButtons).forEach(([k, btn]) => btn.addEventListener('click', () => setTool(k)));
 
-    document.getElementById('gauge-input').addEventListener('input', e => {
-      state.gauge = Math.max(10, Math.min(40, parseFloat(e.target.value) || 18));
+    document.getElementById('gauge-input').addEventListener('input', (e) => {
+      state.gauge = Math.max(8, Math.min(44, parseFloat(e.target.value) || 18));
     });
 
-    // Панель настроек стрелки
-    document.getElementById('sp-toggle').addEventListener('click', () => {
+    document.getElementById('snap-grid').addEventListener('change', (e) => {
+      state.snapGrid = e.target.checked;
+    });
+
+    // Поля точного ввода координат узла (1 px)
+    document.getElementById('nb-x').addEventListener('input', (e) => {
+      const n = getNode(state.selectedNodeId);
+      if (n) n.x = Math.round(parseFloat(e.target.value) || 0);
+    });
+    document.getElementById('nb-y').addEventListener('input', (e) => {
+      const n = getNode(state.selectedNodeId);
+      if (n) n.y = Math.round(parseFloat(e.target.value) || 0);
+    });
+
+    // Поля точного ввода длины и угла отрезка пути
+    function updateEdgeFromInputs() {
+      const edge = getEdge(state.selectedEdgeId);
+      if (!edge) return;
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      if (!a || !b) return;
+      const len = Math.max(1, parseFloat(document.getElementById('eb-len').value) || 1);
+      const rad = ((parseFloat(document.getElementById('eb-ang').value) || 0) * Math.PI) / 180;
+      b.x = Math.round(a.x + Math.cos(rad) * len);
+      b.y = Math.round(a.y + Math.sin(rad) * len);
+    }
+    document.getElementById('eb-len').addEventListener('input', updateEdgeFromInputs);
+    document.getElementById('eb-ang').addEventListener('input', updateEdgeFromInputs);
+
+    // Поля настройки собранной стрелки и её остряков
+    document.getElementById('sb-toggle').addEventListener('click', () => {
       const sw = getSwitch(state.selectedSwitchId);
       if (!sw) return;
       sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
-      selectSwitch(sw.id);
+      syncInspector();
     });
 
-    document.getElementById('sp-ang1').addEventListener('input', e => {
+    function updateSwitchBranchAngle(branchIndex, degVal) {
       const sw = getSwitch(state.selectedSwitchId);
       if (!sw) return;
-      sw.angle1 = parseFloat(e.target.value) || 0;
-      updateSwitchGeometry(sw);
-    });
+      const stem = getNode(sw.stemNodeId);
+      const edge = getEdge(branchIndex === 0 ? sw.branch1EdgeId : sw.branch2EdgeId);
+      const other = getOtherNode(edge, sw.stemNodeId);
+      if (!stem || !other) return;
+      const len = Math.hypot(other.x - stem.x, other.y - stem.y) || 100;
+      const rad = ((parseFloat(degVal) || 0) * Math.PI) / 180;
+      other.x = Math.round(stem.x + Math.cos(rad) * len);
+      other.y = Math.round(stem.y + Math.sin(rad) * len);
+    }
 
-    document.getElementById('sp-ang2').addEventListener('input', e => {
+    document.getElementById('sb-ang1').addEventListener('input', (e) => updateSwitchBranchAngle(0, e.target.value));
+    document.getElementById('sb-ang2').addEventListener('input', (e) => updateSwitchBranchAngle(1, e.target.value));
+
+    document.getElementById('sb-blade-len').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (!sw) return;
-      sw.angle2 = parseFloat(e.target.value) || 0;
-      updateSwitchGeometry(sw);
+      if (sw) sw.bladeLength = Math.max(12, parseFloat(e.target.value) || 46);
     });
-
-    document.getElementById('sp-blade1').addEventListener('input', e => {
+    document.getElementById('sb-blade-ang1').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (!sw) return;
-      sw.bladeOffset1 = parseFloat(e.target.value) || 2.5;
+      if (sw) sw.bladeAngle1 = parseFloat(e.target.value) || 0;
     });
-
-    document.getElementById('sp-blade2').addEventListener('input', e => {
+    document.getElementById('sb-blade-ang2').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (!sw) return;
-      sw.bladeOffset2 = parseFloat(e.target.value) || 6.0;
+      if (sw) sw.bladeAngle2 = parseFloat(e.target.value) || 0;
     });
 
-    document.getElementById('sp-length').addEventListener('input', e => {
-      const sw = getSwitch(state.selectedSwitchId);
-      if (!sw) return;
-      sw.length = Math.max(80, parseFloat(e.target.value) || 180);
-      updateSwitchGeometry(sw);
+    document.getElementById('btn-reverse').addEventListener('click', () => {
+      if (state.train) state.train.dir *= -1;
     });
-
-    document.getElementById('btn-reverse').addEventListener('click', () => { if (state.train) state.train.dir *= -1; });
-    document.getElementById('btn-pause').addEventListener('click', () => { if (state.train) state.train.paused = !state.train.paused; });
+    document.getElementById('btn-pause').addEventListener('click', () => {
+      if (state.train) state.train.paused = !state.train.paused;
+    });
     document.getElementById('btn-clear').addEventListener('click', () => {
-      state.nodes = []; state.edges = []; state.switches = []; state.train = null; selectSwitch(null);
+      state.nodes = [];
+      state.edges = [];
+      state.switches = [];
+      state.train = null;
+      state.draftStartNodeId = null;
+      selectItem();
     });
-
-    // Старт
-    createTurnout(canvas.width / 2 - 100, canvas.height / 2);
   </script>
 </body>
 </html>
