@@ -1,57 +1,1393 @@
-Вот проперти (у меня на MySQL):
-
-spring.datasource.url=jdbc:mysql://localhost:3306/pavilion
-spring.datasource.username=pavilioner
-spring.datasource.password=12345678
-spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
-Вот контроллер:
-
-@AllArgsConstructor
-@Controller
-public class AnimalController {
-    private final AnimalService service;
-    @GetMapping("/")
-    public String index(Model model) {
-        model.addAttribute("animals", service.getAll());
-        model.addAttribute("title", "Главная");
-        return "index"; 
-    }
-
-    @GetMapping("/add")
-    public String add(Model model) {
-        return "add"; 
-    }
-
-    @PostMapping("/add")
-    public String save(@RequestParam String name, @RequestParam String poroda, @RequestParam String age, Model model) {
-        Animal animal = new Animal();
-        animal.setName(name);
-        animal.setAge(age);
-        animal.setPoroda(poroda);
-        service.save(animal);
-        return "redirect:/";
-    }
-}
-
-Вот HTML c Thymeleaf:
-
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Сборка стрелочного перевода с нуля (точность 1 px)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      z-index: 20;
+    }
+    .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-right: 10px;
+      border-right: 1px solid #334155;
+    }
+    .group:last-child {
+      border-right: none;
+    }
+    button {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: #475569;
+    }
+    button.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    button.danger {
+      background: #7f1d1d;
+      border-color: #991b1b;
+    }
+    button.danger:hover {
+      background: #991b1b;
+    }
+    label {
+      font-size: 12px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    input[type="number"] {
+      width: 66px;
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 13px;
+    }
+    input[type="checkbox"] {
+      accent-color: #2563eb;
+    }
+    #canvas-wrap {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+    #inspector {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(30, 41, 59, 0.96);
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 12px;
+      width: 320px;
+      max-height: calc(100vh - 70px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+      z-index: 20;
+    }
+    #inspector h3 {
+      font-size: 14px;
+      color: #f8fafc;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 5px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .sub-block {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #334155;
+    }
+    .sub-block.visible {
+      display: flex;
+    }
+    .pos-group {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 7px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .pos-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #93c5fd;
+    }
+    #coords-readout {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #38bdf8;
+    }
+    #hint {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #cbd5e1;
+      pointer-events: none;
+      line-height: 1.45;
+      max-width: 720px;
+    }
+  </style>
 </head>
 <body>
-    <div><h2>Добавить животное</h2></div>
-    <div><a href="/">Животные</a></div>
-    <form action="/add" method="post">
-        <div>Животное: <input type="text" name="poroda"></div>
-        <div>Имя: <input type="text" name="name"></div>
-        <div>Возраст: <input type="text" name="age"></div>
-        <div><button type="submit">Добавить</button></div>
-    </form>
+
+  <div id="toolbar">
+    <div class="group">
+      <button id="tool-track" class="active" title="Проложить отдельный рельсовый путь с нуля">═ Новый путь</button>
+      <button id="tool-move" title="Свободное перемещение узлов и путей с точностью 1 px">✥ Двигать (1 px)</button>
+      <button id="tool-build-switch" title="Объединить 3 сходящихся в узле пути в стрелку">⑂ Собрать стрелку из путей</button>
+      <button id="tool-train" title="Поставить состав на путь">🚆 Поезд на путь</button>
+      <button id="tool-delete" class="danger" title="Удалить узел, путь или стрелку">🗑 Удалить</button>
+    </div>
+
+    <div class="group">
+      <label>Колея (px):
+        <input type="number" id="gauge-input" value="18" min="8" max="44" step="1" />
+      </label>
+      <label><input type="checkbox" id="snap-grid" /> Сетка 20 px</label>
+    </div>
+
+    <div class="group">
+      <button id="btn-reverse">⇄ Реверс</button>
+      <button id="btn-pause">⏯ Пауза</button>
+      <button id="btn-clear" class="danger">Очистить всё</button>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+
+    <div id="inspector">
+      <h3>Инспектор (точность 1 px)</h3>
+      <div class="row">
+        <span>Курсор:</span>
+        <span id="coords-readout">X: 0 px, Y: 0 px</span>
+      </div>
+
+      <div id="node-block" class="sub-block">
+        <div class="row">
+          <b>Выбранный узел #<span id="nb-id">0</span></b>
+          <span style="color:#94a3b8;">(←↑→↓ = 1px)</span>
+        </div>
+        <div class="row">
+          <span>Координата X (px):</span>
+          <input type="number" id="nb-x" step="1" />
+        </div>
+        <div class="row">
+          <span>Координата Y (px):</span>
+          <input type="number" id="nb-y" step="1" />
+        </div>
+      </div>
+
+      <div id="edge-block" class="sub-block">
+        <div class="row">
+          <b>Отрезок пути #<span id="eb-id">0</span></b>
+        </div>
+        <div class="row">
+          <span>Длина (px):</span>
+          <input type="number" id="eb-len" min="1" step="1" />
+        </div>
+        <div class="row">
+          <span>Угол наклона (°):</span>
+          <input type="number" id="eb-ang" step="0.5" />
+        </div>
+      </div>
+
+      <div id="switch-block" class="sub-block">
+        <div class="row">
+          <b>Стрелка #<span id="sb-id">0</span></b>
+          <button id="sb-toggle" style="background:#2563eb; font-weight:600;">Положение 1</button>
+        </div>
+        <div class="row">
+          <span>Порядок ветвей:</span>
+          <button id="sb-swap-branches" style="background:#334155; font-size:11px; padding:3px 6px;">⇄ Инвертировать ветви</button>
+        </div>
+        <div class="row">
+          <span>Угол ветви 1 (°):</span>
+          <input type="number" id="sb-ang1" step="0.5" />
+        </div>
+        <div class="row">
+          <span>Угол ветви 2 (°):</span>
+          <input type="number" id="sb-ang2" step="0.5" />
+        </div>
+        <div class="row">
+          <span>Длина остряков (px):</span>
+          <input type="number" id="sb-blade-len" min="12" max="250" step="1" />
+        </div>
+        <div class="row">
+          <span>Плавный переход (px):</span>
+          <input type="number" id="sb-smooth-len" min="10" max="250" step="1" />
+        </div>
+        <div class="row">
+          <span>Смещение корня остряков (px):</span>
+          <input type="number" id="sb-blade-offset" min="0" max="100" step="1" />
+        </div>
+
+        <div class="pos-group">
+          <div class="pos-title">Положение 1 (на Путь 1) — угол остряков (°)</div>
+          <div class="row">
+            <span>Угол остряков:</span>
+            <input type="number" id="sb-p1-b1" min="-45" max="45" step="0.5" />
+          </div>
+        </div>
+
+        <div class="pos-group">
+          <div class="pos-title">Положение 2 (на Путь 2) — угол остряков (°)</div>
+          <div class="row">
+            <span>Угол остряков:</span>
+            <input type="number" id="sb-p2-b1" min="-45" max="45" step="0.5" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="hint">
+      <b>Сборка с нуля:</b> 1) Проложите 3 пути. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу. Внешние рельсы основного пути подключены к второстепенным ветвям в инвертированном порядке.
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const state = {
+      tool: 'track',
+      gauge: 18,
+      snapGrid: false,
+      gridSize: 20,
+
+      nodes: [],
+      edges: [],
+      switches: [],
+
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      selectedSwitchId: null,
+
+      draggingNodeId: null,
+      draggingEdgeId: null,
+      dragLastWorld: { x: 0, y: 0 },
+
+      draftStartNodeId: null,
+      mouseWorld: { x: 0, y: 0 },
+      hoverNodeId: null,
+      hoverEdgeId: null,
+
+      camX: 0,
+      camY: 0,
+      zoom: 1,
+      isPanning: false,
+      panStart: { x: 0, y: 0 },
+      spacePressed: false,
+
+      train: null,
+      nextId: 1
+    };
+
+    function genId() {
+      return state.nextId++;
+    }
+
+    function resize() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function screenToWorld(sx, sy) {
+      return {
+        x: Math.round((sx - state.camX) / state.zoom),
+        y: Math.round((sy - state.camY) / state.zoom)
+      };
+    }
+
+    function snapPoint(x, y, excludeNodeId = null) {
+      const snapRadius = 12 / state.zoom;
+      for (const n of state.nodes) {
+        if (n.id === excludeNodeId) continue;
+        if (Math.hypot(n.x - x, n.y - y) <= snapRadius) {
+          return { x: n.x, y: n.y, nodeId: n.id };
+        }
+      }
+      if (state.snapGrid) {
+        return {
+          x: Math.round(x / state.gridSize) * state.gridSize,
+          y: Math.round(y / state.gridSize) * state.gridSize,
+          nodeId: null
+        };
+      }
+      return { x: Math.round(x), y: Math.round(y), nodeId: null };
+    }
+
+    function getNode(id) {
+      return state.nodes.find(n => n.id === id);
+    }
+
+    function getEdge(id) {
+      return state.edges.find(e => e.id === id);
+    }
+
+    function getSwitch(id) {
+      return state.switches.find(s => s.id === id);
+    }
+
+    function getOrCreateNode(x, y) {
+      const rx = Math.round(x);
+      const ry = Math.round(y);
+      for (const n of state.nodes) {
+        if (Math.hypot(n.x - rx, n.y - ry) <= 3) return n;
+      }
+      const node = { id: genId(), x: rx, y: ry };
+      state.nodes.push(node);
+      return node;
+    }
+
+    function addEdge(fromId, toId) {
+      if (fromId === toId) return null;
+      const existing = state.edges.find(
+        e => (e.from === fromId && e.to === toId) || (e.from === toId && e.to === fromId)
+      );
+      if (existing) return existing;
+      const edge = { id: genId(), from: fromId, to: toId };
+      state.edges.push(edge);
+      return edge;
+    }
+
+    function distToSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+      let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    function findNearestEdge(wx, wy, maxDist = 14) {
+      let best = null;
+      let bestD = maxDist;
+      for (const e of state.edges) {
+        const a = getNode(e.from);
+        const b = getNode(e.to);
+        if (!a || !b) continue;
+        const d = distToSegment(wx, wy, a.x, a.y, b.x, b.y);
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+        }
+      }
+      return best;
+    }
+
+    function findNearestNode(wx, wy, maxDist = 14) {
+      let best = null;
+      let bestD = maxDist;
+      for (const n of state.nodes) {
+        const d = Math.hypot(n.x - wx, n.y - wy);
+        if (d < bestD) {
+          bestD = d;
+          best = n;
+        }
+      }
+      return best;
+    }
+
+    function getOtherNode(edge, nodeId) {
+      if (!edge) return null;
+      return edge.from === nodeId ? getNode(edge.to) : getNode(edge.from);
+    }
+
+    function buildSwitchAtNode(stemNodeId) {
+      const stem = getNode(stemNodeId);
+      if (!stem) return;
+
+      const existing = state.switches.find(s => s.stemNodeId === stemNodeId);
+      if (existing) {
+        existing.activeBranch = existing.activeBranch === 0 ? 1 : 0;
+        selectItem({ switchId: existing.id, nodeId: stemNodeId });
+        return;
+      }
+
+      const incidentEdges = state.edges.filter(e => e.from === stemNodeId || e.to === stemNodeId);
+      if (incidentEdges.length < 3) {
+        alert('Для сборки стрелки в узле должны сходиться как минимум 3 пути. Сейчас путей: ' + incidentEdges.length);
+        return;
+      }
+
+      const dirs = incidentEdges.map(edge => {
+        const other = getOtherNode(edge, stemNodeId);
+        const ang = Math.atan2(other.y - stem.y, other.x - stem.x);
+        return { edge, other, ang };
+      });
+
+      let bestEntryIdx = 0;
+      let bestScore = -Infinity;
+      for (let i = 0; i < dirs.length; i++) {
+        const a0 = dirs[i].ang;
+        let score = 0;
+        for (let j = 0; j < dirs.length; j++) {
+          if (i === j) continue;
+          score += Math.abs(Math.atan2(Math.sin(dirs[j].ang - a0), Math.cos(dirs[j].ang - a0)));
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestEntryIdx = i;
+        }
+      }
+
+      const entryItem = dirs[bestEntryIdx];
+      const remaining = dirs.filter((_, idx) => idx !== bestEntryIdx);
+      
+      remaining.sort((a, b) => {
+        const fA = Math.atan2(Math.sin(a.ang - (entryItem.ang + Math.PI)), Math.cos(a.ang - (entryItem.ang + Math.PI)));
+        const fB = Math.atan2(Math.sin(b.ang - (entryItem.ang + Math.PI)), Math.cos(b.ang - (entryItem.ang + Math.PI)));
+        return fA - fB;
+      });
+
+      const branch1 = remaining[0].edge;
+      const branch2 = remaining[remaining.length - 1].edge;
+
+      const sw = {
+        id: genId(),
+        stemNodeId: stemNodeId,
+        entryEdgeId: entryItem.edge.id,
+        branch1EdgeId: branch1.id,
+        branch2EdgeId: branch2.id,
+        activeBranch: 0,
+        bladeLength: 55,
+        smoothLength: 55,
+        bladeOffset: 8,
+        pos1BladeAngle: 0,
+        pos2BladeAngle: 8
+      };
+
+      state.switches.push(sw);
+      selectItem({ switchId: sw.id, nodeId: stemNodeId });
+    }
+
+    function selectItem({ nodeId = null, edgeId = null, switchId = null } = {}) {
+      state.selectedNodeId = nodeId;
+      state.selectedEdgeId = edgeId;
+      state.selectedSwitchId = switchId;
+      syncInspector();
+    }
+
+    function syncInspector() {
+      const nodeBlock = document.getElementById('node-block');
+      const edgeBlock = document.getElementById('edge-block');
+      const switchBlock = document.getElementById('switch-block');
+
+      const node = getNode(state.selectedNodeId);
+      if (node) {
+        nodeBlock.classList.add('visible');
+        document.getElementById('nb-id').textContent = node.id;
+        document.getElementById('nb-x').value = node.x;
+        document.getElementById('nb-y').value = node.y;
+      } else {
+        nodeBlock.classList.remove('visible');
+      }
+
+      const edge = getEdge(state.selectedEdgeId);
+      if (edge) {
+        const a = getNode(edge.from);
+        const b = getNode(edge.to);
+        if (a && b) {
+          edgeBlock.classList.add('visible');
+          document.getElementById('eb-id').textContent = edge.id;
+          document.getElementById('eb-len').value = Math.round(Math.hypot(b.x - a.x, b.y - a.y));
+          document.getElementById('eb-ang').value = ((Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI).toFixed(1);
+        } else {
+          edgeBlock.classList.remove('visible');
+        }
+      } else {
+        edgeBlock.classList.remove('visible');
+      }
+
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) {
+        const stem = getNode(sw.stemNodeId);
+        const e1 = getEdge(sw.branch1EdgeId);
+        const e2 = getEdge(sw.branch2EdgeId);
+        const n1 = getOtherNode(e1, sw.stemNodeId);
+        const n2 = getOtherNode(e2, sw.stemNodeId);
+
+        if (stem && n1 && n2) {
+          switchBlock.classList.add('visible');
+          document.getElementById('sb-id').textContent = sw.id;
+          const tgl = document.getElementById('sb-toggle');
+          tgl.textContent = sw.activeBranch === 0 ? 'Положение 1 (активно)' : 'Положение 2 (активно)';
+          tgl.style.background = sw.activeBranch === 0 ? '#2563eb' : '#059669';
+
+          document.getElementById('sb-ang1').value = ((Math.atan2(n1.y - stem.y, n1.x - stem.x) * 180) / Math.PI).toFixed(1);
+          document.getElementById('sb-ang2').value = ((Math.atan2(n2.y - stem.y, n2.x - stem.x) * 180) / Math.PI).toFixed(1);
+          document.getElementById('sb-blade-len').value = sw.bladeLength;
+          document.getElementById('sb-smooth-len').value = sw.smoothLength;
+          document.getElementById('sb-blade-offset').value = sw.bladeOffset ?? 8;
+
+          document.getElementById('sb-p1-b1').value = sw.pos1BladeAngle ?? 0;
+          document.getElementById('sb-p2-b1').value = sw.pos2BladeAngle ?? 8;
+        } else {
+          switchBlock.classList.remove('visible');
+        }
+      } else {
+        switchBlock.classList.remove('visible');
+      }
+    }
+
+    function strokeSteelRail(drawPathFn, isSelected = false) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 3.6;
+      ctx.beginPath();
+      drawPathFn();
+      ctx.stroke();
+
+      ctx.strokeStyle = isSelected ? '#60a5fa' : '#e2e8f0';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      drawPathFn();
+      ctx.stroke();
+    }
+
+    function intersectLines(p1x, p1y, d1x, d1y, p2x, p2y, d2x, d2y) {
+      const cross = d1x * d2y - d1y * d2x;
+      if (Math.abs(cross) < 1e-4) {
+        return { x: (p1x + p2x) * 0.5, y: (p1y + p2y) * 0.5 };
+      }
+      const t = ((p2x - p1x) * d2y - (p2y - p1y) * d2x) / cross;
+      return { x: p1x + d1x * t, y: p1y + d1y * t };
+    }
+
+    function drawEdgeBallastOnly(edge) {
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      if (!a || !b) return;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) return;
+
+      const ux = dx / len;
+      const uy = dy / len;
+      const nx = -uy;
+      const ny = ux;
+      const halfG = state.gauge / 2;
+      const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
+
+      ctx.strokeStyle = isSelected ? '#334155' : '#1e293b';
+      ctx.lineWidth = state.gauge + 16;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      for (let d = 6; d < len - 4; d += 12) {
+        const sx = a.x + ux * d;
+        const sy = a.y + uy * d;
+        ctx.moveTo(sx + nx * (halfG + 5), sy + ny * (halfG + 5));
+        ctx.lineTo(sx - nx * (halfG + 5), sy - ny * (halfG + 5));
+      }
+      ctx.stroke();
+    }
+
+    function drawEdgeRailsOnly(edge) {
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      if (!a || !b) return;
+
+      let swOwner = null;
+      let role = null;
+      for (const sw of state.switches) {
+        if (sw.entryEdgeId === edge.id) { swOwner = sw; role = 'entry'; break; }
+        if (sw.branch1EdgeId === edge.id) { swOwner = sw; role = 'branch1'; break; }
+        if (sw.branch2EdgeId === edge.id) { swOwner = sw; role = 'branch2'; break; }
+      }
+
+      let x1 = a.x, y1 = a.y, x2 = b.x, y2 = b.y;
+      if (swOwner) {
+        if (role === 'entry' && edge.from === swOwner.stemNodeId) {
+          x1 = b.x; y1 = b.y; x2 = a.x; y2 = a.y;
+        } else if ((role === 'branch1' || role === 'branch2') && edge.to === swOwner.stemNodeId) {
+          x1 = b.x; y1 = b.y; x2 = a.x; y2 = a.y;
+        }
+      }
+
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) return;
+
+      const ux = dx / len;
+      const uy = dy / len;
+      const nx = -uy;
+      const ny = ux;
+      const halfG = state.gauge / 2;
+      const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
+
+      if (!swOwner) {
+        const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
+        const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
+        const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
+        const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
+        strokeSteelRail(() => { ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2); }, isSelected);
+        strokeSteelRail(() => { ctx.moveTo(rx1, ry1); ctx.lineTo(rx2, ry2); }, isSelected);
+        return;
+      }
+
+      const trim = Math.min(len * 0.48, swOwner.smoothLength * 0.5);
+      const offset = swOwner.bladeOffset ?? 8;
+
+      if (role === 'entry') {
+        const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
+        const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
+        const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
+        const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
+
+        strokeSteelRail(() => {
+          ctx.moveTo(lx1, ly1);
+          ctx.lineTo(lx2 - ux * trim, ly2 - uy * trim);
+        }, isSelected);
+        strokeSteelRail(() => {
+          ctx.moveTo(rx1, ry1);
+          ctx.lineTo(rx2 - ux * trim, ry2 - uy * trim);
+        }, isSelected);
+      } else if (role === 'branch1') {
+        const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
+        const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
+        const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
+        const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
+        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
+
+        // Ветвь 1: левый рельс (+nx1) подключается к левому внешнему рельсу основного пути, правый (-nx1) — внутренний
+        strokeSteelRail(() => {
+          ctx.moveTo(lx1 + ux * trim, ly1 + uy * trim);
+          ctx.lineTo(lx2, ly2);
+        }, isSelected);
+        strokeSteelRail(() => {
+          ctx.moveTo(rx1 + ux * innerStart, ry1 + uy * innerStart);
+          ctx.lineTo(rx2, ry2);
+        }, isSelected);
+      } else if (role === 'branch2') {
+        const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
+        const lx2 = x2 + nx * halfG, ly2 = y2 + ny * halfG;
+        const rx1 = x1 - nx * halfG, ry1 = y1 - ny * halfG;
+        const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
+        const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
+
+        // Ветвь 2: правый рельс (-nx2) подключается к правому внешнему рельсу основного пути, левый (+nx2) — внутренний
+        strokeSteelRail(() => {
+          ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
+          ctx.lineTo(rx2, ry2);
+        }, isSelected);
+        strokeSteelRail(() => {
+          ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
+          ctx.lineTo(lx2, ly2);
+        }, isSelected);
+      }
+    }
+
+    function drawSwitchGeometryAndBlades(sw) {
+      const stem = getNode(sw.stemNodeId);
+      const eEntry = getEdge(sw.entryEdgeId);
+      const e1 = getEdge(sw.branch1EdgeId);
+      const e2 = getEdge(sw.branch2EdgeId);
+
+      const nEntry = getOtherNode(eEntry, sw.stemNodeId);
+      const n1 = getOtherNode(e1, sw.stemNodeId);
+      const n2 = getOtherNode(e2, sw.stemNodeId);
+      if (!stem || !nEntry || !n1 || !n2) return;
+
+      const halfG = state.gauge / 2;
+
+      const dIn = Math.hypot(stem.x - nEntry.x, stem.y - nEntry.y) || 1;
+      const uxIn = (stem.x - nEntry.x) / dIn;
+      const uyIn = (stem.y - nEntry.y) / dIn;
+      const nxIn = -uyIn;
+      const nyIn = uxIn;
+
+      const d1 = Math.hypot(n1.x - stem.x, n1.y - stem.y) || 1;
+      const ux1 = (n1.x - stem.x) / d1;
+      const uy1 = (n1.y - stem.y) / d1;
+      const nx1 = -uy1;
+      const ny1 = ux1;
+
+      const d2 = Math.hypot(n2.x - stem.x, n2.y - stem.y) || 1;
+      const ux2 = (n2.x - stem.x) / d2;
+      const uy2 = (n2.y - stem.y) / d2;
+      const nx2 = -uy2;
+      const ny2 = ux2;
+
+      const trimIn = Math.min(dIn * 0.48, sw.smoothLength * 0.5);
+      const trim1 = Math.min(d1 * 0.48, sw.smoothLength * 0.5);
+      const trim2 = Math.min(d2 * 0.48, sw.smoothLength * 0.5);
+      const offset = sw.bladeOffset ?? 8;
+
+      // ИНВЕРТИРОВАННОЕ ПОДКЛЮЧЕНИЕ ОСНОВНЫХ ВНЕШНИХ РЕЛЬСОВ К ВТОРОСТЕПЕННЫМ ВЕТВЯМ:
+      // Левый внешний основного пути (+nxIn) -> к левому внешнему Ветви 1 (+nx1)
+      const inLeftX = (stem.x - uxIn * trimIn) + nxIn * halfG;
+      const inLeftY = (stem.y - uyIn * trimIn) + nyIn * halfG;
+      const b1OuterX = (stem.x + ux1 * trim1) + nx1 * halfG;
+      const b1OuterY = (stem.y + uy1 * trim1) + ny1 * halfG;
+      const cornerLeft = intersectLines(inLeftX, inLeftY, uxIn, uyIn, b1OuterX, b1OuterY, -ux1, -uy1);
+
+      strokeSteelRail(() => {
+        ctx.moveTo(inLeftX, inLeftY);
+        ctx.quadraticCurveTo(cornerLeft.x, cornerLeft.y, b1OuterX, b1OuterY);
+      }, sw.id === state.selectedSwitchId);
+
+      // Правый внешний основного пути (-nxIn) -> к правому внешнему Ветви 2 (-nx2)
+      const inRightX = (stem.x - uxIn * trimIn) - nxIn * halfG;
+      const inRightY = (stem.y - uyIn * trimIn) - nyIn * halfG;
+      const b2OuterX = (stem.x + ux2 * trim2) - nx2 * halfG;
+      const b2OuterY = (stem.y + uy2 * trim2) - ny2 * halfG;
+      const cornerRight = intersectLines(inRightX, inRightY, uxIn, uyIn, b2OuterX, b2OuterY, -ux2, -uy2);
+
+      strokeSteelRail(() => {
+        ctx.moveTo(inRightX, inRightY);
+        ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b2OuterX, b2OuterY);
+      }, sw.id === state.selectedSwitchId);
+
+      // СИНХРОННЫЕ ПАРАЛЛЕЛЬНЫЕ ОСТРЯКИ
+      const bLen1 = Math.min(d1 * 0.9, Math.max(trim1 + 6, sw.bladeLength + offset));
+      const bLen2 = Math.min(d2 * 0.9, Math.max(trim2 + 6, sw.bladeLength + offset));
+
+      const root1x = stem.x + ux1 * bLen1 - nx1 * halfG;
+      const root1y = stem.y + uy1 * bLen1 - ny1 * halfG;
+
+      const root2x = stem.x + ux2 * bLen2 + nx2 * halfG;
+      const root2y = stem.y + uy2 * bLen2 + ny2 * halfG;
+
+      const seat1x = stem.x + ux1 * offset + nx1 * (halfG - 1.5);
+      const seat1y = stem.y + uy1 * offset + ny1 * (halfG - 1.5);
+
+      const seat2x = stem.x + ux2 * offset - nx2 * (halfG - 1.5);
+      const seat2y = stem.y + uy2 * offset - ny2 * (halfG - 1.5);
+
+      const baseAng1 = Math.atan2(seat1y - root1y, seat1x - root1x);
+      const baseAng2 = Math.atan2(seat2y - root2y, seat2x - root2x);
+
+      const len1 = Math.hypot(seat1x - root1x, seat1y - root1y);
+      const len2 = Math.hypot(seat2x - root2x, seat2y - root2y);
+
+      const deg = sw.activeBranch === 0 ? (sw.pos1BladeAngle ?? 0) : (sw.pos2BladeAngle ?? 8);
+
+      const curAng1 = baseAng1 - (deg * Math.PI) / 180;
+      const curAng2 = baseAng2 + (deg * Math.PI) / 180;
+
+      const tip1x = root1x + Math.cos(curAng1) * len1;
+      const tip1y = root1y + Math.sin(curAng1) * len1;
+
+      const tip2x = root2x + Math.cos(curAng2) * len2;
+      const tip2y = root2y + Math.sin(curAng2) * len2;
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(tip1x, tip1y);
+      ctx.lineTo(tip2x, tip2y);
+      ctx.stroke();
+
+      const boxX = Math.round(stem.x + ux2 * 6 - nx2 * (halfG + 18));
+      const boxY = Math.round(stem.y + uy2 * 6 - ny2 * (halfG + 18));
+      sw._boxX = boxX;
+      sw._boxY = boxY;
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tip2x, tip2y);
+      ctx.lineTo(boxX, boxY);
+      ctx.stroke();
+
+      ctx.fillStyle = sw.id === state.selectedSwitchId ? '#2563eb' : '#334155';
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 1.4;
+      ctx.fillRect(boxX - 6, boxY - 6, 12, 12);
+      ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
+
+      strokeSteelRail(() => {
+        ctx.moveTo(root1x, root1y);
+        ctx.lineTo(tip1x, tip1y);
+      }, false);
+
+      strokeSteelRail(() => {
+        ctx.moveTo(root2x, root2y);
+        ctx.lineTo(tip2x, tip2y);
+      }, false);
+    }
+
+    function updateTrain(dt) {
+      if (!state.train || state.train.paused) return;
+      let edge = getEdge(state.train.edgeId);
+      if (!edge) {
+        state.train = null;
+        return;
+      }
+
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      state.train.dist += state.train.speed * state.train.dir * dt;
+
+      while (state.train && (state.train.dist > len || state.train.dist < 0)) {
+        const forward = state.train.dist > len;
+        const overflow = forward ? state.train.dist - len : -state.train.dist;
+        const arrivalNodeId = forward ? edge.to : edge.from;
+
+        const candidates = state.edges.filter(
+          e => e.id !== edge.id && (e.from === arrivalNodeId || e.to === arrivalNodeId)
+        );
+
+        if (candidates.length === 0) {
+          state.train.dir *= -1;
+          state.train.dist = Math.max(0, Math.min(len, state.train.dist));
+          break;
+        }
+
+        const swAtNode = state.switches.find(s => s.stemNodeId === arrivalNodeId);
+        let nextEdge = null;
+
+        if (swAtNode) {
+          if (edge.id === swAtNode.entryEdgeId) {
+            const targetId = swAtNode.activeBranch === 0 ? swAtNode.branch1EdgeId : swAtNode.branch2EdgeId;
+            nextEdge = candidates.find(e => e.id === targetId) || candidates[0];
+          } else {
+            nextEdge = candidates.find(e => e.id === swAtNode.entryEdgeId) || candidates[0];
+          }
+        } else {
+          nextEdge = candidates[0];
+        }
+
+        edge = nextEdge;
+        state.train.edgeId = edge.id;
+        const na = getNode(edge.from);
+        const nb = getNode(edge.to);
+        const nextLen = Math.hypot(nb.x - na.x, nb.y - na.y) || 1;
+
+        if (edge.from === arrivalNodeId) {
+          state.train.dir = 1;
+          state.train.dist = overflow;
+        } else {
+          state.train.dir = -1;
+          state.train.dist = nextLen - overflow;
+        }
+      }
+    }
+
+    function drawTrain() {
+      if (!state.train) return;
+      const edge = getEdge(state.train.edgeId);
+      if (!edge) return;
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const t = Math.max(0, Math.min(1, state.train.dist / len));
+
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const angle = Math.atan2(b.y - a.y, b.x - a.x) + (state.train.dir < 0 ? Math.PI : 0);
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      const bodyW = 46;
+      const bodyH = state.gauge + 6;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(-bodyW / 2 + 2, -bodyH / 2 + 3, bodyW, bodyH);
+
+      ctx.fillStyle = '#dc2626';
+      ctx.strokeStyle = '#fca5a5';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#991b1b';
+      ctx.fillRect(-bodyW / 2 + 6, -bodyH / 2 + 3, bodyW - 14, bodyH - 6);
+
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(bodyW / 2 - 2, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      updateTrain(dt);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(state.camX, state.camY);
+      ctx.scale(state.zoom, state.zoom);
+
+      if (state.snapGrid) {
+        const startX = Math.floor(-state.camX / state.zoom / state.gridSize) * state.gridSize;
+        const startY = Math.floor(-state.camY / state.zoom / state.gridSize) * state.gridSize;
+        const endX = startX + canvas.width / state.zoom + state.gridSize * 2;
+        const endY = startY + canvas.height / state.zoom + state.gridSize * 2;
+
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)';
+        ctx.lineWidth = 1 / state.zoom;
+        ctx.beginPath();
+        for (let gx = startX; gx < endX; gx += state.gridSize) {
+          ctx.moveTo(gx, startY);
+          ctx.lineTo(gx, endY);
+        }
+        for (let gy = startY; gy < endY; gy += state.gridSize) {
+          ctx.moveTo(startX, gy);
+          ctx.lineTo(endX, gy);
+        }
+        ctx.stroke();
+      }
+
+      for (const edge of state.edges) {
+        drawEdgeBallastOnly(edge);
+      }
+
+      for (const edge of state.edges) {
+        drawEdgeRailsOnly(edge);
+      }
+
+      for (const sw of state.switches) {
+        drawSwitchGeometryAndBlades(sw);
+      }
+
+      if (state.tool === 'track' && state.draftStartNodeId !== null) {
+        const startNode = getNode(state.draftStartNodeId);
+        if (startNode) {
+          const snapped = snapPoint(state.mouseWorld.x, state.mouseWorld.y);
+          const dx = snapped.x - startNode.x;
+          const dy = snapped.y - startNode.y;
+          const len = Math.hypot(dx, dy);
+          if (len > 1) {
+            const nx = -dy / len;
+            const ny = dx / len;
+            const halfG = state.gauge / 2;
+            ctx.save();
+            ctx.globalAlpha = 0.65;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(startNode.x + nx * halfG, startNode.y + ny * halfG);
+            ctx.lineTo(snapped.x + nx * halfG, snapped.y + ny * halfG);
+            ctx.moveTo(startNode.x - nx * halfG, startNode.y - ny * halfG);
+            ctx.lineTo(snapped.x - nx * halfG, snapped.y - ny * halfG);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      for (const n of state.nodes) {
+        const isSwitchStem = state.switches.some(s => s.stemNodeId === n.id);
+        const isSelected = n.id === state.selectedNodeId;
+        const isHover = n.id === state.hoverNodeId;
+
+        ctx.fillStyle = isSelected
+          ? '#38bdf8'
+          : isSwitchStem
+          ? '#f59e0b'
+          : isHover
+          ? '#60a5fa'
+          : '#94a3b8';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, isSelected || isSwitchStem ? 5.5 : 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      drawTrain();
+      ctx.restore();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
+      if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
+        state.isPanning = true;
+        state.panStart = { x: sx - state.camX, y: sy - state.camY };
+        return;
+      }
+
+      if (e.button === 2) {
+        state.draftStartNodeId = null;
+        return;
+      }
+
+      if (e.button !== 0) return;
+
+      const world = screenToWorld(sx, sy);
+
+      for (const sw of state.switches) {
+        if (sw._boxX !== undefined && Math.hypot(sw._boxX - world.x, sw._boxY - world.y) <= 12) {
+          sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
+          selectItem({ switchId: sw.id, nodeId: sw.stemNodeId });
+          return;
+        }
+      }
+
+      const snapped = snapPoint(world.x, world.y);
+
+      if (state.tool === 'track') {
+        if (state.draftStartNodeId === null) {
+          const node = snapped.nodeId ? getNode(snapped.nodeId) : getOrCreateNode(snapped.x, snapped.y);
+          state.draftStartNodeId = node.id;
+          selectItem({ nodeId: node.id });
+        } else {
+          const endNode = snapped.nodeId ? getNode(snapped.nodeId) : getOrCreateNode(snapped.x, snapped.y);
+          const edge = addEdge(state.draftStartNodeId, endNode.id);
+          state.draftStartNodeId = endNode.id;
+          selectItem({ nodeId: endNode.id, edgeId: edge ? edge.id : null });
+        }
+      } else if (state.tool === 'move') {
+        const hitNode = findNearestNode(world.x, world.y, 12 / state.zoom);
+        if (hitNode) {
+          state.draggingNodeId = hitNode.id;
+          const sw = state.switches.find(s => s.stemNodeId === hitNode.id);
+          selectItem({ nodeId: hitNode.id, switchId: sw ? sw.id : null });
+          return;
+        }
+        const hitEdge = findNearestEdge(world.x, world.y, 12 / state.zoom);
+        if (hitEdge) {
+          state.draggingEdgeId = hitEdge.id;
+          state.dragLastWorld = { x: world.x, y: world.y };
+          const sw = state.switches.find(
+            s => s.entryEdgeId === hitEdge.id || s.branch1EdgeId === hitEdge.id || s.branch2EdgeId === hitEdge.id
+          );
+          selectItem({ edgeId: hitEdge.id, switchId: sw ? sw.id : null });
+          return;
+        }
+        selectItem();
+      } else if (state.tool === 'build-switch') {
+        const hitNode = findNearestNode(world.x, world.y, 16 / state.zoom);
+        if (hitNode) {
+          buildSwitchAtNode(hitNode.id);
+        }
+      } else if (state.tool === 'train') {
+        const hitEdge = findNearestEdge(world.x, world.y, 18 / state.zoom);
+        if (hitEdge) {
+          const a = getNode(hitEdge.from);
+          const b = getNode(hitEdge.to);
+          const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          state.train = { edgeId: hitEdge.id, dist: len * 0.5, dir: 1, speed: 120, paused: false };
+        }
+      } else if (state.tool === 'delete') {
+        const hitNode = findNearestNode(world.x, world.y, 12 / state.zoom);
+        if (hitNode) {
+          state.switches = state.switches.filter(s => s.stemNodeId !== hitNode.id);
+          state.edges = state.edges.filter(e => e.from !== hitNode.id && e.to !== hitNode.id);
+          state.nodes = state.nodes.filter(n => n.id !== hitNode.id);
+          selectItem();
+          return;
+        }
+        const hitEdge = findNearestEdge(world.x, world.y, 12 / state.zoom);
+        if (hitEdge) {
+          state.switches = state.switches.filter(
+            s => s.entryEdgeId !== hitEdge.id && s.branch1EdgeId !== hitEdge.id && s.branch2EdgeId !== hitEdge.id
+          );
+          state.edges = state.edges.filter(e => e.id !== hitEdge.id);
+          if (state.train && state.train.edgeId === hitEdge.id) state.train = null;
+          selectItem();
+        }
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
+      if (state.isPanning) {
+        state.camX = sx - state.panStart.x;
+        state.camY = sy - state.panStart.y;
+        return;
+      }
+
+      const world = screenToWorld(sx, sy);
+      state.mouseWorld = world;
+      document.getElementById('coords-readout').textContent = `X: ${world.x} px, Y: ${world.y} px`;
+
+      if (state.draggingNodeId !== null) {
+        const node = getNode(state.draggingNodeId);
+        if (node) {
+          const snapped = snapPoint(world.x, world.y, node.id);
+          node.x = snapped.x;
+          node.y = snapped.y;
+          syncInspector();
+        }
+        return;
+      }
+
+      if (state.draggingEdgeId !== null) {
+        const edge = getEdge(state.draggingEdgeId);
+        if (edge) {
+          const dx = world.x - state.dragLastWorld.x;
+          const dy = world.y - state.dragLastWorld.y;
+          if (dx !== 0 || dy !== 0) {
+            const a = getNode(edge.from);
+            const b = getNode(edge.to);
+            if (a && b) {
+              a.x += dx;
+              a.y += dy;
+              b.x += dx;
+              b.y += dy;
+            }
+            state.dragLastWorld = { x: world.x, y: world.y };
+            syncInspector();
+          }
+        }
+        return;
+      }
+
+      const hn = findNearestNode(world.x, world.y, 12 / state.zoom);
+      state.hoverNodeId = hn ? hn.id : null;
+      const he = findNearestEdge(world.x, world.y, 12 / state.zoom);
+      state.hoverEdgeId = he ? he.id : null;
+    });
+
+    window.addEventListener('mouseup', () => {
+      state.isPanning = false;
+      state.draggingNodeId = null;
+      state.draggingEdgeId = null;
+    });
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const before = {
+        x: (sx - state.camX) / state.zoom,
+        y: (sy - state.camY) / state.zoom
+      };
+      const factor = e.deltaY < 0 ? 1.15 : 0.87;
+      state.zoom = Math.max(0.25, Math.min(4.0, state.zoom * factor));
+      state.camX = sx - before.x * state.zoom;
+      state.camY = sy - before.y * state.zoom;
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') state.spacePressed = true;
+      if (e.key === 'Escape') state.draftStartNodeId = null;
+
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
+      const step = e.shiftKey ? 10 : 1;
+      let dx = 0, dy = 0;
+      if (e.key === 'ArrowLeft') dx = -step;
+      else if (e.key === 'ArrowRight') dx = step;
+      else if (e.key === 'ArrowUp') dy = -step;
+      else if (e.key === 'ArrowDown') dy = step;
+
+      if (dx !== 0 || dy !== 0) {
+        if (state.selectedNodeId !== null) {
+          const n = getNode(state.selectedNodeId);
+          if (n) {
+            n.x += dx;
+            n.y += dy;
+            syncInspector();
+            e.preventDefault();
+          }
+        } else if (state.selectedEdgeId !== null) {
+          const edge = getEdge(state.selectedEdgeId);
+          if (edge) {
+            const a = getNode(edge.from);
+            const b = getNode(edge.to);
+            if (a && b) {
+              a.x += dx; a.y += dy;
+              b.x += dx; b.y += dy;
+              syncInspector();
+              e.preventDefault();
+            }
+          }
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') state.spacePressed = false;
+    });
+
+    const toolButtons = {
+      track: document.getElementById('tool-track'),
+      move: document.getElementById('tool-move'),
+      'build-switch': document.getElementById('tool-build-switch'),
+      train: document.getElementById('tool-train'),
+      delete: document.getElementById('tool-delete')
+    };
+
+    function setTool(name) {
+      state.tool = name;
+      state.draftStartNodeId = null;
+      Object.entries(toolButtons).forEach(([k, btn]) => btn.classList.toggle('active', k === name));
+    }
+    Object.entries(toolButtons).forEach(([k, btn]) => btn.addEventListener('click', () => setTool(k)));
+
+    document.getElementById('gauge-input').addEventListener('input', (e) => {
+      state.gauge = Math.max(8, Math.min(44, parseFloat(e.target.value) || 18));
+    });
+
+    document.getElementById('snap-grid').addEventListener('change', (e) => {
+      state.snapGrid = e.target.checked;
+    });
+
+    document.getElementById('nb-x').addEventListener('input', (e) => {
+      const n = getNode(state.selectedNodeId);
+      if (n) n.x = Math.round(parseFloat(e.target.value) || 0);
+    });
+    document.getElementById('nb-y').addEventListener('input', (e) => {
+      const n = getNode(state.selectedNodeId);
+      if (n) n.y = Math.round(parseFloat(e.target.value) || 0);
+    });
+
+    function updateEdgeFromInputs() {
+      const edge = getEdge(state.selectedEdgeId);
+      if (!edge) return;
+      const a = getNode(edge.from);
+      const b = getNode(edge.to);
+      if (!a || !b) return;
+      const len = Math.max(1, parseFloat(document.getElementById('eb-len').value) || 1);
+      const rad = ((parseFloat(document.getElementById('eb-ang').value) || 0) * Math.PI) / 180;
+      b.x = Math.round(a.x + Math.cos(rad) * len);
+      b.y = Math.round(a.y + Math.sin(rad) * len);
+    }
+    document.getElementById('eb-len').addEventListener('input', updateEdgeFromInputs);
+    document.getElementById('eb-ang').addEventListener('input', updateEdgeFromInputs);
+
+    document.getElementById('sb-toggle').addEventListener('click', () => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.activeBranch = sw.activeBranch === 0 ? 1 : 0;
+      syncInspector();
+    });
+
+    document.getElementById('sb-swap-branches').addEventListener('click', () => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      const temp = sw.branch1EdgeId;
+      sw.branch1EdgeId = sw.branch2EdgeId;
+      sw.branch2EdgeId = temp;
+      syncInspector();
+    });
+
+    function updateSwitchBranchAngle(branchIndex, degVal) {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      const stem = getNode(sw.stemNodeId);
+      const edge = getEdge(branchIndex === 0 ? sw.branch1EdgeId : sw.branch2EdgeId);
+      const other = getOtherNode(edge, sw.stemNodeId);
+      if (!stem || !other) return;
+      const len = Math.hypot(other.x - stem.x, other.y - stem.y) || 100;
+      const rad = ((parseFloat(degVal) || 0) * Math.PI) / 180;
+      other.x = Math.round(stem.x + Math.cos(rad) * len);
+      other.y = Math.round(stem.y + Math.sin(rad) * len);
+    }
+
+    document.getElementById('sb-ang1').addEventListener('input', (e) => updateSwitchBranchAngle(0, e.target.value));
+    document.getElementById('sb-ang2').addEventListener('input', (e) => updateSwitchBranchAngle(1, e.target.value));
+
+    document.getElementById('sb-blade-len').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.bladeLength = Math.max(12, parseFloat(e.target.value) || 55);
+    });
+    document.getElementById('sb-smooth-len').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.smoothLength = Math.max(10, parseFloat(e.target.value) || 55);
+    });
+    document.getElementById('sb-blade-offset').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.bladeOffset = Math.max(0, parseFloat(e.target.value) || 8);
+    });
+
+    document.getElementById('sb-p1-b1').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.pos1BladeAngle = parseFloat(e.target.value) || 0;
+    });
+    document.getElementById('sb-p2-b1').addEventListener('input', (e) => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.pos2BladeAngle = parseFloat(e.target.value) || 8;
+    });
+
+    document.getElementById('btn-reverse').addEventListener('click', () => {
+      if (state.train) state.train.dir *= -1;
+    });
+    document.getElementById('btn-pause').addEventListener('click', () => {
+      if (state.train) state.train.paused = !state.train.paused;
+    });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      state.nodes = [];
+      state.edges = [];
+      state.switches = [];
+      state.train = null;
+      state.draftStartNodeId = null;
+      selectItem();
+    });
+  </script>
 </body>
 </html>
