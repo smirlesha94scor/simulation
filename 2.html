@@ -285,7 +285,7 @@
     </div>
 
     <div id="hint">
-      <b>Сборка с нуля:</b> 1) Проложите 3 пути. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу. Изменение угла в инспекторе синхронно двигает оба остряка параллельно друг другу.
+      <b>Сборка с нуля:</b> 1) Проложите 3 пути. 2) Нажмите <b>«⑂ Собрать стрелку из путей»</b> и кликните по узлу. Внешние рельсы основного пути подключены к второстепенным ветвям в инвертированном порядке.
     </div>
   </div>
 
@@ -710,13 +710,14 @@
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
         const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
 
+        // Ветвь 1: левый рельс (+nx1) подключается к левому внешнему рельсу основного пути, правый (-nx1) — внутренний
         strokeSteelRail(() => {
-          ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
-          ctx.lineTo(rx2, ry2);
+          ctx.moveTo(lx1 + ux * trim, ly1 + uy * trim);
+          ctx.lineTo(lx2, ly2);
         }, isSelected);
         strokeSteelRail(() => {
-          ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
-          ctx.lineTo(lx2, ly2);
+          ctx.moveTo(rx1 + ux * innerStart, ry1 + uy * innerStart);
+          ctx.lineTo(rx2, ry2);
         }, isSelected);
       } else if (role === 'branch2') {
         const lx1 = x1 + nx * halfG, ly1 = y1 + ny * halfG;
@@ -725,13 +726,14 @@
         const rx2 = x2 - nx * halfG, ry2 = y2 - ny * halfG;
         const innerStart = Math.min(len * 0.9, Math.max(trim, swOwner.bladeLength + offset));
 
+        // Ветвь 2: правый рельс (-nx2) подключается к правому внешнему рельсу основного пути, левый (+nx2) — внутренний
         strokeSteelRail(() => {
-          ctx.moveTo(lx1 + ux * trim, ry1 + uy * trim);
+          ctx.moveTo(rx1 + ux * trim, ry1 + uy * trim);
           ctx.lineTo(rx2, ry2);
         }, isSelected);
         strokeSteelRail(() => {
-          ctx.moveTo(rx1 + ux * innerStart, ry1 + uy * innerStart);
-          ctx.lineTo(rx2, ry2);
+          ctx.moveTo(lx1 + ux * innerStart, ly1 + uy * innerStart);
+          ctx.lineTo(lx2, ly2);
         }, isSelected);
       }
     }
@@ -772,27 +774,29 @@
       const trim2 = Math.min(d2 * 0.48, sw.smoothLength * 0.5);
       const offset = sw.bladeOffset ?? 8;
 
-      // Внешние рельсы
+      // ИНВЕРТИРОВАННОЕ ПОДКЛЮЧЕНИЕ ОСНОВНЫХ ВНЕШНИХ РЕЛЬСОВ К ВТОРОСТЕПЕННЫМ ВЕТВЯМ:
+      // Левый внешний основного пути (+nxIn) -> к левому внешнему Ветви 1 (+nx1)
       const inLeftX = (stem.x - uxIn * trimIn) + nxIn * halfG;
       const inLeftY = (stem.y - uyIn * trimIn) + nyIn * halfG;
-      const b2OuterX = (stem.x + ux2 * trim2) - nx2 * halfG;
-      const b2OuterY = (stem.y + uy2 * trim2) - ny2 * halfG;
-      const cornerLeft = intersectLines(inLeftX, inLeftY, uxIn, uyIn, b2OuterX, b2OuterY, -ux2, -uy2);
+      const b1OuterX = (stem.x + ux1 * trim1) + nx1 * halfG;
+      const b1OuterY = (stem.y + uy1 * trim1) + ny1 * halfG;
+      const cornerLeft = intersectLines(inLeftX, inLeftY, uxIn, uyIn, b1OuterX, b1OuterY, -ux1, -uy1);
 
       strokeSteelRail(() => {
         ctx.moveTo(inLeftX, inLeftY);
-        ctx.quadraticCurveTo(cornerLeft.x, cornerLeft.y, b2OuterX, b2OuterY);
+        ctx.quadraticCurveTo(cornerLeft.x, cornerLeft.y, b1OuterX, b1OuterY);
       }, sw.id === state.selectedSwitchId);
 
+      // Правый внешний основного пути (-nxIn) -> к правому внешнему Ветви 2 (-nx2)
       const inRightX = (stem.x - uxIn * trimIn) - nxIn * halfG;
       const inRightY = (stem.y - uyIn * trimIn) - nyIn * halfG;
-      const b1OuterX = (stem.x + ux1 * trim1) + nx1 * halfG;
-      const b1OuterY = (stem.y + uy1 * trim1) + ny1 * halfG;
-      const cornerRight = intersectLines(inRightX, inRightY, uxIn, uyIn, b1OuterX, b1OuterY, -ux1, -uy1);
+      const b2OuterX = (stem.x + ux2 * trim2) - nx2 * halfG;
+      const b2OuterY = (stem.y + uy2 * trim2) - ny2 * halfG;
+      const cornerRight = intersectLines(inRightX, inRightY, uxIn, uyIn, b2OuterX, b2OuterY, -ux2, -uy2);
 
       strokeSteelRail(() => {
         ctx.moveTo(inRightX, inRightY);
-        ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b1OuterX, b1OuterY);
+        ctx.quadraticCurveTo(cornerRight.x, cornerRight.y, b2OuterX, b2OuterY);
       }, sw.id === state.selectedSwitchId);
 
       // СИНХРОННЫЕ ПАРАЛЛЕЛЬНЫЕ ОСТРЯКИ
@@ -817,7 +821,6 @@
       const len1 = Math.hypot(seat1x - root1x, seat1y - root1y);
       const len2 = Math.hypot(seat2x - root2x, seat2y - root2y);
 
-      // Общий угол отклонения для обоих остряков в зависимости от активного положения
       const deg = sw.activeBranch === 0 ? (sw.pos1BladeAngle ?? 0) : (sw.pos2BladeAngle ?? 8);
 
       const curAng1 = baseAng1 - (deg * Math.PI) / 180;
@@ -1368,7 +1371,7 @@
     });
     document.getElementById('sb-p2-b1').addEventListener('input', (e) => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.pos2BladeAngle = parseFloat(e.target.value) || 0;
+      if (sw) sw.pos2BladeAngle = parseFloat(e.target.value) || 8;
     });
 
     document.getElementById('btn-reverse').addEventListener('click', () => {
