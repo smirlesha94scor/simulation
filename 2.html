@@ -223,6 +223,14 @@
       return best;
     }
 
+    // Определяет, какой из двух векторов (n1, n2) ближе к заданному направлению (tx, ty)
+    function pickClosestBranch(stem, n1, n2, tx, ty) {
+      const b1 = segBasis(stem, n1), b2 = segBasis(stem, n2);
+      const dot1 = b1.ux * tx + b1.uy * ty;
+      const dot2 = b2.ux * tx + b2.uy * ty;
+      return dot1 >= dot2 ? { node: n1, basis: b1, idx: 0 } : { node: n2, basis: b2, idx: 1 };
+    }
+
     function buildSwitchAtNode(stemNodeId) {
       const stem = getNode(stemNodeId);
       if (!stem) return;
@@ -241,16 +249,19 @@
         const other = getOtherNode(edge, stemNodeId);
         return { edge, other, ang: Math.atan2(other.y - stem.y, other.x - stem.x) };
       });
+      // Входной путь — тот, угол которого больше всего отличается от остальных двух
       let entryIdx = 0, bestScore = -Infinity;
       dirs.forEach((d, i) => {
         const score = dirs.reduce((acc, o, j) => i === j ? acc : acc + Math.abs(Math.atan2(Math.sin(o.ang - d.ang), Math.cos(o.ang - d.ang))), 0);
         if (score > bestScore) { bestScore = score; entryIdx = i; }
       });
       const entryItem = dirs[entryIdx];
-      const rem = dirs.filter((_, i) => i !== entryIdx).sort((a, b) => {
-        const fA = Math.atan2(Math.sin(a.ang - (entryItem.ang + Math.PI)), Math.cos(a.ang - (entryItem.ang + Math.PI)));
-        const fB = Math.atan2(Math.sin(b.ang - (entryItem.ang + Math.PI)), Math.cos(b.ang - (entryItem.ang + Math.PI)));
-        return fA - fB;
+      const rem = dirs.filter((_, i) => i !== entryIdx);
+      const fwdX = -Math.cos(entryItem.ang), fwdY = -Math.sin(entryItem.ang);
+      rem.sort((a, b) => {
+        const dotA = Math.cos(a.ang) * fwdX + Math.sin(a.ang) * fwdY;
+        const dotB = Math.cos(b.ang) * fwdX + Math.sin(b.ang) * fwdY;
+        return dotB - dotA;
       });
       const sw = {
         id: genId(), stemNodeId,
@@ -367,42 +378,25 @@
       }
 
       const stem = getNode(swOwner.stemNodeId), other = getOtherNode(edge, swOwner.stemNodeId);
-      const n1 = getOtherNode(getEdge(swOwner.branch1EdgeId), swOwner.stemNodeId);
-      const n2 = getOtherNode(getEdge(swOwner.branch2EdgeId), swOwner.stemNodeId);
       if (!stem || !other) return;
-
       const sb = segBasis(stem, other);
-      const d1 = n1 ? Math.hypot(n1.x - stem.x, n1.y - stem.y) : sb.len;
-      const d2 = n2 ? Math.hypot(n2.x - stem.x, n2.y - stem.y) : sb.len;
-
-      const trimLeft = Math.min(sb.len * 0.35, d1 * 0.35, swOwner.smoothLength * 0.5);
-      const trimRight = Math.min(sb.len * 0.35, d2 * 0.35, swOwner.smoothLength * 0.5);
-      const trim = role === 'branch1' ? trimLeft : role === 'branch2' ? trimRight : Math.min(trimLeft, trimRight);
+      const trim = Math.min(sb.len * 0.35, swOwner.smoothLength * 0.5);
       const innerStart = Math.min(sb.len * 0.9, Math.max(trim, (swOwner.bladeOffset ?? 8) + 12));
 
       const farLx = other.x + sb.nx * halfG, farLy = other.y + sb.ny * halfG;
       const farRx = other.x - sb.nx * halfG, farRy = other.y - sb.ny * halfG;
-      const jLx = stem.x + sb.ux * trimLeft + sb.nx * halfG, jLy = stem.y + sb.uy * trimLeft + sb.ny * halfG;
-      const jRx = stem.x + sb.ux * trimRight - sb.nx * halfG, jRy = stem.y + sb.uy * trimRight - sb.ny * halfG;
+      const jLx = stem.x + sb.ux * trim + sb.nx * halfG, jLy = stem.y + sb.uy * trim + sb.ny * halfG;
+      const jRx = stem.x + sb.ux * trim - sb.nx * halfG, jRy = stem.y + sb.uy * trim - sb.ny * halfG;
 
-      if (role === 'entry') {
-        strokeRail(() => {
+      strokeRail(() => {
+        if (role === 'entry') {
           ctx.moveTo(farLx, farLy); ctx.lineTo(jLx, jLy);
           ctx.moveTo(farRx, farRy); ctx.lineTo(jRx, jRy);
-        }, isSelected);
-      } else if (role === 'branch1') {
-        strokeRail(() => {
+        } else {
           ctx.moveTo(jLx, jLy); ctx.lineTo(farLx, farLy);
-          ctx.moveTo(stem.x + sb.ux * innerStart - sb.nx * halfG, stem.y + sb.uy * innerStart - sb.ny * halfG);
-          ctx.lineTo(farRx, farRy);
-        }, isSelected);
-      } else {
-        strokeRail(() => {
           ctx.moveTo(jRx, jRy); ctx.lineTo(farRx, farRy);
-          ctx.moveTo(stem.x + sb.ux * innerStart + sb.nx * halfG, stem.y + sb.uy * innerStart + sb.ny * halfG);
-          ctx.lineTo(farLx, farLy);
-        }, isSelected);
-      }
+        }
+      }, isSelected);
     }
 
     function drawSwitch(sw) {
@@ -414,42 +408,46 @@
 
       const halfG = state.gauge / 2;
       const bIn = segBasis(stem, nEntry);
-      const b1 = segBasis(stem, n1);
-      const b2 = segBasis(stem, n2);
-      const backX = -bIn.ux, backY = -bIn.uy;
+      const fwdX = -bIn.ux, fwdY = -bIn.uy;
+      // Левая сторона относительно направления движения от узла вдоль основного пути
+      const sideLx = -fwdY, sideLy = fwdX;
+      const sideRx = fwdY, sideRy = -fwdX;
 
-      const trimLeft = Math.min(bIn.len * 0.35, b1.len * 0.35, sw.smoothLength * 0.5);
-      const trimRight = Math.min(bIn.len * 0.35, b2.len * 0.35, sw.smoothLength * 0.5);
-      const offset = Math.min(bIn.len * 0.25, sw.bladeOffset ?? 8);
+      const leftBranch = pickClosestBranch(stem, n1, n2, fwdX + sideLx * 0.5, fwdY + sideLy * 0.5);
+      const rightBranch = leftBranch.idx === 0 ? { node: n2, basis: segBasis(stem, n2), idx: 1 } : { node: n1, basis: segBasis(stem, n1), idx: 0 };
 
-      const inLx = stem.x + bIn.ux * trimLeft + bIn.nx * halfG;
-      const inLy = stem.y + bIn.uy * trimLeft + bIn.ny * halfG;
-      const b1Ox = stem.x + b1.ux * trimLeft + b1.nx * halfG;
-      const b1Oy = stem.y + b1.uy * trimLeft + b1.ny * halfG;
+      const trimL = Math.min(bIn.len * 0.35, leftBranch.basis.len * 0.35, sw.smoothLength * 0.5);
+      const trimR = Math.min(bIn.len * 0.35, rightBranch.basis.len * 0.35, sw.smoothLength * 0.5);
 
-      let cL = intersectLines(inLx, inLy, bIn.ux, bIn.uy, b1Ox, b1Oy, -b1.ux, -b1.uy);
-      const maxCtrlLeft = Math.hypot(b1Ox - inLx, b1Oy - inLy) * 1.2 + 20;
-      if (Math.hypot(cL.x - stem.x, cL.y - stem.y) > maxCtrlLeft) {
-        cL = { x: (inLx + b1Ox) * 0.5 + bIn.nx * 4, y: (inLy + b1Oy) * 0.5 + bIn.ny * 4 };
-      }
+      const inLx = stem.x + bIn.ux * trimL + bIn.nx * halfG;
+      const inLy = stem.y + bIn.uy * trimL + bIn.ny * halfG;
+      const bLx = stem.x + leftBranch.basis.ux * trimL + leftBranch.basis.nx * halfG;
+      const bLy = stem.y + leftBranch.basis.uy * trimL + leftBranch.basis.ny * halfG;
+      const cL = intersectLines(inLx, inLy, bIn.ux, bIn.uy, bLx, bLy, -leftBranch.basis.ux, -leftBranch.basis.uy);
 
-      const inRx = stem.x + bIn.ux * trimRight - bIn.nx * halfG;
-      const inRy = stem.y + bIn.uy * trimRight - bIn.ny * halfG;
-      const b2Ox = stem.x + b2.ux * trimRight - b2.nx * halfG;
-      const b2Oy = stem.y + b2.uy * trimRight - b2.ny * halfG;
-      const cR = intersectLines(inRx, inRy, backX, backY, b2Ox, b2Oy, -b2.ux, -b2.uy);
+      const inRx = stem.x + bIn.ux * trimR - bIn.nx * halfG;
+      const inRy = stem.y + bIn.uy * trimR - bIn.ny * halfG;
+      const bRx = stem.x + rightBranch.basis.ux * trimR - rightBranch.basis.nx * halfG;
+      const bRy = stem.y + rightBranch.basis.uy * trimR - rightBranch.basis.ny * halfG;
+      const cR = intersectLines(inRx, inRy, bIn.ux, bIn.uy, bRx, bRy, -rightBranch.basis.ux, -rightBranch.basis.uy);
 
       const sel = sw.id === state.selectedSwitchId;
       strokeRail(() => {
-        ctx.moveTo(inLx, inLy); ctx.quadraticCurveTo(cL.x, cL.y, b1Ox, b1Oy);
-        ctx.moveTo(inRx, inRy); ctx.quadraticCurveTo(cR.x, cR.y, b2Ox, b2Oy);
+        ctx.moveTo(inLx, inLy); ctx.quadraticCurveTo(cL.x, cL.y, bLx, bLy);
+        ctx.moveTo(inRx, inRy); ctx.quadraticCurveTo(cR.x, cR.y, bRx, bRy);
       }, sel);
 
+      // Остряки растут от узла вдоль основного пути (fwdX, fwdY) и поворачиваются параллельно
+      const offset = Math.min(bIn.len * 0.25, sw.bladeOffset ?? 8);
       const bladeSpan = Math.min(bIn.len * 0.75, Math.max(12, sw.bladeLength));
-      const tBase1x = stem.x + b1.ux * offset + b1.nx * (halfG - 1.5), tBase1y = stem.y + b1.uy * offset + b1.ny * (halfG - 1.5);
-      const tBase2x = stem.x + b2.ux * offset - b2.nx * (halfG - 1.5), tBase2y = stem.y + b2.uy * offset - b2.ny * (halfG - 1.5);
-      const r1x = tBase1x + backX * bladeSpan - b1.nx * 2, r1y = tBase1y + backY * bladeSpan - b1.ny * 2;
-      const r2x = tBase2x + backX * bladeSpan + b2.nx * 2, r2y = tBase2y + backY * bladeSpan + b2.ny * 2;
+
+      const r1x = stem.x + fwdX * offset + sideLx * (halfG - 1.5);
+      const r1y = stem.y + fwdY * offset + sideLy * (halfG - 1.5);
+      const r2x = stem.x + fwdX * offset + sideRx * (halfG - 1.5);
+      const r2y = stem.y + fwdY * offset + sideRy * (halfG - 1.5);
+
+      const tBase1x = r1x + fwdX * bladeSpan, tBase1y = r1y + fwdY * bladeSpan;
+      const tBase2x = r2x + fwdX * bladeSpan, tBase2y = r2y + fwdY * bladeSpan;
 
       const deltaRad = (((sw.activeBranch === 0 ? sw.pos1Angle : sw.pos2Angle) ?? 0) * Math.PI) / 180;
       const calcTip = (rx, ry, tx, ty) => {
@@ -460,15 +458,15 @@
       const tip1 = calcTip(r1x, r1y, tBase1x, tBase1y);
       const tip2 = calcTip(r2x, r2y, tBase2x, tBase2y);
 
-      const boxX = Math.round(stem.x + b2.ux * 6 - b2.nx * (halfG + 18));
-      const boxY = Math.round(stem.y + b2.uy * 6 - b2.ny * (halfG + 18));
+      const boxX = Math.round(stem.x + fwdX * 16 + sideLx * (halfG + 18));
+      const boxY = Math.round(stem.y + fwdY * 16 + sideLy * (halfG + 18));
       sw._boxX = boxX; sw._boxY = boxY;
 
       ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2.4;
       ctx.beginPath(); ctx.moveTo(tip1.x, tip1.y); ctx.lineTo(tip2.x, tip2.y); ctx.stroke();
 
       ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(tip2.x, tip2.y); ctx.lineTo(boxX, boxY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tip1.x, tip1.y); ctx.lineTo(boxX, boxY); ctx.stroke();
 
       ctx.fillStyle = sel ? '#2563eb' : '#334155';
       ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.4;
