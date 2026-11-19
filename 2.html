@@ -359,31 +359,31 @@
       }
 
       if (!swOwner) {
-        const lx1 = a.x + nx * halfG, ly1 = a.y + ny * halfG;
-        const lx2 = b.x + nx * halfG, ly2 = b.y + ny * halfG;
-        const rx1 = a.x - nx * halfG, ry1 = a.y - ny * halfG;
-        const rx2 = b.x - nx * halfG, ry2 = b.y - ny * halfG;
-
-        // Сплошные рельсы без разрывов: левый рельс рисуется первым, правый — вторым (поверх него)
         strokeRail(() => {
-          ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2);
-        }, isSelected);
-        strokeRail(() => {
-          ctx.moveTo(rx1, ry1); ctx.lineTo(rx2, ry2);
+          ctx.moveTo(a.x + nx * halfG, a.y + ny * halfG); ctx.lineTo(b.x + nx * halfG, b.y + ny * halfG);
+          ctx.moveTo(a.x - nx * halfG, a.y - ny * halfG); ctx.lineTo(b.x - nx * halfG, b.y - ny * halfG);
         }, isSelected);
         return;
       }
 
       const stem = getNode(swOwner.stemNodeId), other = getOtherNode(edge, swOwner.stemNodeId);
+      const n1 = getOtherNode(getEdge(swOwner.branch1EdgeId), swOwner.stemNodeId);
+      const n2 = getOtherNode(getEdge(swOwner.branch2EdgeId), swOwner.stemNodeId);
       if (!stem || !other) return;
+
       const sb = segBasis(stem, other);
-      const trim = Math.min(sb.len * 0.48, swOwner.smoothLength * 0.5);
+      const d1 = n1 ? Math.hypot(n1.x - stem.x, n1.y - stem.y) : sb.len;
+      const d2 = n2 ? Math.hypot(n2.x - stem.x, n2.y - stem.y) : sb.len;
+
+      const trimLeft = Math.min(sb.len * 0.35, d1 * 0.35, swOwner.smoothLength * 0.5);
+      const trimRight = Math.min(sb.len * 0.35, d2 * 0.35, swOwner.smoothLength * 0.5);
+      const trim = role === 'branch1' ? trimLeft : role === 'branch2' ? trimRight : Math.min(trimLeft, trimRight);
       const innerStart = Math.min(sb.len * 0.9, Math.max(trim, (swOwner.bladeOffset ?? 8) + 12));
 
       const farLx = other.x + sb.nx * halfG, farLy = other.y + sb.ny * halfG;
       const farRx = other.x - sb.nx * halfG, farRy = other.y - sb.ny * halfG;
-      const jLx = stem.x + sb.ux * trim + sb.nx * halfG, jLy = stem.y + sb.uy * trim + sb.ny * halfG;
-      const jRx = stem.x + sb.ux * trim - sb.nx * halfG, jRy = stem.y + sb.uy * trim - sb.ny * halfG;
+      const jLx = stem.x + sb.ux * trimLeft + sb.nx * halfG, jLy = stem.y + sb.uy * trimLeft + sb.ny * halfG;
+      const jRx = stem.x + sb.ux * trimRight - sb.nx * halfG, jRy = stem.y + sb.uy * trimRight - sb.ny * halfG;
 
       if (role === 'entry') {
         strokeRail(() => {
@@ -418,17 +418,25 @@
       const b2 = segBasis(stem, n2);
       const backX = -bIn.ux, backY = -bIn.uy;
 
-      const trimIn = Math.min(bIn.len * 0.48, sw.smoothLength * 0.5);
-      const trim1 = Math.min(b1.len * 0.48, sw.smoothLength * 0.5);
-      const trim2 = Math.min(b2.len * 0.48, sw.smoothLength * 0.5);
-      const offset = sw.bladeOffset ?? 8;
+      const trimLeft = Math.min(bIn.len * 0.35, b1.len * 0.35, sw.smoothLength * 0.5);
+      const trimRight = Math.min(bIn.len * 0.35, b2.len * 0.35, sw.smoothLength * 0.5);
+      const offset = Math.min(bIn.len * 0.25, sw.bladeOffset ?? 8);
 
-      const inLx = stem.x + bIn.ux * trimIn + bIn.nx * halfG, inLy = stem.y + bIn.uy * trimIn + bIn.ny * halfG;
-      const b1Ox = stem.x + b1.ux * trim1 + b1.nx * halfG, b1Oy = stem.y + b1.uy * trim1 + b1.ny * halfG;
-      const cL = intersectLines(inLx, inLy, backX, backY, b1Ox, b1Oy, -b1.ux, -b1.uy);
+      const inLx = stem.x + bIn.ux * trimLeft + bIn.nx * halfG;
+      const inLy = stem.y + bIn.uy * trimLeft + bIn.ny * halfG;
+      const b1Ox = stem.x + b1.ux * trimLeft + b1.nx * halfG;
+      const b1Oy = stem.y + b1.uy * trimLeft + b1.ny * halfG;
 
-      const inRx = stem.x + bIn.ux * trimIn - bIn.nx * halfG, inRy = stem.y + bIn.uy * trimIn - bIn.ny * halfG;
-      const b2Ox = stem.x + b2.ux * trim2 - b2.nx * halfG, b2Oy = stem.y + b2.uy * trim2 - b2.ny * halfG;
+      let cL = intersectLines(inLx, inLy, bIn.ux, bIn.uy, b1Ox, b1Oy, -b1.ux, -b1.uy);
+      const maxCtrlLeft = Math.hypot(b1Ox - inLx, b1Oy - inLy) * 1.2 + 20;
+      if (Math.hypot(cL.x - stem.x, cL.y - stem.y) > maxCtrlLeft) {
+        cL = { x: (inLx + b1Ox) * 0.5 + bIn.nx * 4, y: (inLy + b1Oy) * 0.5 + bIn.ny * 4 };
+      }
+
+      const inRx = stem.x + bIn.ux * trimRight - bIn.nx * halfG;
+      const inRy = stem.y + bIn.uy * trimRight - bIn.ny * halfG;
+      const b2Ox = stem.x + b2.ux * trimRight - b2.nx * halfG;
+      const b2Oy = stem.y + b2.uy * trimRight - b2.ny * halfG;
       const cR = intersectLines(inRx, inRy, backX, backY, b2Ox, b2Oy, -b2.ux, -b2.uy);
 
       const sel = sw.id === state.selectedSwitchId;
@@ -437,7 +445,7 @@
         ctx.moveTo(inRx, inRy); ctx.quadraticCurveTo(cR.x, cR.y, b2Ox, b2Oy);
       }, sel);
 
-      const bladeSpan = Math.min(bIn.len * 0.85, Math.max(12, sw.bladeLength));
+      const bladeSpan = Math.min(bIn.len * 0.75, Math.max(12, sw.bladeLength));
       const tBase1x = stem.x + b1.ux * offset + b1.nx * (halfG - 1.5), tBase1y = stem.y + b1.uy * offset + b1.ny * (halfG - 1.5);
       const tBase2x = stem.x + b2.ux * offset - b2.nx * (halfG - 1.5), tBase2y = stem.y + b2.uy * offset - b2.ny * (halfG - 1.5);
       const r1x = tBase1x + backX * bladeSpan - b1.nx * 2, r1y = tBase1y + backY * bladeSpan - b1.ny * 2;
@@ -544,7 +552,14 @@
         ctx.stroke();
       }
 
-      state.edges.forEach(drawEdge);
+      const sortedEdges = [...state.edges].sort((e1, e2) => {
+        const a1 = getNode(e1.from), b1 = getNode(e1.to);
+        const a2 = getNode(e2.from), b2 = getNode(e2.to);
+        const m1 = a1 && b1 ? (a1.y + b1.y) * 0.5 : 0;
+        const m2 = a2 && b2 ? (a2.y + b2.y) * 0.5 : 0;
+        return m2 - m1;
+      });
+      sortedEdges.forEach(drawEdge);
       state.switches.forEach(drawSwitch);
 
       if (state.tool === 'track' && state.draftStartNodeId !== null) {
@@ -637,7 +652,7 @@
     canvas.addEventListener('mousemove', e => {
       const rect = canvas.getBoundingClientRect();
       const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
-      if (state.isPanning) { state.camX = sx - state.panStart.x; state.camY = sy - state.camY; return; }
+      if (state.isPanning) { state.camX = sx - state.panStart.x; state.camY = sy - state.panStart.y; return; }
       const world = screenToWorld(sx, sy);
       state.mouseWorld = world;
       document.getElementById('coords-readout').textContent = `X: ${world.x} px, Y: ${world.y} px`;
