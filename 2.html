@@ -359,9 +359,17 @@
       }
 
       if (!swOwner) {
+        const lx1 = a.x + nx * halfG, ly1 = a.y + ny * halfG;
+        const lx2 = b.x + nx * halfG, ly2 = b.y + ny * halfG;
+        const rx1 = a.x - nx * halfG, ry1 = a.y - ny * halfG;
+        const rx2 = b.x - nx * halfG, ry2 = b.y - ny * halfG;
+
+        // Сплошные рельсы без разрывов: левый рельс рисуется первым, правый — вторым (поверх него)
         strokeRail(() => {
-          ctx.moveTo(a.x + nx * halfG, a.y + ny * halfG); ctx.lineTo(b.x + nx * halfG, b.y + ny * halfG);
-          ctx.moveTo(a.x - nx * halfG, a.y - ny * halfG); ctx.lineTo(b.x - nx * halfG, b.y - ny * halfG);
+          ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2);
+        }, isSelected);
+        strokeRail(() => {
+          ctx.moveTo(rx1, ry1); ctx.lineTo(rx2, ry2);
         }, isSelected);
         return;
       }
