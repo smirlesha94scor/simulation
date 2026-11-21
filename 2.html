@@ -168,8 +168,6 @@
       };
     }
 
-    // Создаёт стрелку при клике на узел с 3 путями:
-    // отделяет два примыкающих к узлу внутренних рельсовых участка (как на красной разметке)
     function createSwitchFrom3WayNode(nodeId) {
       const stem = getNode(nodeId);
       if (!stem) return;
@@ -177,6 +175,7 @@
       const existing = state.switches.find(s => s.stemNodeId === nodeId);
       if (existing) {
         existing.activePos = existing.activePos === 0 ? 1 : 0;
+        existing.customAngle = null;
         selectItem({ switchId: existing.id, nodeId });
         return;
       }
@@ -187,7 +186,6 @@
         return;
       }
 
-      // Находим входящий путь (наиболее противоположный остальным) и два расходящихся пути
       const dirs = incident.map(edge => {
         const other = getOtherNode(edge, nodeId);
         return { edge, other, ang: Math.atan2(other.y - stem.y, other.x - stem.x) };
@@ -219,8 +217,8 @@
         segLen: 28,
         activePos: 0,
         animT: 0,
-        pos1Angle: -10,
-        pos2Angle: 10,
+        pos1Angle: -8,
+        pos2Angle: 8,
         customAngle: null
       };
 
@@ -228,7 +226,8 @@
       selectItem({ switchId: sw.id, nodeId });
     }
 
-    // Вычисляет два отделённых сегмента (красные участки на картинке) и их точки поворота
+    // Два отделённых сегмента в зоне стрелки:
+    // каждый начинает от внутреннего рельса своей ветки в узле и поворачивается на угол вокруг своей точки крепления
     function getDetachedSegments(sw) {
       const stem = getNode(sw.stemNodeId);
       const topEdge = getEdge(sw.topEdgeId);
@@ -252,19 +251,19 @@
         : (a1 + (a2 - a1) * tAnim);
       const rad = (angleDeg * Math.PI) / 180;
 
-      // Верхний отходящий путь: нижний/внутренний рельс (смещение -halfG от оси)
+      // Верхний отходящий путь: внутренний рельс (сторона -nx, -ny от оси верхней ветки)
       const topStartX = stem.x - bTop.nx * halfG;
       const topStartY = stem.y - bTop.ny * halfG;
-      const topBaseAng = Math.atan2(bTop.uy, bTop.ux);
-      const topEndX = topStartX + Math.cos(topBaseAng + rad) * len;
-      const topEndY = topStartY + Math.sin(topBaseAng + rad) * len;
+      const topAng = Math.atan2(bTop.uy, bTop.ux) + rad;
+      const topEndX = topStartX + Math.cos(topAng) * len;
+      const topEndY = topStartY + Math.sin(topAng) * len;
 
-      // Нижний отходящий путь: верхний/внутренний рельс (смещение +halfG от оси)
+      // Нижний отходящий путь: внутренний рельс (сторона +nx, +ny от оси нижней ветки)
       const botStartX = stem.x + bBot.nx * halfG;
       const botStartY = stem.y + bBot.ny * halfG;
-      const botBaseAng = Math.atan2(bBot.uy, bBot.ux);
-      const botEndX = botStartX + Math.cos(botBaseAng - rad) * len;
-      const botEndY = botStartY + Math.sin(botBaseAng - rad) * len;
+      const botAng = Math.atan2(bBot.uy, bBot.ux) - rad;
+      const botEndX = botStartX + Math.cos(botAng) * len;
+      const botEndY = botStartY + Math.sin(botAng) * len;
 
       return {
         len,
@@ -474,7 +473,6 @@
       ctx.restore();
     }
 
-    // Отрисовка основного пути с учётом отделённых участков стрелки (чтобы они не дублировались)
     function drawEdgeRails(edge) {
       const a = getNode(edge.from), b = getNode(edge.to);
       if (!a || !b) return;
@@ -490,12 +488,10 @@
         const det = getDetachedSegments(sw);
         if (!det) continue;
         if (edge.id === det.topEdgeId) {
-          // У верхнего пути отделяется внутренний (-nx, -ny) участок от узла
           if (edge.from === sw.stemNodeId) skipRightStart = det.len;
           else if (edge.to === sw.stemNodeId) skipRightEnd = det.len;
         }
         if (edge.id === det.botEdgeId) {
-          // У нижнего пути отделяется внутренний (+nx, +ny) участок от узла
           if (edge.from === sw.stemNodeId) skipLeftStart = det.len;
           else if (edge.to === sw.stemNodeId) skipLeftEnd = det.len;
         }
@@ -518,7 +514,6 @@
       }, railColor);
     }
 
-    // Отрисовка отделённых участков стрелки с возможностью менять угол
     function drawDetachedSwitchSegments(sw) {
       const det = getDetachedSegments(sw);
       if (!det) return;
