@@ -235,7 +235,7 @@
         topEdgeId: topBranch.edge.id,
         botEdgeId: botBranch.edge.id,
         segLen: 28,
-        bladeDir: 'forward', // 'forward' (от узла) | 'reverse' (к узлу)
+        bladeDir: 'forward',
         activePos: 0,
         animT: 0,
         pos1Angle: -8,
@@ -247,7 +247,6 @@
       selectItem({ switchId: sw.id, nodeId });
     }
 
-    // Остряки всегда привязаны к внутренним рельсам отходящих путей
     function getDetachedSegments(sw) {
       const stem = getNode(sw.stemNodeId);
       const topEdge = getEdge(sw.topEdgeId);
@@ -272,7 +271,6 @@
         : (a1 + (a2 - a1) * tAnim);
       const rad = (angleDeg * Math.PI) / 180;
 
-      // Внутренние рельсы: для верхней ветки сторона +n (вниз), для нижней ветки сторона -n (вверх)
       const topSideSign = 1;
       const botSideSign = -1;
 
@@ -353,7 +351,6 @@
       }
       return best;
     }
-
     function computeLinkBezier(p1, p2, link = {}) {
       const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
       const handleLen = link.smooth !== undefined ? link.smooth : Math.round(dist * 0.45);
@@ -492,4 +489,479 @@
           document.getElementById('sb-cur-ang').value = Math.round(det.angleDeg);
         }
         document.getElementById('sb-p1-ang').value = sw.pos1Angle;
-        document.getElementById('sb
+        document.getElementById('sb-p2-ang').value = sw.pos2Angle;
+      }
+    }
+
+    function strokeRail(fn, color = '#f1f5f9', width = 2.0) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = width + 1.8;
+      ctx.beginPath(); fn(); ctx.stroke();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath(); fn(); ctx.stroke();
+    }
+
+    function drawEdgeSleepers(edge) {
+      const a = getNode(edge.from), b = getNode(edge.to);
+      if (!a || !b) return;
+      const { len, ux, uy, nx, ny } = segBasis(a, b);
+      if (len < 1) return;
+      const halfG = state.gauge / 2;
+
+      ctx.save();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      for (let d = 6; d < len - 4; d += 12) {
+        const sx = a.x + ux * d, sy = a.y + uy * d;
+        ctx.moveTo(sx + nx * (halfG + 4), sy + ny * (halfG + 4));
+        ctx.lineTo(sx - nx * (halfG + 4), sy - ny * (halfG + 4));
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawEdgeRails(edge) {
+      const a = getNode(edge.from), b = getNode(edge.to);
+      if (!a || !b) return;
+      const { len, ux, uy, nx, ny } = segBasis(a, b);
+      const halfG = state.gauge / 2;
+      const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
+      const railColor = isSelected ? '#60a5fa' : '#f1f5f9';
+
+      let skipLeftStart = 0, skipLeftEnd = 0;
+      let skipRightStart = 0, skipRightEnd = 0;
+
+      for (const sw of state.switches) {
+        const det = getDetachedSegments(sw);
+        if (!det) continue;
+
+        const applySkip = (sideSign) => {
+          const fromStem = edge.from === sw.stemNodeId;
+          const toStem = edge.to === sw.stemNodeId;
+          if (!fromStem && !toStem) return;
+          const effectiveLeft = fromStem ? (sideSign > 0) : (sideSign < 0);
+          if (effectiveLeft) {
+            if (fromStem) skipLeftStart = Math.max(skipLeftStart, det.len);
+            else skipLeftEnd = Math.max(skipLeftEnd, det.len);
+          } else {
+            if (fromStem) skipRightStart = Math.max(skipRightStart, det.len);
+            else skipRightEnd = Math.max(skipRightEnd, det.len);
+          }
+        };
+
+        if (edge.id === det.topEdgeId) applySkip(det.topSideSign);
+        if (edge.id === det.botEdgeId) applySkip(det.botSideSign);
+      }
+
+      const lStart = Math.min(len, skipLeftStart);
+      const lEnd = Math.max(lStart, len - skipLeftEnd);
+      const rStart = Math.min(len, skipRightStart);
+      const rEnd = Math.max(rStart, len - skipRightEnd);
+
+      strokeRail(() => {
+        if (lEnd - lStart > 0.5) {
+          ctx.moveTo(a.x + ux * lStart + nx * halfG, a.y + uy * lStart + ny * halfG);
+          ctx.lineTo(a.x + ux * lEnd + nx * halfG, a.y + uy * lEnd + ny * halfG);
+        }
+        if (rEnd - rStart > 0.5) {
+          ctx.moveTo(a.x + ux * rStart - nx * halfG, a.y + uy * rStart - ny * halfG);
+          ctx.lineTo(a.x + ux * rEnd - nx * halfG, a.y + uy * rEnd - ny * halfG);
+        }
+      }, railColor);
+    }
+
+    function drawDetachedSwitchSegments(sw) {
+      const det = getDetachedSegments(sw);
+      if (!det) return;
+      const isSelected = sw.id === state.selectedSwitchId;
+      const overLimit = det.spreadDeg > state.maxBranchAngle;
+      const col = overLimit ? '#ef4444' : isSelected ? '#38bdf8' : '#f87171';
+
+      strokeRail(() => {
+        ctx.moveTo(det.topStartX, det.topStartY);
+        ctx.lineTo(det.topEndX, det.topEndY);
+        ctx.moveTo(det.botStartX, det.botStartY);
+        ctx.lineTo(det.botEndX, det.botEndY);
+      }, col, 2.4);
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(det.topStartX, det.topStartY, 3.0, 0, Math.PI * 2);
+      ctx.arc(det.botStartX, det.botStartY, 3.0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(det.topEndX, det.topEndY, 3.8, 0, Math.PI * 2);
+      ctx.arc(det.botEndX, det.botEndY, 3.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawPointLinks() {
+      const allPts = getAllConnectablePoints();
+      const mapByKey = new Map(allPts.map(p => [p.key, p]));
+      for (const link of state.pointLinks) {
+        const p1 = mapByKey.get(link.fromKey), p2 = mapByKey.get(link.toKey);
+        if (!p1 || !p2) continue;
+        const bz = computeLinkBezier(p1, p2, link);
+        strokeRail(() => {
+          ctx.moveTo(p1.x, p1.y);
+          ctx.bezierCurveTo(bz.c1x, bz.c1y, bz.c2x, bz.c2y, p2.x, p2.y);
+        });
+      }
+      if (state.tool === 'connect' && state.connectFromPt) {
+        const target = state.hoverPt || { x: state.mouseWorld.x, y: state.mouseWorld.y };
+        const bz = computeLinkBezier(state.connectFromPt, target, {});
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.2; ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(state.connectFromPt.x, state.connectFromPt.y);
+        ctx.bezierCurveTo(bz.c1x, bz.c1y, bz.c2x, bz.c2y, target.x, target.y);
+        ctx.stroke(); ctx.restore();
+      }
+    }
+
+    function drawRailPointsOverlay() {
+      if (!state.showRailPts && state.tool !== 'connect') return;
+      for (const pt of getAllConnectablePoints()) {
+        const isActive = state.connectFromPt?.key === pt.key || state.hoverPt?.key === pt.key;
+        ctx.fillStyle = isActive ? '#ffffff' : pt.color;
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, isActive ? 5.2 : 3.4, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      }
+    }
+
+    function updateAnimations(dt) {
+      const speed = 7.5;
+      for (const sw of state.switches) {
+        const target = sw.activePos === 0 ? 0 : 1;
+        sw.animT = sw.animT ?? target;
+        sw.animT += (target - sw.animT) * Math.min(1, dt * speed);
+        if (Math.abs(target - sw.animT) < 0.005) sw.animT = target;
+      }
+    }
+
+    function updateTrain(dt) {
+      if (!state.train || state.train.paused) return;
+      let edge = getEdge(state.train.edgeId);
+      if (!edge) { state.train = null; return; }
+      let len = segBasis(getNode(edge.from), getNode(edge.to)).len;
+      state.train.dist += state.train.speed * state.train.dir * dt;
+
+      while (state.train && (state.train.dist > len || state.train.dist < 0)) {
+        const forward = state.train.dist > len;
+        const overflow = forward ? state.train.dist - len : -state.train.dist;
+        const nodeId = forward ? edge.to : edge.from;
+        const candidates = state.edges.filter(e => e.id !== edge.id && (e.from === nodeId || e.to === nodeId));
+        if (!candidates.length) {
+          state.train.dir *= -1;
+          state.train.dist = Math.max(0, Math.min(len, state.train.dist));
+          break;
+        }
+        edge = candidates[0];
+        state.train.edgeId = edge.id;
+        len = segBasis(getNode(edge.from), getNode(edge.to)).len;
+        state.train.dir = edge.from === nodeId ? 1 : -1;
+        state.train.dist = edge.from === nodeId ? overflow : len - overflow;
+      }
+    }
+
+    function drawTrain() {
+      if (!state.train) return;
+      const edge = getEdge(state.train.edgeId);
+      const a = edge && getNode(edge.from), b = edge && getNode(edge.to);
+      if (!a || !b) return;
+      const { len } = segBasis(a, b);
+      const t = Math.max(0, Math.min(1, state.train.dist / len));
+      const bodyW = 46, bodyH = state.gauge + 6;
+
+      ctx.save();
+      ctx.translate(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      ctx.rotate(Math.atan2(b.y - a.y, b.x - a.x) + (state.train.dir < 0 ? Math.PI : 0));
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(-bodyW / 2 + 2, -bodyH / 2 + 3, bodyW, bodyH);
+      ctx.fillStyle = '#dc2626'; ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#991b1b'; ctx.fillRect(-bodyW / 2 + 6, -bodyH / 2 + 3, bodyW - 14, bodyH - 6);
+      ctx.fillStyle = '#fef08a'; ctx.beginPath(); ctx.arc(bodyW / 2 - 2, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      updateAnimations(dt);
+      updateTrain(dt);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(state.camX, state.camY);
+      ctx.scale(state.zoom, state.zoom);
+
+      if (state.snapGrid) {
+        const g = state.gridSize;
+        const sx = Math.floor(-state.camX / state.zoom / g) * g, sy = Math.floor(-state.camY / state.zoom / g) * g;
+        const ex = sx + canvas.width / state.zoom + g * 2, ey = sy + canvas.height / state.zoom + g * 2;
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)'; ctx.lineWidth = 1 / state.zoom;
+        ctx.beginPath();
+        for (let x = sx; x < ex; x += g) { ctx.moveTo(x, sy); ctx.lineTo(x, ey); }
+        for (let y = sy; y < ey; y += g) { ctx.moveTo(sx, y); ctx.lineTo(ex, y); }
+        ctx.stroke();
+      }
+
+      state.edges.forEach(drawEdgeSleepers);
+      state.edges.forEach(drawEdgeRails);
+      state.switches.forEach(drawDetachedSwitchSegments);
+      drawPointLinks();
+
+      if (state.tool === 'track' && state.draftStartNodeId !== null) {
+        const start = getNode(state.draftStartNodeId);
+        if (start) {
+          const sn = snapPoint(state.mouseWorld.x, state.mouseWorld.y);
+          const { len, nx, ny } = segBasis(start, sn);
+          if (len > 1) {
+            const halfG = state.gauge / 2;
+            ctx.save(); ctx.globalAlpha = 0.65; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(start.x + nx * halfG, start.y + ny * halfG); ctx.lineTo(sn.x + nx * halfG, sn.y + ny * halfG);
+            ctx.moveTo(start.x - nx * halfG, start.y - ny * halfG); ctx.lineTo(sn.x - nx * halfG, sn.y - ny * halfG);
+            ctx.stroke(); ctx.restore();
+          }
+        }
+      }
+
+      for (const n of state.nodes) {
+        const isStem = state.switches.some(s => s.stemNodeId === n.id);
+        ctx.fillStyle = n.id === state.selectedNodeId ? '#38bdf8' : isStem ? '#f59e0b' : n.id === state.hoverNodeId ? '#60a5fa' : '#94a3b8';
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.id === state.selectedNodeId || isStem ? 5.5 : 4.2, 0, Math.PI * 2); ctx.fill();
+      }
+
+      drawRailPointsOverlay();
+      drawTrain();
+      ctx.restore();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
+        state.isPanning = true; state.panStart = { x: sx - state.camX, y: sy - state.camY }; return;
+      }
+      if (e.button === 2) { state.draftStartNodeId = null; state.connectFromPt = null; return; }
+      if (e.button !== 0) return;
+
+      const world = screenToWorld(sx, sy);
+
+      if (state.tool === 'connect') {
+        const pt = findClosestPoint(world.x, world.y, 14 / state.zoom);
+        if (!pt) return;
+        if (!state.connectFromPt) state.connectFromPt = pt;
+        else if (state.connectFromPt.key !== pt.key) {
+          state.pointLinks.push({ id: genId(), fromKey: state.connectFromPt.key, toKey: pt.key });
+          state.connectFromPt = null;
+        }
+        return;
+      }
+
+      const sn = snapPoint(world.x, world.y);
+      if (state.tool === 'track') {
+        const node = sn.nodeId ? getNode(sn.nodeId) : getOrCreateNode(sn.x, sn.y);
+        const edge = state.draftStartNodeId !== null ? addEdge(state.draftStartNodeId, node.id) : null;
+        state.draftStartNodeId = node.id;
+        selectItem({ nodeId: node.id, edgeId: edge?.id ?? null });
+      } else if (state.tool === 'move') {
+        const hitN = findClosest(world.x, world.y, 12 / state.zoom, 'node');
+        if (hitN) {
+          state.draggingNodeId = hitN.id;
+          selectItem({ nodeId: hitN.id, switchId: state.switches.find(s => s.stemNodeId === hitN.id)?.id ?? null });
+          return;
+        }
+        const hitE = findClosest(world.x, world.y, 12 / state.zoom, 'edge');
+        if (hitE) {
+          state.draggingEdgeId = hitE.id; state.dragLastWorld = { ...world };
+          selectItem({ edgeId: hitE.id });
+          return;
+        }
+        selectItem();
+      } else if (state.tool === 'build-switch') {
+        const hitN = findClosest(world.x, world.y, 16 / state.zoom, 'node');
+        if (hitN) createSwitchFrom3WayNode(hitN.id);
+      } else if (state.tool === 'train') {
+        const hitE = findClosest(world.x, world.y, 18 / state.zoom, 'edge');
+        if (hitE) state.train = { edgeId: hitE.id, dist: segBasis(getNode(hitE.from), getNode(hitE.to)).len * 0.5, dir: 1, speed: 120, paused: false };
+      } else if (state.tool === 'delete') {
+        const hitN = findClosest(world.x, world.y, 12 / state.zoom, 'node');
+        if (hitN) {
+          state.switches = state.switches.filter(s => s.stemNodeId !== hitN.id);
+          const delEdges = state.edges.filter(e => e.from === hitN.id || e.to === hitN.id).map(e => e.id);
+          state.edges = state.edges.filter(e => !delEdges.includes(e.id));
+          state.nodes = state.nodes.filter(n => n.id !== hitN.id);
+          selectItem(); return;
+        }
+        const hitE = findClosest(world.x, world.y, 12 / state.zoom, 'edge');
+        if (hitE) {
+          state.switches = state.switches.filter(s => ![s.entryEdgeId, s.topEdgeId, s.botEdgeId].includes(hitE.id));
+          state.edges = state.edges.filter(e => e.id !== hitE.id);
+          if (state.train?.edgeId === hitE.id) state.train = null;
+          selectItem();
+        }
+      }
+    });
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      if (state.isPanning) { state.camX = sx - state.panStart.x; state.camY = sy - state.panStart.y; return; }
+      const world = screenToWorld(sx, sy);
+      state.mouseWorld = world;
+      document.getElementById('coords-readout').textContent = `X: ${world.x} px, Y: ${world.y} px`;
+
+      if (state.draggingNodeId !== null) {
+        const n = getNode(state.draggingNodeId);
+        if (n) {
+          const sn = snapPoint(world.x, world.y, n.id);
+          n.x = sn.x; n.y = sn.y;
+          syncInspector();
+        }
+        return;
+      }
+      if (state.draggingEdgeId !== null) {
+        const edge = getEdge(state.draggingEdgeId);
+        const a = edge && getNode(edge.from), b = edge && getNode(edge.to);
+        if (a && b) {
+          const dx = world.x - state.dragLastWorld.x, dy = world.y - state.dragLastWorld.y;
+          a.x += dx; a.y += dy; b.x += dx; b.y += dy;
+          state.dragLastWorld = { ...world }; syncInspector();
+        }
+        return;
+      }
+      state.hoverPt = findClosestPoint(world.x, world.y, 14 / state.zoom);
+      state.hoverNodeId = findClosest(world.x, world.y, 12 / state.zoom, 'node')?.id ?? null;
+      state.hoverEdgeId = findClosest(world.x, world.y, 12 / state.zoom, 'edge')?.id ?? null;
+    });
+
+    window.addEventListener('mouseup', () => {
+      state.isPanning = false; state.draggingNodeId = null; state.draggingEdgeId = null;
+    });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      const bx = (sx - state.camX) / state.zoom, by = (sy - state.camY) / state.zoom;
+      state.zoom = Math.max(0.25, Math.min(4.0, state.zoom * (e.deltaY < 0 ? 1.15 : 0.87)));
+      state.camX = sx - bx * state.zoom; state.camY = sy - by * state.zoom;
+    }, { passive: false });
+
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space') state.spacePressed = true;
+      if (e.key === 'Escape') { state.draftStartNodeId = null; state.connectFromPt = null; }
+      if (document.activeElement?.tagName === 'INPUT') return;
+      const step = e.shiftKey ? 10 : 1;
+      const move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+      if (!move) return;
+      const [dx, dy] = move;
+
+      const n = getNode(state.selectedNodeId);
+      const edge = !n && getEdge(state.selectedEdgeId);
+      if (n) { n.x += dx; n.y += dy; syncInspector(); e.preventDefault(); }
+      else if (edge) {
+        const a = getNode(edge.from), b = getNode(edge.to);
+        if (a && b) { a.x += dx; a.y += dy; b.x += dx; b.y += dy; syncInspector(); e.preventDefault(); }
+      }
+    });
+    window.addEventListener('keyup', e => { if (e.code === 'Space') state.spacePressed = false; });
+
+    const tools = ['track', 'connect', 'move', 'build-switch', 'train', 'delete'];
+    tools.forEach(name => document.getElementById('tool-' + name).addEventListener('click', () => {
+      state.tool = name; state.draftStartNodeId = null; state.connectFromPt = null;
+      tools.forEach(k => document.getElementById('tool-' + k).classList.toggle('active', k === name));
+    }));
+
+    const bindInput = (id, fn) => document.getElementById(id).addEventListener('input', e => fn(parseFloat(e.target.value)));
+    bindInput('gauge-input', v => { state.gauge = Math.max(8, Math.min(44, v || 18)); syncInspector(); });
+    bindInput('max-branch-angle', v => { state.maxBranchAngle = Math.max(5, Math.min(175, v || 35)); syncInspector(); });
+    document.getElementById('snap-grid').addEventListener('change', e => { state.snapGrid = e.target.checked; });
+    document.getElementById('show-rail-pts').addEventListener('change', e => { state.showRailPts = e.target.checked; });
+    bindInput('nb-x', v => { const n = getNode(state.selectedNodeId); if (n) n.x = Math.round(v || 0); });
+    bindInput('nb-y', v => { const n = getNode(state.selectedNodeId); if (n) n.y = Math.round(v || 0); });
+
+    const syncEdgeGeom = () => {
+      const edge = getEdge(state.selectedEdgeId), a = edge && getNode(edge.from), b = edge && getNode(edge.to);
+      if (!a || !b) return;
+      const len = Math.max(1, parseFloat(document.getElementById('eb-len').value) || 1);
+      const rad = ((parseFloat(document.getElementById('eb-ang').value) || 0) * Math.PI) / 180;
+      b.x = Math.round(a.x + Math.cos(rad) * len); b.y = Math.round(a.y + Math.sin(rad) * len);
+      syncInspector();
+    };
+    bindInput('eb-len', syncEdgeGeom);
+    bindInput('eb-ang', syncEdgeGeom);
+
+    document.getElementById('sb-toggle').addEventListener('click', () => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) {
+        sw.activePos = sw.activePos === 0 ? 1 : 0;
+        sw.customAngle = null;
+        syncInspector();
+      }
+    });
+    document.getElementById('sb-swap-dir').addEventListener('click', () => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) {
+        sw.bladeDir = sw.bladeDir === 'reverse' ? 'forward' : 'reverse';
+        syncInspector();
+      }
+    });
+    bindInput('sb-seg-len', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) { sw.segLen = Math.max(8, Math.min(200, Math.round(v || 28))); syncInspector(); }
+    });
+    bindInput('sb-cur-ang', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) sw.customAngle = Number.isFinite(v) ? wrapAngle360(v) : null;
+    });
+    bindInput('sb-p1-ang', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) { sw.pos1Angle = wrapAngle360(v || 0); sw.customAngle = null; syncInspector(); }
+    });
+    bindInput('sb-p2-ang', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) { sw.pos2Angle = wrapAngle360(v || 0); sw.customAngle = null; syncInspector(); }
+    });
+
+    document.getElementById('btn-reverse').addEventListener('click', () => { if (state.train) state.train.dir *= -1; });
+    document.getElementById('btn-pause').addEventListener('click', () => { if (state.train) state.train.paused = !state.train.paused; });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      state.nodes = []; state.edges = []; state.pointLinks = []; state.switches = [];
+      state.train = null; state.draftStartNodeId = null; state.connectFromPt = null; selectItem();
+    });
+
+    document.getElementById('btn-copy-code').addEventListener('click', async function () {
+      const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      try {
+        await navigator.clipboard.writeText(fullHtml);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = fullHtml;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      const prev = this.textContent;
+      this.textContent = '✓ Скопировано';
+      setTimeout(() => { this.textContent = prev; }, 1500);
+    });
+  </script>
+</body>
+</html>
