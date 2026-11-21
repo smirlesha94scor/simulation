@@ -1021,19 +1021,19 @@
     });
     bindInput('sb-p1-top', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) { sw.pos1TopAngle = wrapAngle360(v || 0); sw.customTopAngle = null; syncInspector(); }
+      if (sw) { sw.pos1TopAngle = wrapAngle360(v || 0); sw.customTopAngle = null; syncInspector(); sw.autoFitAngles = false; }
     });
     bindInput('sb-p1-bot', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) { sw.pos1BotAngle = wrapAngle360(v || 0); sw.customBotAngle = null; syncInspector(); }
+      if (sw) { sw.pos1BotAngle = wrapAngle360(v || 0); sw.customBotAngle = null; syncInspector(); sw.autoFitAngles = false; }
     });
     bindInput('sb-p2-top', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) { sw.pos2TopAngle = wrapAngle360(v || 0); sw.customTopAngle = null; syncInspector(); }
+      if (sw) { sw.pos2TopAngle = wrapAngle360(v || 0); sw.customTopAngle = null; syncInspector(); sw.autoFitAngles = false; }
     });
     bindInput('sb-p2-bot', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) { sw.pos2BotAngle = wrapAngle360(v || 0); sw.customBotAngle = null; syncInspector(); }
+      if (sw) { sw.pos2BotAngle = wrapAngle360(v || 0); sw.customBotAngle = null; syncInspector(); sw.autoFitAngles = false;}
     });
 
     document.getElementById('btn-reverse').addEventListener('click', () => { if (state.train) state.train.dir *= -1; });
