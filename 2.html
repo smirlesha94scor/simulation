@@ -974,7 +974,7 @@
 
     const bindInput = (id, fn) => document.getElementById(id).addEventListener('input', e => fn(parseFloat(e.target.value)));
     bindInput('gauge-input', v => { state.gauge = Math.max(8, Math.min(44, v || 18)); syncInspector(); });
-    bindInput('max-branch-angle', v => { state.maxBranchAngle = Math.max(5, Math.min(175, v || 35)); syncInspector(); });
+    bindInput('max-branch-angle', v => { state.maxBranchAngle = Math.max(5, Math.min(20, v || 20)); syncInspector(); });
     document.getElementById('snap-grid').addEventListener('change', e => { state.snapGrid = e.target.checked; });
     document.getElementById('show-rail-pts').addEventListener('change', e => { state.showRailPts = e.target.checked; });
     bindInput('nb-x', v => { const n = getNode(state.selectedNodeId); if (n) n.x = Math.round(v || 0); });
