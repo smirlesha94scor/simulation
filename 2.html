@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Стрелка: остряки на внутренних рельсах, ограничение угла и направление</title>
+  <title>Стрелка: углы остряков по положениям и блочная структура</title>
+  <!-- === [SECTION: STYLES_AND_LAYOUT]: START === -->
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
@@ -29,8 +30,8 @@
     button.copy-btn:hover { background: #059669; }
     label { font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 4px; }
     input[type="number"] {
-      width: 68px; background: #0f172a; color: #f8fafc;
-      border: 1px solid #475569; border-radius: 4px; padding: 4px 6px; font-size: 13px;
+      width: 64px; background: #0f172a; color: #f8fafc;
+      border: 1px solid #475569; border-radius: 4px; padding: 3px 5px; font-size: 12px;
     }
     input[type="checkbox"] { accent-color: #2563eb; }
     #canvas-wrap { position: relative; flex: 1; width: 100%; height: 100%; }
@@ -38,7 +39,7 @@
     #inspector {
       position: absolute; top: 12px; right: 12px;
       background: rgba(30, 41, 59, 0.96); border: 1px solid #475569; border-radius: 8px;
-      padding: 12px; width: 345px; max-height: calc(100vh - 70px); overflow-y: auto;
+      padding: 12px; width: 355px; max-height: calc(100vh - 70px); overflow-y: auto;
       display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45); z-index: 20;
     }
     #inspector h3 { font-size: 14px; color: #f8fafc; border-bottom: 1px solid #334155; padding-bottom: 5px; }
@@ -46,10 +47,12 @@
     .sub-block { display: none; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid #334155; }
     .sub-block.visible { display: flex; }
     .pos-group {
-      background: rgba(15, 23, 42, 0.7); border: 1px solid #334155;
+      background: rgba(15, 23, 42, 0.72); border: 1px solid #334155;
       border-radius: 6px; padding: 7px 8px; display: flex; flex-direction: column; gap: 5px;
     }
     .pos-title { font-size: 11px; font-weight: 600; color: #93c5fd; }
+    .dual-inputs { display: flex; align-items: center; gap: 6px; }
+    .dual-inputs span { color: #94a3b8; font-size: 11px; }
     #coords-readout { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #38bdf8; }
     #hint {
       position: absolute; bottom: 12px; left: 12px;
@@ -113,21 +116,50 @@
           <span>Направление остряков:</span>
           <button id="sb-swap-dir">От узла</button>
         </div>
+
         <div class="pos-group">
-          <div class="pos-title">Угол остряков (внутренние рельсы)</div>
-          <div class="row"><span>Текущий угол (°):</span><input type="number" id="sb-cur-ang" min="-360" max="360" step="1" /></div>
-          <div class="row"><span>Угол Положения 1 (°):</span><input type="number" id="sb-p1-ang" min="-360" max="360" step="1" /></div>
-          <div class="row"><span>Угол Положения 2 (°):</span><input type="number" id="sb-p2-ang" min="-360" max="360" step="1" /></div>
+          <div class="pos-title">Текущий угол остряков (верх / низ, °)</div>
+          <div class="row">
+            <span>Сейчас:</span>
+            <div class="dual-inputs">
+              <span>В:</span><input type="number" id="sb-cur-top" min="-360" max="360" step="1" />
+              <span>Н:</span><input type="number" id="sb-cur-bot" min="-360" max="360" step="1" />
+            </div>
+          </div>
+        </div>
+
+        <div class="pos-group">
+          <div class="pos-title">Положение 1 — углы остряков (верх / низ, °)</div>
+          <div class="row">
+            <span>Поз. 1:</span>
+            <div class="dual-inputs">
+              <span>В:</span><input type="number" id="sb-p1-top" min="-360" max="360" step="1" />
+              <span>Н:</span><input type="number" id="sb-p1-bot" min="-360" max="360" step="1" />
+            </div>
+          </div>
+        </div>
+
+        <div class="pos-group">
+          <div class="pos-title">Положение 2 — углы остряков (верх / низ, °)</div>
+          <div class="row">
+            <span>Поз. 2:</span>
+            <div class="dual-inputs">
+              <span>В:</span><input type="number" id="sb-p2-top" min="-360" max="360" step="1" />
+              <span>Н:</span><input type="number" id="sb-p2-bot" min="-360" max="360" step="1" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <div id="hint">
-      <b>Подсказка:</b> Остряки всегда формируются из <b>внутренних рельсов</b> при ограничении угла между путями (<b>«Макс. угол стрелки (°)»</b>). В инспекторе можно менять направление остряков и их угол.
+      <b>Подсказка:</b> Углы верхнего (<b>В</b>) и нижнего (<b>Н</b>) остряков настраиваются отдельно для <b>Положения 1</b> и <b>Положения 2</b>. Остряки привязаны к внутренним рельсам с проверкой лимита <b>«Макс. угол стрелки (°)»</b>.
     </div>
   </div>
+  <!-- === [SECTION: STYLES_AND_LAYOUT]: END === -->
 
   <script>
+    // === [SECTION: STATE_AND_GEOMETRY]: START ===
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -189,7 +221,8 @@
       const existing = state.switches.find(s => s.stemNodeId === nodeId);
       if (existing) {
         existing.activePos = existing.activePos === 0 ? 1 : 0;
-        existing.customAngle = null;
+        existing.customTopAngle = null;
+        existing.customBotAngle = null;
         selectItem({ switchId: existing.id, nodeId });
         return;
       }
@@ -238,9 +271,12 @@
         bladeDir: 'forward',
         activePos: 0,
         animT: 0,
-        pos1Angle: -8,
-        pos2Angle: 8,
-        customAngle: null
+        pos1TopAngle: -8,
+        pos1BotAngle: 8,
+        pos2TopAngle: 8,
+        pos2BotAngle: -8,
+        customTopAngle: null,
+        customBotAngle: null
       };
 
       state.switches.push(sw);
@@ -263,13 +299,22 @@
       const len = Math.max(8, Math.min(sw.segLen ?? 28, bTop.len * 0.75, bBot.len * 0.75));
       const spreadDeg = computeBranchSpreadDeg(stem, nTop, nBot);
 
-      const a1 = wrapAngle360(sw.pos1Angle);
-      const a2 = wrapAngle360(sw.pos2Angle);
+      const p1Top = wrapAngle360(sw.pos1TopAngle ?? 0);
+      const p1Bot = wrapAngle360(sw.pos1BotAngle ?? 0);
+      const p2Top = wrapAngle360(sw.pos2TopAngle ?? 0);
+      const p2Bot = wrapAngle360(sw.pos2BotAngle ?? 0);
       const tAnim = sw.animT ?? (sw.activePos === 0 ? 0 : 1);
-      const angleDeg = sw.customAngle !== null && sw.customAngle !== undefined
-        ? wrapAngle360(sw.customAngle)
-        : (a1 + (a2 - a1) * tAnim);
-      const rad = (angleDeg * Math.PI) / 180;
+
+      const topAngleDeg = sw.customTopAngle !== null && sw.customTopAngle !== undefined
+        ? wrapAngle360(sw.customTopAngle)
+        : (p1Top + (p2Top - p1Top) * tAnim);
+
+      const botAngleDeg = sw.customBotAngle !== null && sw.customBotAngle !== undefined
+        ? wrapAngle360(sw.customBotAngle)
+        : (p1Bot + (p2Bot - p1Bot) * tAnim);
+
+      const topRad = (topAngleDeg * Math.PI) / 180;
+      const botRad = (botAngleDeg * Math.PI) / 180;
 
       const topSideSign = 1;
       const botSideSign = -1;
@@ -289,28 +334,29 @@
       if (!isReverse) {
         topPivotX = topRailBaseX;
         topPivotY = topRailBaseY;
-        topTipX = topPivotX + Math.cos(topBaseAng + rad) * len;
-        topTipY = topPivotY + Math.sin(topBaseAng + rad) * len;
+        topTipX = topPivotX + Math.cos(topBaseAng + topRad) * len;
+        topTipY = topPivotY + Math.sin(topBaseAng + topRad) * len;
 
         botPivotX = botRailBaseX;
         botPivotY = botRailBaseY;
-        botTipX = botPivotX + Math.cos(botBaseAng - rad) * len;
-        botTipY = botPivotY + Math.sin(botBaseAng - rad) * len;
+        botTipX = botPivotX + Math.cos(botBaseAng + botRad) * len;
+        botTipY = botPivotY + Math.sin(botBaseAng + botRad) * len;
       } else {
         topPivotX = topRailBaseX + bTop.ux * len;
         topPivotY = topRailBaseY + bTop.uy * len;
-        topTipX = topPivotX + Math.cos(topBaseAng + Math.PI - rad) * len;
-        topTipY = topPivotY + Math.sin(topBaseAng + Math.PI - rad) * len;
+        topTipX = topPivotX + Math.cos(topBaseAng + Math.PI - topRad) * len;
+        topTipY = topPivotY + Math.sin(topBaseAng + Math.PI - topRad) * len;
 
         botPivotX = botRailBaseX + bBot.ux * len;
         botPivotY = botRailBaseY + bBot.uy * len;
-        botTipX = botPivotX + Math.cos(botBaseAng + Math.PI + rad) * len;
-        botTipY = botPivotY + Math.sin(botBaseAng + Math.PI + rad) * len;
+        botTipX = botPivotX + Math.cos(botBaseAng + Math.PI - botRad) * len;
+        botTipY = botPivotY + Math.sin(botBaseAng + Math.PI - botRad) * len;
       }
 
       return {
         len,
-        angleDeg,
+        topAngleDeg,
+        botAngleDeg,
         spreadDeg,
         topEdgeId: topEdge.id,
         botEdgeId: botEdge.id,
@@ -342,7 +388,6 @@
       }
       return pts;
     }
-
     function findClosestPoint(wx, wy, maxDist = 12) {
       let best = null, bestD = maxDist;
       for (const pt of getAllConnectablePoints()) {
@@ -351,6 +396,7 @@
       }
       return best;
     }
+
     function computeLinkBezier(p1, p2, link = {}) {
       const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
       const handleLen = link.smooth !== undefined ? link.smooth : Math.round(dist * 0.45);
@@ -452,47 +498,9 @@
       state.selectedSwitchId = switchId;
       syncInspector();
     }
+    // === [SECTION: STATE_AND_GEOMETRY]: END ===
 
-    function syncInspector() {
-      const node = getNode(state.selectedNodeId);
-      document.getElementById('node-block').classList.toggle('visible', !!node);
-      if (node) {
-        document.getElementById('nb-id').textContent = node.id;
-        document.getElementById('nb-x').value = node.x;
-        document.getElementById('nb-y').value = node.y;
-      }
-
-      const edge = getEdge(state.selectedEdgeId);
-      const anc = edge && getRailAnchors(edge);
-      document.getElementById('edge-block').classList.toggle('visible', !!(edge && anc));
-      if (edge && anc) {
-        document.getElementById('eb-id').textContent = edge.id;
-        document.getElementById('eb-len').value = Math.round(Math.hypot(anc.end.x - anc.start.x, anc.end.y - anc.start.y));
-        document.getElementById('eb-ang').value = ((Math.atan2(anc.end.y - anc.start.y, anc.end.x - anc.start.x) * 180) / Math.PI).toFixed(1);
-      }
-
-      const sw = getSwitch(state.selectedSwitchId);
-      document.getElementById('switch-block').classList.toggle('visible', !!sw);
-      if (sw) {
-        const det = getDetachedSegments(sw);
-        document.getElementById('sb-id').textContent = sw.id;
-        const tgl = document.getElementById('sb-toggle');
-        tgl.textContent = sw.activePos === 0 ? 'Положение 1' : 'Положение 2';
-        tgl.style.background = sw.activePos === 0 ? '#2563eb' : '#059669';
-        document.getElementById('sb-seg-len').value = sw.segLen ?? 28;
-        document.getElementById('sb-swap-dir').textContent = sw.bladeDir === 'reverse' ? 'К узлу' : 'От узла';
-        if (det) {
-          const overLimit = det.spreadDeg > state.maxBranchAngle;
-          const angEl = document.getElementById('sb-branch-ang');
-          angEl.textContent = `${det.spreadDeg.toFixed(1)}° / макс ${state.maxBranchAngle}°`;
-          angEl.style.color = overLimit ? '#f87171' : '#38bdf8';
-          document.getElementById('sb-cur-ang').value = Math.round(det.angleDeg);
-        }
-        document.getElementById('sb-p1-ang').value = sw.pos1Angle;
-        document.getElementById('sb-p2-ang').value = sw.pos2Angle;
-      }
-    }
-
+    // === [SECTION: RENDER_AND_SIMULATION]: START ===
     function strokeRail(fn, color = '#f1f5f9', width = 2.0) {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -751,6 +759,51 @@
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
+    // === [SECTION: RENDER_AND_SIMULATION]: END ===
+
+    // === [SECTION: INPUT_AND_INSPECTOR]: START ===
+    function syncInspector() {
+      const node = getNode(state.selectedNodeId);
+      document.getElementById('node-block').classList.toggle('visible', !!node);
+      if (node) {
+        document.getElementById('nb-id').textContent = node.id;
+        document.getElementById('nb-x').value = node.x;
+        document.getElementById('nb-y').value = node.y;
+      }
+
+      const edge = getEdge(state.selectedEdgeId);
+      const anc = edge && getRailAnchors(edge);
+      document.getElementById('edge-block').classList.toggle('visible', !!(edge && anc));
+      if (edge && anc) {
+        document.getElementById('eb-id').textContent = edge.id;
+        document.getElementById('eb-len').value = Math.round(Math.hypot(anc.end.x - anc.start.x, anc.end.y - anc.start.y));
+        document.getElementById('eb-ang').value = ((Math.atan2(anc.end.y - anc.start.y, anc.end.x - anc.start.x) * 180) / Math.PI).toFixed(1);
+      }
+
+      const sw = getSwitch(state.selectedSwitchId);
+      document.getElementById('switch-block').classList.toggle('visible', !!sw);
+      if (sw) {
+        const det = getDetachedSegments(sw);
+        document.getElementById('sb-id').textContent = sw.id;
+        const tgl = document.getElementById('sb-toggle');
+        tgl.textContent = sw.activePos === 0 ? 'Положение 1' : 'Положение 2';
+        tgl.style.background = sw.activePos === 0 ? '#2563eb' : '#059669';
+        document.getElementById('sb-seg-len').value = sw.segLen ?? 28;
+        document.getElementById('sb-swap-dir').textContent = sw.bladeDir === 'reverse' ? 'К узлу' : 'От узла';
+        if (det) {
+          const overLimit = det.spreadDeg > state.maxBranchAngle;
+          const angEl = document.getElementById('sb-branch-ang');
+          angEl.textContent = `${det.spreadDeg.toFixed(1)}° / макс ${state.maxBranchAngle}°`;
+          angEl.style.color = overLimit ? '#f87171' : '#38bdf8';
+          document.getElementById('sb-cur-top').value = Math.round(det.topAngleDeg);
+          document.getElementById('sb-cur-bot').value = Math.round(det.botAngleDeg);
+        }
+        document.getElementById('sb-p1-top').value = sw.pos1TopAngle ?? 0;
+        document.getElementById('sb-p1-bot').value = sw.pos1BotAngle ?? 0;
+        document.getElementById('sb-p2-top').value = sw.pos2TopAngle ?? 0;
+        document.getElementById('sb-p2-bot').value = sw.pos2BotAngle ?? 0;
+      }
+    }
 
     canvas.addEventListener('mousedown', e => {
       const rect = canvas.getBoundingClientRect();
@@ -911,7 +964,8 @@
       const sw = getSwitch(state.selectedSwitchId);
       if (sw) {
         sw.activePos = sw.activePos === 0 ? 1 : 0;
-        sw.customAngle = null;
+        sw.customTopAngle = null;
+        sw.customBotAngle = null;
         syncInspector();
       }
     });
@@ -926,17 +980,29 @@
       const sw = getSwitch(state.selectedSwitchId);
       if (sw) { sw.segLen = Math.max(8, Math.min(200, Math.round(v || 28))); syncInspector(); }
     });
-    bindInput('sb-cur-ang', v => {
+    bindInput('sb-cur-top', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) sw.customAngle = Number.isFinite(v) ? wrapAngle360(v) : null;
+      if (sw) sw.customTopAngle = Number.isFinite(v) ? wrapAngle360(v) : null;
     });
-    bindInput('sb-p1-ang', v => {
+    bindInput('sb-cur-bot', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) { sw.pos1Angle = wrapAngle360(v || 0); sw.customAngle = null; syncInspector(); }
+      if (sw) sw.customBotAngle = Number.isFinite(v) ? wrapAngle360(v) : null;
     });
-    bindInput('sb-p2-ang', v => {
+    bindInput('sb-p1-top', v => {
       const sw = getSwitch(state.selectedSwitchId);
-      if (sw) { sw.pos2Angle = wrapAngle360(v || 0); sw.customAngle = null; syncInspector(); }
+      if (sw) { sw.pos1TopAngle = wrapAngle360(v || 0); sw.customTopAngle = null; syncInspector(); }
+    });
+    bindInput('sb-p1-bot', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) { sw.pos1BotAngle = wrapAngle360(v || 0); sw.customBotAngle = null; syncInspector(); }
+    });
+    bindInput('sb-p2-top', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) { sw.pos2TopAngle = wrapAngle360(v || 0); sw.customTopAngle = null; syncInspector(); }
+    });
+    bindInput('sb-p2-bot', v => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (sw) { sw.pos2BotAngle = wrapAngle360(v || 0); sw.customBotAngle = null; syncInspector(); }
     });
 
     document.getElementById('btn-reverse').addEventListener('click', () => { if (state.train) state.train.dir *= -1; });
@@ -962,6 +1028,7 @@
       this.textContent = '✓ Скопировано';
       setTimeout(() => { this.textContent = prev; }, 1500);
     });
+    // === [SECTION: INPUT_AND_INSPECTOR]: END ===
   </script>
 </body>
 </html>
