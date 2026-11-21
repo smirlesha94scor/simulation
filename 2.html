@@ -700,31 +700,20 @@
     }
 
     function pickNextEdgeAtNode(currentEdge, nodeId, candidates) {
-      const sw = state.switches.find(s => s.stemNodeId === nodeId);
-      if (!sw) return candidates[0];
-
-      const { topClosed, botClosed } = getBladeClosureState(sw);
-
-      if (currentEdge.id === sw.entryEdgeId) {
-        const topEdge = candidates.find(e => e.id === sw.topEdgeId);
-        const botEdge = candidates.find(e => e.id === sw.botEdgeId);
-
-        if (topClosed && !botClosed && topEdge) return topEdge;
-        if (botClosed && !topClosed && botEdge) return botEdge;
-        if (topClosed && botClosed) {
-          const preferred = sw.activePos === 0 ? topEdge : botEdge;
-          if (preferred) return preferred;
-        }
-        return null;
-      }
-
-      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
-        const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
-        if (matchedEntry) return matchedEntry;
-      }
-
-      return candidates[0];
+  const sw = state.switches.find(s => s.stemNodeId === nodeId);
+  console.log('Узел:', nodeId, 'Текущее ребро:', currentEdge.id, 'Стрелка:', sw?.id, 'Положение:', sw?.activePos, 'Кандидаты:', candidates.map(c => c.id));
+  if (sw) {
+    if (currentEdge.id === sw.entryEdgeId) {
+      const desiredId = sw.activePos === 0 ? sw.topEdgeId : sw.botEdgeId;
+      const matched = candidates.find(e => e.id === desiredId);
+      if (matched) return matched;
+    } else if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
+      const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
+      if (matchedEntry) return matchedEntry;
     }
+  }
+  return candidates[0];
+}
 
     function updateTrain(dt) {
       if (!state.train || state.train.paused) return;
