@@ -686,6 +686,259 @@
       }
     }
 
+    // Проверка, прижат ли остряк к рамному рельсу (служит продолжением рельса)
+    function getBladeClosureState(sw) {
+      const det = getDetachedSegments(sw);
+      if (!det) return { topClosed: sw.activePos === 0, botClosed: sw.activePos === 1, det: null };
+
+      const p1Top = wrapAngle360(sw.pos1TopAngle ?? -10);
+      const p2Bot = wrapAngle360(sw.pos2BotAngle ?? 10);
+      const topClosed = Math.abs(det.topAngleDeg - p1Top) <= 2.5;
+      const botClosed = Math.abs(det.botAngleDeg - p2Bot) <= 2.5;
+
+      return { topClosed, botClosed, det };
+    }
+
+    function pickNextEdgeAtNode(currentEdge, nodeId, candidates) {
+      const sw = state.switches.find(s => s.stemNodeId === nodeId);
+      if (!sw) return candidates[0];
+
+      const { topClosed, botClosed } = getBladeClosureState(sw);
+
+      if (currentEdge.id === sw.entryEdgeId) {
+        const topEdge = candidates.find(e => e.id === sw.topEdgeId);
+        const botEdge = candidates.find(e => e.id === sw.botEdgeId);
+
+        if (topClosed && !botClosed && topEdge) return topEdge;
+        if (botClosed && !topClosed && botEdge) return botEdge;
+        if (topClosed && botClosed) {
+          const preferred = sw.activePos === 0 ? topEdge : botEdge;
+          if (preferred) return preferred;
+        }
+        return null;
+      }
+
+      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
+        const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
+        if (matchedEntry) return matchedEntry;
+      }
+
+      return candidates[0];
+    }
+
+    function updateTrain(dt) {
+      if (!state.train || state.train.paused) return;
+      let edge = getEdge(state.train.edgeId);
+      if (!edge) { state.train = null; return; }
+      let len = segBasis(getNode(edge.from), getNode(edge.to)).len;
+      state.train.dist += state.train.speed * state.train.dir * dt;
+
+      let guard = 0;
+      while (state.train && (state.train.dist > len || state.train.dist < 0) && guard++ < 16) {
+        const forward = state.train.dist > len;
+        const overflow = forward ? state.train.dist - len : -state.train.dist;
+        const nodeId = forward ? edge.to : edge.from;
+        const candidates = state.edges.filter(e => e.id !== edge.id && (e.from === nodeId || e.to === nodeId));
+        if (!candidates.length) {
+          state.train.dir *= -1;
+          state.train.dist = Math.max(0, Math.min(len, state.train.dist));
+          break;
+        }
+        const nextEdge = pickNextEdgeAtNode(edge, nodeId, candidates);
+        if (!nextEdge) {
+          state.train.paused = true;
+          state.train.dist = forward ? len : 0;
+          break;
+        }
+        edge = nextEdge;
+        state.train.edgeId = edge.id;
+        len = segBasis(getNode(edge.from), getNode(edge.to)).len;
+        state.train.dir = edge.from === nodeId ? 1 : -1;
+        state.train.dist = edge.from === nodeId ? overflow : len - overflow;
+      }
+    }
+
+    // Вычисляет точку на реальном рельсе/остряке с учётом прижатия остряков
+    function getActualRailPointAt(edge, distAlongEdge, sideSign) {
+      const a = getNode(edge.from), b = getNode(edge.to);
+      const { len, ux, uy, nx, ny } = segBasis(a, b);
+      const halfG = state.gauge / 2;
+      const clampedD = Math.max(0, Math.min(len, distAlongEdge));
+
+      let px = a.x + ux * clampedD + nx * halfG * sideSign;
+      let py = a.y + uy * clampedD + ny * halfG * sideSign;
+
+      for (const sw of state.switches) {
+        const { topClosed, botClosed, det } = getBladeClosureState(sw);
+        if (!det) continue;
+
+        const isTop = edge.id === det.topEdgeId && Math.sign(sideSign) === Math.sign(det.topSideSign) && topClosed;
+        const isBot = edge.id === det.botEdgeId && Math.sign(sideSign) === Math.sign(det.botSideSign) && botClosed;
+        if (!isTop && !isBot) continue;
+
+        const fromStem = edge.from === sw.stemNodeId;
+        const distFromStem = fromStem ? clampedD : (len - clampedD);
+        if (distFromStem <= det.len) {
+          const u = Math.max(0, Math.min(1, distFromStem / det.len));
+          if (isTop) {
+            px = det.topStartX + (det.topEndX - det.topStartX) * u;
+            py = det.topStartY + (det.topEndY - det.topStartY) * u;
+          } else {
+            px = det.botStartX + (det.botEndX - det.botStartX) * u;
+            py = det.botStartY + (det.botEndY - det.botStartY) * u;
+          }
+          break;
+        }
+      }
+
+      return { x: px, y: py };
+    }
+
+    function drawTrain() {
+      if (!state.train) return;
+      const edge = getEdge(state.train.edgeId);
+      const a = edge && getNode(edge.from), b = edge && getNode(edge.to);
+      if (!a || !b) return;
+      const { len } = segBasis(a, b);
+      const bodyW = 48, bodyH = state.gauge + 6;
+      const axleOffsets = [-14, 14];
+      const wheelLen = 8, wheelThick = 3.2;
+
+      const centerD = Math.max(0, Math.min(len, state.train.dist));
+      const moveSign = state.train.dir >= 0 ? 1 : -1;
+
+      const leftCenterPt = getActualRailPointAt(edge, centerD, 1);
+      const rightCenterPt = getActualRailPointAt(edge, centerD, -1);
+      const cx = (leftCenterPt.x + rightCenterPt.x) / 2;
+      const cy = (leftCenterPt.y + rightCenterPt.y) / 2;
+
+      const pRear = getActualRailPointAt(edge, centerD - moveSign * 14, 0);
+      const pFront = getActualRailPointAt(edge, centerD + moveSign * 14, 0);
+      const heading = Math.atan2(pFront.y - pRear.y, pFront.x - pRear.x);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(heading);
+
+      // Колёса и оси строго по реальным координатам левого и правого рельсов/остряков
+      for (const ax of axleOffsets) {
+        const dAxle = centerD + ax * moveSign;
+        const wLeft = getActualRailPointAt(edge, dAxle, 1);
+        const wRight = getActualRailPointAt(edge, dAxle, -1);
+
+        const lx = wLeft.x - cx;
+        const ly = wLeft.y - cy;
+        const rx = wRight.x - cx;
+        const ry = wRight.y - cy;
+
+        const cosH = Math.cos(-heading), sinH = Math.sin(-heading);
+        const rot = (x, y) => ({ x: x * cosH - y * sinH, y: x * sinH + y * cosH });
+        const rl = rot(lx, ly);
+        const rr = rot(rx, ry);
+
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(rl.x, rl.y);
+        ctx.lineTo(rr.x, rr.y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#e2e8f0';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        for (const wp of [rl, rr]) {
+          ctx.save();
+          ctx.translate(wp.x, wp.y);
+          ctx.beginPath();
+          ctx.roundRect(-wheelLen / 2, -wheelThick / 2, wheelLen, wheelThick, 1);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Кузов локомотива
+      ctx.globalAlpha = 0.78;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(-bodyW / 2 + 2, -bodyH / 2 + 2, bodyW, bodyH);
+      ctx.fillStyle = '#dc2626';
+      ctx.strokeStyle = '#fca5a5';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#991b1b';
+      ctx.fillRect(-bodyW / 2 + 6, -bodyH / 2 + 3, bodyW - 14, bodyH - 6);
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(bodyW / 2 - 2, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      updateAnimations(dt);
+      updateTrain(dt);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(state.camX, state.camY);
+      ctx.scale(state.zoom, state.zoom);
+
+      if (state.snapGrid) {
+        const g = state.gridSize;
+        const sx = Math.floor(-state.camX / state.zoom / g) * g, sy = Math.floor(-state.camY / state.zoom / g) * g;
+        const ex = sx + canvas.width / state.zoom + g * 2, ey = sy + canvas.height / state.zoom + g * 2;
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.35)'; ctx.lineWidth = 1 / state.zoom;
+        ctx.beginPath();
+        for (let x = sx; x < ex; x += g) { ctx.moveTo(x, sy); ctx.lineTo(x, ey); }
+        for (let y = sy; y < ey; y += g) { ctx.moveTo(sx, y); ctx.lineTo(ex, y); }
+        ctx.stroke();
+      }
+
+      state.edges.forEach(drawEdgeSleepers);
+      state.edges.forEach(drawEdgeRails);
+      state.switches.forEach(drawDetachedSwitchSegments);
+      drawPointLinks();
+
+      if (state.tool === 'track' && state.draftStartNodeId !== null) {
+        const start = getNode(state.draftStartNodeId);
+        if (start) {
+          const sn = snapPoint(state.mouseWorld.x, state.mouseWorld.y);
+          const { len, nx, ny } = segBasis(start, sn);
+          if (len > 1) {
+            const halfG = state.gauge / 2;
+            ctx.save(); ctx.globalAlpha = 0.65; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(start.x + nx * halfG, start.y + ny * halfG); ctx.lineTo(sn.x + nx * halfG, sn.y + ny * halfG);
+            ctx.moveTo(start.x - nx * halfG, start.y - ny * halfG); ctx.lineTo(sn.x - nx * halfG, sn.y - ny * halfG);
+            ctx.stroke(); ctx.restore();
+          }
+        }
+      }
+
+      for (const n of state.nodes) {
+        const isStem = state.switches.some(s => s.stemNodeId === n.id);
+        ctx.fillStyle = n.id === state.selectedNodeId ? '#38bdf8' : isStem ? '#f59e0b' : n.id === state.hoverNodeId ? '#60a5fa' : '#94a3b8';
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.id === state.selectedNodeId || isStem ? 5.5 : 4.2, 0, Math.PI * 2); ctx.fill();
+      }
+
+      drawRailPointsOverlay();
+      drawTrain();
+      ctx.restore();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+    // === [SECTION: RENDER_AND_SIMULATION]: END ===
+
     function updateTrain(dt) {
       if (!state.train || state.train.paused) return;
       let edge = getEdge(state.train.edgeId);
