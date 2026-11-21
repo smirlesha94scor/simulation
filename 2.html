@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Синхронный поворот остряков на одинаковый угол и точки изгиба (1 px)</title>
+  <title>Гибкие изгибающиеся рельсы-остряки с изменением угла при переключении (1 px)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
@@ -38,7 +38,7 @@
     #inspector {
       position: absolute; top: 12px; right: 12px;
       background: rgba(30, 41, 59, 0.96); border: 1px solid #475569; border-radius: 8px;
-      padding: 12px; width: 335px; max-height: calc(100vh - 70px); overflow-y: auto;
+      padding: 12px; width: 340px; max-height: calc(100vh - 70px); overflow-y: auto;
       display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45); z-index: 20;
     }
     #inspector h3 { font-size: 14px; color: #f8fafc; border-bottom: 1px solid #334155; padding-bottom: 5px; }
@@ -59,7 +59,7 @@
     #hint {
       position: absolute; bottom: 12px; left: 12px;
       background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; border-radius: 6px;
-      padding: 8px 12px; font-size: 12px; color: #cbd5e1; pointer-events: none; line-height: 1.45; max-width: 820px;
+      padding: 8px 12px; font-size: 12px; color: #cbd5e1; pointer-events: none; line-height: 1.45; max-width: 840px;
     }
   </style>
 </head>
@@ -71,7 +71,6 @@
       <button id="tool-connect">╭─╮ Соединить точки</button>
       <button id="tool-move">✥ Двигать (1 px)</button>
       <button id="tool-build-switch">⑂ Стрелка</button>
-      <button id="tool-blade">🛠 Остряк</button>
       <button id="tool-train">🚆 Поезд</button>
       <button id="tool-delete" class="danger">🗑 Удалить</button>
     </div>
@@ -105,7 +104,6 @@
         <div class="row"><b>Путь #<span id="eb-id">0</span></b></div>
         <div class="row"><span>Длина (px):</span><input type="number" id="eb-len" min="1" step="1" /></div>
         <div class="row"><span>Угол (°):</span><input type="number" id="eb-ang" step="0.5" /></div>
-        <div class="row"><button id="eb-reset-bend" style="width:100%;">↺ Сбросить точки изгиба начала пути</button></div>
         <div id="eb-rail-pts" class="pts-box"></div>
       </div>
 
@@ -114,29 +112,19 @@
           <b>Стрелка #<span id="sb-id">0</span></b>
           <button id="sb-toggle" style="background:#2563eb; font-weight:600;">Положение 1</button>
         </div>
-        <div class="row"><span>Длина остряков (px):</span><input type="number" id="sb-blade-len" min="12" max="240" step="1" /></div>
-        <div class="row"><span>Смещение корня (px):</span><input type="number" id="sb-blade-off" min="0" max="120" step="1" /></div>
+        <div class="row"><span>Длина изгиба остряков (px):</span><input type="number" id="sb-zone-len" min="20" max="300" step="1" /></div>
         <div class="pos-group">
-          <div class="pos-title">Синхронный угол обоих остряков</div>
+          <div class="pos-title">Угол изгиба внутренних рельсов-остряков</div>
           <div class="row"><span>Положение 1 (-360..360°):</span><input type="number" id="sb-p1-ang" min="-360" max="360" step="1" /></div>
           <div class="row"><span>Положение 2 (-360..360°):</span><input type="number" id="sb-p2-ang" min="-360" max="360" step="1" /></div>
         </div>
-      </div>
-
-      <div id="blade-block" class="sub-block">
-        <div class="row">
-          <b>Остряк #<span id="bl-id">0</span></b>
-          <button id="bl-toggle" style="background:#2563eb; font-weight:600;">Положение 1</button>
-        </div>
-        <div class="row"><span>Длина остряка (px):</span><input type="number" id="bl-len" min="10" max="240" step="1" /></div>
-        <div class="row"><span>Позиция (t, 0..1):</span><input type="number" id="bl-t" min="0.05" max="0.95" step="0.05" /></div>
-        <div class="row"><span>Угол Положения 1 (-360..360°):</span><input type="number" id="bl-p1" min="-360" max="360" step="1" /></div>
-        <div class="row"><span>Угол Положения 2 (-360..360°):</span><input type="number" id="bl-p2" min="-360" max="360" step="1" /></div>
+        <div class="row"><button id="sb-reset-inner" style="width:100%;">↺ Сбросить точки изгиба рельсов</button></div>
+        <div id="sb-inner-info" class="pts-box"></div>
       </div>
     </div>
 
     <div id="hint">
-      <b>Подсказка:</b> В стрелке оба остряка соединены переводной тягой и поворачиваются <b>синхронно на одинаковый угол</b> при переключении положения.
+      <b>Подсказка:</b> Отдельных прямых остряков нет — сами <b>внутренние рельсы</b> (правый рельс левого пути и левый рельс правого пути) являются гибкими остряками и меняют угол при переключении стрелки. Розовые точки позволяют подправить их дугу с точностью <b>1 px</b>.
     </div>
   </div>
 
@@ -146,9 +134,9 @@
 
     const state = {
       tool: 'track', gauge: 18, snapGrid: false, gridSize: 20, showRailPts: true,
-      nodes: [], edges: [], pointLinks: [], switches: [], blades: [],
-      selectedNodeId: null, selectedEdgeId: null, selectedSwitchId: null, selectedBladeId: null,
-      selectedBend: null, draggingBend: null, hoverBend: null,
+      nodes: [], edges: [], pointLinks: [], switches: [],
+      selectedNodeId: null, selectedEdgeId: null, selectedSwitchId: null,
+      selectedInnerBend: null, draggingInnerBend: null, hoverInnerBend: null,
       connectFromPt: null, hoverPt: null,
       draggingNodeId: null, draggingEdgeId: null, dragLastWorld: { x: 0, y: 0 },
       draftStartNodeId: null, mouseWorld: { x: 0, y: 0 },
@@ -161,7 +149,6 @@
     const getNode = id => state.nodes.find(n => n.id === id);
     const getEdge = id => state.edges.find(e => e.id === id);
     const getSwitch = id => state.switches.find(s => s.id === id);
-    const getBlade = id => state.blades.find(b => b.id === id);
     const getOtherNode = (edge, nodeId) => !edge ? null : getNode(edge.from === nodeId ? edge.to : edge.from);
     const wrapAngle360 = deg => (Number.isFinite(deg) ? deg % 360 : 0);
 
@@ -172,25 +159,9 @@
       return { dx, dy, len, ux, uy, nx: -uy, ny: ux };
     }
 
-    function ensureEdgeBendPts(edge) {
-      const a = getNode(edge.from), b = getNode(edge.to);
-      if (!a || !b) return null;
-      const { ux, uy, nx, ny, len } = segBasis(a, b);
-      const halfG = state.gauge / 2;
-      const d = Math.min(36, Math.max(12, len * 0.25));
-      if (!edge.bendL) {
-        edge.bendL = { x: Math.round(a.x + ux * d + nx * halfG), y: Math.round(a.y + uy * d + ny * halfG) };
-      }
-      if (!edge.bendR) {
-        edge.bendR = { x: Math.round(a.x + ux * d - nx * halfG), y: Math.round(a.y + uy * d - ny * halfG) };
-      }
-      return { bendL: edge.bendL, bendR: edge.bendR };
-    }
-
     function getRailAnchors(edge) {
       const a = getNode(edge.from), b = getNode(edge.to);
       if (!a || !b) return null;
-      const bends = ensureEdgeBendPts(edge);
       const { ux, uy, nx, ny } = segBasis(a, b);
       const halfG = state.gauge / 2;
       const rPt = (x, y) => ({ x: Math.round(x), y: Math.round(y) });
@@ -201,26 +172,105 @@
         leftStart: rPt(a.x + nx * halfG, a.y + ny * halfG),
         leftEnd: rPt(b.x + nx * halfG, b.y + ny * halfG),
         rightStart: rPt(a.x - nx * halfG, a.y - ny * halfG),
-        rightEnd: rPt(b.x - nx * halfG, b.y - ny * halfG),
-        bendL: bends.bendL,
-        bendR: bends.bendR
+        rightEnd: rPt(b.x - nx * halfG, b.y - ny * halfG)
       };
     }
 
-    function getAllBendPoints() {
+    // Вычисляет гибкие изгибающиеся внутренние рельсы-остряки в зоне стрелки
+    // (правый рельс левого пути и левый рельс правого пути), угол которых меняется при переключении
+    function computeSwitchFlexibleRails(sw) {
+      const stem = getNode(sw.stemNodeId);
+      const entryEdge = getEdge(sw.entryEdgeId);
+      const leftEdge = getEdge(sw.leftBranchEdgeId);
+      const rightEdge = getEdge(sw.rightBranchEdgeId);
+      if (!stem || !entryEdge || !leftEdge || !rightEdge) return null;
+
+      const nEntry = getOtherNode(entryEdge, stem.id);
+      const nLeft = getOtherNode(leftEdge, stem.id);
+      const nRight = getOtherNode(rightEdge, stem.id);
+      if (!nEntry || !nLeft || !nRight) return null;
+
+      const halfG = state.gauge / 2;
+      const bIn = segBasis(stem, nEntry);
+      const fwdX = -bIn.ux, fwdY = -bIn.uy;
+      const sideLx = -fwdY, sideLy = fwdX;
+      const sideRx = fwdY, sideRy = -fwdX;
+
+      const bLeft = segBasis(stem, nLeft);
+      const bRight = segBasis(stem, nRight);
+      const zoneLen = Math.max(20, sw.zoneLen ?? 85);
+
+      // Точки закрепления (пятки/корни гибких рельсов-остряков) на отходящих путях
+      const lSpan = Math.min(zoneLen, Math.max(16, bLeft.len * 0.78));
+      const lFixedX = stem.x + bLeft.ux * lSpan - bLeft.nx * halfG;
+      const lFixedY = stem.y + bLeft.uy * lSpan - bLeft.ny * halfG;
+
+      const rSpan = Math.min(zoneLen, Math.max(16, bRight.len * 0.78));
+      const rFixedX = stem.x + bRight.ux * rSpan + bRight.nx * halfG;
+      const rFixedY = stem.y + bRight.uy * rSpan + bRight.ny * halfG;
+
+      // Ручные точки корректировки дуги в середине гибкого участка
+      if (!sw.innerBendL) {
+        sw.innerBendL = {
+          x: Math.round((stem.x + lFixedX) * 0.5 - bLeft.nx * halfG * 0.8),
+          y: Math.round((stem.y + lFixedY) * 0.5 - bLeft.ny * halfG * 0.8)
+        };
+      }
+      if (!sw.innerBendR) {
+        sw.innerBendR = {
+          x: Math.round((stem.x + rFixedX) * 0.5 + bRight.nx * halfG * 0.8),
+          y: Math.round((stem.y + rFixedY) * 0.5 + bRight.ny * halfG * 0.8)
+        };
+      }
+
+      // Текущий угол переключения (с плавной анимацией animT между pos1Angle и pos2Angle)
+      const a1 = wrapAngle360(sw.pos1Angle);
+      const a2 = wrapAngle360(sw.pos2Angle);
+      const tAnim = sw.animT ?? (sw.activeBranch === 0 ? 0 : 1);
+      const curDeg = a1 + (a2 - a1) * tAnim;
+      const curRad = (curDeg * Math.PI) / 180;
+
+      // Смещение кончиков гибких рельсов-остряков от угла переключения:
+      // при повороте влево левый внутренний рельс прижимается к левому рамному рельсу,
+      // а правый отходит на ширину желоба (и наоборот при повороте вправо)
+      const baseShift = Math.sin(curRad) * (halfG * 1.15);
+      const lTipX = stem.x + sideLx * Math.max(0, baseShift);
+      const lTipY = stem.y + sideLy * Math.max(0, baseShift);
+
+      const rTipX = stem.x + sideRx * Math.max(0, -baseShift);
+      const rTipY = stem.y + sideRy * Math.max(0, -baseShift);
+
+      // Контрольные точки квадратичной кривой Безье от кончика остряка через точку изгиба к закреплённой части рельса
+      const lCtrlX = 2 * sw.innerBendL.x - 0.5 * (lTipX + lFixedX);
+      const lCtrlY = 2 * sw.innerBendL.y - 0.5 * (lTipY + lFixedY);
+
+      const rCtrlX = 2 * sw.innerBendR.x - 0.5 * (rTipX + rFixedX);
+      const rCtrlY = 2 * sw.innerBendR.y - 0.5 * (rTipY + rFixedY);
+
+      return {
+        fwdX, fwdY, sideLx, sideLy, sideRx, sideRy,
+        lSpan, rSpan,
+        lTipX, lTipY, lCtrlX, lCtrlY, lFixedX, lFixedY,
+        rTipX, rTipY, rCtrlX, rCtrlY, rFixedX, rFixedY,
+        bendL: sw.innerBendL,
+        bendR: sw.innerBendR
+      };
+    }
+
+    function getAllInnerBendPoints() {
       const out = [];
-      for (const edge of state.edges) {
-        const bends = ensureEdgeBendPts(edge);
-        if (!bends) continue;
-        out.push({ edgeId: edge.id, side: 'L', pt: bends.bendL });
-        out.push({ edgeId: edge.id, side: 'R', pt: bends.bendR });
+      for (const sw of state.switches) {
+        const g = computeSwitchFlexibleRails(sw);
+        if (!g) continue;
+        out.push({ switchId: sw.id, side: 'L', pt: g.bendL });
+        out.push({ switchId: sw.id, side: 'R', pt: g.bendR });
       }
       return out;
     }
 
-    function findClosestBend(wx, wy, maxDist = 10) {
+    function findClosestInnerBend(wx, wy, maxDist = 11) {
       let best = null, bestD = maxDist;
-      for (const item of getAllBendPoints()) {
+      for (const item of getAllInnerBendPoints()) {
         const d = Math.hypot(item.pt.x - wx, item.pt.y - wy);
         if (d < bestD) { bestD = d; best = item; }
       }
@@ -323,8 +373,7 @@
       if (fromId === toId) return null;
       const exists = state.edges.find(e => (e.from === fromId && e.to === toId) || (e.from === toId && e.to === fromId));
       if (exists) return exists;
-      const edge = { id: genId(), from: fromId, to: toId, bendL: null, bendR: null };
-      ensureEdgeBendPts(edge);
+      const edge = { id: genId(), from: fromId, to: toId };
       state.edges.push(edge);
       return edge;
     }
@@ -395,35 +444,22 @@
         rightBranchEdgeId: rem[rem.length - 1].edge.id,
         activeBranch: 0,
         animT: 0,
-        bladeLength: 44,
-        bladeOffset: 10,
-        pos1Angle: -8,
-        pos2Angle: 8
+        zoneLen: 85,
+        pos1Angle: -35,
+        pos2Angle: 35,
+        innerBendL: null,
+        innerBendR: null
       };
+      computeSwitchFlexibleRails(sw);
       state.switches.push(sw);
       selectItem({ switchId: sw.id, nodeId: stemNodeId });
     }
 
-    function addManualBlade(edge, wx, wy) {
-      const a = getNode(edge.from), b = getNode(edge.to);
-      if (!a || !b) return;
-      const proj = projectOnEdge(wx, wy, edge);
-      const { nx, ny } = segBasis(a, b);
-      const side = ((wx - proj.px) * nx + (wy - proj.py) * ny) >= 0 ? 1 : -1;
-      const blade = {
-        id: genId(), edgeId: edge.id, t: Number(proj.t.toFixed(2)), side,
-        length: 42, pos1Angle: 0, pos2Angle: side * 12, activePos: 0, animT: 0
-      };
-      state.blades.push(blade);
-      selectItem({ edgeId: edge.id, bladeId: blade.id });
-    }
-
-    function selectItem({ nodeId = null, edgeId = null, switchId = null, bladeId = null, bend = null } = {}) {
+    function selectItem({ nodeId = null, edgeId = null, switchId = null, innerBend = null } = {}) {
       state.selectedNodeId = nodeId;
       state.selectedEdgeId = edgeId;
       state.selectedSwitchId = switchId;
-      state.selectedBladeId = bladeId;
-      state.selectedBend = bend;
+      state.selectedInnerBend = innerBend;
       syncInspector();
     }
 
@@ -445,34 +481,25 @@
         document.getElementById('eb-ang').value = ((Math.atan2(anc.end.y - anc.start.y, anc.end.x - anc.start.x) * 180) / Math.PI).toFixed(1);
         document.getElementById('eb-rail-pts').innerHTML =
           `Левый рельс: (${anc.leftStart.x}, ${anc.leftStart.y}) → (${anc.leftEnd.x}, ${anc.leftEnd.y})<br>` +
-          `Правый рельс: (${anc.rightStart.x}, ${anc.rightStart.y}) → (${anc.rightEnd.x}, ${anc.rightEnd.y})<br>` +
-          `Изгиб Л/П: (${anc.bendL.x}, ${anc.bendL.y}) / (${anc.bendR.x}, ${anc.bendR.y})`;
+          `Правый рельс: (${anc.rightStart.x}, ${anc.rightStart.y}) → (${anc.rightEnd.x}, ${anc.rightEnd.y})`;
       }
 
       const sw = getSwitch(state.selectedSwitchId);
       document.getElementById('switch-block').classList.toggle('visible', !!sw);
       if (sw) {
+        const g = computeSwitchFlexibleRails(sw);
         document.getElementById('sb-id').textContent = sw.id;
         const tgl = document.getElementById('sb-toggle');
         tgl.textContent = sw.activeBranch === 0 ? 'Положение 1' : 'Положение 2';
         tgl.style.background = sw.activeBranch === 0 ? '#2563eb' : '#059669';
-        document.getElementById('sb-blade-len').value = sw.bladeLength;
-        document.getElementById('sb-blade-off').value = sw.bladeOffset;
+        document.getElementById('sb-zone-len').value = sw.zoneLen ?? 85;
         document.getElementById('sb-p1-ang').value = sw.pos1Angle;
         document.getElementById('sb-p2-ang').value = sw.pos2Angle;
-      }
-
-      const bl = getBlade(state.selectedBladeId);
-      document.getElementById('blade-block').classList.toggle('visible', !!bl);
-      if (bl) {
-        document.getElementById('bl-id').textContent = bl.id;
-        const btn = document.getElementById('bl-toggle');
-        btn.textContent = bl.activePos === 0 ? 'Положение 1' : 'Положение 2';
-        btn.style.background = bl.activePos === 0 ? '#2563eb' : '#059669';
-        document.getElementById('bl-len').value = bl.length;
-        document.getElementById('bl-t').value = bl.t;
-        document.getElementById('bl-p1').value = bl.pos1Angle;
-        document.getElementById('bl-p2').value = bl.pos2Angle;
+        if (g) {
+          document.getElementById('sb-inner-info').innerHTML =
+            `Прав. левого пути (гибкий): (${g.bendL.x}, ${g.bendL.y})<br>` +
+            `Лев. правого пути (гибкий): (${g.bendR.x}, ${g.bendR.y})`;
+        }
       }
     }
 
@@ -508,20 +535,52 @@
       ctx.restore();
     }
 
+    // Отрисовка рельсов пути: если путь входит в стрелку как левая или правая ветка,
+    // его внутренний рельс в зоне стрелки не рисуется прямой линией — там работает гибкий рельс-остряк
     function drawEdgeRails(edge) {
-      const anc = getRailAnchors(edge);
-      if (!anc) return;
+      const a = getNode(edge.from), b = getNode(edge.to);
+      if (!a || !b) return;
+      const { len, ux, uy, nx, ny } = segBasis(a, b);
+      const halfG = state.gauge / 2;
       const isSelected = edge.id === state.selectedEdgeId || edge.id === state.hoverEdgeId;
-      strokeRail(() => {
-        ctx.moveTo(anc.leftStart.x, anc.leftStart.y);
-        ctx.quadraticCurveTo(anc.bendL.x, anc.bendL.y, anc.leftEnd.x, anc.leftEnd.y);
 
-        ctx.moveTo(anc.rightStart.x, anc.rightStart.y);
-        ctx.quadraticCurveTo(anc.bendR.x, anc.bendR.y, anc.rightEnd.x, anc.rightEnd.y);
+      let skipLeftFromStart = 0, skipLeftFromEnd = 0;
+      let skipRightFromStart = 0, skipRightFromEnd = 0;
+
+      for (const sw of state.switches) {
+        const g = computeSwitchFlexibleRails(sw);
+        if (!g) continue;
+        if (edge.id === sw.leftBranchEdgeId) {
+          // У левого пути внутренний рельс — правый (-nx, -ny)
+          if (edge.from === sw.stemNodeId) skipRightFromStart = g.lSpan;
+          else if (edge.to === sw.stemNodeId) skipRightFromEnd = g.lSpan;
+        }
+        if (edge.id === sw.rightBranchEdgeId) {
+          // У правого пути внутренний рельс — левый (+nx, +ny)
+          if (edge.from === sw.stemNodeId) skipLeftFromStart = g.rSpan;
+          else if (edge.to === sw.stemNodeId) skipLeftFromEnd = g.rSpan;
+        }
+      }
+
+      const lStartT = Math.min(len, skipLeftFromStart);
+      const lEndT = Math.max(lStartT, len - skipLeftFromEnd);
+      const rStartT = Math.min(len, skipRightFromStart);
+      const rEndT = Math.max(rStartT, len - skipRightFromEnd);
+
+      strokeRail(() => {
+        if (lEndT - lStartT > 1) {
+          ctx.moveTo(a.x + ux * lStartT + nx * halfG, a.y + uy * lStartT + ny * halfG);
+          ctx.lineTo(a.x + ux * lEndT + nx * halfG, a.y + uy * lEndT + ny * halfG);
+        }
+        if (rEndT - rStartT > 1) {
+          ctx.moveTo(a.x + ux * rStartT - nx * halfG, a.y + uy * rStartT - ny * halfG);
+          ctx.lineTo(a.x + ux * rEndT - nx * halfG, a.y + uy * rEndT - ny * halfG);
+        }
       }, isSelected);
     }
 
-    // Отрисовка стрелки: оба остряка соединены переводной тягой и синхронно поворачиваются на один угол
+    // Отрисовка стрелки: внешние рельсы левый-с-левым и правый-с-правым,
+    // а сами внутренние рельсы изгибаются как гибкие остряки при переключении
     function drawSwitch(sw) {
       const stem = getNode(sw.stemNodeId);
       const entryEdge = getEdge(sw.entryEdgeId);
@@ -562,56 +621,38 @@
         ctx.moveTo(inRx, inRy); ctx.quadraticCurveTo(ctrlRx, ctrlRy, outRx, outRy);
       }, sel);
 
-      // Оба остряка поворачиваются СИНХРОННО на одинаковый угол (с плавной интерполяцией animT)
-      const a1 = wrapAngle360(sw.pos1Angle);
-      const a2 = wrapAngle360(sw.pos2Angle);
-      const syncDeg = a1 + (a2 - a1) * (sw.animT ?? sw.activeBranch);
-      const syncRad = Math.atan2(fwdY, fwdX) + (syncDeg * Math.PI) / 180;
+      // Гибкие изгибающиеся внутренние рельсы-остряки
+      const g = computeSwitchFlexibleRails(sw);
+      if (!g) return;
 
-      const off = Math.max(2, sw.bladeOffset ?? 10);
-      const bLen = Math.max(12, sw.bladeLength ?? 44);
+      // Переводная тяга, соединяющая оба гибких рельса-остряка у их подвижных концов
+      const tieLX = 0.64 * g.lTipX + 0.32 * g.lCtrlX + 0.04 * g.lFixedX;
+      const tieLY = 0.64 * g.lTipY + 0.32 * g.lCtrlY + 0.04 * g.lFixedY;
+      const tieRX = 0.64 * g.rTipX + 0.32 * g.rCtrlX + 0.04 * g.rFixedX;
+      const tieRY = 0.64 * g.rTipY + 0.32 * g.rCtrlY + 0.04 * g.rFixedY;
 
-      const lRootX = stem.x + fwdX * off + sideLx * (halfG - 2);
-      const lRootY = stem.y + fwdY * off + sideLy * (halfG - 2);
-      const rRootX = stem.x + fwdX * off + sideRx * (halfG - 2);
-      const rRootY = stem.y + fwdY * off + sideRy * (halfG - 2);
-
-      const cosA = Math.cos(syncRad), sinA = Math.sin(syncRad);
-      const lTipX = lRootX + cosA * bLen;
-      const lTipY = lRootY + sinA * bLen;
-      const rTipX = rRootX + cosA * bLen;
-      const rTipY = rRootY + sinA * bLen;
-
-      // Переводная тяга, жёстко соединяющая левый и правый остряки для синхронного хода
-      const tieX1 = lRootX + cosA * (bLen * 0.65);
-      const tieY1 = lRootY + sinA * (bLen * 0.65);
-      const tieX2 = rRootX + cosA * (bLen * 0.65);
-      const tieY2 = rRootY + sinA * (bLen * 0.65);
-
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 2.0;
-      ctx.beginPath();
-      ctx.moveTo(tieX1, tieY1);
-      ctx.lineTo(tieX2, tieY2);
-      ctx.stroke();
+      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2.0;
+      ctx.beginPath(); ctx.moveTo(tieLX, tieLY); ctx.lineTo(tieRX, tieRY); ctx.stroke();
 
       strokeRail(() => {
-        ctx.moveTo(lRootX, lRootY); ctx.lineTo(lTipX, lTipY);
-        ctx.moveTo(rRootX, rRootY); ctx.lineTo(rTipX, rTipY);
+        ctx.moveTo(g.lTipX, g.lTipY);
+        ctx.quadraticCurveTo(g.lCtrlX, g.lCtrlY, g.lFixedX, g.lFixedY);
+
+        ctx.moveTo(g.rTipX, g.rTipY);
+        ctx.quadraticCurveTo(g.rCtrlX, g.rCtrlY, g.rFixedX, g.rFixedY);
       }, sel);
 
       // Привод переключения положения стрелки
-      const boxX = Math.round(stem.x + fwdX * 14 + sideLx * (halfG + 18));
-      const boxY = Math.round(stem.y + fwdY * 14 + sideLy * (halfG + 18));
+      const boxX = Math.round(stem.x + fwdX * 12 + sideLx * (halfG + 18));
+      const boxY = Math.round(stem.y + fwdY * 12 + sideLy * (halfG + 18));
       sw._boxX = boxX; sw._boxY = boxY;
 
       ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.moveTo(tieX1, tieY1); ctx.lineTo(boxX, boxY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tieLX, tieLY); ctx.lineTo(boxX, boxY); ctx.stroke();
 
       ctx.fillStyle = sw.activeBranch === 0 ? '#2563eb' : '#059669';
       ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.4;
-      ctx.fillRect(boxX - 6, boxY - 6, 12, 12);
-      ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
+      ctx.fillRect(boxX - 6, boxY - 6, 12, 12); ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
     }
 
     function drawPointLinks() {
@@ -638,13 +679,13 @@
       }
     }
 
-    function drawBendPointsOverlay() {
-      for (const item of getAllBendPoints()) {
-        const isSel = state.selectedBend?.edgeId === item.edgeId && state.selectedBend?.side === item.side;
-        const isHov = state.hoverBend?.edgeId === item.edgeId && state.hoverBend?.side === item.side;
+    function drawInnerBendPointsOverlay() {
+      for (const item of getAllInnerBendPoints()) {
+        const isSel = state.selectedInnerBend?.switchId === item.switchId && state.selectedInnerBend?.side === item.side;
+        const isHov = state.hoverInnerBend?.switchId === item.switchId && state.hoverInnerBend?.side === item.side;
         ctx.fillStyle = isSel ? '#ffffff' : isHov ? '#f472b6' : '#ec4899';
         ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(item.pt.x, item.pt.y, isSel || isHov ? 5.5 : 4.2, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(item.pt.x, item.pt.y, isSel || isHov ? 5.5 : 4.3, 0, Math.PI * 2);
         ctx.fill(); ctx.stroke();
       }
     }
@@ -660,37 +701,6 @@
       }
     }
 
-    function drawBlade(bl) {
-      const edge = getEdge(bl.edgeId);
-      const a = edge && getNode(edge.from), b = edge && getNode(edge.to);
-      if (!a || !b) return;
-      const { ux, uy, nx, ny } = segBasis(a, b);
-      const halfG = state.gauge / 2;
-
-      const rootX = a.x + (b.x - a.x) * bl.t + nx * bl.side * (halfG - 1.5);
-      const rootY = a.y + (b.y - a.y) * bl.t + ny * bl.side * (halfG - 1.5);
-      const a1 = wrapAngle360(bl.pos1Angle);
-      const a2 = wrapAngle360(bl.pos2Angle);
-      const deg = a1 + (a2 - a1) * (bl.animT ?? bl.activePos);
-      const rad = Math.atan2(uy, ux) + (deg * Math.PI) / 180;
-      const tipX = rootX + Math.cos(rad) * bl.length;
-      const tipY = rootY + Math.sin(rad) * bl.length;
-
-      const boxX = Math.round(rootX + nx * bl.side * 16);
-      const boxY = Math.round(rootY + ny * bl.side * 16);
-      bl._boxX = boxX; bl._boxY = boxY;
-
-      const sel = bl.id === state.selectedBladeId;
-      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.moveTo(rootX, rootY); ctx.lineTo(boxX, boxY); ctx.stroke();
-
-      ctx.fillStyle = sel ? '#2563eb' : '#334155';
-      ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.4;
-      ctx.fillRect(boxX - 6, boxY - 6, 12, 12); ctx.strokeRect(boxX - 6, boxY - 6, 12, 12);
-
-      strokeRail(() => { ctx.moveTo(rootX, rootY); ctx.lineTo(tipX, tipY); }, sel);
-    }
-
     function updateAnimations(dt) {
       const speed = 7.5;
       for (const sw of state.switches) {
@@ -698,12 +708,6 @@
         sw.animT = sw.animT ?? target;
         sw.animT += (target - sw.animT) * Math.min(1, dt * speed);
         if (Math.abs(target - sw.animT) < 0.005) sw.animT = target;
-      }
-      for (const bl of state.blades) {
-        const target = bl.activePos === 0 ? 0 : 1;
-        bl.animT = bl.animT ?? target;
-        bl.animT += (target - bl.animT) * Math.min(1, dt * speed);
-        if (Math.abs(target - bl.animT) < 0.005) bl.animT = target;
       }
     }
 
@@ -718,13 +722,25 @@
         const forward = state.train.dist > len;
         const overflow = forward ? state.train.dist - len : -state.train.dist;
         const nodeId = forward ? edge.to : edge.from;
-        const candidates = state.edges.filter(e => e.id !== edge.id && (e.from === nodeId || e.to === nodeId));
-        if (!candidates.length) {
+        const sw = state.switches.find(s => s.stemNodeId === nodeId);
+        let nextEdge = null;
+        if (sw) {
+          if (edge.id === sw.entryEdgeId) {
+            nextEdge = getEdge(sw.activeBranch === 0 ? sw.leftBranchEdgeId : sw.rightBranchEdgeId);
+          } else {
+            nextEdge = getEdge(sw.entryEdgeId);
+          }
+        } else {
+          const candidates = state.edges.filter(e => e.id !== edge.id && (e.from === nodeId || e.to === nodeId));
+          nextEdge = candidates[0] || null;
+        }
+
+        if (!nextEdge) {
           state.train.dir *= -1;
           state.train.dist = Math.max(0, Math.min(len, state.train.dist));
           break;
         }
-        edge = candidates[0];
+        edge = nextEdge;
         state.train.edgeId = edge.id;
         len = segBasis(getNode(edge.from), getNode(edge.to)).len;
         state.train.dir = edge.from === nodeId ? 1 : -1;
@@ -782,7 +798,6 @@
       state.edges.forEach(drawEdgeRails);
       state.switches.forEach(drawSwitch);
       drawPointLinks();
-      state.blades.forEach(drawBlade);
 
       if (state.tool === 'track' && state.draftStartNodeId !== null) {
         const start = getNode(state.draftStartNodeId);
@@ -806,7 +821,7 @@
         ctx.beginPath(); ctx.arc(n.x, n.y, n.id === state.selectedNodeId || isStem ? 5.5 : 4.2, 0, Math.PI * 2); ctx.fill();
       }
 
-      drawBendPointsOverlay();
+      drawInnerBendPointsOverlay();
       drawRailPointsOverlay();
       drawTrain();
       ctx.restore();
@@ -830,12 +845,6 @@
           selectItem({ switchId: sw.id, nodeId: sw.stemNodeId }); return;
         }
       }
-      for (const bl of state.blades) {
-        if (bl._boxX !== undefined && Math.hypot(bl._boxX - world.x, bl._boxY - world.y) <= 12) {
-          bl.activePos = bl.activePos === 0 ? 1 : 0;
-          selectItem({ edgeId: bl.edgeId, bladeId: bl.id }); return;
-        }
-      }
 
       if (state.tool === 'connect') {
         const pt = findClosestPoint(world.x, world.y, 14 / state.zoom);
@@ -855,10 +864,10 @@
         state.draftStartNodeId = node.id;
         selectItem({ nodeId: node.id, edgeId: edge?.id ?? null });
       } else if (state.tool === 'move') {
-        const hitBend = findClosestBend(world.x, world.y, 10 / state.zoom);
-        if (hitBend) {
-          state.draggingBend = hitBend;
-          selectItem({ edgeId: hitBend.edgeId, bend: { edgeId: hitBend.edgeId, side: hitBend.side } });
+        const hitInner = findClosestInnerBend(world.x, world.y, 11 / state.zoom);
+        if (hitInner) {
+          state.draggingInnerBend = hitInner;
+          selectItem({ switchId: hitInner.switchId, innerBend: { switchId: hitInner.switchId, side: hitInner.side } });
           return;
         }
         const hitN = findClosest(world.x, world.y, 12 / state.zoom, 'node');
@@ -877,20 +886,14 @@
       } else if (state.tool === 'build-switch') {
         const hitN = findClosest(world.x, world.y, 16 / state.zoom, 'node');
         if (hitN) buildSwitchAtNode(hitN.id);
-      } else if (state.tool === 'blade') {
-        const hitE = findClosest(world.x, world.y, 18 / state.zoom, 'edge');
-        if (hitE) addManualBlade(hitE, world.x, world.y);
       } else if (state.tool === 'train') {
         const hitE = findClosest(world.x, world.y, 18 / state.zoom, 'edge');
         if (hitE) state.train = { edgeId: hitE.id, dist: segBasis(getNode(hitE.from), getNode(hitE.to)).len * 0.5, dir: 1, speed: 120, paused: false };
       } else if (state.tool === 'delete') {
-        const hitB = state.blades.find(b => b._boxX !== undefined && Math.hypot(b._boxX - world.x, b._boxY - world.y) <= 14);
-        if (hitB) { state.blades = state.blades.filter(b => b.id !== hitB.id); selectItem(); return; }
         const hitN = findClosest(world.x, world.y, 12 / state.zoom, 'node');
         if (hitN) {
           state.switches = state.switches.filter(s => s.stemNodeId !== hitN.id);
           const delEdges = state.edges.filter(e => e.from === hitN.id || e.to === hitN.id).map(e => e.id);
-          state.blades = state.blades.filter(b => !delEdges.includes(b.edgeId));
           state.edges = state.edges.filter(e => !delEdges.includes(e.id));
           state.nodes = state.nodes.filter(n => n.id !== hitN.id);
           selectItem(); return;
@@ -898,7 +901,6 @@
         const hitE = findClosest(world.x, world.y, 12 / state.zoom, 'edge');
         if (hitE) {
           state.switches = state.switches.filter(s => ![s.entryEdgeId, s.leftBranchEdgeId, s.rightBranchEdgeId].includes(hitE.id));
-          state.blades = state.blades.filter(b => b.edgeId !== hitE.id);
           state.edges = state.edges.filter(e => e.id !== hitE.id);
           if (state.train?.edgeId === hitE.id) state.train = null;
           selectItem();
@@ -914,10 +916,10 @@
       state.mouseWorld = world;
       document.getElementById('coords-readout').textContent = `X: ${world.x} px, Y: ${world.y} px`;
 
-      if (state.draggingBend) {
-        const edge = getEdge(state.draggingBend.edgeId);
-        if (edge) {
-          const targetPt = state.draggingBend.side === 'L' ? edge.bendL : edge.bendR;
+      if (state.draggingInnerBend) {
+        const sw = getSwitch(state.draggingInnerBend.switchId);
+        if (sw) {
+          const targetPt = state.draggingInnerBend.side === 'L' ? sw.innerBendL : sw.innerBendR;
           targetPt.x = Math.round(world.x);
           targetPt.y = Math.round(world.y);
           syncInspector();
@@ -931,10 +933,10 @@
           const sn = snapPoint(world.x, world.y, n.id);
           n.x = sn.x; n.y = sn.y;
           const dx = n.x - prevX, dy = n.y - prevY;
-          for (const ed of state.edges) {
-            if (ed.from === n.id) {
-              if (ed.bendL) { ed.bendL.x += dx; ed.bendL.y += dy; }
-              if (ed.bendR) { ed.bendR.x += dx; ed.bendR.y += dy; }
+          for (const sw of state.switches) {
+            if (sw.stemNodeId === n.id) {
+              if (sw.innerBendL) { sw.innerBendL.x += dx; sw.innerBendL.y += dy; }
+              if (sw.innerBendR) { sw.innerBendR.x += dx; sw.innerBendR.y += dy; }
             }
           }
           syncInspector();
@@ -947,20 +949,18 @@
         if (a && b) {
           const dx = world.x - state.dragLastWorld.x, dy = world.y - state.dragLastWorld.y;
           a.x += dx; a.y += dy; b.x += dx; b.y += dy;
-          if (edge.bendL) { edge.bendL.x += dx; edge.bendL.y += dy; }
-          if (edge.bendR) { edge.bendR.x += dx; edge.bendR.y += dy; }
           state.dragLastWorld = { ...world }; syncInspector();
         }
         return;
       }
-      state.hoverBend = findClosestBend(world.x, world.y, 10 / state.zoom);
+      state.hoverInnerBend = findClosestInnerBend(world.x, world.y, 11 / state.zoom);
       state.hoverPt = findClosestPoint(world.x, world.y, 14 / state.zoom);
       state.hoverNodeId = findClosest(world.x, world.y, 12 / state.zoom, 'node')?.id ?? null;
       state.hoverEdgeId = findClosest(world.x, world.y, 12 / state.zoom, 'edge')?.id ?? null;
     });
 
     window.addEventListener('mouseup', () => {
-      state.isPanning = false; state.draggingNodeId = null; state.draggingEdgeId = null; state.draggingBend = null;
+      state.isPanning = false; state.draggingNodeId = null; state.draggingEdgeId = null; state.draggingInnerBend = null;
     });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('wheel', e => {
@@ -981,9 +981,9 @@
       if (!move) return;
       const [dx, dy] = move;
 
-      if (state.selectedBend) {
-        const edge = getEdge(state.selectedBend.edgeId);
-        const pt = edge && (state.selectedBend.side === 'L' ? edge.bendL : edge.bendR);
+      if (state.selectedInnerBend) {
+        const sw = getSwitch(state.selectedInnerBend.switchId);
+        const pt = sw && (state.selectedInnerBend.side === 'L' ? sw.innerBendL : sw.innerBendR);
         if (pt) { pt.x += dx; pt.y += dy; syncInspector(); e.preventDefault(); return; }
       }
       const n = getNode(state.selectedNodeId);
@@ -991,17 +991,12 @@
       if (n) { n.x += dx; n.y += dy; syncInspector(); e.preventDefault(); }
       else if (edge) {
         const a = getNode(edge.from), b = getNode(edge.to);
-        if (a && b) {
-          a.x += dx; a.y += dy; b.x += dx; b.y += dy;
-          if (edge.bendL) { edge.bendL.x += dx; edge.bendL.y += dy; }
-          if (edge.bendR) { edge.bendR.x += dx; edge.bendR.y += dy; }
-          syncInspector(); e.preventDefault();
-        }
+        if (a && b) { a.x += dx; a.y += dy; b.x += dx; b.y += dy; syncInspector(); e.preventDefault(); }
       }
     });
     window.addEventListener('keyup', e => { if (e.code === 'Space') state.spacePressed = false; });
 
-    const tools = ['track', 'connect', 'move', 'build-switch', 'blade', 'train', 'delete'];
+    const tools = ['track', 'connect', 'move', 'build-switch', 'train', 'delete'];
     tools.forEach(name => document.getElementById('tool-' + name).addEventListener('click', () => {
       state.tool = name; state.draftStartNodeId = null; state.connectFromPt = null;
       tools.forEach(k => document.getElementById('tool-' + k).classList.toggle('active', k === name));
@@ -1024,36 +1019,26 @@
     };
     bindInput('eb-len', syncEdgeGeom);
     bindInput('eb-ang', syncEdgeGeom);
-    document.getElementById('eb-reset-bend').addEventListener('click', () => {
-      const edge = getEdge(state.selectedEdgeId);
-      if (!edge) return;
-      edge.bendL = null; edge.bendR = null;
-      ensureEdgeBendPts(edge);
-      syncInspector();
-    });
 
     document.getElementById('sb-toggle').addEventListener('click', () => {
       const sw = getSwitch(state.selectedSwitchId);
       if (sw) { sw.activeBranch = sw.activeBranch === 0 ? 1 : 0; syncInspector(); }
     });
-    bindInput('sb-blade-len', v => { const sw = getSwitch(state.selectedSwitchId); if (sw) sw.bladeLength = Math.max(12, v || 44); });
-    bindInput('sb-blade-off', v => { const sw = getSwitch(state.selectedSwitchId); if (sw) sw.bladeOffset = Math.max(0, v || 10); });
+    bindInput('sb-zone-len', v => { const sw = getSwitch(state.selectedSwitchId); if (sw) { sw.zoneLen = Math.max(20, Math.round(v || 85)); syncInspector(); } });
     bindInput('sb-p1-ang', v => { const sw = getSwitch(state.selectedSwitchId); if (sw) sw.pos1Angle = wrapAngle360(v || 0); });
     bindInput('sb-p2-ang', v => { const sw = getSwitch(state.selectedSwitchId); if (sw) sw.pos2Angle = wrapAngle360(v || 0); });
-
-    document.getElementById('bl-toggle').addEventListener('click', () => {
-      const bl = getBlade(state.selectedBladeId);
-      if (bl) { bl.activePos = bl.activePos === 0 ? 1 : 0; syncInspector(); }
+    document.getElementById('sb-reset-inner').addEventListener('click', () => {
+      const sw = getSwitch(state.selectedSwitchId);
+      if (!sw) return;
+      sw.innerBendL = null; sw.innerBendR = null;
+      computeSwitchFlexibleRails(sw);
+      syncInspector();
     });
-    bindInput('bl-len', v => { const bl = getBlade(state.selectedBladeId); if (bl) bl.length = Math.max(10, v || 42); });
-    bindInput('bl-t', v => { const bl = getBlade(state.selectedBladeId); if (bl) bl.t = Math.max(0.05, Math.min(0.95, v || 0.5)); });
-    bindInput('bl-p1', v => { const bl = getBlade(state.selectedBladeId); if (bl) bl.pos1Angle = wrapAngle360(v || 0); });
-    bindInput('bl-p2', v => { const bl = getBlade(state.selectedBladeId); if (bl) bl.pos2Angle = wrapAngle360(v || 0); });
 
     document.getElementById('btn-reverse').addEventListener('click', () => { if (state.train) state.train.dir *= -1; });
     document.getElementById('btn-pause').addEventListener('click', () => { if (state.train) state.train.paused = !state.train.paused; });
     document.getElementById('btn-clear').addEventListener('click', () => {
-      state.nodes = []; state.edges = []; state.pointLinks = []; state.switches = []; state.blades = [];
+      state.nodes = []; state.edges = []; state.pointLinks = []; state.switches = [];
       state.train = null; state.draftStartNodeId = null; state.connectFromPt = null; selectItem();
     });
 
