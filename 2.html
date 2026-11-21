@@ -164,7 +164,7 @@
     const ctx = canvas.getContext('2d');
 
     const state = {
-      tool: 'track', gauge: 18, maxBranchAngle: 35,
+      tool: 'track', gauge: 18, maxBranchAngle: 20,
       snapGrid: false, gridSize: 20, showRailPts: true,
       nodes: [], edges: [], pointLinks: [], switches: [],
       selectedNodeId: null, selectedEdgeId: null, selectedSwitchId: null,
@@ -214,6 +214,29 @@
       return (diff * 180) / Math.PI;
     }
 
+    // Автоматический расчёт углов остряков под любой угол между путями (до 20°)
+    function recalcSwitchAutoAngles(sw) {
+      const stem = getNode(sw.stemNodeId);
+      const topEdge = getEdge(sw.topEdgeId);
+      const botEdge = getEdge(sw.botEdgeId);
+      if (!stem || !topEdge || !botEdge) return;
+
+      const nTop = getOtherNode(topEdge, stem.id);
+      const nBot = getOtherNode(botEdge, stem.id);
+      if (!nTop || !nBot) return;
+
+      const spreadDeg = Math.min(20, computeBranchSpreadDeg(stem, nTop, nBot));
+      const throwDeg = Math.max(2, Number((spreadDeg * 0.88).toFixed(1)));
+
+      // Положение 1: верхний остряк прижат к верхнему рамному рельсу (-throwDeg), нижний отведён (0°)
+      sw.pos1TopAngle = -throwDeg;
+      sw.pos1BotAngle = 0;
+
+      // Положение 2: верхний остряк отведён (0°), нижний прижат к нижнему рамному рельсу (+throwDeg)
+      sw.pos2TopAngle = 0;
+      sw.pos2BotAngle = throwDeg;
+    }
+
     function createSwitchFrom3WayNode(nodeId) {
       const stem = getNode(nodeId);
       if (!stem) return;
@@ -256,8 +279,9 @@
       const botBranch = branches[branches.length - 1];
 
       const spreadDeg = computeBranchSpreadDeg(stem, topBranch.other, botBranch.other);
-      if (spreadDeg > state.maxBranchAngle) {
-        alert(`Угол между путями после стрелки (${spreadDeg.toFixed(1)}°) превышает ограничение (${state.maxBranchAngle}°). Сблизьте отходящие пути или увеличьте лимит.`);
+      const limit = Math.min(20, state.maxBranchAngle);
+      if (spreadDeg > limit) {
+        alert(`Угол между путями после стрелки (${spreadDeg.toFixed(1)}°) превышает ограничение (${limit}°). Сблизьте отходящие пути.`);
         return;
       }
 
@@ -267,18 +291,20 @@
         entryEdgeId: entry.edge.id,
         topEdgeId: topBranch.edge.id,
         botEdgeId: botBranch.edge.id,
-        segLen: 28,
-        bladeDir: 'forward',
+        segLen: 30,
+        bladeDir: 'reverse',
+        autoFitAngles: true,
         activePos: 0,
         animT: 0,
-        pos1TopAngle: -8,
-        pos1BotAngle: 8,
-        pos2TopAngle: 8,
-        pos2BotAngle: -8,
+        pos1TopAngle: -10,
+        pos1BotAngle: 0,
+        pos2TopAngle: 0,
+        pos2BotAngle: 10,
         customTopAngle: null,
         customBotAngle: null
       };
 
+      recalcSwitchAutoAngles(sw);
       state.switches.push(sw);
       selectItem({ switchId: sw.id, nodeId });
     }
@@ -293,10 +319,14 @@
       const nBot = getOtherNode(botEdge, stem.id);
       if (!nTop || !nBot) return null;
 
+      if (sw.autoFitAngles !== false) {
+        recalcSwitchAutoAngles(sw);
+      }
+
       const halfG = state.gauge / 2;
       const bTop = segBasis(stem, nTop);
       const bBot = segBasis(stem, nBot);
-      const len = Math.max(8, Math.min(sw.segLen ?? 28, bTop.len * 0.75, bBot.len * 0.75));
+      const len = Math.max(8, Math.min(sw.segLen ?? 30, bTop.len * 0.75, bBot.len * 0.75));
       const spreadDeg = computeBranchSpreadDeg(stem, nTop, nBot);
 
       const p1Top = wrapAngle360(sw.pos1TopAngle ?? 0);
@@ -388,6 +418,7 @@
       }
       return pts;
     }
+
     function findClosestPoint(wx, wy, maxDist = 12) {
       let best = null, bestD = maxDist;
       for (const pt of getAllConnectablePoints()) {
