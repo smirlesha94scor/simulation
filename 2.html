@@ -769,7 +769,7 @@
         : '<div>Ожидание событий проезда узлов...</div>';
     }
     // === [TELEMETRY_LOGIC]: END ===
-    function pickNextEdgeAtNode(currentEdge, nodeId, candidates) {
+   function pickNextEdgeAtNode(currentEdge, nodeId, candidates) {
       const sw = state.switches.find(s => s.stemNodeId === nodeId);
       if (!sw) {
         const next = candidates[0];
@@ -782,31 +782,40 @@
       if (currentEdge.id === sw.entryEdgeId) {
         const topEdge = candidates.find(e => e.id === sw.topEdgeId);
         const botEdge = candidates.find(e => e.id === sw.botEdgeId);
+        const edge7 = candidates.find(e => e.id === 7);
 
-        if (topClosed && !botClosed && topEdge) {
-          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> верхняя ветка #${topEdge.id} (верх прижат)`;
-          pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> верх #${topEdge.id}`);
-          return topEdge;
+        // Если прижат верхний остряк — направляем на путь #7 (если он есть среди кандидатов), иначе на topEdge
+        if (topClosed && !botClosed) {
+          const target = edge7 || topEdge;
+          if (target) {
+            telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> путь #${target.id} (прижат верхний остряк)`;
+            pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> #${target.id} (верх прижат)`);
+            return target;
+          }
         }
+
+        // Если прижат нижний остряк — направляем на нижнюю ветку
         if (botClosed && !topClosed && botEdge) {
-          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> нижняя ветка #${botEdge.id} (низ прижат)`;
-          pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> низ #${botEdge.id}`);
+          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> путь #${botEdge.id} (прижат нижний остряк)`;
+          pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> #${botEdge.id} (низ прижат)`);
           return botEdge;
         }
+
         if (topClosed && botClosed) {
-          const preferred = sw.activePos === 0 ? topEdge : botEdge;
+          const preferred = sw.activePos === 0 ? (edge7 || topEdge) : botEdge;
           if (preferred) {
-            telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> ветка #${preferred.id} (по activePos=${sw.activePos})`;
+            telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> путь #${preferred.id} (по activePos=${sw.activePos})`;
             pushTelemetryLog(`Стрелка #${sw.id}: выбор по activePos -> #${preferred.id}`);
             return preferred;
           }
         }
+
         telemetryState.lastDecisionText = `СТОП на узле #${nodeId}: остряки не прижаты (top=${topClosed}, bot=${botClosed})`;
         pushTelemetryLog(`Стрелка #${sw.id}: остановка, путь закрыт`);
         return null;
       }
 
-      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
+      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId || currentEdge.id === 7) {
         const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
         if (matchedEntry) {
           telemetryState.lastDecisionText = `С ветки #${currentEdge.id} -> входной путь #${matchedEntry.id}`;
