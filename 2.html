@@ -698,7 +698,65 @@
 
       return { topClosed, botClosed, det };
     }
+// === [TELEMETRY_LOGIC]: START ===
+    const telemetryState = {
+      lastDecisionText: 'Ожидание перехода через узел',
+      logs: []
+    };
 
+    function pushTelemetryLog(msg) {
+      const timeStr = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+      telemetryState.logs.unshift(`[${timeStr}] ${msg}`);
+      if (telemetryState.logs.length > 8) telemetryState.logs.length = 8;
+    }
+
+    function updateTelemetryPanel() {
+      const elTrain = document.getElementById('tp-train');
+      const elSw = document.getElementById('tp-switch');
+      const elBlades = document.getElementById('tp-blades');
+      const elDec = document.getElementById('tp-decision');
+      const elLog = document.getElementById('tp-log');
+      if (!elTrain || !elSw || !elBlades || !elDec || !elLog) return;
+
+      if (!state.train) {
+        elTrain.textContent = 'Поезд: не создан (выбери «🚆 Поезд» и кликни по пути)';
+        elSw.textContent = 'Узел / Стрелка: —';
+        elBlades.textContent = 'Остряки: —';
+        elDec.textContent = `Решение кода: ${telemetryState.lastDecisionText}`;
+      } else {
+        const edge = getEdge(state.train.edgeId);
+        const a = edge && getNode(edge.from);
+        const b = edge && getNode(edge.to);
+        const len = a && b ? segBasis(a, b).len : 0;
+        const status = state.train.paused ? 'ПАУЗА / СТОП' : 'В ДВИЖЕНИИ';
+        const dirLabel = state.train.dir >= 0 ? 'вперёд (+)' : 'назад (-)';
+        elTrain.textContent = `Ребро #${edge?.id ?? '?'} | dist: ${Math.round(state.train.dist)}/${Math.round(len)} px | ${dirLabel} | ${status}`;
+
+        const aheadNodeId = state.train.dir >= 0 ? edge?.to : edge?.from;
+        const sw = state.switches.find(s => s.stemNodeId === aheadNodeId)
+          || getSwitch(state.selectedSwitchId)
+          || state.switches[0]
+          || null;
+
+        if (!sw) {
+          elSw.textContent = `Ближайший узел: #${aheadNodeId ?? '?'} (стрелки нет)`;
+          elBlades.textContent = 'Остряки: нет стрелки';
+        } else {
+          const { topClosed, botClosed, det } = getBladeClosureState(sw);
+          const posName = sw.activePos === 0 ? 'Положение 1 (0)' : 'Положение 2 (1)';
+          elSw.textContent = `Узел #${sw.stemNodeId} | Стрелка #${sw.id} | ${posName} | animT: ${(sw.animT ?? 0).toFixed(2)}`;
+          const tAng = det ? det.topAngleDeg.toFixed(1) : '—';
+          const bAng = det ? det.botAngleDeg.toFixed(1) : '—';
+          elBlades.textContent = `Вверх: ${topClosed ? 'ПРИЖАТ' : 'отведён'} (${tAng}°) | Низ: ${botClosed ? 'ПРИЖАТ' : 'отведён'} (${bAng}°)`;
+        }
+        elDec.textContent = `Решение кода: ${telemetryState.lastDecisionText}`;
+      }
+
+      elLog.innerHTML = telemetryState.logs.length
+        ? telemetryState.logs.map(line => `<div>${line}</div>`).join('')
+        : '<div>Ожидание событий проезда узлов...</div>';
+    }
+    // === [TELEMETRY_LOGIC]: END ===
     function pickNextEdgeAtNode(currentEdge, nodeId, candidates) {
       const sw = state.switches.find(s => s.stemNodeId === nodeId);
       if (!sw) {
