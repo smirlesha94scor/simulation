@@ -700,20 +700,54 @@
     }
 
     function pickNextEdgeAtNode(currentEdge, nodeId, candidates) {
-  const sw = state.switches.find(s => s.stemNodeId === nodeId);
-  console.log('Узел:', nodeId, 'Текущее ребро:', currentEdge.id, 'Стрелка:', sw?.id, 'Положение:', sw?.activePos, 'Кандидаты:', candidates.map(c => c.id));
-  if (sw) {
-    if (currentEdge.id === sw.entryEdgeId) {
-      const desiredId = sw.activePos === 0 ? sw.topEdgeId : sw.botEdgeId;
-      const matched = candidates.find(e => e.id === desiredId);
-      if (matched) return matched;
-    } else if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
-      const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
-      if (matchedEntry) return matchedEntry;
+      const sw = state.switches.find(s => s.stemNodeId === nodeId);
+      if (!sw) {
+        const next = candidates[0];
+        telemetryState.lastDecisionText = `Узел #${nodeId} без стрелки -> ребро #${next.id}`;
+        return next;
+      }
+
+      const { topClosed, botClosed } = getBladeClosureState(sw);
+
+      if (currentEdge.id === sw.entryEdgeId) {
+        const topEdge = candidates.find(e => e.id === sw.topEdgeId);
+        const botEdge = candidates.find(e => e.id === sw.botEdgeId);
+
+        if (topClosed && !botClosed && topEdge) {
+          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> верхняя ветка #${topEdge.id} (верх прижат)`;
+          pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> верх #${topEdge.id}`);
+          return topEdge;
+        }
+        if (botClosed && !topClosed && botEdge) {
+          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> нижняя ветка #${botEdge.id} (низ прижат)`;
+          pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> низ #${botEdge.id}`);
+          return botEdge;
+        }
+        if (topClosed && botClosed) {
+          const preferred = sw.activePos === 0 ? topEdge : botEdge;
+          if (preferred) {
+            telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> ветка #${preferred.id} (по activePos=${sw.activePos})`;
+            pushTelemetryLog(`Стрелка #${sw.id}: выбор по activePos -> #${preferred.id}`);
+            return preferred;
+          }
+        }
+        telemetryState.lastDecisionText = `СТОП на узле #${nodeId}: остряки не прижаты (top=${topClosed}, bot=${botClosed})`;
+        pushTelemetryLog(`Стрелка #${sw.id}: остановка, путь закрыт`);
+        return null;
+      }
+
+      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
+        const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
+        if (matchedEntry) {
+          telemetryState.lastDecisionText = `С ветки #${currentEdge.id} -> входной путь #${matchedEntry.id}`;
+          pushTelemetryLog(`Стрелка #${sw.id}: возврат #${currentEdge.id} -> вход #${matchedEntry.id}`);
+          return matchedEntry;
+        }
+      }
+
+      telemetryState.lastDecisionText = `Узел #${nodeId} -> запасной путь #${candidates[0].id}`;
+      return candidates[0];
     }
-  }
-  return candidates[0];
-}
 
     function updateTrain(dt) {
       if (!state.train || state.train.paused) return;
@@ -923,6 +957,7 @@
       drawRailPointsOverlay();
       drawTrain();
       ctx.restore();
+      updateTelemetryPanel();
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
@@ -1196,6 +1231,11 @@
       const prev = this.textContent;
       this.textContent = '✓ Скопировано';
       setTimeout(() => { this.textContent = prev; }, 1500);
+    });
+    document.getElementById('btn-clear-telemetry')?.addEventListener('click', () => {
+      telemetryState.logs = [];
+      telemetryState.lastDecisionText = 'Лог очищен';
+      updateTelemetryPanel();
     });
     // === [SECTION: INPUT_AND_INSPECTOR]: END ===
   </script>
