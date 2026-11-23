@@ -151,7 +151,19 @@
         </div>
       </div>
     </div>
-
+  <!-- === [TELEMETRY_PANEL_HTML]: START === -->
+    <div id="telemetry-panel" style="position:absolute; bottom:62px; left:12px; background:rgba(15,23,42,0.95); border:1px solid #475569; border-radius:8px; padding:10px 12px; width:360px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#e2e8f0; z-index:20; display:flex; flex-direction:column; gap:5px; box-shadow:0 8px 20px rgba(0,0,0,0.45);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:4px;">
+        <b style="color:#38bdf8; font-size:12px;">Телеметрия стрелки и поезда</b>
+        <button id="btn-clear-telemetry" style="padding:2px 6px; font-size:11px;">Очистить лог</button>
+      </div>
+      <div id="tp-train">Поезд: нет</div>
+      <div id="tp-switch">Узел / Стрелка: —</div>
+      <div id="tp-blades">Остряки: —</div>
+      <div id="tp-decision">Решение кода: —</div>
+      <div id="tp-log" style="border-top:1px solid #334155; padding-top:5px; max-height:84px; overflow-y:auto; color:#94a3b8; line-height:1.35;">Лог событий пуст</div>
+    </div>
+    <!-- === [TELEMETRY_PANEL_HTML]: END === -->
     <div id="hint">
       <b>Подсказка:</b> Углы верхнего (<b>В</b>) и нижнего (<b>Н</b>) остряков настраиваются отдельно для <b>Положения 1</b> и <b>Положения 2</b>. Остряки привязаны к внутренним рельсам с проверкой лимита <b>«Макс. угол стрелки (°)»</b>.
     </div>
