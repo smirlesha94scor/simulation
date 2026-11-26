@@ -710,6 +710,26 @@
 
       return { topClosed, botClosed, det };
     }
+    function getTargetBranchForBlades(sw, candidates) {
+      const topEdge = candidates.find(e => e.id === sw.topEdgeId);
+      const botEdge = candidates.find(e => e.id === sw.botEdgeId);
+      const { topClosed, botClosed } = getBladeClosureState(sw);
+
+      if (topClosed && !botClosed) {
+        return { edge: topEdge || null, reason: 'прижат верхний остряк -> верхний путь' };
+      }
+      if (botClosed && !topClosed) {
+        return { edge: botEdge || null, reason: 'прижат нижний остряк -> нижний путь' };
+      }
+      if (topClosed && botClosed) {
+        const byPos = sw.activePos === 0 ? topEdge : botEdge;
+        return {
+          edge: byPos || topEdge || botEdge || null,
+          reason: `оба прижаты -> по положению ${sw.activePos === 0 ? 1 : 2}`
+        };
+      }
+      return { edge: null, reason: 'остряки не прижаты (путь закрыт)' };
+    }
 // === [TELEMETRY_LOGIC]: START ===
     const telemetryState = {
       lastDecisionText: 'Ожидание перехода через узел',
@@ -777,49 +797,25 @@
         return next;
       }
 
-      const { topClosed, botClosed } = getBladeClosureState(sw);
-
+      // Если поезд едет со стороны входного пути (stem) в сторону развилки
       if (currentEdge.id === sw.entryEdgeId) {
-        const topEdge = candidates.find(e => e.id === sw.topEdgeId);
-        const botEdge = candidates.find(e => e.id === sw.botEdgeId);
-        const edge7 = candidates.find(e => e.id === 7);
-
-        // Если прижат верхний остряк — направляем на путь #7 (если он есть среди кандидатов), иначе на topEdge
-        if (topClosed && !botClosed) {
-          const target = edge7 || topEdge;
-          if (target) {
-            telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> путь #${target.id} (прижат верхний остряк)`;
-            pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> #${target.id} (верх прижат)`);
-            return target;
-          }
+        const { edge: chosen, reason } = getTargetBranchForBlades(sw, candidates);
+        if (chosen) {
+          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> ветка #${chosen.id} (${reason})`;
+          pushTelemetryLog(`Стрелка #${sw.id}: #${currentEdge.id} -> #${chosen.id} (${reason})`);
+          return chosen;
         }
-
-        // Если прижат нижний остряк — направляем на нижнюю ветку
-        if (botClosed && !topClosed && botEdge) {
-          telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> путь #${botEdge.id} (прижат нижний остряк)`;
-          pushTelemetryLog(`Стрелка #${sw.id}: переход #${currentEdge.id} -> #${botEdge.id} (низ прижат)`);
-          return botEdge;
-        }
-
-        if (topClosed && botClosed) {
-          const preferred = sw.activePos === 0 ? (edge7 || topEdge) : botEdge;
-          if (preferred) {
-            telemetryState.lastDecisionText = `Вход #${currentEdge.id} -> путь #${preferred.id} (по activePos=${sw.activePos})`;
-            pushTelemetryLog(`Стрелка #${sw.id}: выбор по activePos -> #${preferred.id}`);
-            return preferred;
-          }
-        }
-
-        telemetryState.lastDecisionText = `СТОП на узле #${nodeId}: остряки не прижаты (top=${topClosed}, bot=${botClosed})`;
-        pushTelemetryLog(`Стрелка #${sw.id}: остановка, путь закрыт`);
+        telemetryState.lastDecisionText = `СТОП на узле #${nodeId}: ${reason}`;
+        pushTelemetryLog(`Стрелка #${sw.id}: стоп (${reason})`);
         return null;
       }
 
-      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId || currentEdge.id === 7) {
+      // Если поезд возвращается с любой из веток стрелки обратно во входной путь
+      if (currentEdge.id === sw.topEdgeId || currentEdge.id === sw.botEdgeId) {
         const matchedEntry = candidates.find(e => e.id === sw.entryEdgeId);
         if (matchedEntry) {
-          telemetryState.lastDecisionText = `С ветки #${currentEdge.id} -> входной путь #${matchedEntry.id}`;
-          pushTelemetryLog(`Стрелка #${sw.id}: возврат #${currentEdge.id} -> вход #${matchedEntry.id}`);
+          telemetryState.lastDecisionText = `С ветки #${currentEdge.id} -> вход #${matchedEntry.id}`;
+          pushTelemetryLog(`Стрелка #${sw.id}: возврат #${currentEdge.id} -> #${matchedEntry.id}`);
           return matchedEntry;
         }
       }
