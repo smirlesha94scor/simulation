@@ -66,7 +66,6 @@
   <div id="toolbar">
     <div class="group">
       <button id="tool-track" class="active">═ Новый путь</button>
-      <button id="tool-connect">╭─╮ Соединить точки</button>
       <button id="tool-move">✥ Двигать (1 px)</button>
       <button id="tool-build-switch">⑂ Стрелка</button>
       <button id="tool-train">🚆 Поезд</button>
@@ -1216,7 +1215,7 @@
     });
     window.addEventListener('keyup', e => { if (e.code === 'Space') state.spacePressed = false; });
 
-    const tools = ['track', 'connect', 'move', 'build-switch', 'train', 'delete'];
+    const tools = ['track',  'move', 'build-switch', 'train', 'delete'];
     tools.forEach(name => document.getElementById('tool-' + name).addEventListener('click', () => {
       state.tool = name; state.draftStartNodeId = null; state.connectFromPt = null;
       tools.forEach(k => document.getElementById('tool-' + k).classList.toggle('active', k === name));
