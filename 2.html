@@ -823,8 +823,7 @@
       telemetryState.lastDecisionText = `Узел #${nodeId} -> запасной путь #${candidates[0].id}`;
       return candidates[0];
     }
-
-    function updateTrain(dt) {
+     function updateTrain(dt) {
       if (!state.train || state.train.paused) return;
       let edge = getEdge(state.train.edgeId);
       if (!edge) { state.train = null; return; }
