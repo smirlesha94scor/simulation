@@ -711,21 +711,24 @@
       return { topClosed, botClosed, det };
     }
     function getTargetBranchForBlades(sw, candidates) {
-      const topEdge = candidates.find(e => e.id === sw.topEdgeId);
-      const botEdge = candidates.find(e => e.id === sw.botEdgeId);
+      const nonEntry = candidates.filter(e => e.id !== sw.entryEdgeId);
+      const topEdge = candidates.find(e => e.id === sw.topEdgeId) || nonEntry[0];
+      const botEdge = candidates.find(e => e.id === sw.botEdgeId) || nonEntry[1] || nonEntry[0];
       const { topClosed, botClosed } = getBladeClosureState(sw);
 
+      // Прижат верхний остряк -> едем на нижнюю ветку
       if (topClosed && !botClosed) {
-        return { edge: topEdge || null, reason: 'прижат верхний остряк -> верхний путь' };
+        return { edge: botEdge || null, reason: 'прижат верхний остряк -> нижний путь' };
       }
+      // Прижат нижний остряк -> едем на верхнюю ветку
       if (botClosed && !topClosed) {
-        return { edge: botEdge || null, reason: 'прижат нижний остряк -> нижний путь' };
+        return { edge: topEdge || null, reason: 'прижат нижний остряк -> верхний путь' };
       }
       if (topClosed && botClosed) {
-        const byPos = sw.activePos === 0 ? topEdge : botEdge;
+        const byPos = sw.activePos === 0 ? botEdge : topEdge;
         return {
-          edge: byPos || topEdge || botEdge || null,
-          reason: `оба прижаты -> по положению ${sw.activePos === 0 ? 1 : 2}`
+          edge: byPos || botEdge || topEdge || null,
+          reason: `оба прижаты -> обратный выбор по положению ${sw.activePos === 0 ? 1 : 2}`
         };
       }
       return { edge: null, reason: 'остряки не прижаты (путь закрыт)' };
